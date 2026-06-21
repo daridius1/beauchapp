@@ -21,10 +21,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
 
     // Validaciones del cliente
     if (!email) {
-      setLocalError('El correo es requerido.');
+      setLocalError('El usuario o correo es requerido.');
       return;
     }
-    if (!email.toLowerCase().endsWith('@ug.uchile.cl')) {
+    
+    let formattedEmail = email.trim().toLowerCase();
+    if (formattedEmail && !formattedEmail.includes('@')) {
+      formattedEmail += '@ug.uchile.cl';
+    }
+
+    if (!formattedEmail.endsWith('@ug.uchile.cl')) {
       setLocalError('Solo se permiten correos institucionales @ug.uchile.cl');
       return;
     }
@@ -39,9 +45,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
 
     try {
       if (isSignUp) {
-        await signup(email.trim().toLowerCase(), password, name.trim());
+        await signup(formattedEmail, password, name.trim());
       } else {
-        await login(email.trim().toLowerCase(), password);
+        await login(formattedEmail, password);
       }
       // Navegar a Home tras inicio de sesión exitoso
       onNavigate('Home');
@@ -92,10 +98,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
         )}
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Correo institucional</Text>
+          <Text style={styles.label}>Usuario o Correo institucional</Text>
           <TextInput
             style={styles.input}
-            placeholder="usuario@ug.uchile.cl"
+            placeholder="Ej. juan (o juan@ug.uchile.cl)"
             placeholderTextColor={theme.colors.textMuted}
             value={email}
             onChangeText={setEmail}
@@ -103,7 +109,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <Text style={styles.domainWarning}>Debe terminar obligatoriamente en @ug.uchile.cl</Text>
+          <Text style={styles.domainWarning}>Si ingresas solo tu usuario, completaremos @ug.uchile.cl de forma automática.</Text>
         </View>
 
         <View style={styles.inputGroup}>
