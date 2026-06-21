@@ -1,0 +1,211 @@
+import React from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import { useAuth } from '../context/AuthContext';
+
+export const theme = {
+  colors: {
+    primary: '#4f46e5', // Indigo accent
+    background: '#0f172a', // Dark deep slate
+    cardBg: '#1e293b', // Lighter slate card
+    text: '#f8fafc', // Clean bright text
+    textMuted: '#94a3b8', // Gray label
+    border: '#334155',
+    accent: '#38bdf8', // Light sky blue
+  },
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 16,
+    lg: 24,
+    xl: 32,
+  },
+  borderRadius: {
+    md: 12,
+    lg: 18,
+  }
+};
+
+interface HomeScreenProps {
+  onNavigate: (screen: string) => void;
+}
+
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
+  const { user } = useAuth();
+
+  const announcements = [
+    {
+      id: '1',
+      title: '🏆 Gran Torneo de Taca-Taca Beauchef 2026',
+      date: 'Hace 2 horas',
+      content: 'Inscríbete con tu pareja para el campeonato oficial del patio este viernes. El ELO mínimo requerido para participar es 1100. ¡Premios sorpresa para los campeones!',
+      tag: 'Torneos',
+    },
+    {
+      id: '2',
+      title: '♟️ Liga de Ajedrez Abierta - Patio de Ingeniería',
+      date: 'Ayer',
+      content: 'Se abre el registro de partidas diarias para la liga mensual. Recuerda registrar tu marcador inmediatamente después del partido en la pestaña "Registrar Partida".',
+      tag: 'Ajedrez',
+    },
+    {
+      id: '3',
+      title: '⚙️ Lanzamiento oficial de Beauchapp',
+      date: 'Hace 3 días',
+      content: '¡Bienvenidos! Beauchapp ya está activa para la comunidad. Registra tus encuentros de patio y compite por liderar los ránkings de ELO oficiales de la facultad. Restringido solo a alumnos @ug.uchile.cl.',
+      tag: 'Comunidad',
+    },
+  ];
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <View style={styles.heroSection}>
+        <Text style={styles.heroTitle}>Beauchapp 🏆</Text>
+        <Text style={styles.heroSubtitle}>
+          El ranking oficial de los patios de Beauchef. Gestiona tu ELO y domina el campus.
+        </Text>
+        
+        {!user ? (
+          <TouchableOpacity 
+            style={styles.heroButton} 
+            onPress={() => onNavigate('Login')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.heroButtonText}>Registrarme con @ug.uchile.cl</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.welcomeBanner}>
+            <Text style={styles.welcomeText}>¡Hola, {user.name}!</Text>
+            <Text style={styles.userEloText}>Tu ELO actual: <Text style={styles.eloValue}>{user.elo ?? 1200}</Text></Text>
+          </View>
+        )}
+      </View>
+
+      <Text style={styles.sectionTitle}>Anuncios y Noticias</Text>
+
+      {announcements.map((post) => (
+        <View key={post.id} style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.tagContainer}>
+              <Text style={styles.tagText}>{post.tag}</Text>
+            </View>
+            <Text style={styles.cardDate}>{post.date}</Text>
+          </View>
+          <Text style={styles.cardTitle}>{post.title}</Text>
+          <Text style={styles.cardContent}>{post.content}</Text>
+        </View>
+      ))}
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  contentContainer: {
+    padding: theme.spacing.md,
+    paddingBottom: theme.spacing.lg * 2,
+  },
+  heroSection: {
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  heroSubtitle: {
+    fontSize: 15,
+    color: theme.colors.textMuted,
+    lineHeight: 22,
+    marginBottom: theme.spacing.md,
+  },
+  heroButton: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  heroButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  welcomeBanner: {
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingTop: theme.spacing.md,
+    marginTop: theme.spacing.xs,
+  },
+  welcomeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  userEloText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    marginTop: 2,
+  },
+  eloValue: {
+    color: theme.colors.accent,
+    fontWeight: '800',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.md,
+    paddingLeft: theme.spacing.xs,
+  },
+  card: {
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  tagContainer: {
+    backgroundColor: 'rgba(79, 70, 229, 0.15)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(79, 70, 229, 0.3)',
+  },
+  tagText: {
+    color: theme.colors.accent,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  cardDate: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  cardContent: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    lineHeight: 20,
+  },
+});

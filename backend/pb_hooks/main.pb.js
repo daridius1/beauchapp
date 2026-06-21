@@ -4,7 +4,7 @@
 // 1. Filtro de exclusividad universitaria
 // Interceptar el registro de usuarios para validar el correo institucional @ug.uchile.cl
 onRecordBeforeCreateRequest((e) => {
-    const email = e.record.email();
+    const email = e.record.getString("email");
     
     if (!email) {
         throw new BadRequestError("El correo electrónico es requerido.");
