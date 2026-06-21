@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, SafeAreaView, StatusBar, Text, ScrollView } from 'react-native';
+import { StyleSheet, View, SafeAreaView, StatusBar, Text, ScrollView, Platform } from 'react-native';
 import { AuthProvider } from './src/context/AuthContext';
 import { Header } from './src/components/Header';
 import { Sidebar } from './src/components/Sidebar';
@@ -134,6 +134,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: theme.colors.cardBg,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   body: {
     flex: 1,
