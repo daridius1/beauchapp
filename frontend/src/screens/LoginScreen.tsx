@@ -70,12 +70,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.formCard}>
-        <Text style={styles.title}>{isSignUp ? 'Crear Perfil' : 'Iniciar Sesión'}</Text>
-        <Text style={styles.subtitle}>
-          {isSignUp 
-            ? 'Regístrate con tu correo de la U. de Chile para entrar en el ranking.' 
-            : 'Ingresa tus credenciales para registrar partidas.'}
-        </Text>
+        <Text style={styles.title}>{isSignUp ? 'Registro' : 'Iniciar Sesión'}</Text>
 
         {activeError && (
           <View style={styles.errorBox}>
@@ -88,7 +83,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
             <Text style={styles.label}>Nombre completo</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ej. Juan Pérez"
+              placeholder="Nombre"
               placeholderTextColor={theme.colors.textMuted}
               value={name}
               onChangeText={setName}
@@ -98,10 +93,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
         )}
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Usuario o Correo institucional</Text>
+          <Text style={styles.label}>Usuario</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ej. juan (o juan@ug.uchile.cl)"
+            placeholder="Usuario"
             placeholderTextColor={theme.colors.textMuted}
             value={email}
             onChangeText={setEmail}
@@ -109,14 +104,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <Text style={styles.domainWarning}>Si ingresas solo tu usuario, completaremos @ug.uchile.cl de forma automática.</Text>
         </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Contraseña</Text>
           <TextInput
             style={styles.input}
-            placeholder="Mínimo 6 caracteres"
+            placeholder="Contraseña"
             placeholderTextColor={theme.colors.textMuted}
             value={password}
             onChangeText={setPassword}
@@ -136,7 +130,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
             <ActivityIndicator color="#fff" size="small" />
           ) : (
             <Text style={styles.submitButtonText}>
-              {isSignUp ? 'Registrarme' : 'Entrar'}
+              {isSignUp ? 'Crear cuenta' : 'Iniciar Sesión'}
             </Text>
           )}
         </TouchableOpacity>
