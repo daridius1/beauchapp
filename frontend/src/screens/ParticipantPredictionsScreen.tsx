@@ -21,6 +21,7 @@ export const ParticipantPredictionsScreen: React.FC<Props> = ({ navigation, rout
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [predictions, setPredictions] = useState<{ [matchId: string]: Prediction }>({});
+  const [contestName, setContestName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,6 +30,10 @@ export const ParticipantPredictionsScreen: React.FC<Props> = ({ navigation, rout
       try {
         setLoading(true);
         setError(null);
+
+        // Fetch contest info
+        const contestData = await pb.collection('contests').getOne(contestId);
+        setContestName(contestData.name);
 
         // Fetch matches for this contest
         const matchesData = await pb.collection('matches').getFullList<Match>({
@@ -86,7 +91,7 @@ export const ParticipantPredictionsScreen: React.FC<Props> = ({ navigation, rout
 
         <View style={styles.headerInfo}>
           <Text style={styles.title}>Predicciones de {participantName}</Text>
-          <Text style={styles.subtitle}>Aquí puedes ver todo lo que ha apostado este jugador.</Text>
+          <Text style={styles.subtitle}>En {contestName}</Text>
         </View>
 
         {error && (
