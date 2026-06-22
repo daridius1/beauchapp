@@ -365,12 +365,23 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
     setEditingMatchId(null);
   };
 
+  // All matches grouped (for admin panel - includes archived)
   const groupedMatches: { [stage: string]: Match[] } = {};
   matches.forEach((match) => {
     if (!groupedMatches[match.stage]) {
       groupedMatches[match.stage] = [];
     }
     groupedMatches[match.stage].push(match);
+  });
+
+  // Only active matches grouped (for user predictions view)
+  const activeMatches = matches.filter(m => m.active !== false);
+  const groupedActiveMatches: { [stage: string]: Match[] } = {};
+  activeMatches.forEach((match) => {
+    if (!groupedActiveMatches[match.stage]) {
+      groupedActiveMatches[match.stage] = [];
+    }
+    groupedActiveMatches[match.stage].push(match);
   });
 
   if (loading) {
@@ -467,7 +478,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
           />
         ) : activeTab === 'matches' ? (
           <UserPredictionsPanel 
-            groupedMatches={groupedMatches}
+            groupedMatches={groupedActiveMatches}
             predictions={predictions}
             handleScoreChange={handleScoreChange}
             handleSavePredictions={handleSavePredictions}
