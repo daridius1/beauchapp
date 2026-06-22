@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   avatarPlaceholder: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -245,12 +245,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   matchCard: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   matchMain: {
     flexDirection: 'row',

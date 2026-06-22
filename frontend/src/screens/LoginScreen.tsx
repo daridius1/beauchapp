@@ -161,11 +161,6 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
   },
   title: {
     fontSize: 24,

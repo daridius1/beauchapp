@@ -147,11 +147,6 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     flexDirection: 'column',
     justifyContent: 'space-between',
-    elevation: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
   },
   header: {
     paddingHorizontal: theme.spacing.lg,
@@ -162,7 +157,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',

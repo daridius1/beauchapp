@@ -20,8 +20,8 @@ export const theme = {
     xl: 32,
   },
   borderRadius: {
-    md: 12,
-    lg: 18,
+    md: 6,
+    lg: 6,
   }
 };
 
