@@ -6,6 +6,7 @@ import { RootStackParamList } from '../../../types/navigation';
 import { Match, PredictionState } from '../types';
 import { styles } from '../styles';
 import { theme } from '../../HomeScreen';
+import { formatMatchDate } from '../../../utils/date';
 
 interface UserPredictionsPanelProps {
   groupedMatches: { [stage: string]: Match[] };
@@ -51,7 +52,7 @@ export const UserPredictionsPanel: React.FC<UserPredictionsPanelProps> = ({
                   {/* Fecha y Fase */}
                   <View style={styles.matchHeader}>
                     <Text style={styles.matchDate}>
-                      {match.date ? new Date(match.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Por definir'}
+                      {formatMatchDate(match.date)}
                     </Text>
                     {match.played ? (
                       <View style={styles.infoBadgeContainer}>

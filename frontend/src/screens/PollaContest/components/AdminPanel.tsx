@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert } fro
 import { Match, EditingScoreState, NewMatchForm } from '../types';
 import { styles } from '../styles';
 import { theme } from '../../HomeScreen';
+import { formatMatchDate } from '../../../utils/date';
 
 interface AdminPanelProps {
   groupedMatches: { [stage: string]: Match[] };
@@ -283,7 +284,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   // Vista de solo lectura del partido (con botón para editar)
                   <View style={styles.adminMatchRow}>
                     <Text style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center', marginBottom: 4 }}>
-                      {match.date ? new Date(match.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Sin Fecha'}
+                      {formatMatchDate(match.date)}
                       {match.active === false && ' • (Archivado)'}
                     </Text>
                     <View style={styles.adminMatchInfo}>

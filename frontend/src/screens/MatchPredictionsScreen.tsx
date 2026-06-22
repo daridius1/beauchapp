@@ -6,6 +6,7 @@ import { pb } from '../services/pocketbase';
 import { theme } from './HomeScreen';
 import { Match } from './PollaContest/types';
 import Toast from 'react-native-toast-message';
+import { formatMatchDate } from '../utils/date';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MatchPredictions'>;
 
@@ -90,7 +91,7 @@ export const MatchPredictionsScreen: React.FC<Props> = ({ navigation, route }) =
             <View style={styles.matchHeader}>
               <Text style={styles.stageText}>{match.stage}</Text>
               <Text style={styles.matchDate}>
-                {match.date ? new Date(match.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                {formatMatchDate(match.date)}
               </Text>
               <View style={styles.statusBadge}>
                 <Text style={styles.statusBadgeText}>
