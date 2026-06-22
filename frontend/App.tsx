@@ -9,7 +9,7 @@ import { HomeScreen, theme } from './src/screens/HomeScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ContestsScreen } from './src/screens/ContestsScreen';
-import { WorldCupContestScreen } from './src/screens/WorldCupContest';
+import { PollaContestScreen } from './src/screens/PollaContest';
 import { SuperadminScreen } from './src/screens/SuperadminScreen';
 import { RootStackParamList } from './src/types/navigation';
 
@@ -86,7 +86,7 @@ function AppContent() {
                 <Stack.Screen name="Home" component={HomeScreen} />
                 <Stack.Screen name="Profile" component={ProfileScreen} />
                 <Stack.Screen name="Contests" component={ContestsScreen} />
-                <Stack.Screen name="WorldCupContest" component={WorldCupContestScreen} />
+                <Stack.Screen name="PollaContest" component={PollaContestScreen} />
                 <Stack.Screen name="Superadmin" component={SuperadminScreen} />
               </Stack.Navigator>
             </View>

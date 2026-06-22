@@ -8,6 +8,7 @@ import { RootStackParamList } from '../types/navigation';
 interface Contest {
   id: string;
   name: string;
+  type: string;
   description: string;
   active: boolean;
   created: string;
@@ -74,7 +75,13 @@ export const ContestsScreen: React.FC<Props> = ({ navigation }) => {
             <TouchableOpacity
               key={contest.id}
               style={styles.contestItem}
-              onPress={() => navigation.navigate('WorldCupContest', { contestId: contest.id })}
+              onPress={() => {
+                if (contest.type === 'polla') {
+                  navigation.navigate('PollaContest', { contestId: contest.id });
+                } else {
+                  console.warn('Tipo de concurso no soportado:', contest.type);
+                }
+              }}
               activeOpacity={0.8}
             >
               <View style={styles.contestInfo}>

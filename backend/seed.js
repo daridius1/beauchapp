@@ -153,6 +153,7 @@ async function main() {
       type: 'base',
       schema: [
         { name: 'name', type: 'text', required: true },
+        { name: 'type', type: 'text', required: true },
         { name: 'description', type: 'text' },
         { name: 'active', type: 'bool' },
         {
@@ -293,6 +294,7 @@ async function main() {
     
     const initialContestData = {
       name: 'Polla Mundialera',
+      type: 'polla',
       description: 'Predice los marcadores del Mundial y compite con tus compañeros de Beauchef.',
       active: true,
       admins: testUser ? [testUser.id] : []

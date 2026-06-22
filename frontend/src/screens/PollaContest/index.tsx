@@ -10,9 +10,9 @@ import { UserPredictionsPanel } from './components/UserPredictionsPanel';
 import { ParticipantsTable } from './components/ParticipantsTable';
 import { AdminPanel } from './components/AdminPanel';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'WorldCupContest'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'PollaContest'>;
 
-export const WorldCupContestScreen: React.FC<Props> = ({ navigation, route }) => {
+export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
   const { contestId } = route.params;
   const { user } = useAuth();
   

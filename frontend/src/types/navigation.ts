@@ -3,6 +3,6 @@ export type RootStackParamList = {
   Login: undefined;
   Profile: undefined;
   Contests: undefined;
-  WorldCupContest: { contestId: string };
+  PollaContest: { contestId: string };
   Superadmin: undefined;
 };
