@@ -1,18 +1,18 @@
 import React from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { theme } from './HomeScreen';
+import { RootStackParamList } from '../types/navigation';
 
-interface ProfileScreenProps {
-  onNavigate: (screen: string) => void;
-}
+type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
-export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
+export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, logout } = useAuth();
 
   const handleLogout = () => {
     logout();
-    onNavigate('Home');
+    navigation.navigate('Home');
   };
 
   if (!user) {
@@ -21,7 +21,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         <Text style={styles.messageText}>Inicia sesión para ver tu perfil y estadísticas.</Text>
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => onNavigate('Login')}
+          onPress={() => navigation.navigate('Login')}
         >
           <Text style={styles.actionButtonText}>Iniciar Sesión</Text>
         </TouchableOpacity>

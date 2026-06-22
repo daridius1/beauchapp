@@ -7,6 +7,7 @@ export interface UserProfile {
   name: string;
   created: string;
   updated: string;
+  isSuperadmin?: boolean;
 }
 
 interface AuthContextType {

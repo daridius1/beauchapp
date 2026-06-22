@@ -1,25 +1,33 @@
 import React, { useState, useRef } from 'react';
 import { StyleSheet, View, SafeAreaView, StatusBar, Text, ScrollView, Platform, ActivityIndicator, PanResponder } from 'react-native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { Header } from './src/components/Header';
 import { Sidebar } from './src/components/Sidebar';
 import { HomeScreen, theme } from './src/screens/HomeScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { ContestsScreen } from './src/screens/ContestsScreen';
+import { WorldCupContestScreen } from './src/screens/WorldCupContest';
+import { SuperadminScreen } from './src/screens/SuperadminScreen';
+import { RootStackParamList } from './src/types/navigation';
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 // ----------------------------------------------------
 // COMPONENTE CONTENEDOR PRINCIPAL
 // ----------------------------------------------------
 function AppContent() {
   const { user, loading } = useAuth();
-  const [activeScreen, setActiveScreen] = useState<string>('Home');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const [currentRouteName, setCurrentRouteName] = useState<string>('Home');
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
 
   // Gesto PanResponder para deslizar a la derecha y abrir el menú
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        // Detecta un deslizamiento a la derecha (dx > 40) iniciado en el borde izquierdo (x0 < 50)
         const isSwipeRight = gestureState.dx > 40 && Math.abs(gestureState.dy) < 30;
         const isNearLeftEdge = gestureState.x0 < 50;
         return isSwipeRight && isNearLeftEdge && !isSidebarOpen;
@@ -37,19 +45,11 @@ function AppContent() {
     switch (screen) {
       case 'Home': return 'Inicio';
       case 'Profile': return 'Mi Perfil';
+      case 'Contests': return 'Concursos';
+      case 'WorldCupContest': return 'Polla Mundialera';
+      case 'Superadmin': return 'Panel Superadmin';
+      case 'Login': return 'Iniciar Sesión';
       default: return 'Beauchapp';
-    }
-  };
-
-  // Renderizado dinámico de pantallas
-  const renderScreen = () => {
-    switch (activeScreen) {
-      case 'Home':
-        return <HomeScreen onNavigate={setActiveScreen} />;
-      case 'Profile':
-        return <ProfileScreen onNavigate={setActiveScreen} />;
-      default:
-        return <HomeScreen onNavigate={setActiveScreen} />;
     }
   };
 
@@ -62,37 +62,50 @@ function AppContent() {
     );
   }
 
-  if (!user) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor={theme.colors.cardBg} />
-        <LoginScreen onNavigate={setActiveScreen} />
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.safeArea} {...panResponder.panHandlers}>
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.cardBg} />
       
-      {/* Header */}
-      <Header 
-        title={getScreenTitle(activeScreen)} 
-        onToggleSidebar={() => setIsSidebarOpen(true)} 
-      />
-
-      {/* Main Body */}
-      <View style={styles.body}>
-        {renderScreen()}
-      </View>
-
-      {/* Sidebar de Navegación Lateral */}
-      <Sidebar 
-        isOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)} 
-        activeScreen={activeScreen}
-        onNavigate={setActiveScreen}
-      />
+      <NavigationContainer 
+        ref={navigationRef}
+        onStateChange={async () => {
+          const currentRoute = navigationRef.getCurrentRoute();
+          if (currentRoute) {
+            setCurrentRouteName(currentRoute.name);
+          }
+        }}
+      >
+        {user ? (
+          <>
+            <Header 
+              title={getScreenTitle(currentRouteName)} 
+              onToggleSidebar={() => setIsSidebarOpen(true)} 
+            />
+            <View style={styles.body}>
+              <Stack.Navigator screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="Home" component={HomeScreen} />
+                <Stack.Screen name="Profile" component={ProfileScreen} />
+                <Stack.Screen name="Contests" component={ContestsScreen} />
+                <Stack.Screen name="WorldCupContest" component={WorldCupContestScreen} />
+                <Stack.Screen name="Superadmin" component={SuperadminScreen} />
+              </Stack.Navigator>
+            </View>
+            <Sidebar 
+              isOpen={isSidebarOpen} 
+              onClose={() => setIsSidebarOpen(false)} 
+              activeScreen={currentRouteName}
+              onNavigate={(screen) => {
+                navigationRef.navigate(screen as never);
+                setIsSidebarOpen(false);
+              }}
+            />
+          </>
+        ) : (
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Login" component={LoginScreen} />
+          </Stack.Navigator>
+        )}
+      </NavigationContainer>
     </SafeAreaView>
   );
 }

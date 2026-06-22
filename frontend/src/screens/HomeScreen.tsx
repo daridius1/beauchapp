@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
+import { RootStackParamList } from '../types/navigation';
 
 export const theme = {
   colors: {
@@ -25,11 +27,9 @@ export const theme = {
   }
 };
 
-interface HomeScreenProps {
-  onNavigate: (screen: string) => void;
-}
+type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
+export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
 
   const announcements = [
@@ -67,7 +67,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         {!user ? (
           <TouchableOpacity 
             style={styles.heroButton} 
-            onPress={() => onNavigate('Login')}
+            onPress={() => navigation.navigate('Login')}
             activeOpacity={0.8}
           >
             <Text style={styles.heroButtonText}>Registrarme con @ug.uchile.cl</Text>

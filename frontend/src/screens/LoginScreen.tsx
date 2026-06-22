@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { theme } from './HomeScreen';
+import { RootStackParamList } from '../types/navigation';
 
-interface LoginScreenProps {
-  onNavigate: (screen: string) => void;
-}
+type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
+export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const { login, signup, error, clearError, loading } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -49,8 +49,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       } else {
         await login(formattedEmail, password);
       }
-      // Navegar a Home tras inicio de sesión exitoso
-      onNavigate('Home');
+      // Redirigir siempre a Home después de login (App.tsx mostrará los menús)
+      navigation.navigate('Home');
     } catch (err) {
       // Los errores globales ya los maneja el AuthContext
     }
