@@ -266,22 +266,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </Text>
                       </View>
 
-                      <TouchableOpacity
-                        style={styles.modifyBtn}
-                        onPress={() => startEditingMatch(match)}
-                      >
-                        <Text style={styles.modifyBtnText}>
-                          {match.played ? 'Modificar' : 'Registrar Resultado'}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.modifyBtn, { backgroundColor: '#ef4444', marginLeft: 8 }]}
-                        onPress={() => handleArchiveMatch(match.id)}
-                      >
-                        <Text style={styles.modifyBtnText}>
-                          Ocultar / Archivar
-                        </Text>
-                      </TouchableOpacity>
+                      <View style={{ flexDirection: 'row' }}>
+                        <TouchableOpacity
+                          style={styles.modifyBtn}
+                          onPress={() => startEditingMatch(match)}
+                        >
+                          <Text style={styles.modifyBtnText}>
+                            {match.played ? 'Modificar' : 'Registrar Resultado'}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.modifyBtn, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', marginLeft: 8 }]}
+                          onPress={() => handleArchiveMatch(match.id)}
+                        >
+                          <Text style={[styles.modifyBtnText, { color: '#ef4444' }]}>
+                            Archivar
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                 )}

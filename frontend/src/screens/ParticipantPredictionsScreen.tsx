@@ -36,7 +36,7 @@ export const ParticipantPredictionsScreen: React.FC<Props> = ({ navigation, rout
 
         // Fetch matches for this contest
         const matchesData = await pb.collection('matches').getFullList<Match>({
-          filter: `contest = "${contestId}"`,
+          filter: `contest = "${contestId}" && active = true`,
           sort: 'date',
         });
         setMatches(matchesData);
