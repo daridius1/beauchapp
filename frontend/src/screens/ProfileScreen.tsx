@@ -46,50 +46,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         <Text style={styles.profileEmail}>{user.email}</Text>
       </View>
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statBox}>
-          <Text style={styles.statTitle}>Puntaje ELO</Text>
-          <Text style={styles.statValue}>{user.elo ?? 1200}</Text>
+      <View style={styles.accountDetails}>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Rol</Text>
+          <Text style={styles.detailValue}>Estudiante</Text>
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statTitle}>Partidas</Text>
-          <Text style={styles.statValue}>{matches.length}</Text>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Miembro desde</Text>
+          <Text style={styles.detailValue}>
+            {new Date(user.created).toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' })}
+          </Text>
         </View>
       </View>
-
-      <Text style={styles.sectionTitle}>Historial de Partidos</Text>
-
-      {matches.length === 0 ? (
-        <View style={styles.emptyMatchesBox}>
-          <Text style={styles.emptyText}>Aún no registras partidos en Beauchapp.</Text>
-          <TouchableOpacity 
-            style={styles.registerMatchBtn}
-            onPress={() => onNavigate('RegisterMatch')}
-          >
-            <Text style={styles.registerMatchBtnText}>Registrar mi primer partido</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        matches.map((match: any) => (
-          <View key={match.id} style={styles.matchCard}>
-            <View style={styles.matchMain}>
-              <View>
-                <Text style={styles.opponentText}>vs. {match.opponent}</Text>
-                <Text style={styles.disciplineText}>{match.discipline} • {match.date}</Text>
-              </View>
-              <View style={styles.scoreContainer}>
-                <Text style={styles.scoreText}>{match.score}</Text>
-              </View>
-            </View>
-            <View style={styles.matchFooter}>
-              <Text style={[styles.resultText, match.result === 'Victoria' ? styles.winText : styles.lossText]}>
-                {match.result}
-              </Text>
-              <Text style={styles.eloDiffText}>{match.eloDiff} ELO</Text>
-            </View>
-          </View>
-        ))
-      )}
 
       <TouchableOpacity 
         style={styles.logoutButton}
@@ -137,12 +105,8 @@ const styles = StyleSheet.create({
   },
   profileHeader: {
     alignItems: 'center',
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
+    paddingVertical: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
   },
   avatarPlaceholder: {
     width: 80,
@@ -160,7 +124,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: '600',
     color: theme.colors.text,
     marginBottom: 4,
   },
@@ -168,67 +132,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textMuted,
   },
-  statsContainer: {
+  accountDetails: {
+    marginTop: theme.spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    marginBottom: theme.spacing.xl,
+  },
+  detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(51, 65, 85, 0.5)',
   },
-  statBox: {
-    flex: 1,
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginHorizontal: 4,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  statTitle: {
-    fontSize: 12,
+  detailLabel: {
+    fontSize: 11,
     fontWeight: '600',
     color: theme.colors.textMuted,
     textTransform: 'uppercase',
-    marginBottom: 6,
+    letterSpacing: 1,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: theme.colors.text,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
-    paddingLeft: theme.spacing.xs,
-  },
-  emptyMatchesBox: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.lg,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.xl,
-  },
-  emptyText: {
+  detailValue: {
     fontSize: 14,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  registerMatchBtn: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: theme.colors.accent,
-    borderRadius: theme.borderRadius.md,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  registerMatchBtnText: {
-    color: theme.colors.accent,
-    fontSize: 14,
-    fontWeight: '700',
+    color: theme.colors.text,
+    fontWeight: '500',
   },
   logoutButton: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -242,60 +169,6 @@ const styles = StyleSheet.create({
   logoutButtonText: {
     color: '#ef4444',
     fontSize: 15,
-    fontWeight: '700',
-  },
-  matchCard: {
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  matchMain: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  opponentText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: theme.colors.text,
-  },
-  disciplineText: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-  },
-  scoreContainer: {
-    backgroundColor: theme.colors.background,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-  },
-  scoreText: {
-    color: theme.colors.text,
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  matchFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    paddingTop: theme.spacing.sm,
-    marginTop: theme.spacing.sm,
-  },
-  resultText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  winText: {
-    color: '#4ade80',
-  },
-  lossText: {
-    color: '#f87171',
-  },
-  eloDiffText: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
+    fontWeight: '600',
   },
 });

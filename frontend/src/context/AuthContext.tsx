@@ -5,7 +5,6 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
-  elo?: number;
   created: string;
   updated: string;
 }
@@ -92,7 +91,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password: password,
         passwordConfirm: password,
         name: name,
-        elo: 1200, // ELO inicial
       };
 
       // Crear el registro de usuario

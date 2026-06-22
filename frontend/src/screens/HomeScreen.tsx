@@ -37,21 +37,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
       id: '1',
       title: '🏆 Gran Torneo de Taca-Taca Beauchef 2026',
       date: 'Hace 2 horas',
-      content: 'Inscríbete con tu pareja para el campeonato oficial del patio este viernes. El ELO mínimo requerido para participar es 1100. ¡Premios sorpresa para los campeones!',
+      content: 'Inscríbete con tu pareja para el campeonato oficial del patio este viernes. ¡Premios sorpresa para los campeones!',
       tag: 'Torneos',
     },
     {
       id: '2',
-      title: '♟️ Liga de Ajedrez Abierta - Patio de Ingeniería',
+      title: '♟️ Encuentros de Ajedrez - Patio de Ingeniería',
       date: 'Ayer',
-      content: 'Se abre el registro de partidas diarias para la liga mensual. Recuerda registrar tu marcador inmediatamente después del partido en la pestaña "Registrar Partida".',
+      content: 'Las mesas de ajedrez están disponibles todos los días en el patio central. ¡Ven a jugar y participa en la comunidad!',
       tag: 'Ajedrez',
     },
     {
       id: '3',
       title: '⚙️ Lanzamiento oficial de Beauchapp',
       date: 'Hace 3 días',
-      content: '¡Bienvenidos! Beauchapp ya está activa para la comunidad. Registra tus encuentros de patio y compite por liderar los ránkings de ELO oficiales de la facultad. Restringido solo a alumnos @ug.uchile.cl.',
+      content: '¡Bienvenidos! Beauchapp ya está activa para la comunidad. Conéctate con tus compañeros y entérate de todas las novedades de los patios. Restringido solo a alumnos @ug.uchile.cl.',
       tag: 'Comunidad',
     },
   ];
@@ -61,7 +61,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
       <View style={styles.heroSection}>
         <Text style={styles.heroTitle}>Beauchapp 🏆</Text>
         <Text style={styles.heroSubtitle}>
-          El ranking oficial de los patios de Beauchef. Gestiona tu ELO y domina el campus.
+          La plataforma comunitaria oficial para los patios de Beauchef.
         </Text>
         
         {!user ? (
@@ -75,7 +75,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         ) : (
           <View style={styles.welcomeBanner}>
             <Text style={styles.welcomeText}>¡Hola, {user.name}!</Text>
-            <Text style={styles.userEloText}>Tu ELO actual: <Text style={styles.eloValue}>{user.elo ?? 1200}</Text></Text>
           </View>
         )}
       </View>

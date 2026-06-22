@@ -15,13 +15,4 @@ onRecordBeforeCreateRequest((e) => {
     }
 }, "users");
 
-// 2. Cálculo automatizado del algoritmo ELO
-// Interceptar la creación de un nuevo partido para actualizar el ELO de ambos jugadores.
-// (Esto se activará cuando la colección 'partidas' o 'matches' sea configurada).
-onRecordAfterCreateRequest((e) => {
-    // Lógica para actualizar el ELO:
-    // 1. Obtener ID de jugador 1 y jugador 2, y el resultado.
-    // 2. Obtener ELOs actuales de la tabla 'perfiles' o 'users'.
-    // 3. Calcular la probabilidad y el nuevo ELO (Puntaje base: 1200; K = 32).
-    // 4. Actualizar el ELO en la base de datos dentro de una transacción.
-}, "matches");
+

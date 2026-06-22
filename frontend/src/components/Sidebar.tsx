@@ -46,10 +46,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
 
 
   const menuItems = [
-    { id: 'Home', label: '🏠 Muro / Inicio' },
-    { id: 'Rankings', label: '📊 Ránkings' },
-    { id: 'RegisterMatch', label: '📝 Registrar Partida' },
-    { id: 'Profile', label: '👤 Perfil' },
+    { id: 'Home', label: 'Muro / Inicio' },
+    { id: 'Profile', label: 'Perfil' },
   ];
 
   return (
@@ -72,12 +70,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
               </View>
               <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
               <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
-              <Text style={styles.userElo}>ELO: {user.elo ?? 1200}</Text>
             </View>
           ) : (
             <View>
               <Text style={styles.welcomeTitle}>Invitado</Text>
-              <Text style={styles.welcomeSubtitle}>Inicia sesión para registrar marcadores oficiales.</Text>
+              <Text style={styles.welcomeSubtitle}>Inicia sesión para ver las novedades de la comunidad.</Text>
               <TouchableOpacity 
                 style={styles.loginBtn}
                 onPress={() => handleLinkPress('Login')}
@@ -178,12 +175,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginTop: 2,
   },
-  userElo: {
-    fontSize: 13,
-    color: theme.colors.accent,
-    fontWeight: '700',
-    marginTop: theme.spacing.sm,
-  },
+
   welcomeTitle: {
     fontSize: 18,
     fontWeight: '700',
