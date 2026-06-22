@@ -14,6 +14,7 @@ import { SuperadminScreen } from './src/screens/SuperadminScreen';
 import { ParticipantPredictionsScreen } from './src/screens/ParticipantPredictionsScreen';
 import { MatchPredictionsScreen } from './src/screens/MatchPredictionsScreen';
 import { RootStackParamList } from './src/types/navigation';
+import Toast from 'react-native-toast-message';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -110,6 +111,7 @@ function AppContent() {
           </Stack.Navigator>
         )}
       </NavigationContainer>
+      <Toast />
     </SafeAreaView>
   );
 }

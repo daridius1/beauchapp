@@ -9,6 +9,7 @@ import { styles } from './styles';
 import { UserPredictionsPanel } from './components/UserPredictionsPanel';
 import { ParticipantsTable } from './components/ParticipantsTable';
 import { AdminPanel } from './components/AdminPanel';
+import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PollaContest'>;
 
@@ -40,7 +41,6 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const isContestAdmin = !!(user && (user.isSuperadmin || (contest && contest.admins && contest.admins.includes(user.id))));
 
@@ -171,7 +171,6 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
     
     setSaving(true);
     setError(null);
-    setSuccessMessage(null);
 
     try {
       const matchIds = Object.keys(predictions);
@@ -224,8 +223,11 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
       if (errors.length > 0) {
         setError(`Se guardaron ${operationsCount} predicción(es), pero hubo errores en ${errors.length}. Inténtalo de nuevo.`);
       } else {
-        setSuccessMessage('¡Predicciones guardadas correctamente!');
-        setTimeout(() => setSuccessMessage(null), 4000);
+        Toast.show({
+          type: 'success',
+          text1: '¡Predicciones guardadas correctamente!',
+          position: 'top',
+        });
       }
 
     } catch (err: any) {
@@ -244,7 +246,6 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
     setSavingMatchId(matchId);
     setError(null);
-    setSuccessMessage(null);
 
     try {
       const hScoreStr = editData.homeScore.trim();
@@ -274,8 +275,11 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
       
       setEditingMatchId(null);
       await fetchData();
-      setSuccessMessage('Resultado guardado correctamente.');
-      setTimeout(() => setSuccessMessage(null), 3000);
+      Toast.show({
+        type: 'success',
+        text1: 'Resultado guardado correctamente.',
+        position: 'top',
+      });
 
     } catch (err: any) {
       console.error('Error al guardar partido:', err);
@@ -298,7 +302,6 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
     setCreatingMatch(true);
     setError(null);
-    setSuccessMessage(null);
 
     try {
       await pb.collection('matches').create({
@@ -314,8 +317,11 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
       setNewMatch({ stage: '', homeTeam: '', homeFlag: '', awayTeam: '', awayFlag: '' });
       setShowCreateForm(false);
       await fetchData();
-      setSuccessMessage('Partido creado exitosamente.');
-      setTimeout(() => setSuccessMessage(null), 3000);
+      Toast.show({
+        type: 'success',
+        text1: 'Partido creado exitosamente.',
+        position: 'top',
+      });
     } catch (err: any) {
       console.error('Error al crear partido:', err);
       setError('No se pudo crear el partido. Verifica que tengas permisos de administrador.');
@@ -411,11 +417,6 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
         {error && (
           <View style={styles.errorBanner}>
             <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-        {successMessage && (
-          <View style={styles.successBanner}>
-            <Text style={styles.successText}>{successMessage}</Text>
           </View>
         )}
 

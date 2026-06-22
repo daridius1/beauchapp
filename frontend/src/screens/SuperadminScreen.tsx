@@ -12,6 +12,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { pb } from '../services/pocketbase';
 import { theme } from './HomeScreen';
 import { RootStackParamList } from '../types/navigation';
+import Toast from 'react-native-toast-message';
 
 interface Contest {
   id: string;
@@ -38,7 +39,6 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
   const [loadingAdmins, setLoadingAdmins] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const fetchContests = async () => {
     try {
@@ -102,7 +102,6 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
     
     setActionLoading(true);
     setError(null);
-    setSuccess(null);
 
     try {
       const email = newAdminEmail.trim().toLowerCase();
@@ -133,12 +132,14 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
 
       setSelectedContest(updatedContest);
       setNewAdminEmail('');
-      setSuccess('Administrador agregado con éxito.');
+      Toast.show({
+        type: 'success',
+        text1: 'Administrador agregado con éxito.',
+        position: 'top',
+      });
       
       // Recargar lista global de concursos
       fetchContests();
-      
-      setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
       console.error('Error al agregar administrador:', err);
       setError('Ocurrió un error al intentar agregar el administrador.');
@@ -152,7 +153,6 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
     
     setActionLoading(true);
     setError(null);
-    setSuccess(null);
 
     try {
       const currentAdmins = selectedContest.admins || [];
@@ -164,12 +164,14 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
       });
 
       setSelectedContest(updatedContest);
-      setSuccess('Administrador removido con éxito.');
+      Toast.show({
+        type: 'success',
+        text1: 'Administrador removido con éxito.',
+        position: 'top',
+      });
       
       // Recargar lista global de concursos
       fetchContests();
-      
-      setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
       console.error('Error al remover administrador:', err);
       setError('Ocurrió un error al intentar remover el administrador.');
@@ -197,12 +199,6 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
       {error && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-
-      {success && (
-        <View style={styles.successBanner}>
-          <Text style={styles.successText}>{success}</Text>
         </View>
       )}
 
