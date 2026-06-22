@@ -1,13 +1,20 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../../types/navigation';
 import { Participant } from '../types';
 import { styles } from '../styles';
 
 interface ParticipantsTableProps {
   participants: Participant[];
+  contestId: string;
 }
 
-export const ParticipantsTable: React.FC<ParticipantsTableProps> = ({ participants }) => {
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'PollaContest'>;
+
+export const ParticipantsTable: React.FC<ParticipantsTableProps> = ({ participants, contestId }) => {
+  const navigation = useNavigation<NavigationProp>();
   return (
     <View style={styles.participantsSection}>
       {participants.length === 0 ? (
@@ -22,7 +29,16 @@ export const ParticipantsTable: React.FC<ParticipantsTableProps> = ({ participan
             const isThird = index === 2;
 
             return (
-              <View key={p.id} style={styles.leaderboardRow}>
+              <TouchableOpacity 
+                key={p.id} 
+                style={styles.leaderboardRow}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('ParticipantPredictions', { 
+                  contestId, 
+                  participantId: p.id, 
+                  participantName: p.name 
+                })}
+              >
                 {/* Ranking / Medalla */}
                 <View style={[
                   styles.rankBadge,
@@ -49,7 +65,7 @@ export const ParticipantsTable: React.FC<ParticipantsTableProps> = ({ participan
                   <Text style={styles.pointsValue}>{p.totalPoints}</Text>
                   <Text style={styles.pointsSubText}>pts</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>

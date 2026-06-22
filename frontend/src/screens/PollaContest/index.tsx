@@ -448,9 +448,10 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
             handleSavePredictions={handleSavePredictions}
             saving={saving}
             isAdminMode={isAdminMode}
+            contestId={contestId}
           />
         ) : (
-          <ParticipantsTable participants={participants} />
+          <ParticipantsTable participants={participants} contestId={contestId} />
         )}
       </View>
     </ScrollView>

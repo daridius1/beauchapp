@@ -11,6 +11,8 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ContestsScreen } from './src/screens/ContestsScreen';
 import { PollaContestScreen } from './src/screens/PollaContest';
 import { SuperadminScreen } from './src/screens/SuperadminScreen';
+import { ParticipantPredictionsScreen } from './src/screens/ParticipantPredictionsScreen';
+import { MatchPredictionsScreen } from './src/screens/MatchPredictionsScreen';
 import { RootStackParamList } from './src/types/navigation';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -88,6 +90,8 @@ function AppContent() {
                 <Stack.Screen name="Contests" component={ContestsScreen} />
                 <Stack.Screen name="PollaContest" component={PollaContestScreen} />
                 <Stack.Screen name="Superadmin" component={SuperadminScreen} />
+                <Stack.Screen name="ParticipantPredictions" component={ParticipantPredictionsScreen} />
+                <Stack.Screen name="MatchPredictions" component={MatchPredictionsScreen} />
               </Stack.Navigator>
             </View>
             <Sidebar 

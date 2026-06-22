@@ -244,6 +244,18 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  viewBetsLink: {
+    marginTop: theme.spacing.sm,
+    paddingTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(51, 65, 85, 0.4)',
+    alignItems: 'center',
+  },
+  viewBetsText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.accent,
+  },
   teamContainer: {
     flex: 1,
     flexDirection: 'row',

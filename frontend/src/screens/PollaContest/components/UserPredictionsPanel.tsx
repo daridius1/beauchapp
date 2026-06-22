@@ -1,5 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../../types/navigation';
 import { Match, PredictionState } from '../types';
 import { styles } from '../styles';
 import { theme } from '../../HomeScreen';
@@ -11,7 +14,10 @@ interface UserPredictionsPanelProps {
   handleSavePredictions: () => void;
   saving: boolean;
   isAdminMode: boolean;
+  contestId: string;
 }
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'PollaContest'>;
 
 export const UserPredictionsPanel: React.FC<UserPredictionsPanelProps> = ({
   groupedMatches,
@@ -19,7 +25,9 @@ export const UserPredictionsPanel: React.FC<UserPredictionsPanelProps> = ({
   handleScoreChange,
   handleSavePredictions,
   saving,
+  contestId,
 }) => {
+  const navigation = useNavigation<NavigationProp>();
   return (
     <View>
       {Object.keys(groupedMatches).length === 0 ? (
@@ -109,6 +117,14 @@ export const UserPredictionsPanel: React.FC<UserPredictionsPanelProps> = ({
                       <Text style={styles.teamName} numberOfLines={2}>{match.awayTeam}</Text>
                     </View>
                   </View>
+
+                  {/* Enlace para ver apuestas del partido */}
+                  <TouchableOpacity 
+                    style={styles.viewBetsLink}
+                    onPress={() => navigation.navigate('MatchPredictions', { matchId: match.id, contestId })}
+                  >
+                    <Text style={styles.viewBetsText}>👁 Ver apuestas de todos</Text>
+                  </TouchableOpacity>
                 </View>
               );
             })}
