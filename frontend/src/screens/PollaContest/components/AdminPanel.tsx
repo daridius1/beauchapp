@@ -313,7 +313,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           onPress={() => startEditingMatch(match)}
                         >
                           <Text style={styles.modifyBtnText}>
-                            {match.played ? 'Modificar' : 'Registrar Resultado'}
+                            Editar
                           </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
