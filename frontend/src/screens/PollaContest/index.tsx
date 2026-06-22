@@ -59,7 +59,9 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
       const contestData = await pb.collection('contests').getOne<Contest>(contestId);
       setContest(contestData);
 
-      const matchFilter = isContestAdmin ? `contest = "${contestId}"` : `contest = "${contestId}" && active = true`;
+      // Compute admin status here with fresh data to avoid stale closure
+      const isAdmin = !!(user && (user.isSuperadmin || (contestData.admins && contestData.admins.includes(user.id))));
+      const matchFilter = isAdmin ? `contest = "${contestId}"` : `contest = "${contestId}" && active = true`;
       const matchesData = await pb.collection('matches').getFullList<Match>({
         filter: matchFilter,
         sort: 'date',
@@ -346,15 +348,16 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
-  const handleArchiveMatch = async (matchId: string) => {
+  const handleArchiveMatch = async (matchId: string, currentActive: boolean) => {
     if (!user || !isContestAdmin) return;
+    const newActive = !currentActive;
     try {
-      await pb.collection('matches').update(matchId, { active: false });
-      Toast.show({ type: 'success', text1: 'Partido archivado.', position: 'top' });
+      await pb.collection('matches').update(matchId, { active: newActive });
+      Toast.show({ type: 'success', text1: newActive ? 'Partido restaurado.' : 'Partido archivado.', position: 'top' });
       await fetchData(false);
     } catch (err: any) {
-      console.error('Error al archivar partido:', err);
-      Toast.show({ type: 'error', text1: 'No se pudo archivar el partido.', position: 'top' });
+      console.error('Error al cambiar estado del partido:', err);
+      Toast.show({ type: 'error', text1: 'No se pudo cambiar el estado del partido.', position: 'top' });
     }
   };
 

@@ -21,7 +21,7 @@ interface AdminPanelProps {
   setShowCreateForm: (show: boolean) => void;
   setNewMatch: React.Dispatch<React.SetStateAction<NewMatchForm>>;
   handleCreateMatch: () => void;
-  handleArchiveMatch: (matchId: string) => void;
+  handleArchiveMatch: (matchId: string, currentActive: boolean) => void;
   setError: (err: string | null) => void;
 }
 
@@ -276,11 +276,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={[styles.modifyBtn, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', marginLeft: 8 }]}
-                          onPress={() => handleArchiveMatch(match.id)}
+                          style={[styles.modifyBtn, match.active !== false
+                            ? { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', marginLeft: 8 }
+                            : { backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.2)', marginLeft: 8 }
+                          ]}
+                          onPress={() => handleArchiveMatch(match.id, match.active !== false)}
                         >
-                          <Text style={[styles.modifyBtnText, { color: '#ef4444' }]}>
-                            Archivar
+                          <Text style={[styles.modifyBtnText, match.active !== false ? { color: '#ef4444' } : { color: '#22c55e' }]}>
+                            {match.active !== false ? 'Archivar' : 'Restaurar'}
                           </Text>
                         </TouchableOpacity>
                       </View>
