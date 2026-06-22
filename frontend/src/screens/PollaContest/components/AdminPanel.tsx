@@ -282,6 +282,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 ) : (
                   // Vista de solo lectura del partido (con botón para editar)
                   <View style={styles.adminMatchRow}>
+                    <Text style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center', marginBottom: 4 }}>
+                      {match.date ? new Date(match.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Sin Fecha'}
+                      {match.active === false && ' • (Archivado)'}
+                    </Text>
                     <View style={styles.adminMatchInfo}>
                       <View style={styles.adminMatchTeam}>
                         <Text style={styles.flagEmoji}>{match.homeFlag}</Text>
