@@ -21,6 +21,7 @@ interface AdminPanelProps {
   setShowCreateForm: (show: boolean) => void;
   setNewMatch: React.Dispatch<React.SetStateAction<NewMatchForm>>;
   handleCreateMatch: () => void;
+  handleArchiveMatch: (matchId: string) => void;
   setError: (err: string | null) => void;
 }
 
@@ -41,6 +42,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   setShowCreateForm,
   setNewMatch,
   handleCreateMatch,
+  handleArchiveMatch,
   setError,
 }) => {
   return (
@@ -128,6 +130,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               onChangeText={v => setNewMatch(prev => ({ ...prev, awayTeam: v }))}
             />
           </View>
+
+          {/* Fecha y Hora */}
+          <Text style={styles.createMatchLabel}>Fecha y Hora (Horario Local, ej. 2026-06-25 15:30)</Text>
+          <TextInput
+            style={styles.createInput}
+            placeholder="YYYY-MM-DD HH:mm"
+            placeholderTextColor={theme.colors.textMuted}
+            value={newMatch.date}
+            onChangeText={v => setNewMatch(prev => ({ ...prev, date: v }))}
+          />
 
           <TouchableOpacity
             style={[styles.createMatchSubmitBtn, creatingMatch && styles.saveButtonDisabled]}
@@ -260,6 +272,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       >
                         <Text style={styles.modifyBtnText}>
                           {match.played ? 'Modificar' : 'Registrar Resultado'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.modifyBtn, { backgroundColor: '#ef4444', marginLeft: 8 }]}
+                        onPress={() => handleArchiveMatch(match.id)}
+                      >
+                        <Text style={styles.modifyBtnText}>
+                          Ocultar / Archivar
                         </Text>
                       </TouchableOpacity>
                     </View>

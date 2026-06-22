@@ -34,7 +34,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
   // Estado para crear nuevo partido
   const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
   const [newMatch, setNewMatch] = useState<NewMatchForm>({
-    stage: '', homeTeam: '', homeFlag: '', awayTeam: '', awayFlag: '',
+    stage: '', homeTeam: '', homeFlag: '', awayTeam: '', awayFlag: '', date: '',
   });
   const [creatingMatch, setCreatingMatch] = useState<boolean>(false);
 
@@ -59,8 +59,9 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
       const contestData = await pb.collection('contests').getOne<Contest>(contestId);
       setContest(contestData);
 
+      const matchFilter = isContestAdmin ? `contest = "${contestId}"` : `contest = "${contestId}" && active = true`;
       const matchesData = await pb.collection('matches').getFullList<Match>({
-        filter: `contest = "${contestId}"`,
+        filter: matchFilter,
         sort: 'date',
       });
       setMatches(matchesData);
@@ -177,7 +178,12 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
       for (const matchId of matchIds) {
         const match = matches.find(m => m.id === matchId);
-        if (match?.played) continue;
+        if (!match) continue;
+        
+        // No guardar si el partido ya se jugó o si está bloqueado (faltan < 10 mins)
+        const matchTime = match.date ? new Date(match.date).getTime() : 0;
+        const isLocked = !match.played && matchTime > 0 && Date.now() >= matchTime - 10 * 60 * 1000;
+        if (match.played || isLocked) continue;
 
         const pred = predictions[matchId];
         const hScoreStr = (pred.homeScore ?? '').trim();
@@ -292,9 +298,20 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleCreateMatch = async () => {
     if (!user || !isContestAdmin || !contestId) return;
 
-    const { stage, homeTeam, homeFlag, awayTeam, awayFlag } = newMatch;
-    if (!stage.trim() || !homeTeam.trim() || !homeFlag.trim() || !awayTeam.trim() || !awayFlag.trim()) {
-      Toast.show({ type: 'error', text1: 'Completa todos los campos.', position: 'top' });
+    const { stage, homeTeam, homeFlag, awayTeam, awayFlag, date } = newMatch;
+    if (!stage.trim() || !homeTeam.trim() || !homeFlag.trim() || !awayTeam.trim() || !awayFlag.trim() || !date.trim()) {
+      Toast.show({ type: 'error', text1: 'Completa todos los campos, incluyendo la fecha.', position: 'top' });
+      return;
+    }
+
+    // Try parsing date from local timezone (YYYY-MM-DD HH:mm) to UTC ISO string
+    let parsedDate: string;
+    try {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) throw new Error("Fecha inválida");
+      parsedDate = d.toISOString();
+    } catch (e) {
+      Toast.show({ type: 'error', text1: 'Formato de fecha inválido. Usa YYYY-MM-DD HH:mm', position: 'top' });
       return;
     }
 
@@ -308,10 +325,12 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
         homeFlag: homeFlag.trim(),
         awayTeam: awayTeam.trim(),
         awayFlag: awayFlag.trim(),
+        date: parsedDate,
+        active: true,
         played: false,
       });
 
-      setNewMatch({ stage: '', homeTeam: '', homeFlag: '', awayTeam: '', awayFlag: '' });
+      setNewMatch({ stage: '', homeTeam: '', homeFlag: '', awayTeam: '', awayFlag: '', date: '' });
       setShowCreateForm(false);
       await fetchData(false);
       Toast.show({
@@ -324,6 +343,18 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
       Toast.show({ type: 'error', text1: 'No se pudo crear el partido. Verifica que tengas permisos de administrador.', position: 'top' });
     } finally {
       setCreatingMatch(false);
+    }
+  };
+
+  const handleArchiveMatch = async (matchId: string) => {
+    if (!user || !isContestAdmin) return;
+    try {
+      await pb.collection('matches').update(matchId, { active: false });
+      Toast.show({ type: 'success', text1: 'Partido archivado.', position: 'top' });
+      await fetchData(false);
+    } catch (err: any) {
+      console.error('Error al archivar partido:', err);
+      Toast.show({ type: 'error', text1: 'No se pudo archivar el partido.', position: 'top' });
     }
   };
 
@@ -428,6 +459,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
             setShowCreateForm={setShowCreateForm}
             setNewMatch={setNewMatch}
             handleCreateMatch={handleCreateMatch}
+            handleArchiveMatch={handleArchiveMatch}
             setError={setError}
           />
         ) : activeTab === 'matches' ? (

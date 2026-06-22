@@ -10,6 +10,7 @@ export interface Match {
   homeScore?: number | null;
   awayScore?: number | null;
   played?: boolean;
+  active?: boolean;
 }
 
 export interface Contest {
@@ -41,6 +42,7 @@ export interface NewMatchForm {
   homeFlag: string;
   awayTeam: string;
   awayFlag: string;
+  date: string;
 }
 
 export interface Participant {

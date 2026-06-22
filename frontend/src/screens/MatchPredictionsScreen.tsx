@@ -89,6 +89,9 @@ export const MatchPredictionsScreen: React.FC<Props> = ({ navigation, route }) =
           <View style={styles.matchCard}>
             <View style={styles.matchHeader}>
               <Text style={styles.stageText}>{match.stage}</Text>
+              <Text style={styles.matchDate}>
+                {match.date ? new Date(match.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+              </Text>
               <View style={styles.statusBadge}>
                 <Text style={styles.statusBadgeText}>
                   {match.played ? 'FINALIZADO' : 'PENDIENTE'}
@@ -213,6 +216,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.textMuted,
     textTransform: 'uppercase',
+  },
+  matchDate: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginHorizontal: 8,
   },
   statusBadge: {
     backgroundColor: 'rgba(51, 65, 85, 0.5)',

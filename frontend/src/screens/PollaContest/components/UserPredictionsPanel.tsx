@@ -43,6 +43,9 @@ export const UserPredictionsPanel: React.FC<UserPredictionsPanelProps> = ({
 
             {groupedMatches[stage].map((match) => {
               const pred = predictions[match.id] || { homeScore: '', awayScore: '' };
+              const matchTime = match.date ? new Date(match.date).getTime() : 0;
+              const isLocked = !match.played && matchTime > 0 && Date.now() >= matchTime - 10 * 60 * 1000;
+
               return (
                 <View key={match.id} style={styles.matchCard}>
                   {/* Fecha y Fase */}
@@ -50,7 +53,7 @@ export const UserPredictionsPanel: React.FC<UserPredictionsPanelProps> = ({
                     <Text style={styles.matchDate}>
                       {match.date ? new Date(match.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Por definir'}
                     </Text>
-                    {match.played && (
+                    {match.played ? (
                       <View style={styles.infoBadgeContainer}>
                         <View style={styles.officialBadge}>
                           <Text style={styles.officialBadgeText}>FINALIZADO</Text>
@@ -61,7 +64,13 @@ export const UserPredictionsPanel: React.FC<UserPredictionsPanelProps> = ({
                           </View>
                         )}
                       </View>
-                    )}
+                    ) : isLocked ? (
+                      <View style={styles.infoBadgeContainer}>
+                        <View style={[styles.officialBadge, { backgroundColor: '#f59e0b' }]}>
+                          <Text style={styles.officialBadgeText}>BLOQUEADO</Text>
+                        </View>
+                      </View>
+                    ) : null}
                   </View>
 
                   <View style={styles.teamsRow}>
@@ -83,8 +92,17 @@ export const UserPredictionsPanel: React.FC<UserPredictionsPanelProps> = ({
                             Tu predicción: {pred.homeScore || '-'} - {pred.awayScore || '-'}
                           </Text>
                         </View>
+                      ) : isLocked ? (
+                        <View style={styles.playedScoresContainer}>
+                          <Text style={[styles.playedScoreText, { fontSize: 16, color: theme.colors.textMuted }]}>
+                            {pred.homeScore || '-'} - {pred.awayScore || '-'}
+                          </Text>
+                          <Text style={styles.predResultText}>
+                            Tiempo agotado para predecir
+                          </Text>
+                        </View>
                       ) : (
-                        // Si no se ha jugado, mostramos los inputs para predecir
+                        // Si no se ha jugado y no está bloqueado, mostramos los inputs para predecir
                         <View style={styles.adminScoreRow}>
                           <TextInput
                             style={styles.scoreInput}

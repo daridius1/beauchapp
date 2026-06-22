@@ -200,7 +200,8 @@ async function main() {
         { name: 'awayTeam', type: 'text', required: true },
         { name: 'awayFlag', type: 'text', required: true },
         { name: 'stage', type: 'text', required: true },
-        { name: 'date', type: 'date' },
+        { name: 'date', type: 'date', required: true },
+        { name: 'active', type: 'bool' },
         { name: 'homeScore', type: 'number', required: false, options: { min: 0 } },
         { name: 'awayScore', type: 'number', required: false, options: { min: 0 } },
         { name: 'played', type: 'bool', required: false }
@@ -343,7 +344,13 @@ async function main() {
       let matchRecord;
       if (matchesList.items && matchesList.items.length > 0) {
         matchRecord = matchesList.items[0];
-        console.log(`El partido ${m.homeTeam} vs ${m.awayTeam} ya existe.`);
+        // Ensure active is set to true for existing seeded matches
+        await request(`/api/collections/matches/records/${matchRecord.id}`, {
+          method: 'PATCH',
+          headers: authHeader,
+          body: JSON.stringify({ active: true })
+        });
+        console.log(`El partido ${m.homeTeam} vs ${m.awayTeam} ya existe. Actualizado active=true.`);
       } else {
         matchRecord = await request('/api/collections/matches/records', {
           method: 'POST',
@@ -356,6 +363,7 @@ async function main() {
             awayFlag: m.awayFlag,
             stage: m.stage,
             date: m.date,
+            active: true,
             played: false
           })
         });
