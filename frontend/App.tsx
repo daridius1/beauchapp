@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, SafeAreaView, StatusBar, Text, ScrollView, Platform } from 'react-native';
-import { AuthProvider } from './src/context/AuthContext';
+import { StyleSheet, View, SafeAreaView, StatusBar, Text, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { Header } from './src/components/Header';
 import { Sidebar } from './src/components/Sidebar';
 import { HomeScreen, theme } from './src/screens/HomeScreen';
@@ -63,6 +63,7 @@ const RankingsScreen: React.FC = () => {
 // COMPONENTE CONTENEDOR PRINCIPAL
 // ----------------------------------------------------
 function AppContent() {
+  const { user, loading } = useAuth();
   const [activeScreen, setActiveScreen] = useState<string>('Home');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
@@ -73,7 +74,6 @@ function AppContent() {
       case 'Rankings': return 'Clasificación';
       case 'RegisterMatch': return 'Registrar Marcador';
       case 'Profile': return 'Mi Perfil';
-      case 'Login': return 'Acceso';
       default: return 'Beauchapp';
     }
   };
@@ -89,12 +89,28 @@ function AppContent() {
         return <MatchRegisterScreen onNavigate={setActiveScreen} />;
       case 'Profile':
         return <ProfileScreen onNavigate={setActiveScreen} />;
-      case 'Login':
-        return <LoginScreen onNavigate={setActiveScreen} />;
       default:
         return <HomeScreen onNavigate={setActiveScreen} />;
     }
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar barStyle="light-content" backgroundColor={theme.colors.cardBg} />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={theme.colors.cardBg} />
+        <LoginScreen onNavigate={setActiveScreen} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
