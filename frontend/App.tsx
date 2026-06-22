@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   },
   rankingsTitle: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: '600',
     color: theme.colors.text,
     marginBottom: 2,
   },
