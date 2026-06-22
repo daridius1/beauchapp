@@ -38,12 +38,10 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingAdmins, setLoadingAdmins] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
 
   const fetchContests = async () => {
     try {
       setLoading(true);
-      setError(null);
       const records = await pb.collection('contests').getFullList<Contest>({
         sort: '-created',
       });
@@ -58,7 +56,7 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
       }
     } catch (err: any) {
       console.error('Error al cargar concursos en superadmin:', err);
-      setError('Error al obtener la lista de concursos.');
+      Toast.show({ type: 'error', text1: 'Error al obtener la lista de concursos.', position: 'top' });
     } finally {
       setLoading(false);
     }
@@ -101,7 +99,6 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
     if (!selectedContest || !newAdminEmail.trim()) return;
     
     setActionLoading(true);
-    setError(null);
 
     try {
       const email = newAdminEmail.trim().toLowerCase();
@@ -111,14 +108,14 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
       try {
         targetUser = await pb.collection('users').getFirstListItem<User>(`email = "${email}"`);
       } catch (err) {
-        setError(`No se encontró ningún usuario con el correo "${email}". El alumno debe estar registrado primero.`);
+        Toast.show({ type: 'error', text1: `No se encontró ningún usuario con el correo "${email}". El alumno debe estar registrado primero.`, position: 'top' });
         setActionLoading(false);
         return;
       }
 
       const currentAdmins = selectedContest.admins || [];
       if (currentAdmins.includes(targetUser.id)) {
-        setError(`El usuario ya es administrador de este concurso.`);
+        Toast.show({ type: 'error', text1: 'El usuario ya es administrador de este concurso.', position: 'top' });
         setActionLoading(false);
         return;
       }
@@ -142,7 +139,7 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
       fetchContests();
     } catch (err: any) {
       console.error('Error al agregar administrador:', err);
-      setError('Ocurrió un error al intentar agregar el administrador.');
+      Toast.show({ type: 'error', text1: 'Ocurrió un error al intentar agregar el administrador.', position: 'top' });
     } finally {
       setActionLoading(false);
     }
@@ -152,7 +149,6 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
     if (!selectedContest) return;
     
     setActionLoading(true);
-    setError(null);
 
     try {
       const currentAdmins = selectedContest.admins || [];
@@ -174,7 +170,7 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
       fetchContests();
     } catch (err: any) {
       console.error('Error al remover administrador:', err);
-      setError('Ocurrió un error al intentar remover el administrador.');
+      Toast.show({ type: 'error', text1: 'Ocurrió un error al intentar remover el administrador.', position: 'top' });
     } finally {
       setActionLoading(false);
     }
@@ -195,12 +191,6 @@ export const SuperadminScreen: React.FC<Props> = ({ navigation }) => {
         <Text style={styles.title}>Panel Superadmin Global</Text>
         <Text style={styles.subtitle}>Gestiona los concursos de la plataforma y asigna administradores locales.</Text>
       </View>
-
-      {error && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
 
       <Text style={styles.sectionTitle}>Selecciona un Concurso</Text>
       

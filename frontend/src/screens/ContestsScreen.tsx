@@ -4,6 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { pb } from '../services/pocketbase';
 import { theme } from './HomeScreen';
 import { RootStackParamList } from '../types/navigation';
+import Toast from 'react-native-toast-message';
 
 interface Contest {
   id: string;
@@ -19,13 +20,11 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Contests'>;
 export const ContestsScreen: React.FC<Props> = ({ navigation }) => {
   const [contests, setContests] = useState<Contest[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchContests = async () => {
       try {
         setLoading(true);
-        setError(null);
         // Obtener solo concursos activos
         const records = await pb.collection('contests').getFullList<Contest>({
           filter: 'active = true',
@@ -34,7 +33,7 @@ export const ContestsScreen: React.FC<Props> = ({ navigation }) => {
         setContests(records);
       } catch (err: any) {
         console.error('Error al cargar concursos:', err);
-        setError('No se pudieron cargar los concursos. Por favor intenta de nuevo.');
+        Toast.show({ type: 'error', text1: 'No se pudieron cargar los concursos. Por favor intenta de nuevo.', position: 'top' });
       } finally {
         setLoading(false);
       }
@@ -61,11 +60,7 @@ export const ContestsScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
       </View>
 
-      {error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : contests.length === 0 ? (
+      {contests.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No hay concursos activos en este momento.</Text>
         </View>

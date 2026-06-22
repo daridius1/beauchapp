@@ -5,6 +5,7 @@ import { RootStackParamList } from '../types/navigation';
 import { pb } from '../services/pocketbase';
 import { theme } from './HomeScreen';
 import { Match } from './PollaContest/types';
+import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ParticipantPredictions'>;
 
@@ -23,13 +24,11 @@ export const ParticipantPredictionsScreen: React.FC<Props> = ({ navigation, rout
   const [predictions, setPredictions] = useState<{ [matchId: string]: Prediction }>({});
   const [contestName, setContestName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        setError(null);
 
         // Fetch contest info
         const contestData = await pb.collection('contests').getOne(contestId);
@@ -60,7 +59,7 @@ export const ParticipantPredictionsScreen: React.FC<Props> = ({ navigation, rout
         setPredictions(predsMap);
       } catch (err: any) {
         console.error('Error fetching participant predictions:', err);
-        setError('Ocurrió un error al cargar las predicciones.');
+        Toast.show({ type: 'error', text1: 'Ocurrió un error al cargar las predicciones.', position: 'top' });
       } finally {
         setLoading(false);
       }
@@ -93,12 +92,6 @@ export const ParticipantPredictionsScreen: React.FC<Props> = ({ navigation, rout
           <Text style={styles.title}>Predicciones de {participantName}</Text>
           <Text style={styles.subtitle}>En {contestName}</Text>
         </View>
-
-        {error && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
 
         {matches.map((match) => {
           const pred = predictions[match.id];

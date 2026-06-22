@@ -46,16 +46,15 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const existingStages = [...new Set(matches.map(m => m.stage))];
 
-  const fetchData = async () => {
+  const fetchData = async (showLoadingIndicator: boolean = true) => {
     if (!contestId) {
-      setError('ID de concurso inválido.');
-      setLoading(false);
+      Toast.show({ type: 'error', text1: 'ID de concurso inválido.', position: 'top' });
+      if (showLoadingIndicator) setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
-      setError(null);
+      if (showLoadingIndicator) setLoading(true);
 
       const contestData = await pb.collection('contests').getOne<Contest>(contestId);
       setContest(contestData);
@@ -112,9 +111,9 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
     } catch (err: any) {
       console.error('Error al cargar datos del concurso:', err);
-      setError('Error al obtener la información. Por favor, reintenta.');
+      Toast.show({ type: 'error', text1: 'Error al obtener la información. Por favor, reintenta.', position: 'top' });
     } finally {
-      setLoading(false);
+      if (showLoadingIndicator) setLoading(false);
     }
   };
 
@@ -170,7 +169,6 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
     if (!user) return;
     
     setSaving(true);
-    setError(null);
 
     try {
       const matchIds = Object.keys(predictions);
@@ -213,15 +211,15 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
       }
 
       if (operationsCount === 0 && errors.length === 0) {
-        setError('Ingresa al menos un marcador completo (Local y Visita) para guardar.');
+        Toast.show({ type: 'error', text1: 'Ingresa al menos un marcador completo (Local y Visita) para guardar.', position: 'top' });
         setSaving(false);
         return;
       }
 
-      await fetchData();
+      await fetchData(false);
 
       if (errors.length > 0) {
-        setError(`Se guardaron ${operationsCount} predicción(es), pero hubo errores en ${errors.length}. Inténtalo de nuevo.`);
+        Toast.show({ type: 'error', text1: `Se guardaron ${operationsCount} predicción(es), pero hubo errores en ${errors.length}. Inténtalo de nuevo.`, position: 'top' });
       } else {
         Toast.show({
           type: 'success',
@@ -232,7 +230,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
     } catch (err: any) {
       console.error('Error al guardar predicciones:', err);
-      setError('Ocurrió un error al guardar tus predicciones. Inténtalo de nuevo.');
+      Toast.show({ type: 'error', text1: 'Ocurrió un error al guardar tus predicciones. Inténtalo de nuevo.', position: 'top' });
     } finally {
       setSaving(false);
     }
@@ -245,7 +243,6 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
     if (!editData) return;
 
     setSavingMatchId(matchId);
-    setError(null);
 
     try {
       const hScoreStr = editData.homeScore.trim();
@@ -274,7 +271,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
       await pb.collection('matches').update(matchId, dataToSave);
       
       setEditingMatchId(null);
-      await fetchData();
+      await fetchData(false);
       Toast.show({
         type: 'success',
         text1: 'Resultado guardado correctamente.',
@@ -283,9 +280,10 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
     } catch (err: any) {
       console.error('Error al guardar partido:', err);
-      setError(err.message === "Marcador inválido" || err.message === "Marcador incompleto" 
+      const msg = err.message === "Marcador inválido" || err.message === "Marcador incompleto" 
         ? 'Ingresa ambos goles o deja ambos en blanco.' 
-        : 'Error al guardar el partido. Verifica tus permisos.');
+        : 'Error al guardar el partido. Verifica tus permisos.';
+      Toast.show({ type: 'error', text1: msg, position: 'top' });
     } finally {
       setSavingMatchId(null);
     }
@@ -296,12 +294,11 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
     const { stage, homeTeam, homeFlag, awayTeam, awayFlag } = newMatch;
     if (!stage.trim() || !homeTeam.trim() || !homeFlag.trim() || !awayTeam.trim() || !awayFlag.trim()) {
-      setError('Completa todos los campos.');
+      Toast.show({ type: 'error', text1: 'Completa todos los campos.', position: 'top' });
       return;
     }
 
     setCreatingMatch(true);
-    setError(null);
 
     try {
       await pb.collection('matches').create({
@@ -316,7 +313,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
       setNewMatch({ stage: '', homeTeam: '', homeFlag: '', awayTeam: '', awayFlag: '' });
       setShowCreateForm(false);
-      await fetchData();
+      await fetchData(false);
       Toast.show({
         type: 'success',
         text1: 'Partido creado exitosamente.',
@@ -324,7 +321,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
       });
     } catch (err: any) {
       console.error('Error al crear partido:', err);
-      setError('No se pudo crear el partido. Verifica que tengas permisos de administrador.');
+      Toast.show({ type: 'error', text1: 'No se pudo crear el partido. Verifica que tengas permisos de administrador.', position: 'top' });
     } finally {
       setCreatingMatch(false);
     }
@@ -332,7 +329,6 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const cancelEditingMatch = () => {
     setEditingMatchId(null);
-    setError(null);
   };
 
   const groupedMatches: { [stage: string]: Match[] } = {};
@@ -410,13 +406,6 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
             >
               <Text style={[styles.tabText, activeTab === 'participants' && styles.activeTabText]}>Tabla de Posiciones</Text>
             </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Mensajes de feedback */}
-        {error && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
 

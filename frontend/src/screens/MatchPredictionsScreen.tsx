@@ -5,6 +5,7 @@ import { RootStackParamList } from '../types/navigation';
 import { pb } from '../services/pocketbase';
 import { theme } from './HomeScreen';
 import { Match } from './PollaContest/types';
+import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MatchPredictions'>;
 
@@ -22,13 +23,11 @@ export const MatchPredictionsScreen: React.FC<Props> = ({ navigation, route }) =
   const [match, setMatch] = useState<Match | null>(null);
   const [predictions, setPredictions] = useState<MatchPrediction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        setError(null);
 
         // Fetch match details
         const matchData = await pb.collection('matches').getOne<Match>(matchId);
@@ -57,7 +56,7 @@ export const MatchPredictionsScreen: React.FC<Props> = ({ navigation, route }) =
         setPredictions(mappedPreds);
       } catch (err: any) {
         console.error('Error fetching match predictions:', err);
-        setError('Ocurrió un error al cargar las apuestas del partido.');
+        Toast.show({ type: 'error', text1: 'Ocurrió un error al cargar las apuestas del partido.', position: 'top' });
       } finally {
         setLoading(false);
       }
@@ -85,12 +84,6 @@ export const MatchPredictionsScreen: React.FC<Props> = ({ navigation, route }) =
             <Text style={styles.backBtnText}>← Volver</Text>
           </TouchableOpacity>
         </View>
-
-        {error && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
 
         {match && (
           <View style={styles.matchCard}>
