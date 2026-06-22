@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { Match, EditingScoreState, NewMatchForm } from '../types';
 import { styles } from '../styles';
 import { theme } from '../../HomeScreen';
@@ -14,7 +14,7 @@ interface AdminPanelProps {
   creatingMatch: boolean;
   existingStages: string[];
   startEditingMatch: (match: Match) => void;
-  handleEditScoreChange: (matchId: string, side: 'home' | 'away', value: string) => void;
+  handleEditFieldChange: (matchId: string, field: keyof EditingScoreState[string], value: string | boolean) => void;
   handleEditTogglePlayed: (matchId: string) => void;
   handleSaveSingleMatch: (matchId: string) => void;
   cancelEditingMatch: () => void;
@@ -35,7 +35,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   creatingMatch,
   existingStages,
   startEditingMatch,
-  handleEditScoreChange,
+  handleEditFieldChange,
   handleEditTogglePlayed,
   handleSaveSingleMatch,
   cancelEditingMatch,
@@ -45,6 +45,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   handleArchiveMatch,
   setError,
 }) => {
+  const confirmArchiveMatch = (match: Match) => {
+    const isArchiving = match.active !== false;
+    Alert.alert(
+      isArchiving ? 'Archivar Partido' : 'Restaurar Partido',
+      isArchiving ? '¿Estás seguro que deseas ocultar/archivar este partido?' : '¿Estás seguro que deseas restaurar este partido?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sí, estoy seguro', style: isArchiving ? 'destructive' : 'default', onPress: () => handleArchiveMatch(match.id, isArchiving) }
+      ]
+    );
+  };
+
   return (
     <View style={styles.adminSection}>
       {/* Cabecera del panel con botón Nuevo Partido */}
@@ -172,21 +184,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 {isEditing ? (
                   // Formulario de edición para el partido seleccionado
                   <View style={styles.editCard}>
-                    <Text style={styles.editCardTitle}>Ingresar Marcador Oficial</Text>
+                    <Text style={styles.editCardTitle}>Editar Detalles y Resultado</Text>
                     
-                    <View style={styles.editRow}>
-                      <View style={styles.editTeamCol}>
-                        <Text style={styles.flagEmoji}>{match.homeFlag}</Text>
-                        <Text style={styles.editTeamName} numberOfLines={1}>{match.homeTeam}</Text>
-                      </View>
+                    <View style={styles.teamInputRow}>
+                      <TextInput
+                        style={[styles.createInput, styles.flagInput, { height: 34 }]}
+                        value={editData.homeFlag}
+                        onChangeText={(val) => handleEditFieldChange(match.id, 'homeFlag', val)}
+                        placeholder="🏳️"
+                      />
+                      <TextInput
+                        style={[styles.createInput, styles.teamNameInput, { height: 34 }]}
+                        value={editData.homeTeam}
+                        onChangeText={(val) => handleEditFieldChange(match.id, 'homeTeam', val)}
+                        placeholder="Local"
+                      />
+                    </View>
 
+                    <View style={styles.editRow}>
                       <View style={styles.editInputsContainer}>
                         <TextInput
                           style={styles.editScoreInput}
                           keyboardType="number-pad"
                           maxLength={2}
                           value={editData.homeScore}
-                          onChangeText={(val) => handleEditScoreChange(match.id, 'home', val)}
+                          onChangeText={(val) => handleEditFieldChange(match.id, 'homeScore', val)}
                           placeholder="-"
                           placeholderTextColor={theme.colors.textMuted}
                         />
@@ -196,17 +218,36 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           keyboardType="number-pad"
                           maxLength={2}
                           value={editData.awayScore}
-                          onChangeText={(val) => handleEditScoreChange(match.id, 'away', val)}
+                          onChangeText={(val) => handleEditFieldChange(match.id, 'awayScore', val)}
                           placeholder="-"
                           placeholderTextColor={theme.colors.textMuted}
                         />
                       </View>
-
-                      <View style={styles.editTeamCol}>
-                        <Text style={styles.flagEmoji}>{match.awayFlag}</Text>
-                        <Text style={styles.editTeamName} numberOfLines={1}>{match.awayTeam}</Text>
-                      </View>
                     </View>
+
+                    <View style={styles.teamInputRow}>
+                      <TextInput
+                        style={[styles.createInput, styles.flagInput, { height: 34 }]}
+                        value={editData.awayFlag}
+                        onChangeText={(val) => handleEditFieldChange(match.id, 'awayFlag', val)}
+                        placeholder="🏳️"
+                      />
+                      <TextInput
+                        style={[styles.createInput, styles.teamNameInput, { height: 34 }]}
+                        value={editData.awayTeam}
+                        onChangeText={(val) => handleEditFieldChange(match.id, 'awayTeam', val)}
+                        placeholder="Visita"
+                      />
+                    </View>
+
+                    <Text style={[styles.createMatchLabel, { marginTop: theme.spacing.sm }]}>Fecha y Hora</Text>
+                    <TextInput
+                      style={[styles.createInput, { height: 34, marginBottom: theme.spacing.sm }]}
+                      placeholder="YYYY-MM-DD HH:mm"
+                      placeholderTextColor={theme.colors.textMuted}
+                      value={editData.date}
+                      onChangeText={(val) => handleEditFieldChange(match.id, 'date', val)}
+                    />
 
                     <View style={styles.editActions}>
                       <TouchableOpacity
@@ -280,7 +321,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             ? { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', marginLeft: 8 }
                             : { backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.2)', marginLeft: 8 }
                           ]}
-                          onPress={() => handleArchiveMatch(match.id, match.active !== false)}
+                          onPress={() => confirmArchiveMatch(match)}
                         >
                           <Text style={[styles.modifyBtnText, match.active !== false ? { color: '#ef4444' } : { color: '#22c55e' }]}>
                             {match.active !== false ? 'Archivar' : 'Restaurar'}

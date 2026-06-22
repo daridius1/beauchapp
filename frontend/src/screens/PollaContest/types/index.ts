@@ -33,6 +33,11 @@ export interface EditingScoreState {
     homeScore: string;
     awayScore: string;
     played: boolean;
+    homeTeam: string;
+    awayTeam: string;
+    homeFlag: string;
+    awayFlag: string;
+    date: string;
   };
 }
 

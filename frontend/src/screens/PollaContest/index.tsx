@@ -136,24 +136,42 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const startEditingMatch = (match: Match) => {
+    // Format the date to YYYY-MM-DD HH:mm local time
+    let formattedDate = '';
+    if (match.date) {
+      const d = new Date(match.date);
+      if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        formattedDate = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+      }
+    }
+
     setEditingMatchId(match.id);
     setEditingScores((prev) => ({
       ...prev,
       [match.id]: {
-        homeScore: match.homeScore !== undefined && match.homeScore !== null ? String(match.homeScore) : '',
-        awayScore: match.awayScore !== undefined && match.awayScore !== null ? String(match.awayScore) : '',
-        played: !!match.played,
+        homeScore: match.homeScore?.toString() || '',
+        awayScore: match.awayScore?.toString() || '',
+        played: match.played || false,
+        homeTeam: match.homeTeam || '',
+        awayTeam: match.awayTeam || '',
+        homeFlag: match.homeFlag || '',
+        awayFlag: match.awayFlag || '',
+        date: formattedDate,
       },
     }));
   };
 
-  const handleEditScoreChange = (matchId: string, side: 'home' | 'away', value: string) => {
-    const cleanValue = value.replace(/[^0-9]/g, '');
+  const handleEditFieldChange = (matchId: string, field: keyof EditingScoreState[string], value: string | boolean) => {
     setEditingScores((prev) => ({
       ...prev,
       [matchId]: {
         ...prev[matchId],
-        [side === 'home' ? 'homeScore' : 'awayScore']: cleanValue,
+        [field]: value,
       },
     }));
   };
@@ -163,7 +181,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
       ...prev,
       [matchId]: {
         ...prev[matchId],
-        played: !prev[matchId].played,
+        played: !prev[matchId]?.played,
       },
     }));
   };
@@ -258,7 +276,24 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
       const dataToSave: any = {
         played: editData.played,
+        homeTeam: editData.homeTeam.trim(),
+        awayTeam: editData.awayTeam.trim(),
+        homeFlag: editData.homeFlag.trim(),
+        awayFlag: editData.awayFlag.trim(),
       };
+
+      if (!dataToSave.homeTeam || !dataToSave.awayTeam || !dataToSave.homeFlag || !dataToSave.awayFlag || !editData.date.trim()) {
+        throw new Error("Datos incompletos");
+      }
+
+      // Try parsing date
+      try {
+        const d = new Date(editData.date);
+        if (isNaN(d.getTime())) throw new Error("Fecha inválida");
+        dataToSave.date = d.toISOString();
+      } catch (e) {
+        throw new Error("Fecha inválida");
+      }
 
       if (hScoreStr !== '' && aScoreStr !== '') {
         const hs = parseInt(hScoreStr, 10);
@@ -288,9 +323,14 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
     } catch (err: any) {
       console.error('Error al guardar partido:', err);
-      const msg = err.message === "Marcador inválido" || err.message === "Marcador incompleto" 
-        ? 'Ingresa ambos goles o deja ambos en blanco.' 
-        : 'Error al guardar el partido. Verifica tus permisos.';
+      let msg = 'Error al guardar el partido. Verifica tus permisos.';
+      if (err.message === "Marcador inválido" || err.message === "Marcador incompleto") {
+        msg = 'Ingresa ambos goles o deja ambos en blanco.';
+      } else if (err.message === "Datos incompletos") {
+        msg = 'Completa todos los campos del partido.';
+      } else if (err.message === "Fecha inválida") {
+        msg = 'Formato de fecha inválido. Usa YYYY-MM-DD HH:mm';
+      }
       Toast.show({ type: 'error', text1: msg, position: 'top' });
     } finally {
       setSavingMatchId(null);
@@ -466,7 +506,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
             creatingMatch={creatingMatch}
             existingStages={existingStages}
             startEditingMatch={startEditingMatch}
-            handleEditScoreChange={handleEditScoreChange}
+            handleEditFieldChange={handleEditFieldChange}
             handleEditTogglePlayed={handleEditTogglePlayed}
             handleSaveSingleMatch={handleSaveSingleMatch}
             cancelEditingMatch={cancelEditingMatch}
