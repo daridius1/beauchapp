@@ -1,4 +1,4 @@
-const BACKEND_URL = 'http://127.0.0.1:8090';
+const BACKEND_URL = 'https://beauchap.daridius.cl';
 
 async function request(path, options = {}) {
   const url = `${BACKEND_URL}${path}`;
@@ -46,7 +46,7 @@ function schemasAreEqual(colA, colB) {
 async function main() {
   try {
     console.log('Autenticando como administrador (vía REST API)...');
-    const authData = await request('/api/admins/auth-with-password', {
+    const authData = await request('/api/collections/_superusers/auth-with-password', {
       method: 'POST',
       body: JSON.stringify({
         identity: 'admin@ug.uchile.cl',

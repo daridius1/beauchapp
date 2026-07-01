@@ -8,9 +8,14 @@ const getBackendUrl = () => {
     // En la web, se conecta al puerto 8090 en el mismo host que corre el navegador
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
-      return `http://${hostname}:8090`;
+      // Si estamos en desarrollo local con Expo, usamos el puerto 8090
+      if (window.location.port === '8081') {
+        return `http://${hostname}:8090`;
+      }
+      // En producción servido por PocketBase/Cloudflare, usamos el mismo origen
+      return window.location.origin;
     }
-    return 'http://127.0.0.1:8090';
+    return '/';
   }
 
   // En celulares (iOS/Android), obtenemos la IP del Metro Bundler
