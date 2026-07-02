@@ -1,4 +1,4 @@
-const BACKEND_URL = 'https://beauchap.daridius.cl';
+const BACKEND_URL = 'http://127.0.0.1:8090';
 
 async function request(path, options = {}) {
   const url = `${BACKEND_URL}${path}`;
@@ -46,11 +46,11 @@ function schemasAreEqual(colA, colB) {
 async function main() {
   try {
     console.log('Autenticando como administrador (vía REST API)...');
-    const authData = await request('/api/collections/_superusers/auth-with-password', {
+    const authData = await request('/api/admins/auth-with-password', {
       method: 'POST',
       body: JSON.stringify({
         identity: 'admin@ug.uchile.cl',
-        password: 'password123',
+        password: 'admin123456',
       }),
     });
     
@@ -276,21 +276,21 @@ async function main() {
     await upsertCollection(predictionsCol);
 
     // 4. Buscar usuario 'test' para hacerlo Superadmin y Admin del concurso
-    console.log('Buscando usuario "test@ug.uchile.cl"...');
-    const usersList = await request(`/api/collections/users/records?filter=email="test@ug.uchile.cl"`, { headers: authHeader });
+    console.log('Buscando usuario "test@ing.uchile.cl"...');
+    const usersList = await request(`/api/collections/users/records?filter=email="test@ing.uchile.cl"`, { headers: authHeader });
     let testUser = null;
     
     if (usersList.items && usersList.items.length > 0) {
       testUser = usersList.items[0];
-      console.log('Usuario "test" encontrado. Asignando rol "isSuperadmin"...');
+      console.log('Usuario "test" encontrado. Asignando rol de admin...');
       testUser = await request(`/api/collections/users/records/${testUser.id}`, {
         method: 'PATCH',
         headers: authHeader,
-        body: JSON.stringify({ isSuperadmin: true })
+        body: JSON.stringify({ verified: true })
       });
-      console.log('Usuario "test" es ahora Superadmin.');
+      console.log('Usuario "test" verificado.');
     } else {
-      console.log('Usuario "test@ug.uchile.cl" no existe en la base de datos.');
+      console.log('Usuario "test@ing.uchile.cl" no existe en la base de datos.');
     }
 
     // 5. Obtener/Crear el concurso "Polla Mundialera"
@@ -328,17 +328,17 @@ async function main() {
       console.log('Concurso "Polla Mundialera" creado con ID:', contest.id);
     }
 
-    // 6. Sembrar partidos
+    // 6. Sembrar partidos (algunos pasados, algunos futuros)
     console.log('Sembrando partidos para la Polla Mundialera...');
     const matchesToSeed = [
-      { homeTeam: 'Países Bajos', homeFlag: '🇳🇱', awayTeam: 'Estados Unidos', awayFlag: '🇺🇸', stage: 'Octavos de Final', date: '2026-11-20T16:00:00Z' },
-      { homeTeam: 'Argentina', homeFlag: '🇦🇷', awayTeam: 'Australia', awayFlag: '🇦🇺', stage: 'Octavos de Final', date: '2026-11-20T20:00:00Z' },
-      { homeTeam: 'Francia', homeFlag: '🇫🇷', awayTeam: 'Polonia', awayFlag: '🇵🇱', stage: 'Octavos de Final', date: '2026-11-21T16:00:00Z' },
-      { homeTeam: 'Inglaterra', homeFlag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', awayTeam: 'Senegal', awayFlag: '🇸🇳', stage: 'Octavos de Final', date: '2026-11-21T20:00:00Z' },
-      { homeTeam: 'Japón', homeFlag: '🇯🇵', awayTeam: 'Croacia', awayFlag: '🇭🇷', stage: 'Octavos de Final', date: '2026-11-22T16:00:00Z' },
-      { homeTeam: 'Brasil', homeFlag: '🇧🇷', awayTeam: 'Corea del Sur', awayFlag: '🇰🇷', stage: 'Octavos de Final', date: '2026-11-22T20:00:00Z' },
-      { homeTeam: 'Marruecos', homeFlag: '🇲🇦', awayTeam: 'España', awayFlag: '🇪🇸', stage: 'Octavos de Final', date: '2026-11-23T16:00:00Z' },
-      { homeTeam: 'Portugal', homeFlag: '🇵🇹', awayTeam: 'Suiza', awayFlag: '🇨🇭', stage: 'Octavos de Final', date: '2026-11-23T20:00:00Z' }
+      { homeTeam: 'Países Bajos', homeFlag: '🇳🇱', awayTeam: 'Estados Unidos', awayFlag: '🇺🇸', stage: 'Octavos de Final', date: '2026-06-25T16:00:00Z', played: true, homeScore: 3, awayScore: 1 },
+      { homeTeam: 'Argentina', homeFlag: '🇦🇷', awayTeam: 'Australia', awayFlag: '🇦🇺', stage: 'Octavos de Final', date: '2026-06-25T20:00:00Z', played: true, homeScore: 2, awayScore: 1 },
+      { homeTeam: 'Francia', homeFlag: '🇫🇷', awayTeam: 'Polonia', awayFlag: '🇵🇱', stage: 'Octavos de Final', date: '2026-06-26T16:00:00Z', played: true, homeScore: 3, awayScore: 1 },
+      { homeTeam: 'Inglaterra', homeFlag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', awayTeam: 'Senegal', awayFlag: '🇸🇳', stage: 'Octavos de Final', date: '2026-11-21T20:00:00Z', played: false, homeScore: null, awayScore: null },
+      { homeTeam: 'Japón', homeFlag: '🇯🇵', awayTeam: 'Croacia', awayFlag: '🇭🇷', stage: 'Octavos de Final', date: '2026-11-22T16:00:00Z', played: false, homeScore: null, awayScore: null },
+      { homeTeam: 'Brasil', homeFlag: '🇧🇷', awayTeam: 'Corea del Sur', awayFlag: '🇰🇷', stage: 'Octavos de Final', date: '2026-11-22T20:00:00Z', played: false, homeScore: null, awayScore: null },
+      { homeTeam: 'Marruecos', homeFlag: '🇲🇦', awayTeam: 'España', awayFlag: '🇪🇸', stage: 'Octavos de Final', date: '2026-11-23T16:00:00Z', played: false, homeScore: null, awayScore: null },
+      { homeTeam: 'Portugal', homeFlag: '🇵🇹', awayTeam: 'Suiza', awayFlag: '🇨🇭', stage: 'Octavos de Final', date: '2026-11-23T20:00:00Z', played: false, homeScore: null, awayScore: null }
     ];
 
     const seededMatches = [];
@@ -369,7 +369,9 @@ async function main() {
             stage: m.stage,
             date: m.date,
             active: true,
-            played: false
+            played: m.played,
+            homeScore: m.homeScore,
+            awayScore: m.awayScore
           })
         });
         console.log(`Partido ${m.homeTeam} vs ${m.awayTeam} creado.`);
@@ -380,12 +382,12 @@ async function main() {
     // 7. Sembrar 6 usuarios genéricos de prueba si no existen
     console.log('Sembrando 6 usuarios de prueba...');
     const testUsersToSeed = [
-      { email: 'juan.perez@ug.uchile.cl', name: 'Juan Pérez' },
-      { email: 'sofia.gomez@ug.uchile.cl', name: 'Sofía Gómez' },
-      { email: 'diego.soto@ug.uchile.cl', name: 'Diego Soto' },
-      { email: 'camila.silva@ug.uchile.cl', name: 'Camila Silva' },
-      { email: 'lucas.munoz@ug.uchile.cl', name: 'Lucas Muñoz' },
-      { email: 'valentina.rojas@ug.uchile.cl', name: 'Valentina Rojas' }
+      { email: 'juan.perez@ing.uchile.cl', name: 'Juan Pérez' },
+      { email: 'sofia.gomez@ing.uchile.cl', name: 'Sofía Gómez' },
+      { email: 'diego.soto@ing.uchile.cl', name: 'Diego Soto' },
+      { email: 'camila.silva@ing.uchile.cl', name: 'Camila Silva' },
+      { email: 'lucas.munoz@ing.uchile.cl', name: 'Lucas Muñoz' },
+      { email: 'valentina.rojas@ing.uchile.cl', name: 'Valentina Rojas' }
     ];
 
     const seededUsers = [];
@@ -408,7 +410,7 @@ async function main() {
               password: 'password123',
               passwordConfirm: 'password123',
               name: u.name,
-              isSuperadmin: false
+              verified: true // By-pass email verification for tests
             })
           });
           console.log(`Usuario de prueba ${u.name} creado.`);

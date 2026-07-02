@@ -10,6 +10,7 @@ import { UserPredictionsPanel } from './components/UserPredictionsPanel';
 import { ParticipantsTable } from './components/ParticipantsTable';
 import { AdminPanel } from './components/AdminPanel';
 import Toast from 'react-native-toast-message';
+import { theme } from '../HomeScreen';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PollaContest'>;
 
@@ -427,7 +428,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
   if (loading) {
     return (
       <View style={[styles.keyboardContainer, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#38bdf8" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }

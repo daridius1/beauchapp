@@ -6,13 +6,13 @@ import { RootStackParamList } from '../types/navigation';
 
 export const theme = {
   colors: {
-    primary: '#4f46e5', // Indigo accent
-    background: '#0f172a', // Dark deep slate
-    cardBg: '#1e293b', // Lighter slate card
-    text: '#f8fafc', // Clean bright text
-    textMuted: '#94a3b8', // Gray label
-    border: '#334155',
-    accent: '#38bdf8', // Light sky blue
+    primary: '#ffffff', // White accent
+    background: '#000000', // Pure black background
+    cardBg: '#0a0a0a', // Almost black cards
+    text: '#ffffff', // Pure white text
+    textMuted: '#888888', // Muted gray text
+    border: '#222222', // Subtle dark border
+    accent: '#ffffff', // White accents
   },
   spacing: {
     xs: 4,
@@ -22,8 +22,8 @@ export const theme = {
     xl: 32,
   },
   borderRadius: {
-    md: 6,
-    lg: 6,
+    md: 4,
+    lg: 4,
   }
 };
 
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heroButtonText: {
-    color: '#fff',
+    color: '#000000', // Black text on white button
     fontSize: 14,
     fontWeight: '600',
   },
@@ -171,12 +171,12 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   tagContainer: {
-    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+    backgroundColor: '#111111',
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: theme.borderRadius.md,
     borderWidth: 1,
-    borderColor: 'rgba(79, 70, 229, 0.2)',
+    borderColor: '#222222',
   },
   tagText: {
     color: theme.colors.accent,

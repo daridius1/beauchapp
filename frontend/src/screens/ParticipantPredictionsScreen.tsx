@@ -136,6 +136,9 @@ export const ParticipantPredictionsScreen: React.FC<Props> = ({ navigation, rout
 
               <View style={styles.predContainer}>
                 {hasPred ? (
+                  pred.homeScore === -1 ? (
+                    <Text style={styles.hiddenPredText}>Apuesta oculta hasta el inicio del partido 🔒</Text>
+                  ) : (
                   <View style={styles.predRow}>
                     <Text style={styles.predLabel}>Apostó:</Text>
                     <Text style={styles.predScore}>
@@ -147,6 +150,7 @@ export const ParticipantPredictionsScreen: React.FC<Props> = ({ navigation, rout
                       </View>
                     )}
                   </View>
+                  )
                 ) : (
                   <Text style={styles.noPredText}>No registró predicción.</Text>
                 )}
@@ -280,7 +284,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
   },
   predContainer: {
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    backgroundColor: '#111111',
     padding: theme.spacing.sm,
     borderRadius: 4,
   },
@@ -315,6 +319,11 @@ const styles = StyleSheet.create({
   noPredText: {
     fontSize: 13,
     color: theme.colors.textMuted,
+    fontStyle: 'italic',
+  },
+  hiddenPredText: {
+    fontSize: 13,
+    color: '#888888',
     fontStyle: 'italic',
   },
 });

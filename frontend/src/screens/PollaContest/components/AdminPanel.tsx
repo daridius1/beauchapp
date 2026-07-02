@@ -172,7 +172,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             activeOpacity={0.8}
           >
             {creatingMatch ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color="#000000" />
             ) : (
               <Text style={styles.createMatchSubmitBtnText}>Crear Partido</Text>
             )}
@@ -283,7 +283,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           disabled={savingMatchId === match.id}
                         >
                           {savingMatchId === match.id ? (
-                            <ActivityIndicator size="small" color="#0f172a" />
+                            <ActivityIndicator size="small" color="#000000" />
                           ) : (
                             <Text style={styles.saveEditBtnText}>Guardar</Text>
                           )}
@@ -294,7 +294,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 ) : (
                   // Vista de solo lectura del partido (con botón para editar)
                   <View style={styles.adminMatchRow}>
-                    <Text style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center', marginBottom: 4 }}>
+                    <Text style={{ fontSize: 11, color: theme.colors.textMuted, textAlign: 'center', marginBottom: 4 }}>
                       {formatMatchDate(match.date)}
                       {match.active === false && ' • (Archivado)'}
                     </Text>

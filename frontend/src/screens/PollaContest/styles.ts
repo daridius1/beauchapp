@@ -223,12 +223,12 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(51, 65, 85, 0.3)',
+    borderBottomColor: theme.colors.border,
   },
   matchCard: {
     paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(51, 65, 85, 0.3)',
+    borderBottomColor: theme.colors.border,
   },
   matchHeader: {
     flexDirection: 'row',
@@ -248,7 +248,7 @@ export const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
     paddingTop: theme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(51, 65, 85, 0.4)',
+    borderTopColor: theme.colors.border,
     alignItems: 'center',
   },
   viewBetsText: {
@@ -386,7 +386,7 @@ export const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#fff',
+    color: '#000000',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -420,7 +420,7 @@ export const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+    backgroundColor: '#111111',
     borderWidth: 1,
     borderColor: theme.colors.border,
     justifyContent: 'center',
@@ -520,7 +520,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(51, 65, 85, 0.4)',
+    borderTopColor: theme.colors.border,
     paddingTop: theme.spacing.sm,
   },
   statusBadge: {
@@ -549,8 +549,8 @@ export const styles = StyleSheet.create({
     color: theme.colors.textMuted,
   },
   modifyBtn: {
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    borderColor: 'rgba(56, 189, 248, 0.2)',
+    backgroundColor: '#111111',
+    borderColor: '#222222',
     borderWidth: 1,
     borderRadius: theme.borderRadius.md,
     paddingVertical: 5,
@@ -566,7 +566,7 @@ export const styles = StyleSheet.create({
   editCard: {
     backgroundColor: theme.colors.cardBg,
     borderWidth: 1,
-    borderColor: theme.colors.accent, // Sky blue border to highlight editing card
+    borderColor: theme.colors.text, // Solid border for editing card in B/W theme
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.md,
   },
@@ -652,7 +652,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveEditBtnText: {
-    color: '#0f172a', // Slate 900 for high contrast text on sky blue button
+    color: '#000000', // Black text on white button
     fontSize: 12,
     fontWeight: '700',
   },
@@ -730,7 +730,7 @@ export const styles = StyleSheet.create({
   },
   stageChipActive: {
     borderColor: theme.colors.accent,
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    backgroundColor: '#111111',
   },
   stageChipText: {
     fontSize: 12,
@@ -774,7 +774,7 @@ export const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
   },
   createMatchSubmitBtnText: {
-    color: '#fff',
+    color: '#000000',
     fontSize: 13,
     fontWeight: '600',
   },

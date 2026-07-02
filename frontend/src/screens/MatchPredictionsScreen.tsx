@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(51, 65, 85, 0.3)',
+    borderBottomColor: theme.colors.border,
     paddingBottom: 8,
   },
   stageText: {
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   statusBadge: {
-    backgroundColor: 'rgba(51, 65, 85, 0.5)',
+    backgroundColor: '#111111',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   },
   tableHeaderRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(51, 65, 85, 0.5)',
+    backgroundColor: '#111111',
     paddingVertical: 10,
     paddingHorizontal: theme.spacing.md,
     borderBottomWidth: 1,
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(51, 65, 85, 0.3)',
+    borderBottomColor: theme.colors.border,
   },
   tableRowLast: {
     borderBottomWidth: 0,

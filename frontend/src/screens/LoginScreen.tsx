@@ -129,7 +129,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           activeOpacity={0.8}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color="#000000" size="small" />
           ) : (
             <Text style={styles.submitButtonText}>
               {isSignUp ? 'Crear cuenta' : 'Iniciar Sesión'}
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   submitButtonText: {
-    color: '#fff',
+    color: '#000000',
     fontSize: 15,
     fontWeight: '600',
   },
