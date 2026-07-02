@@ -4,6 +4,12 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 const getBackendUrl = () => {
+  // 1. Prioridad: Variable de entorno (útil para producción y setups manuales)
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
+  // 2. Fallback automático para desarrollo
   if (Platform.OS === 'web') {
     // En la web, se conecta al puerto 8090 en el mismo host que corre el navegador
     if (typeof window !== 'undefined') {
