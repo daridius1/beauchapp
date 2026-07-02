@@ -37,15 +37,37 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [content, setContent] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
+  const [filterTags, setFilterTags] = useState<string[]>([]);
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [tempTag, setTempTag] = useState('');
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
 
   const fetchPosts = async () => {
     try {
-      const res = await pb.collection('posts').getList(1, 50, {
+      let filterConditions = [];
+      if (activeSearch) {
+        const safeSearch = activeSearch.replace(/"/g, '\\"');
+        filterConditions.push(`content ~ "${safeSearch}"`);
+      }
+      if (filterTags.length > 0) {
+        filterTags.forEach(t => {
+          const safeTag = t.replace(/"/g, '\\"');
+          filterConditions.push(`tags ~ "${safeTag}"`);
+        });
+      }
+
+      const options: any = {
         sort: '-created',
         expand: 'author,replyTo.author,posts_via_replyTo'
-      });
+      };
+      if (filterConditions.length > 0) {
+        options.filter = filterConditions.join(' && ');
+      }
+
+      const res = await pb.collection('posts').getList(1, 50, options);
       setPosts(res.items);
     } catch (err) {
       console.error('Error fetching posts', err);
@@ -57,8 +79,50 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   useFocusEffect(
     useCallback(() => {
       fetchPosts();
-    }, [])
+    }, [activeSearch, filterTags.join(',')])
   );
+
+  const handleSearchChange = (text: string) => {
+    if (text.endsWith(' ') && text.includes('#')) {
+      const hashMatch = text.match(/#(\w+)\s/);
+      if (hashMatch) {
+        if (filterTags.length < 1) {
+          setFilterTags([hashMatch[1].toLowerCase()]);
+        }
+        setSearchQuery(text.replace(/#\w+\s/, '').trim());
+        return;
+      }
+    }
+    setSearchQuery(text);
+  };
+
+  const handleSearch = () => {
+    let q = searchQuery;
+    const hashMatch = q.match(/#(\w+)/);
+    if (hashMatch) {
+      if (filterTags.length < 1) {
+        setFilterTags([hashMatch[1].toLowerCase()]);
+      }
+      q = q.replace(/#\w+/, '').trim();
+      setSearchQuery(q);
+    }
+    setActiveSearch(q);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setActiveSearch('');
+  };
+
+  const activateTagFilter = (tag: string) => {
+    setFilterTags([tag.toLowerCase()]);
+    setSearchQuery('');
+    setActiveSearch('');
+  };
+
+  const removeFilterTag = (index: number) => {
+    setFilterTags(filterTags.filter((_, i) => i !== index));
+  };
 
   const addTag = (text: string) => {
     const clean = text.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
@@ -138,7 +202,79 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Muro de Beauchef</Text>
+        <View style={styles.searchContainer}>
+          {filterTags.length > 0 ? (
+            <TouchableOpacity onPress={() => removeFilterTag(0)} style={[styles.tagChipEditable, { marginBottom: 0, marginTop: 0, marginRight: 8 }]}>
+              <Text style={styles.tagChipEditableText}>#{filterTags[0]} ✕</Text>
+            </TouchableOpacity>
+          ) : (
+            !isAddingTag && (
+              <TouchableOpacity onPress={() => setIsAddingTag(true)} style={styles.hashBtn}>
+                <Text style={styles.hashBtnText}>#</Text>
+              </TouchableOpacity>
+            )
+          )}
+
+          {isAddingTag ? (
+            <View style={styles.expandingTagContainer}>
+              <Text style={styles.hashPrefix}>#</Text>
+              <TextInput
+                style={styles.expandingTagInput}
+                placeholder="tag..."
+                placeholderTextColor={theme.colors.textMuted}
+                autoFocus
+                value={tempTag}
+                onChangeText={setTempTag}
+                onSubmitEditing={() => {
+                  const clean = tempTag.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                  if (clean) activateTagFilter(clean);
+                  setTempTag('');
+                  setIsAddingTag(false);
+                }}
+                maxLength={15}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {tempTag.trim().length > 0 ? (
+                <TouchableOpacity 
+                  onPress={() => {
+                    const clean = tempTag.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                    if (clean) activateTagFilter(clean);
+                    setTempTag('');
+                    setIsAddingTag(false);
+                  }} 
+                  style={styles.inlineActionBtn}
+                >
+                  <Text style={styles.inlineActionBtnTextPlus}>+</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={() => setIsAddingTag(false)} style={styles.inlineActionBtn}>
+                  <Text style={styles.inlineActionBtnTextCancel}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar..."
+                placeholderTextColor={theme.colors.textMuted}
+                value={searchQuery}
+                onChangeText={handleSearchChange}
+                onSubmitEditing={handleSearch}
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={clearSearch} style={styles.clearSearchBtn}>
+                  <Text style={styles.clearSearchBtnText}>✕</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={handleSearch} style={styles.inlineActionBtn}>
+                <Text style={styles.inlineActionBtnTextSearch}>🔍</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
       </View>
 
       <ScrollView style={styles.feedList} contentContainerStyle={styles.feedContent}>
@@ -252,9 +388,14 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 {post.tags && post.tags.length > 0 && (
                   <View style={styles.tagsRow}>
                     {post.tags.map((t: string, i: number) => (
-                      <View key={i} style={styles.tagChip}>
+                      <TouchableOpacity 
+                        key={i} 
+                        style={styles.tagChip}
+                        onPress={() => activateTagFilter(t)}
+                        activeOpacity={0.7}
+                      >
                         <Text style={styles.tagChipText}>#{t}</Text>
-                      </View>
+                      </TouchableOpacity>
                     ))}
                   </View>
                 )}
@@ -288,14 +429,62 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   header: {
-    padding: theme.spacing.md,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.sm,
+  },
+  filterTagsContainer: {
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+  filterTagsScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.sm,
+  },
+  filterTagsLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+    marginRight: theme.spacing.sm,
+  },
+  filterTagsInput: {
     color: theme.colors.text,
+    fontSize: 13,
+    minWidth: 70,
+    paddingVertical: 4,
+    marginRight: 4,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  searchIcon: {
+    fontSize: 14,
+    marginRight: theme.spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    color: theme.colors.text,
+    fontSize: 15,
+    paddingVertical: 10,
+  },
+  clearSearchBtn: {
+    padding: 4,
+    marginLeft: theme.spacing.sm,
+  },
+  clearSearchBtnText: {
+    color: theme.colors.textMuted,
+    fontSize: 16,
   },
   feedList: {
     flex: 1,
@@ -488,5 +677,57 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 13,
     fontWeight: '500',
+  },
+  hashBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#222',
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  hashBtnText: {
+    color: theme.colors.textMuted,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  expandingTagContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#222',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+  },
+  hashPrefix: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+    marginRight: 2,
+  },
+  expandingTagInput: {
+    flex: 1,
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+    paddingVertical: 6,
+  },
+  inlineActionBtn: {
+    padding: 6,
+    marginLeft: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inlineActionBtnTextPlus: {
+    color: theme.colors.text,
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  inlineActionBtnTextCancel: {
+    color: theme.colors.textMuted,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  inlineActionBtnTextSearch: {
+    fontSize: 16,
   },
 });
