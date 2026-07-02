@@ -32,6 +32,10 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       // 1. Fetch focused post
       const postRes = await pb.collection('posts').getOne(postId, { expand: 'author,posts_via_replyTo' });
       setMainPost(postRes);
+      
+      if (!hideLoading) {
+        setTags(postRes.tags || []);
+      }
 
       // 2. Fetch parent context (if exists) and siblings
       if (postRes.replyTo) {
@@ -107,7 +111,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         replyTo: mainPost.id
       });
       setContent('');
-      setTags([]);
+      setTags(mainPost.tags || []);
       setTagInput('');
       fetchData();
     } catch (err) {
@@ -177,7 +181,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.postMeta}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={styles.postAuthor}>{author?.name || 'Usuario'}</Text>
-              {author?.username && <Text style={styles.postUsername}> @{author.username}</Text>}
+              {author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
             </View>
             <Text style={styles.postDate}>{formatDate(post.created)}</Text>
           </View>

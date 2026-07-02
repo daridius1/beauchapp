@@ -90,8 +90,20 @@ export const ParticipantPredictionsScreen: React.FC<Props> = ({ navigation, rout
         </View>
 
         <View style={styles.headerInfo}>
-          <Text style={styles.title}>Predicciones de {participantName}</Text>
-          <Text style={styles.subtitle}>En {contestName}</Text>
+          <Text style={{ fontSize: 13, color: theme.colors.textMuted, marginBottom: 2, letterSpacing: 0.5 }}>Predicciones de</Text>
+          
+          <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: participantId })}>
+            <Text style={{ fontSize: 28, fontWeight: '700', color: theme.colors.accent, marginBottom: 6, letterSpacing: -0.5 }}>
+              {participantName}
+            </Text>
+          </TouchableOpacity>
+          
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ fontSize: 15, color: theme.colors.textMuted }}>en </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('PollaContest', { contestId })}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: theme.colors.text }}>{contestName}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {matches.map((match) => {

@@ -224,16 +224,4 @@ onRecordBeforeUpdateRequest((e) => {
 }, "contests");
 
 // Sanitizar tags en posts también
-onRecordBeforeCreateRequest((e) => {
-    const tags = e.record.get("tags");
-    if (tags && Array.isArray(tags)) {
-        e.record.set("tags", tags.map(t => sanitizeTag(t)).filter(t => t.length > 0));
-    }
-}, "posts");
-
-onRecordBeforeUpdateRequest((e) => {
-    const tags = e.record.get("tags");
-    if (tags && Array.isArray(tags)) {
-        e.record.set("tags", tags.map(t => sanitizeTag(t)).filter(t => t.length > 0));
-    }
-}, "posts");
+// Sanitización de posts manejada en el frontend.

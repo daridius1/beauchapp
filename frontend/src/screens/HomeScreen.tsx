@@ -387,16 +387,16 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                   <View style={styles.postMeta}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <Text style={styles.postAuthor}>{author?.name || 'Usuario'}</Text>
-                      {author?.username && <Text style={styles.postUsername}> @{author.username}</Text>}
+                      {author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
                     </View>
                     <Text style={styles.postDate}>{formatDate(post.created)}</Text>
                   </View>
                 </TouchableOpacity>
-                {post.replyTo && post.expand?.replyTo?.expand?.author && (
+                {post.replyTo && post.expand?.replyTo?.expand?.author ? (
                   <Text style={styles.replyContextText}>
                     En respuesta a @{post.expand.replyTo.expand.author.username}
                   </Text>
-                )}
+                ) : null}
                 <Text style={styles.postContent}>{post.content}</Text>
                 
                 {post.tags && post.tags.length > 0 && (

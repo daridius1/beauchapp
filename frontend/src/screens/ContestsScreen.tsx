@@ -80,9 +80,6 @@ export const ContestsScreen: React.FC<Props> = ({ navigation }) => {
               activeOpacity={0.8}
             >
               <View style={styles.contestInfo}>
-                <View style={styles.badgeContainer}>
-                  <Text style={styles.badgeText}>ACTIVO</Text>
-                </View>
                 <Text style={styles.contestName}>{contest.name}</Text>
                 <Text style={styles.contestDescription}>{contest.description}</Text>
               </View>

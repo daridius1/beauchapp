@@ -1,14 +1,68 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useAuth } from '../context/AuthContext';
-import { theme } from './HomeScreen';
 import { RootStackParamList } from '../types/navigation';
+import { pb } from '../services/pocketbase';
+import { theme } from './HomeScreen';
+import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, logout } = useAuth();
+  
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const isFirstLoad = useRef(true);
+
+  const fetchPosts = async (hideLoading = false) => {
+    if (!user) return;
+    try {
+      if (!hideLoading) setLoading(true);
+      const postsRes = await pb.collection('posts').getList(1, 50, {
+        filter: `author = "${user.id}"`,
+        sort: '-created',
+        expand: 'author,replyTo.author,posts_via_replyTo'
+      });
+      setPosts(postsRes.items);
+    } catch (err) {
+      console.error('Error fetching user posts', err);
+    } finally {
+      if (!hideLoading) setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPosts(!isFirstLoad.current);
+      isFirstLoad.current = false;
+    }, [user])
+  );
+
+  const toggleLike = async (post: any) => {
+    if (!user) return;
+    try {
+      const currentLikes = post.likes || [];
+      let newLikes = [...currentLikes];
+      if (newLikes.includes(user.id)) {
+        newLikes = newLikes.filter((id: string) => id !== user.id);
+      } else {
+        newLikes.push(user.id);
+      }
+      await pb.collection('posts').update(post.id, { likes: newLikes });
+      
+      setPosts(posts.map(p => p.id === post.id ? { ...p, likes: newLikes } : p));
+    } catch (err) {
+      console.error('Error liking post', err);
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL', { hour: '2-digit', minute:'2-digit' });
+  };
 
   const handleLogout = () => {
     logout();
@@ -17,164 +71,176 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   if (!user) {
     return (
-      <View style={styles.centeredContainer}>
-        <Text style={styles.messageText}>Inicia sesión para ver tu perfil y estadísticas.</Text>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('Login')}
-        >
-          <Text style={styles.actionButtonText}>Iniciar Sesión</Text>
+      <View style={styles.centerContainer}>
+        <Text style={styles.noPostsText}>Inicia sesión para ver tu perfil.</Text>
+        <TouchableOpacity style={{ backgroundColor: theme.colors.primary, padding: 12, borderRadius: 4 }} onPress={() => navigation.navigate('Login')}>
+          <Text style={{ color: '#000', fontWeight: 'bold' }}>Iniciar Sesión</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  // Placeholder para historial de partidos (se integrará dinámicamente más adelante)
-  const matches: any[] = [
-    // { id: '1', opponent: 'Diego Silva', score: '3 - 1', result: 'Victoria', discipline: 'Taca-Taca', date: '19 Jun 2026', eloDiff: '+16' }
-  ];
-
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.profileHeader}>
-        <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarText}>
-            {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-          </Text>
-        </View>
-        <Text style={styles.profileName}>{user.name}</Text>
-        {user.username && <Text style={styles.profileUsername}>@{user.username}</Text>}
-        <Text style={styles.profileEmail}>{user.email}</Text>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.backBtn} />
+        <Text style={styles.headerTitle}>Mi Perfil</Text>
+        <View style={{ width: 60 }} />
       </View>
 
-      <View style={styles.accountDetails}>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Rol</Text>
-          <Text style={styles.detailValue}>Estudiante</Text>
+      <ScrollView style={styles.feedList} contentContainerStyle={styles.feedContent}>
+        
+        {/* Profile Header */}
+        <View style={styles.profileHeader}>
+          <View style={styles.avatarLarge}>
+            <Text style={styles.avatarLargeText}>
+              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+            </Text>
+          </View>
+          <Text style={styles.profileName}>{user.name || 'Usuario'}</Text>
+          {user?.username ? <Text style={styles.profileUsername}>@{user.username}</Text> : null}
+          <Text style={styles.profileEmail}>{user.email}</Text>
+          <Text style={styles.statsText}>{posts.length} Publicaciones</Text>
         </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Miembro desde</Text>
-          <Text style={styles.detailValue}>
-            {new Date(user.created).toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' })}
-          </Text>
-        </View>
-      </View>
 
-      <TouchableOpacity 
-        style={styles.logoutButton}
-        onPress={handleLogout}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <View style={styles.divider} />
+
+        {/* User Posts */}
+        {loading && isFirstLoad.current ? (
+          <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 20 }} />
+        ) : posts.length === 0 ? (
+          <Text style={styles.noPostsText}>Aún no has publicado nada.</Text>
+        ) : (
+          posts.map(post => {
+            const isLiked = (post.likes || []).includes(user.id);
+            const author = post.expand?.author;
+            const repliesCount = post.expand?.posts_via_replyTo ? post.expand.posts_via_replyTo.length : 0;
+            
+            return (
+              <TouchableOpacity 
+                key={post.id} 
+                style={styles.postCard} 
+                activeOpacity={0.7}
+                onPress={() => navigation.push('PostDetail', { postId: post.id })}
+              >
+                <View style={styles.postHeader}>
+                  <View style={styles.avatarMini}>
+                    <Text style={styles.avatarMiniText}>{author?.name ? author.name.charAt(0).toUpperCase() : 'U'}</Text>
+                  </View>
+                  <View style={styles.postMeta}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={styles.postAuthor}>{author?.name || 'Usuario'}</Text>
+                      {author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
+                    </View>
+                    <Text style={styles.postDate}>{formatDate(post.created)}</Text>
+                  </View>
+                </View>
+                
+                {post.replyTo && post.expand?.replyTo?.expand?.author ? (
+                  <Text style={styles.replyContextText}>
+                    En respuesta a @{post.expand.replyTo.expand.author.username}
+                  </Text>
+                ) : null}
+                
+                <Text style={styles.postContent}>{post.content}</Text>
+                
+                {post.tags && post.tags.length > 0 && (
+                  <View style={styles.tagsRow}>
+                    {post.tags.map((t: string, i: number) => (
+                      <View key={i} style={styles.tagChip}>
+                        <Text style={styles.tagChipText}>#{t}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                <View style={styles.postActions}>
+                  <TouchableOpacity style={styles.actionBtn} onPress={() => toggleLike(post)}>
+                    <Text style={styles.actionIcon}>{isLiked ? '❤️' : '🤍'}</Text>
+                    <Text style={[styles.actionCount, isLiked && styles.actionIconActive]}>
+                      {(post.likes || []).length}
+                    </Text>
+                  </TouchableOpacity>
+                  <View style={styles.actionBtn}>
+                    <Text style={styles.actionIcon}>💬</Text>
+                    <Text style={styles.actionCount}>{repliesCount}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })
+        )}
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  centerContainer: { flex: 1, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border,
   },
-  contentContainer: {
-    padding: theme.spacing.md,
-    paddingBottom: theme.spacing.lg * 2,
-  },
-  centeredContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.lg,
-  },
-  messageText: {
-    fontSize: 16,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  actionButton: {
-    backgroundColor: theme.colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: theme.borderRadius.md,
-  },
-  actionButtonText: {
-    color: '#000',
-    fontSize: 15,
-    fontWeight: '700',
-  },
+  backBtn: { width: 60 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: theme.colors.text },
+  
+  feedList: { flex: 1 },
+  feedContent: { paddingBottom: theme.spacing.xl },
+  
   profileHeader: {
     alignItems: 'center',
-    paddingVertical: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+    padding: theme.spacing.xl,
+    backgroundColor: theme.colors.cardBg,
   },
-  avatarPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: theme.borderRadius.md,
+  avatarLarge: {
+    width: 80, height: 80, borderRadius: 8,
     backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center', alignItems: 'center',
     marginBottom: theme.spacing.md,
   },
-  avatarText: {
-    fontSize: 32,
-    color: '#000',
-    fontWeight: '800',
-  },
-  profileName: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  profileUsername: {
-    fontSize: 15,
-    color: theme.colors.textMuted,
-    marginBottom: 8,
-  },
-  profileEmail: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-  },
-  accountDetails: {
-    marginTop: theme.spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    marginBottom: theme.spacing.xl,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(51, 65, 85, 0.5)',
-  },
-  detailLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  detailValue: {
-    fontSize: 14,
-    color: theme.colors.text,
-    fontWeight: '500',
-  },
+  avatarLargeText: { color: '#000', fontSize: 36, fontWeight: '800' },
+  profileName: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
+  profileUsername: { fontSize: 15, color: theme.colors.textMuted, marginBottom: 8 },
+  profileEmail: { fontSize: 14, color: theme.colors.textMuted, marginBottom: theme.spacing.sm },
+  statsText: { fontSize: 13, fontWeight: '600', color: theme.colors.textMuted },
+  
   logoutButton: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    marginTop: theme.spacing.lg,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderRadius: theme.borderRadius.md,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: theme.spacing.md,
+    borderColor: '#ef4444',
+    borderRadius: 4,
   },
   logoutButtonText: {
     color: '#ef4444',
-    fontSize: 15,
     fontWeight: '600',
+    fontSize: 13,
   },
+
+  divider: { height: 1, backgroundColor: theme.colors.border },
+  
+  noPostsText: { padding: theme.spacing.xl, textAlign: 'center', color: theme.colors.textMuted, fontStyle: 'italic' },
+  
+  postCard: { padding: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: theme.spacing.sm },
+  avatarMini: { width: 40, height: 40, borderRadius: 4, backgroundColor: theme.colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: theme.spacing.sm },
+  avatarMiniText: { color: '#000', fontSize: 18, fontWeight: '700' },
+  postMeta: { justifyContent: 'center' },
+  postAuthor: { color: theme.colors.text, fontWeight: '700', fontSize: 15 },
+  postUsername: { color: theme.colors.textMuted, fontSize: 13 },
+  postDate: { color: theme.colors.textMuted, fontSize: 12 },
+  replyContextText: { color: theme.colors.textMuted, fontSize: 12, fontStyle: 'italic', marginBottom: 4 },
+  postContent: { color: theme.colors.text, fontSize: 15, lineHeight: 22, marginBottom: theme.spacing.sm },
+  
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: theme.spacing.sm },
+  tagChip: { backgroundColor: '#111', borderWidth: 1, borderColor: '#333', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, marginRight: 8, marginBottom: 8 },
+  tagChipText: { color: '#fff', fontSize: 12, fontWeight: '500' },
+  
+  postActions: { flexDirection: 'row', alignItems: 'center' },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', marginRight: theme.spacing.lg },
+  actionIcon: { fontSize: 14, marginRight: 6 },
+  actionIconActive: { color: '#ef4444' },
+  actionCount: { color: theme.colors.textMuted, fontSize: 13, fontWeight: '500' },
 });

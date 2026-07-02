@@ -99,8 +99,10 @@ export const UserProfileScreen: React.FC<Props> = ({ route, navigation }) => {
             </Text>
           </View>
           <Text style={styles.profileName}>{profileUser.name || 'Usuario'}</Text>
-          {profileUser.username && <Text style={styles.profileUsername}>@{profileUser.username}</Text>}
-          <Text style={styles.profileEmail}>{profileUser.email}</Text>
+          {profileUser?.username ? <Text style={styles.profileUsername}>@{profileUser.username}</Text> : null}
+          {currentUser && currentUser.id === profileUser.id && (
+            <Text style={styles.profileEmail}>{profileUser.email}</Text>
+          )}
           <Text style={styles.statsText}>{posts.length} Publicaciones</Text>
         </View>
 
@@ -129,17 +131,17 @@ export const UserProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                   <View style={styles.postMeta}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <Text style={styles.postAuthor}>{author?.name || 'Usuario'}</Text>
-                      {author?.username && <Text style={styles.postUsername}> @{author.username}</Text>}
+                      {author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
                     </View>
                     <Text style={styles.postDate}>{formatDate(post.created)}</Text>
                   </View>
                 </View>
                 
-                {post.replyTo && post.expand?.replyTo?.expand?.author && (
+                {post.replyTo && post.expand?.replyTo?.expand?.author ? (
                   <Text style={styles.replyContextText}>
                     En respuesta a @{post.expand.replyTo.expand.author.username}
                   </Text>
-                )}
+                ) : null}
                 
                 <Text style={styles.postContent}>{post.content}</Text>
                 

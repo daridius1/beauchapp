@@ -416,36 +416,12 @@ export const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
-  rankBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#111111',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: theme.spacing.md,
-  },
-  rankGold: {
-    backgroundColor: 'rgba(234, 179, 8, 0.15)',
-    borderColor: '#eab308',
-  },
-  rankSilver: {
-    backgroundColor: 'rgba(148, 163, 184, 0.15)',
-    borderColor: '#94a3b8',
-  },
-  rankBronze: {
-    backgroundColor: 'rgba(180, 83, 9, 0.15)',
-    borderColor: '#b45309',
-  },
   rankText: {
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '700',
     color: theme.colors.textMuted,
-  },
-  rankTextPodium: {
-    color: theme.colors.text,
+    marginRight: theme.spacing.md,
+    minWidth: 24,
   },
   leaderboardInfo: {
     flex: 1,
