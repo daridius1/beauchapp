@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -31,7 +31,7 @@ export const theme = {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-export const HomeScreen: React.FC<Props> = ({ navigation }) => {
+export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const { user } = useAuth();
   const [posts, setPosts] = useState<any[]>([]);
   const [content, setContent] = useState('');
@@ -44,6 +44,18 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [tempTag, setTempTag] = useState('');
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+
+  useEffect(() => {
+    if (route.params?.initialFilterTag) {
+      setFilterTags([route.params.initialFilterTag]);
+    }
+    if (route.params?.initialPostTags) {
+      setTags(route.params.initialPostTags);
+    }
+    if (route.params?.initialFilterTag || route.params?.initialPostTags) {
+      navigation.setParams({ initialFilterTag: undefined, initialPostTags: undefined });
+    }
+  }, [route.params, navigation]);
 
   const fetchPosts = async () => {
     try {
@@ -115,7 +127,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const activateTagFilter = (tag: string) => {
-    setFilterTags([tag.toLowerCase()]);
+    const cleanTag = tag.toLowerCase();
+    setFilterTags([cleanTag]);
+    setTags([cleanTag]);
     setSearchQuery('');
     setActiveSearch('');
   };

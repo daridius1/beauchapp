@@ -196,3 +196,44 @@ onRecordViewRequest((e) => {
         }
     } catch (err) {}
 }, "predictions");
+
+// 5. Sanitización de tags: siempre minúsculas y alfanuméricos
+function sanitizeTag(val) {
+    if (!val || typeof val !== "string") return "";
+    return val.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+}
+
+onRecordBeforeCreateRequest((e) => {
+    const tag = e.record.getString("tag");
+    if (tag) e.record.set("tag", sanitizeTag(tag));
+}, "matches");
+
+onRecordBeforeUpdateRequest((e) => {
+    const tag = e.record.getString("tag");
+    if (tag) e.record.set("tag", sanitizeTag(tag));
+}, "matches");
+
+onRecordBeforeCreateRequest((e) => {
+    const tag = e.record.getString("tag");
+    if (tag) e.record.set("tag", sanitizeTag(tag));
+}, "contests");
+
+onRecordBeforeUpdateRequest((e) => {
+    const tag = e.record.getString("tag");
+    if (tag) e.record.set("tag", sanitizeTag(tag));
+}, "contests");
+
+// Sanitizar tags en posts también
+onRecordBeforeCreateRequest((e) => {
+    const tags = e.record.get("tags");
+    if (tags && Array.isArray(tags)) {
+        e.record.set("tags", tags.map(t => sanitizeTag(t)).filter(t => t.length > 0));
+    }
+}, "posts");
+
+onRecordBeforeUpdateRequest((e) => {
+    const tags = e.record.get("tags");
+    if (tags && Array.isArray(tags)) {
+        e.record.set("tags", tags.map(t => sanitizeTag(t)).filter(t => t.length > 0));
+    }
+}, "posts");

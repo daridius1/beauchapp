@@ -11,6 +11,7 @@ export interface Match {
   awayScore?: number | null;
   played?: boolean;
   active?: boolean;
+  tag?: string;
 }
 
 export interface Contest {
@@ -18,6 +19,7 @@ export interface Contest {
   name: string;
   description: string;
   admins?: string[];
+  tag?: string;
 }
 
 export interface PredictionState {
@@ -38,6 +40,7 @@ export interface EditingScoreState {
     homeFlag: string;
     awayFlag: string;
     date: string;
+    tag: string;
   };
 }
 
@@ -48,6 +51,7 @@ export interface NewMatchForm {
   awayTeam: string;
   awayFlag: string;
   date: string;
+  tag: string;
 }
 
 export interface Participant {

@@ -1,5 +1,5 @@
 export type RootStackParamList = {
-  Home: undefined;
+  Home: { initialFilterTag?: string; initialPostTags?: string[] } | undefined;
   Login: undefined;
   Profile: undefined;
   Contests: undefined;

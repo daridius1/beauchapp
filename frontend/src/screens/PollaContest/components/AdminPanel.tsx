@@ -165,6 +165,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             onChangeText={v => setNewMatch(prev => ({ ...prev, date: v }))}
           />
 
+          {/* Tag del partido */}
+          <Text style={styles.createMatchLabel}>Tag del Partido (opcional, ej. chixmex)</Text>
+          <TextInput
+            style={styles.createInput}
+            placeholder="Tag sin #"
+            placeholderTextColor={theme.colors.textMuted}
+            value={newMatch.tag}
+            onChangeText={v => setNewMatch(prev => ({ ...prev, tag: v.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() }))}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+
           <TouchableOpacity
             style={[styles.createMatchSubmitBtn, creatingMatch && styles.saveButtonDisabled]}
             onPress={handleCreateMatch}
@@ -259,6 +271,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       placeholderTextColor={theme.colors.textMuted}
                       value={editData.date}
                       onChangeText={(val) => handleEditFieldChange(match.id, 'date', val)}
+                    />
+
+                    <Text style={styles.createMatchLabel}>Tag del Partido</Text>
+                    <TextInput
+                      style={[styles.createInput, { height: 34, marginBottom: theme.spacing.sm }]}
+                      placeholder="Tag sin #"
+                      placeholderTextColor={theme.colors.textMuted}
+                      value={editData.tag}
+                      onChangeText={(val) => handleEditFieldChange(match.id, 'tag', val.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())}
+                      autoCapitalize="none"
+                      autoCorrect={false}
                     />
 
                     <View style={styles.editActions}>

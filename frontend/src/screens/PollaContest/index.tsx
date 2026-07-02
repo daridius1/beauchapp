@@ -35,7 +35,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
   // Estado para crear nuevo partido
   const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
   const [newMatch, setNewMatch] = useState<NewMatchForm>({
-    stage: '', homeTeam: '', homeFlag: '', awayTeam: '', awayFlag: '', date: '',
+    stage: '', homeTeam: '', homeFlag: '', awayTeam: '', awayFlag: '', date: '', tag: '',
   });
   const [creatingMatch, setCreatingMatch] = useState<boolean>(false);
 
@@ -169,6 +169,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
         homeFlag: match.homeFlag || '',
         awayFlag: match.awayFlag || '',
         date: formattedDate,
+        tag: match.tag || '',
       },
     }));
   };
@@ -287,6 +288,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
         awayTeam: editData.awayTeam.trim(),
         homeFlag: editData.homeFlag.trim(),
         awayFlag: editData.awayFlag.trim(),
+        tag: editData.tag ? editData.tag.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() : '',
       };
 
       if (!dataToSave.homeTeam || !dataToSave.awayTeam || !dataToSave.homeFlag || !dataToSave.awayFlag || !editData.date.trim()) {
@@ -347,9 +349,9 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleCreateMatch = async () => {
     if (!user || !isContestAdmin || !contestId) return;
 
-    const { stage, homeTeam, homeFlag, awayTeam, awayFlag, date } = newMatch;
+    const { stage, homeTeam, homeFlag, awayTeam, awayFlag, date, tag } = newMatch;
     if (!stage.trim() || !homeTeam.trim() || !homeFlag.trim() || !awayTeam.trim() || !awayFlag.trim() || !date.trim()) {
-      Toast.show({ type: 'error', text1: 'Completa todos los campos, incluyendo la fecha.', position: 'top' });
+      Toast.show({ type: 'error', text1: 'Completa todos los campos obligatorios, incluyendo la fecha.', position: 'top' });
       return;
     }
 
@@ -375,11 +377,12 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
         awayTeam: awayTeam.trim(),
         awayFlag: awayFlag.trim(),
         date: parsedDate,
+        tag: tag.replace(/[^a-zA-Z0-9]/g, '').toLowerCase(),
         active: true,
         played: false,
       });
 
-      setNewMatch({ stage: '', homeTeam: '', homeFlag: '', awayTeam: '', awayFlag: '', date: '' });
+      setNewMatch({ stage: '', homeTeam: '', homeFlag: '', awayTeam: '', awayFlag: '', date: '', tag: '' });
       setShowCreateForm(false);
       await fetchData(false);
       Toast.show({
@@ -465,7 +468,22 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {contest && (
           <View style={styles.titleSection}>
-            <Text style={styles.title}>{contest.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.title}>{contest.name}</Text>
+              {contest.tag ? (
+                <TouchableOpacity 
+                  onPress={() => {
+                    navigation.navigate('Home', { 
+                      initialFilterTag: contest.tag,
+                      initialPostTags: [contest.tag!]
+                    });
+                  }}
+                  style={[styles.matchTagBadge, { marginBottom: theme.spacing.xs, marginLeft: theme.spacing.sm }]}
+                >
+                  <Text style={styles.matchTagBadgeText}>#{contest.tag}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
             <Text style={styles.description}>{contest.description}</Text>
             
             <TouchableOpacity onPress={() => setShowRules(!showRules)} style={styles.rulesToggle}>
@@ -473,11 +491,11 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
             </TouchableOpacity>
             {showRules && (
               <View style={styles.rulesContainer}>
-                <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>6 Pts (Marcador Exacto)</Text>: Achuntas al resultado exacto.</Text>
-                <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>4 Pts (Dif. de Goles)</Text>: Achuntas al ganador y la diferencia exacta de goles.</Text>
-                <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>3 Pts (Tendencia Simple)</Text>: Achuntas a quién gana o si empatan.</Text>
+                <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>6 Pts (🥇 Marcador Exacto)</Text>: Achuntas al resultado exacto.</Text>
+                <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>4 Pts (🥈 Dif. de Goles)</Text>: Achuntas al ganador y la diferencia exacta de goles.</Text>
+                <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>3 Pts (🥉 Tendencia Simple)</Text>: Achuntas a quién gana o si empatan.</Text>
                 <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>1 Pto (Precisión por Equipo)</Text>: Fallas al ganador, pero le achuntas a los goles exactos de un equipo (solo válido si el resultado no se da vuelta al revés).</Text>
-                <Text style={styles.ruleItem}>• En caso de empate, define quien tenga más marcadores exactos, luego diferencias de goles, y finalmente tendencias.</Text>
+                <Text style={styles.ruleItem}>• En caso de empate, definen primero los 🥇, luego los 🥈 y finalmente los 🥉.</Text>
               </View>
             )}
           </View>
@@ -533,6 +551,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
             saving={saving}
             isAdminMode={isAdminMode}
             contestId={contestId}
+            contestTag={contest?.tag}
           />
         ) : (
           <ParticipantsTable participants={participants} contestId={contestId} />

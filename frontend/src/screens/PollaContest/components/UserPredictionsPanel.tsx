@@ -16,6 +16,7 @@ interface UserPredictionsPanelProps {
   saving: boolean;
   isAdminMode: boolean;
   contestId: string;
+  contestTag?: string;
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'PollaContest'>;
@@ -27,6 +28,7 @@ export const UserPredictionsPanel: React.FC<UserPredictionsPanelProps> = ({
   handleSavePredictions,
   saving,
   contestId,
+  contestTag,
 }) => {
   const navigation = useNavigation<NavigationProp>();
   return (
@@ -51,9 +53,27 @@ export const UserPredictionsPanel: React.FC<UserPredictionsPanelProps> = ({
                 <View key={match.id} style={styles.matchCard}>
                   {/* Fecha y Fase */}
                   <View style={styles.matchHeader}>
-                    <Text style={styles.matchDate}>
-                      {formatMatchDate(match.date)}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={styles.matchDate}>
+                        {formatMatchDate(match.date)}
+                      </Text>
+                      {match.tag ? (
+                        <TouchableOpacity 
+                          style={styles.matchTagBadge}
+                          onPress={() => {
+                            const postTags = [];
+                            if (contestTag) postTags.push(contestTag);
+                            postTags.push(match.tag!);
+                            navigation.navigate('Home', { 
+                              initialFilterTag: match.tag,
+                              initialPostTags: postTags
+                            });
+                          }}
+                        >
+                          <Text style={styles.matchTagBadgeText}>#{match.tag}</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
                     {match.played ? (
                       <View style={styles.infoBadgeContainer}>
                         <View style={styles.officialBadge}>

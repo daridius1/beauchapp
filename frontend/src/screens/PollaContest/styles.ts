@@ -778,4 +778,16 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  matchTagBadge: {
+    backgroundColor: '#333',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  matchTagBadgeText: {
+    color: '#aaa',
+    fontSize: 11,
+    fontWeight: '600',
+  },
 });
