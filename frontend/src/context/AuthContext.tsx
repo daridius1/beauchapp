@@ -5,6 +5,7 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
+  username: string;
   created: string;
   updated: string;
 }
@@ -14,7 +15,7 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<void>;
+  signup: (email: string, password: string, name: string, username: string) => Promise<void>;
   logout: () => void;
   clearError: () => void;
 }
@@ -80,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signup = async (email: string, password: string, name: string) => {
+  const signup = async (email: string, password: string, name: string, username: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -89,7 +90,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Solo se permiten correos institucionales @ing.uchile.cl');
       }
 
-      const username = email.split('@')[0] + Math.floor(Math.random() * 1000);
       const data = {
         username: username,
         email: email,

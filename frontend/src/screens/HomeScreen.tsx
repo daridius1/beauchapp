@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
@@ -34,7 +35,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const [posts, setPosts] = useState<any[]>([]);
   const [content, setContent] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
 
@@ -42,8 +44,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const res = await pb.collection('posts').getList(1, 50, {
         sort: '-created',
-        filter: 'replyTo = ""',
-        expand: 'author'
+        expand: 'author,replyTo.author,posts_via_replyTo'
       });
       setPosts(res.items);
     } catch (err) {
@@ -53,22 +54,50 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  useEffect(() => {
-    fetchPosts();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchPosts();
+    }, [])
+  );
+
+  const addTag = (text: string) => {
+    const clean = text.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    if (clean && tags.length < 4 && clean.length <= 15 && !tags.includes(clean)) {
+      setTags([...tags, clean]);
+    }
+    setTagInput('');
+  };
+
+  const handleTagInputChange = (text: string) => {
+    if (text.endsWith(' ') || text.endsWith(',') || text.endsWith('\n')) {
+      addTag(text);
+    } else {
+      setTagInput(text);
+    }
+  };
+
+  const removeTag = (index: number) => {
+    setTags(tags.filter((_, i) => i !== index));
+  };
 
   const handlePost = async () => {
     if (!content.trim() || !user) return;
     setPosting(true);
     try {
-      const tagList = tagsInput.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
+      let finalTags = [...tags];
+      const pendingTag = tagInput.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      if (pendingTag && finalTags.length < 4 && pendingTag.length <= 15 && !finalTags.includes(pendingTag)) {
+        finalTags.push(pendingTag);
+      }
+
       await pb.collection('posts').create({
         content: content.trim(),
-        tags: tagList,
+        tags: finalTags,
         author: user.id
       });
       setContent('');
-      setTagsInput('');
+      setTags([]);
+      setTagInput('');
       fetchPosts();
     } catch (err) {
       console.error(err);
@@ -87,8 +116,15 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
       } else {
         newLikes.push(user.id);
       }
+      // Optimistic UI Update: Reflejar en pantalla de inmediato
+      setPosts(currentPosts => 
+        currentPosts.map(p => 
+          p.id === post.id ? { ...p, likes: newLikes } : p
+        )
+      );
+
+      // Actualizar en segundo plano en BD
       await pb.collection('posts').update(post.id, { likes: newLikes });
-      fetchPosts();
     } catch (err) {
       console.error(err);
     }
@@ -122,14 +158,43 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 onChangeText={setContent}
               />
             </View>
+            
+            {tags.length > 0 && (
+              <View style={styles.activeTagsRow}>
+                {tags.map((t, i) => (
+                  <TouchableOpacity key={i} onPress={() => removeTag(i)} style={styles.tagChipEditable}>
+                    <Text style={styles.tagChipEditableText}>#{t} ✕</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
             <View style={styles.composeFooter}>
-              <TextInput
-                style={styles.tagsInput}
-                placeholder="Añadir tags (separados por coma)..."
-                placeholderTextColor={theme.colors.textMuted}
-                value={tagsInput}
-                onChangeText={setTagsInput}
-              />
+              <View style={styles.tagsInputContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <TextInput
+                    style={[styles.tagsInput, tags.length >= 4 && { opacity: 0.5 }]}
+                    placeholder={tags.length >= 4 ? "Límite de tags alcanzado" : "Añadir tag..."}
+                    placeholderTextColor={theme.colors.textMuted}
+                    value={tagInput}
+                    onChangeText={handleTagInputChange}
+                    onSubmitEditing={() => addTag(tagInput)}
+                    maxLength={16}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={tags.length < 4}
+                  />
+                  {tags.length < 4 && (
+                    <TouchableOpacity 
+                      onPress={() => addTag(tagInput)} 
+                      style={[styles.addTagBtn, tagInput.trim().length === 0 && styles.addTagBtnDisabled]}
+                      disabled={tagInput.trim().length === 0}
+                    >
+                      <Text style={styles.addTagBtnText}>+</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
               <TouchableOpacity 
                 style={[styles.postBtn, (!content.trim() || posting) && styles.postBtnDisabled]}
                 onPress={handlePost}
@@ -154,17 +219,34 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           posts.map(post => {
             const isLiked = user && (post.likes || []).includes(user.id);
             const author = post.expand?.author;
+            const repliesCount = post.expand?.posts_via_replyTo ? post.expand.posts_via_replyTo.length : 0;
             return (
-              <View key={post.id} style={styles.postCard}>
-                <View style={styles.postHeader}>
+              <TouchableOpacity 
+                key={post.id} 
+                style={styles.postCard} 
+                activeOpacity={0.7}
+                onPress={() => navigation.push('PostDetail', { postId: post.id })}
+              >
+                <TouchableOpacity 
+                  style={styles.postHeader}
+                  onPress={() => navigation.push('UserProfile', { userId: post.author })}
+                >
                   <View style={styles.avatarMini}>
                     <Text style={styles.avatarMiniText}>{author?.name ? author.name.charAt(0).toUpperCase() : 'U'}</Text>
                   </View>
                   <View style={styles.postMeta}>
-                    <Text style={styles.postAuthor}>{author?.name || 'Usuario'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={styles.postAuthor}>{author?.name || 'Usuario'}</Text>
+                      {author?.username && <Text style={styles.postUsername}> @{author.username}</Text>}
+                    </View>
                     <Text style={styles.postDate}>{formatDate(post.created)}</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
+                {post.replyTo && post.expand?.replyTo?.expand?.author && (
+                  <Text style={styles.replyContextText}>
+                    En respuesta a @{post.expand.replyTo.expand.author.username}
+                  </Text>
+                )}
                 <Text style={styles.postContent}>{post.content}</Text>
                 
                 {post.tags && post.tags.length > 0 && (
@@ -186,12 +268,12 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
                       {(post.likes || []).length}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionBtn}>
+                  <View style={styles.actionBtn}>
                     <Text style={styles.actionIcon}>💬</Text>
-                    <Text style={styles.actionCount}>Responder</Text>
-                  </TouchableOpacity>
+                    <Text style={styles.actionCount}>{repliesCount}</Text>
+                  </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })
         )}
@@ -260,11 +342,56 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(51, 65, 85, 0.3)',
     paddingTop: theme.spacing.sm,
   },
-  tagsInput: {
+  tagsInputContainer: {
     flex: 1,
-    color: theme.colors.text,
-    fontSize: 14,
+    flexDirection: 'column',
+    justifyContent: 'center',
     marginRight: theme.spacing.md,
+  },
+  activeTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  tagsInput: {
+    color: theme.colors.text,
+    fontSize: 13,
+    minWidth: 100,
+    paddingVertical: 4,
+  },
+  tagChipEditable: {
+    backgroundColor: '#111',
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  tagChipEditableText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  addTagBtn: {
+    backgroundColor: '#333',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  addTagBtnDisabled: {
+    opacity: 0.3,
+  },
+  addTagBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: -2,
   },
   postBtn: {
     backgroundColor: theme.colors.primary,
@@ -322,32 +449,25 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 12,
   },
+  postUsername: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+  },
+  replyContextText: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginBottom: theme.spacing.xs,
+  },
   postContent: {
     color: theme.colors.text,
     fontSize: 15,
     lineHeight: 22,
     marginBottom: theme.spacing.sm,
   },
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: theme.spacing.sm,
-  },
-  tagChip: {
-    backgroundColor: '#111111',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginRight: 8,
-    marginBottom: 4,
-  },
-  tagChipText: {
-    color: theme.colors.accent,
-    fontSize: 12,
-    fontWeight: '600',
-  },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: theme.spacing.sm },
+  tagChip: { backgroundColor: '#111', borderWidth: 1, borderColor: '#333', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, marginRight: 8, marginBottom: 8 },
+  tagChipText: { color: '#fff', fontSize: 12, fontWeight: '500' },
   postActions: {
     flexDirection: 'row',
     alignItems: 'center',

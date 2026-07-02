@@ -13,6 +13,8 @@ import { PollaContestScreen } from './src/screens/PollaContest';
 import { SuperadminScreen } from './src/screens/SuperadminScreen';
 import { ParticipantPredictionsScreen } from './src/screens/ParticipantPredictionsScreen';
 import { MatchPredictionsScreen } from './src/screens/MatchPredictionsScreen';
+import { PostDetailScreen } from './src/screens/PostDetailScreen';
+import { UserProfileScreen } from './src/screens/UserProfileScreen';
 import { RootStackParamList } from './src/types/navigation';
 import Toast from 'react-native-toast-message';
 
@@ -93,6 +95,8 @@ function AppContent() {
                 <Stack.Screen name="Superadmin" component={SuperadminScreen} />
                 <Stack.Screen name="ParticipantPredictions" component={ParticipantPredictionsScreen} />
                 <Stack.Screen name="MatchPredictions" component={MatchPredictionsScreen} />
+                <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+                <Stack.Screen name="UserProfile" component={UserProfileScreen} />
               </Stack.Navigator>
             </View>
             <Sidebar 

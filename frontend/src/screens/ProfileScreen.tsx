@@ -43,6 +43,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
         </View>
         <Text style={styles.profileName}>{user.name}</Text>
+        {user.username && <Text style={styles.profileUsername}>@{user.username}</Text>}
         <Text style={styles.profileEmail}>{user.email}</Text>
       </View>
 
@@ -127,6 +128,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.text,
     marginBottom: 4,
+  },
+  profileUsername: {
+    fontSize: 15,
+    color: theme.colors.textMuted,
+    marginBottom: 8,
   },
   profileEmail: {
     fontSize: 14,

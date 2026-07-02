@@ -12,7 +12,9 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
@@ -25,31 +27,46 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
     
-    let formattedEmail = email.trim().toLowerCase();
-    if (formattedEmail && !formattedEmail.includes('@')) {
-      formattedEmail += '@ing.uchile.cl';
-    }
-
-    if (!formattedEmail.endsWith('@ing.uchile.cl')) {
-      setLocalError('Solo se permiten correos institucionales @ing.uchile.cl');
-      return;
+    let identity = email.trim().toLowerCase();
+    
+    if (isSignUp) {
+      if (identity && !identity.includes('@')) {
+        identity += '@ing.uchile.cl';
+      }
+      if (!identity.endsWith('@ing.uchile.cl')) {
+        setLocalError('Solo se permiten correos institucionales @ing.uchile.cl');
+        return;
+      }
+    } else {
+      if (identity.includes('@') && !identity.endsWith('@ing.uchile.cl')) {
+        setLocalError('Si usas correo, debe ser @ing.uchile.cl');
+        return;
+      }
     }
     if (!password || password.length < 6) {
       setLocalError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+    if (isSignUp && password !== confirmPassword) {
+      setLocalError('Las contraseñas no coinciden.');
       return;
     }
     if (isSignUp && !name) {
       setLocalError('El nombre es requerido.');
       return;
     }
+    if (isSignUp && (!username || username.trim().length < 3)) {
+      setLocalError('El nombre de usuario es requerido y debe tener al menos 3 caracteres.');
+      return;
+    }
 
     try {
       if (isSignUp) {
-        await signup(formattedEmail, password, name.trim());
+        await signup(identity, password, name.trim(), username.trim().toLowerCase());
         alert('¡Cuenta creada exitosamente!\n\nRevisa tu correo electrónico (incluyendo la carpeta de SPAM) y haz clic en el enlace para verificar tu cuenta antes de iniciar sesión.');
         toggleMode(); // volver al modo login
       } else {
-        await login(formattedEmail, password);
+        await login(identity, password);
         // Redirigir siempre a Home después de login
         navigation.navigate('Home');
       }
@@ -64,7 +81,9 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setLocalError(null);
     setEmail('');
     setPassword('');
+    setConfirmPassword('');
     setName('');
+    setUsername('');
   };
 
   const activeError = localError || error;
@@ -82,10 +101,10 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
         {isSignUp && (
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nombre completo</Text>
+            <Text style={styles.label}>Nombre a mostrar</Text>
             <TextInput
               style={styles.input}
-              placeholder="Nombre"
+              placeholder="Ej: Juan Pérez ⚽️"
               placeholderTextColor={theme.colors.textMuted}
               value={name}
               onChangeText={setName}
@@ -94,11 +113,26 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
+        {isSignUp && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Nombre de usuario</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej: jperez99"
+              placeholderTextColor={theme.colors.textMuted}
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+        )}
+
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Correo institucional</Text>
+          <Text style={styles.label}>{isSignUp ? 'Correo institucional' : 'Correo o Nombre de usuario'}</Text>
           <TextInput
             style={styles.input}
-            placeholder="usuario@ing.uchile.cl"
+            placeholder={isSignUp ? "usuario@ing.uchile.cl" : "Ej: jperez99 o juan@ing.uchile.cl"}
             placeholderTextColor={theme.colors.textMuted}
             value={email}
             onChangeText={setEmail}
@@ -121,6 +155,22 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
             autoCorrect={false}
           />
         </View>
+
+        {isSignUp && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Confirmar contraseña</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Vuelve a escribir tu contraseña"
+              placeholderTextColor={theme.colors.textMuted}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+        )}
 
         <TouchableOpacity 
           style={[styles.submitButton, loading && styles.disabledButton]} 

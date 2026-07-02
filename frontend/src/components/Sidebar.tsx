@@ -71,6 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
                 </Text>
               </View>
               <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
+              {user.username && <Text style={styles.userUsername} numberOfLines={1}>@{user.username}</Text>}
               <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
             </View>
           ) : (
@@ -172,8 +173,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.text,
   },
-  userEmail: {
+  userUsername: {
     fontSize: 13,
+    color: theme.colors.textMuted,
+    marginTop: 2,
+  },
+  userEmail: {
+    fontSize: 12,
     color: theme.colors.textMuted,
     marginTop: 2,
   },
