@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
   },
   actionButtonText: {
-    color: '#fff',
+    color: '#000',
     fontSize: 15,
     fontWeight: '700',
   },
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 32,
-    color: '#fff',
+    color: '#000',
     fontWeight: '800',
   },
   profileName: {

@@ -101,6 +101,9 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
             email: u.email,
             predictionsCount: (current?.predictionsCount || 0) + 1,
             totalPoints: (current?.totalPoints || 0) + (pred.points || 0),
+            exactCount: (current?.exactCount || 0) + (pred.points === 6 ? 1 : 0),
+            diffCount: (current?.diffCount || 0) + (pred.points === 4 ? 1 : 0),
+            trendCount: (current?.trendCount || 0) + (pred.points === 3 ? 1 : 0),
           });
         }
       });
@@ -109,6 +112,9 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
         if (b.totalPoints !== a.totalPoints) {
           return b.totalPoints - a.totalPoints;
         }
+        if (b.exactCount !== a.exactCount) return b.exactCount - a.exactCount;
+        if (b.diffCount !== a.diffCount) return b.diffCount - a.diffCount;
+        if (b.trendCount !== a.trendCount) return b.trendCount - a.trendCount;
         return a.name.localeCompare(b.name);
       });
       setParticipants(sortedParticipants);
@@ -467,10 +473,11 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
             </TouchableOpacity>
             {showRules && (
               <View style={styles.rulesContainer}>
-                <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>3 puntos</Text> por acertar el resultado exacto (ej. predices 2-1 y termina 2-1).</Text>
-                <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>1 punto</Text> por acertar al ganador o empate (ej. predices 2-1 y termina 3-0).</Text>
-                <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>0 puntos</Text> si no aciertas ni el ganador ni el resultado exacto.</Text>
-                <Text style={styles.ruleItem}>• El puntaje se actualiza automáticamente al finalizar el partido.</Text>
+                <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>6 Pts (Marcador Exacto)</Text>: Achuntas al resultado exacto.</Text>
+                <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>4 Pts (Dif. de Goles)</Text>: Achuntas al ganador y la diferencia exacta de goles.</Text>
+                <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>3 Pts (Tendencia Simple)</Text>: Achuntas a quién gana o si empatan.</Text>
+                <Text style={styles.ruleItem}>• <Text style={styles.ruleHighlight}>1 Pto (Precisión por Equipo)</Text>: Fallas al ganador, pero le achuntas a los goles exactos de un equipo (solo válido si el resultado no se da vuelta al revés).</Text>
+                <Text style={styles.ruleItem}>• En caso de empate, define quien tenga más marcadores exactos, luego diferencias de goles, y finalmente tendencias.</Text>
               </View>
             )}
           </View>

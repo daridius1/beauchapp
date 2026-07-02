@@ -45,19 +45,30 @@ onRecordAfterUpdateRequest((e) => {
             const predHome = pred.getInt("homeScore");
             const predAway = pred.getInt("awayScore");
             
+            const predDiff = predHome - predAway;
+            const matchDiff = homeScore - awayScore;
+            
+            const predOutcome = predDiff > 0 ? 1 : (predDiff < 0 ? -1 : 0);
+            const matchOutcome = matchDiff > 0 ? 1 : (matchDiff < 0 ? -1 : 0);
+            
             if (predHome === homeScore && predAway === awayScore) {
                 // 1. Marcador exacto
+                points = 6;
+            } else if (predOutcome === matchOutcome && predDiff === matchDiff) {
+                // 2. Diferencia de goles
+                points = 4;
+            } else if (predOutcome === matchOutcome) {
+                // 3. Tendencia Simple
                 points = 3;
             } else {
-                const predDiff = predHome - predAway;
-                const matchDiff = homeScore - awayScore;
+                // 4. Precisión por Equipo (falla tendencia, pero achunta a un equipo)
+                // "Si el resultado se da vuelta al revés, 0 puntos"
+                const isFlipped = (predOutcome * matchOutcome) === -1;
                 
-                const predOutcome = predDiff > 0 ? 1 : (predDiff < 0 ? -1 : 0);
-                const matchOutcome = matchDiff > 0 ? 1 : (matchDiff < 0 ? -1 : 0);
-                
-                if (predOutcome === matchOutcome) {
-                    // 2. Ganador o empate correcto pero marcador incorrecto
+                if (!isFlipped && (predHome === homeScore || predAway === awayScore)) {
                     points = 1;
+                } else {
+                    points = 0;
                 }
             }
         }

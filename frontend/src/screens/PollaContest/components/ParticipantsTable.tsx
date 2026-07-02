@@ -57,7 +57,9 @@ export const ParticipantsTable: React.FC<ParticipantsTableProps> = ({ participan
                 {/* Info Participante */}
                 <View style={styles.leaderboardInfo}>
                   <Text style={styles.participantName}>{p.name}</Text>
-                  <Text style={styles.participantEmail}>{p.predictionsCount} predicciones hechas</Text>
+                  <Text style={styles.participantEmail}>
+                    🥇 {p.exactCount}  🥈 {p.diffCount}  🥉 {p.trendCount}
+                  </Text>
                 </View>
 
                 {/* Puntos */}

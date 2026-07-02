@@ -56,4 +56,7 @@ export interface Participant {
   email: string;
   predictionsCount: number;
   totalPoints: number;
+  exactCount: number;
+  diffCount: number;
+  trendCount: number;
 }
