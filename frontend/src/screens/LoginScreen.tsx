@@ -27,11 +27,11 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     
     let formattedEmail = email.trim().toLowerCase();
     if (formattedEmail && !formattedEmail.includes('@')) {
-      formattedEmail += '@ug.uchile.cl';
+      formattedEmail += '@ing.uchile.cl';
     }
 
-    if (!formattedEmail.endsWith('@ug.uchile.cl')) {
-      setLocalError('Solo se permiten correos institucionales @ug.uchile.cl');
+    if (!formattedEmail.endsWith('@ing.uchile.cl')) {
+      setLocalError('Solo se permiten correos institucionales @ing.uchile.cl');
       return;
     }
     if (!password || password.length < 6) {
@@ -46,11 +46,13 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     try {
       if (isSignUp) {
         await signup(formattedEmail, password, name.trim());
+        alert('¡Cuenta creada exitosamente!\n\nRevisa tu correo electrónico (incluyendo la carpeta de SPAM) y haz clic en el enlace para verificar tu cuenta antes de iniciar sesión.');
+        toggleMode(); // volver al modo login
       } else {
         await login(formattedEmail, password);
+        // Redirigir siempre a Home después de login
+        navigation.navigate('Home');
       }
-      // Redirigir siempre a Home después de login (App.tsx mostrará los menús)
-      navigation.navigate('Home');
     } catch (err) {
       // Los errores globales ya los maneja el AuthContext
     }
@@ -93,10 +95,10 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         )}
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Usuario</Text>
+          <Text style={styles.label}>Correo institucional</Text>
           <TextInput
             style={styles.input}
-            placeholder="Usuario"
+            placeholder="usuario@ing.uchile.cl"
             placeholderTextColor={theme.colors.textMuted}
             value={email}
             onChangeText={setEmail}

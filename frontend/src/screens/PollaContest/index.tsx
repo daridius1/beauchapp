@@ -42,7 +42,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isContestAdmin = !!(user && (user.isSuperadmin || (contest && contest.admins && contest.admins.includes(user.id))));
+  const isContestAdmin = !!(user && (contest && contest.admins && contest.admins.includes(user.id)));
 
   const existingStages = [...new Set(matches.map(m => m.stage))];
 
@@ -60,7 +60,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
       setContest(contestData);
 
       // Compute admin status here with fresh data to avoid stale closure
-      const isAdmin = !!(user && (user.isSuperadmin || (contestData.admins && contestData.admins.includes(user.id))));
+      const isAdmin = !!(user && (contestData.admins && contestData.admins.includes(user.id)));
       const matchFilter = isAdmin ? `contest = "${contestId}"` : `contest = "${contestId}" && active = true`;
       const matchesData = await pb.collection('matches').getFullList<Match>({
         filter: matchFilter,
@@ -201,7 +201,7 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
         if (!match) continue;
         
         // No guardar si el partido ya se jugó o si está bloqueado (faltan < 10 mins)
-        const matchTime = match.date ? new Date(match.date).getTime() : 0;
+        const matchTime = match.date ? new Date(match.date.replace(' ', 'T')).getTime() : 0;
         const isLocked = !match.played && matchTime > 0 && Date.now() >= matchTime - 10 * 60 * 1000;
         if (match.played || isLocked) continue;
 

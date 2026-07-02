@@ -143,7 +143,7 @@ export const MatchPredictionsScreen: React.FC<Props> = ({ navigation, route }) =
                     {pred.userName}
                   </Text>
                   <Text style={[styles.tableCell, styles.cellScore, { flex: 1, textAlign: 'center' }]}>
-                    {pred.homeScore !== null ? pred.homeScore : '-'} - {pred.awayScore !== null ? pred.awayScore : '-'}
+                    {pred.homeScore === -1 ? '?' : pred.homeScore !== null ? pred.homeScore : '-'} - {pred.awayScore === -1 ? '?' : pred.awayScore !== null ? pred.awayScore : '-'}
                   </Text>
                   <Text style={[styles.tableCell, styles.cellPoints, { flex: 1, textAlign: 'right' }]}>
                     {match?.played ? `+${pred.points}` : '-'}

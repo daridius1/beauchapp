@@ -51,9 +51,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
     { id: 'Profile', label: 'Perfil' },
   ];
 
-  if (user?.isSuperadmin) {
-    menuItems.push({ id: 'Superadmin', label: 'Panel Superadmin' });
-  }
 
   return (
     <View style={StyleSheet.absoluteFillObject} pointerEvents={isOpen ? 'auto' : 'none'}>

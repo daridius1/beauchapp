@@ -7,7 +7,6 @@ export interface UserProfile {
   name: string;
   created: string;
   updated: string;
-  isSuperadmin?: boolean;
 }
 
 interface AuthContextType {
@@ -65,6 +64,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Iniciar sesión con email y contraseña
       const authData = await pb.collection('users').authWithPassword(email, password);
+      
+      if (!authData.record.verified) {
+        pb.authStore.clear();
+        throw new Error('Debes verificar tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada o spam.');
+      }
+      
       setUser(authData.record as unknown as UserProfile);
     } catch (err: any) {
       console.error('Login error:', err);
@@ -80,8 +85,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
     try {
       // Filtro previo en cliente (adicional al del backend)
-      if (!email.endsWith('@ug.uchile.cl')) {
-        throw new Error('Solo se permiten correos institucionales @ug.uchile.cl');
+      if (!email.endsWith('@ing.uchile.cl')) {
+        throw new Error('Solo se permiten correos institucionales @ing.uchile.cl');
       }
 
       const username = email.split('@')[0] + Math.floor(Math.random() * 1000);
@@ -100,8 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Enviar enlace de verificación de correo
       await pb.collection('users').requestVerification(email);
 
-      // Iniciar sesión automáticamente
-      await login(email, password);
+      // No iniciamos sesión automáticamente para obligar a verificar el correo
     } catch (err: any) {
       console.error('Signup error:', err);
       setError(err?.message || 'Error al registrar usuario.');

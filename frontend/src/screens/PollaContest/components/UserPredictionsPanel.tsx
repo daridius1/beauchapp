@@ -44,7 +44,7 @@ export const UserPredictionsPanel: React.FC<UserPredictionsPanelProps> = ({
 
             {groupedMatches[stage].map((match) => {
               const pred = predictions[match.id] || { homeScore: '', awayScore: '' };
-              const matchTime = match.date ? new Date(match.date).getTime() : 0;
+              const matchTime = match.date ? new Date(match.date.replace(' ', 'T')).getTime() : 0;
               const isLocked = !match.played && matchTime > 0 && Date.now() >= matchTime - 10 * 60 * 1000;
 
               return (

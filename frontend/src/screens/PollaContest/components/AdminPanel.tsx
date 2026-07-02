@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Platform } from 'react-native';
 import { Match, EditingScoreState, NewMatchForm } from '../types';
 import { styles } from '../styles';
 import { theme } from '../../HomeScreen';
@@ -48,14 +48,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const confirmArchiveMatch = (match: Match) => {
     const isArchiving = match.active !== false;
-    Alert.alert(
-      isArchiving ? 'Archivar Partido' : 'Restaurar Partido',
-      isArchiving ? '¿Estás seguro que deseas ocultar/archivar este partido?' : '¿Estás seguro que deseas restaurar este partido?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sí, estoy seguro', style: isArchiving ? 'destructive' : 'default', onPress: () => handleArchiveMatch(match.id, isArchiving) }
-      ]
-    );
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        isArchiving 
+          ? '¿Estás seguro que deseas ocultar/archivar este partido?' 
+          : '¿Estás seguro que deseas restaurar este partido?'
+      );
+      if (confirmed) {
+        handleArchiveMatch(match.id, isArchiving);
+      }
+    } else {
+      Alert.alert(
+        isArchiving ? 'Archivar Partido' : 'Restaurar Partido',
+        isArchiving ? '¿Estás seguro que deseas ocultar/archivar este partido?' : '¿Estás seguro que deseas restaurar este partido?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Sí, estoy seguro', style: isArchiving ? 'destructive' : 'default', onPress: () => handleArchiveMatch(match.id, isArchiving) }
+        ]
+      );
+    }
   };
 
   return (

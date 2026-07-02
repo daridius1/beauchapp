@@ -153,7 +153,12 @@ async function main() {
       type: 'base',
       schema: [
         { name: 'name', type: 'text', required: true },
-        { name: 'type', type: 'text', required: true },
+        { 
+          name: 'type', 
+          type: 'select', 
+          required: true,
+          options: { maxSelect: 1, values: ['polla', 'liga', 'trivia'] }
+        },
         { name: 'description', type: 'text' },
         { name: 'active', type: 'bool' },
         {
