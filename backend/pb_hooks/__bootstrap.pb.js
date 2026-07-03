@@ -1,12 +1,11 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Bootstrap hook: configura SMTP desde variables de entorno.
-// Se ejecuta ANTES de que PocketBase arranque completamente.
-// Para que funcione, levanta PocketBase con ./start.sh (que carga .env).
+onBootstrap((e) => {
+    e.next();
 
-onBeforeBootstrap((e) => {
     const apiKey = $os.getenv("RESEND_API_KEY");
-    if (!apiKey) return; // Si no hay key, no tocar la config (se usará lo que esté en la DB)
+    if (!apiKey) return; 
 
     const settings = e.app.settings();
 
@@ -20,5 +19,9 @@ onBeforeBootstrap((e) => {
     settings.meta.senderName = $os.getenv("SENDER_NAME") || "Beauchapp";
     settings.meta.senderAddress = $os.getenv("SENDER_ADDRESS") || "onboarding@resend.dev";
 
-    e.app.save(settings);
+    try {
+        $app.save(settings);
+    } catch (err) {
+        // Ignorar si hay error al guardar configuracion
+    }
 });

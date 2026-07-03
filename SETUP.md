@@ -68,6 +68,9 @@ RESEND_API_KEY=re_tuTokenAqui
 > [!IMPORTANT]
 > Usa `./start.sh` en vez de `./pocketbase serve`. El script carga las variables de entorno del `.env` y PocketBase las usa para configurar SMTP automáticamente al arrancar.
 
+> [!WARNING]
+> Si en el futuro configuras el SMTP de Resend de forma manual desde el Panel de Administración o mediante la API REST, asegúrate de **habilitar explícitamente el uso de TLS** (`tls: true` o marcando la casilla correspondiente) al usar el puerto `465`. Si se omite este paso, los correos no se enviarán y no habrá reportes de error visibles en Resend.
+
 **d) Crear cuenta de administrador**
 
 Abre `http://127.0.0.1:8090/_/` en tu navegador y crea tu cuenta de administrador (correo + contraseña). Esta cuenta es solo para gestionar la base de datos, no es un usuario de la app.

@@ -46,11 +46,16 @@ function schemasAreEqual(colA, colB) {
 async function main() {
   try {
     console.log('Autenticando como administrador (vía REST API)...');
-    const authData = await request('/api/admins/auth-with-password', {
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (!adminEmail || !adminPassword) {
+      throw new Error('Debes proveer ADMIN_EMAIL y ADMIN_PASSWORD como variables de entorno.');
+    }
+    const authData = await request('/api/collections/_superusers/auth-with-password', {
       method: 'POST',
       body: JSON.stringify({
-        identity: 'admin@ug.uchile.cl',
-        password: 'admin123456',
+        identity: adminEmail,
+        password: adminPassword,
       }),
     });
     
@@ -64,216 +69,16 @@ async function main() {
     let collectionsRes = await request('/api/collections?perPage=100', { headers: authHeader });
     let existingCollections = collectionsRes.items || [];
 
-    // 0. Agregar campo 'isSuperadmin' y actualizar reglas de lectura en la colección 'users'
+    // Colecciones ya existen gracias a las migraciones.
+    // Solo necesitamos buscar sus IDs para usarlas.
     const usersCol = existingCollections.find(c => c.name === 'users');
     const usersId = usersCol ? usersCol.id : 'users';
-    
-    if (usersCol) {
-      let changed = false;
-      const hasSuperadminField = usersCol.schema.some(f => f.name === 'isSuperadmin');
-      if (!hasSuperadminField) {
-        console.log('Agregando campo "isSuperadmin" a la colección "users"...');
-        usersCol.schema.push({
-          name: 'isSuperadmin',
-          type: 'bool',
-          required: false,
-          options: {}
-        });
-        changed = true;
-      }
-      
-      if (usersCol.listRule !== '@request.auth.id != ""' || usersCol.viewRule !== '@request.auth.id != ""') {
-        console.log('Actualizando reglas de acceso de la colección "users" para permitir lectura autenticada...');
-        usersCol.listRule = '@request.auth.id != ""';
-        usersCol.viewRule = '@request.auth.id != ""';
-        changed = true;
-      }
-      
-      if (changed) {
-        await request(`/api/collections/${usersCol.id}`, {
-          method: 'PATCH',
-          headers: authHeader,
-          body: JSON.stringify(usersCol)
-        });
-        console.log('Colección "users" actualizada.');
-      }
-    }
 
-    // Helper para buscar o crear colección paso a paso
-    async function upsertCollection(colData) {
-      const existing = existingCollections.find(c => c.name === colData.name);
-      if (existing) {
-        // Si el esquema y reglas son iguales, saltar actualización para evitar errores de índices SQLite
-        if (schemasAreEqual(existing, colData)) {
-          console.log(`La colección "${colData.name}" ya está al día. Saltando actualización.`);
-          return existing;
-        }
+    const contestsCol = existingCollections.find(c => c.name === 'contests');
+    const contestsId = contestsCol ? contestsCol.id : 'contests';
 
-        console.log(`La colección "${colData.name}" tiene cambios pendientes. Actualizando...`);
-        const updatedCol = {
-          ...existing,
-          ...colData,
-          schema: [
-            ...existing.schema.filter(f => ['id', 'created', 'updated'].includes(f.name)),
-            ...colData.schema
-          ]
-        };
-        const uniqueSchema = [];
-        const seen = new Set();
-        for (const field of updatedCol.schema) {
-          if (!seen.has(field.name)) {
-            seen.add(field.name);
-            uniqueSchema.push(field);
-          }
-        }
-        updatedCol.schema = uniqueSchema;
-
-        const res = await request(`/api/collections/${existing.id}`, {
-          method: 'PATCH',
-          headers: authHeader,
-          body: JSON.stringify(updatedCol)
-        });
-        console.log(`Colección "${colData.name}" actualizada.`);
-        return res;
-      } else {
-        console.log(`La colección "${colData.name}" no existe. Creando...`);
-        const res = await request('/api/collections', {
-          method: 'POST',
-          headers: authHeader,
-          body: JSON.stringify(colData)
-        });
-        console.log(`Colección "${colData.name}" creada con ID: ${res.id}`);
-        return res;
-      }
-    }
-
-    // 1. Obtener o Crear colección 'contests' (con campo 'admins')
-    const contestsCol = {
-      name: 'contests',
-      type: 'base',
-      schema: [
-        { name: 'name', type: 'text', required: true },
-        { 
-          name: 'type', 
-          type: 'select', 
-          required: true,
-          options: { maxSelect: 1, values: ['polla', 'liga', 'trivia'] }
-        },
-        { name: 'description', type: 'text' },
-        { name: 'active', type: 'bool' },
-        {
-          name: 'admins',
-          type: 'relation',
-          required: false,
-          options: {
-            collectionId: usersId,
-            cascadeDelete: false,
-            maxSelect: null
-          }
-        }
-      ],
-      listRule: '@request.auth.id != ""',
-      viewRule: '@request.auth.id != ""',
-      createRule: null,
-      updateRule: '@request.auth.id != "" && @request.auth.isSuperadmin = true',
-      deleteRule: null,
-    };
-    const contestsCollection = await upsertCollection(contestsCol);
-    const contestsId = contestsCollection.id;
-
-    // Actualizar la lista de colecciones locales para obtener los últimos IDs
-    collectionsRes = await request('/api/collections?perPage=100', { headers: authHeader });
-    existingCollections = collectionsRes.items || [];
-
-    // 2. Obtener o Crear colección 'matches' (con marcador real y played)
-    const matchesCol = {
-      name: 'matches',
-      type: 'base',
-      schema: [
-        {
-          name: 'contest',
-          type: 'relation',
-          required: true,
-          options: {
-            collectionId: contestsId,
-            cascadeDelete: false,
-            maxSelect: 1
-          }
-        },
-        { name: 'homeTeam', type: 'text', required: true },
-        { name: 'homeFlag', type: 'text', required: true },
-        { name: 'awayTeam', type: 'text', required: true },
-        { name: 'awayFlag', type: 'text', required: true },
-        { name: 'stage', type: 'text', required: true },
-        { name: 'date', type: 'date', required: true },
-        { name: 'active', type: 'bool' },
-        { name: 'homeScore', type: 'number', required: false, options: { min: 0 } },
-        { name: 'awayScore', type: 'number', required: false, options: { min: 0 } },
-        { name: 'played', type: 'bool', required: false }
-      ],
-      listRule: '@request.auth.id != ""',
-      viewRule: '@request.auth.id != ""',
-      createRule: '@request.auth.id != "" && (@request.auth.isSuperadmin = true || @request.data.contest.admins.id ?= @request.auth.id)',
-      updateRule: '@request.auth.id != "" && (@request.auth.isSuperadmin = true || contest.admins.id ?= @request.auth.id)',
-      deleteRule: '@request.auth.id != "" && (@request.auth.isSuperadmin = true || contest.admins.id ?= @request.auth.id)',
-    };
-    const matchesCollection = await upsertCollection(matchesCol);
-    const matchesId = matchesCollection.id;
-
-    // 3. Obtener o Crear colección 'predictions' (con campo 'points')
-    const predictionsCol = {
-      name: 'predictions',
-      type: 'base',
-      schema: [
-        {
-          name: 'user',
-          type: 'relation',
-          required: true,
-          options: {
-            collectionId: usersId,
-            cascadeDelete: false,
-            maxSelect: 1
-          }
-        },
-        {
-          name: 'match',
-          type: 'relation',
-          required: true,
-          options: {
-            collectionId: matchesId,
-            cascadeDelete: false,
-            maxSelect: 1
-          }
-        },
-        {
-          name: 'homeScore',
-          type: 'number',
-          required: false,
-          options: { min: 0 }
-        },
-        {
-          name: 'awayScore',
-          type: 'number',
-          required: false,
-          options: { min: 0 }
-        },
-        {
-          name: 'points',
-          type: 'number',
-          required: false,
-          options: { min: 0 }
-        }
-      ],
-      listRule: '@request.auth.id != ""',
-      viewRule: '@request.auth.id != ""',
-      createRule: '@request.auth.id = user.id',
-      updateRule: '@request.auth.id = user.id',
-      deleteRule: '@request.auth.id = user.id',
-      indexes: [
-        'CREATE UNIQUE INDEX idx_user_match ON predictions (user, match)'
-      ]
-    };
-    await upsertCollection(predictionsCol);
+    const matchesCol = existingCollections.find(c => c.name === 'matches');
+    const matchesId = matchesCol ? matchesCol.id : 'matches';
 
     // 4. Buscar usuario 'test' para hacerlo Superadmin y Admin del concurso
     console.log('Buscando usuario "test@ing.uchile.cl"...');
@@ -406,7 +211,7 @@ async function main() {
             body: JSON.stringify({
               username: username,
               email: u.email,
-              emailVisibility: true,
+              emailVisibility: false,
               password: 'password123',
               passwordConfirm: 'password123',
               name: u.name,

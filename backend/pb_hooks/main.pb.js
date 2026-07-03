@@ -1,9 +1,9 @@
 // Beauchapp PocketBase Hooks
-// Lógica de negocio del lado del servidor
+// Lógica de negocio del lado del servidor - Compatible con PocketBase v0.23+
 
 // 1. Filtro de exclusividad universitaria
 // Interceptar el registro de usuarios para validar el correo institucional @ing.uchile.cl
-onRecordBeforeCreateRequest((e) => {
+onRecordCreateRequest((e) => {
     const email = e.record.getString("email");
     
     if (!email) {
@@ -13,20 +13,35 @@ onRecordBeforeCreateRequest((e) => {
     if (!email.endsWith("@ing.uchile.cl")) {
         throw new BadRequestError("Acceso denegado. Solo se permiten correos con el dominio @ing.uchile.cl");
     }
+    
+    e.next();
+}, "users");
+
+// 1.5. Proteger campo isSuperadmin (solo admins reales pueden modificarlo)
+onRecordUpdateRequest((e) => {
+    const original = e.record.originalCopy();
+    if (e.record.get("isSuperadmin") !== original.get("isSuperadmin")) {
+        if (!e.requestInfo?.auth?.isSuperuser()) {
+            e.record.set("isSuperadmin", original.get("isSuperadmin"));
+        }
+    }
+    e.next();
 }, "users");
 
 // 2. Recálculo automático de puntuación para predicciones
-// Cuando un administrador actualiza un partido y define su resultado oficial
-onRecordAfterUpdateRequest((e) => {
+onRecordUpdateRequest((e) => {
+    // Primero, ejecutar la actualizacion
+    e.next();
+
     const played = e.record.getBool("played");
+    if (!played) return; // solo recalcular si el partido ya se jugo
+
     const matchId = e.record.getId();
     const homeScore = e.record.getInt("homeScore");
     const awayScore = e.record.getInt("awayScore");
     
-    console.log("Match updated: " + matchId + ", played: " + played + " (" + homeScore + "-" + awayScore + ")");
-    
-    // Obtener todas las predicciones asociadas a este partido
-    const predictions = $app.dao().findRecordsByFilter(
+    // Obtener predicciones
+    const predictions = $app.findRecordsByFilter(
         "predictions",
         "match = {:matchId}",
         "",
@@ -35,193 +50,172 @@ onRecordAfterUpdateRequest((e) => {
         { matchId: matchId }
     );
     
-    console.log("Calculando puntos para " + predictions.length + " predicciones...");
-    
     for (let i = 0; i < predictions.length; i++) {
         const pred = predictions[i];
         let points = 0;
         
-        if (played) {
-            const predHome = pred.getInt("homeScore");
-            const predAway = pred.getInt("awayScore");
-            
-            const predDiff = predHome - predAway;
-            const matchDiff = homeScore - awayScore;
-            
-            const predOutcome = predDiff > 0 ? 1 : (predDiff < 0 ? -1 : 0);
-            const matchOutcome = matchDiff > 0 ? 1 : (matchDiff < 0 ? -1 : 0);
-            
-            if (predHome === homeScore && predAway === awayScore) {
-                // 1. Marcador exacto
-                points = 6;
-            } else if (predOutcome === matchOutcome && predDiff === matchDiff) {
-                // 2. Diferencia de goles
-                points = 4;
-            } else if (predOutcome === matchOutcome) {
-                // 3. Tendencia Simple
-                points = 3;
+        const predHome = pred.getInt("homeScore");
+        const predAway = pred.getInt("awayScore");
+        
+        const predDiff = predHome - predAway;
+        const matchDiff = homeScore - awayScore;
+        
+        const predOutcome = predDiff > 0 ? 1 : (predDiff < 0 ? -1 : 0);
+        const matchOutcome = matchDiff > 0 ? 1 : (matchDiff < 0 ? -1 : 0);
+        
+        if (predHome === homeScore && predAway === awayScore) {
+            points = 6;
+        } else if (predOutcome === matchOutcome && predDiff === matchDiff) {
+            points = 4;
+        } else if (predOutcome === matchOutcome) {
+            points = 3;
+        } else {
+            const isFlipped = (predOutcome * matchOutcome) === -1;
+            if (!isFlipped && (predHome === homeScore || predAway === awayScore)) {
+                points = 1;
             } else {
-                // 4. Precisión por Equipo (falla tendencia, pero achunta a un equipo)
-                // "Si el resultado se da vuelta al revés, 0 puntos"
-                const isFlipped = (predOutcome * matchOutcome) === -1;
-                
-                if (!isFlipped && (predHome === homeScore || predAway === awayScore)) {
-                    points = 1;
-                } else {
-                    points = 0;
+                points = 0;
+            }
+        }
+        
+        pred.set("points", points);
+        $app.save(pred);
+    }
+}, "matches");
+
+
+
+
+// 3. Validar seguridad de Predicciones
+onRecordCreateRequest((e) => {
+    const matchId = e.record.getString("match");
+    if (matchId) {
+        try {
+            const match = $app.findRecordById("matches", matchId);
+            if (match.getBool("played")) {
+                throw new BadRequestError("No puedes predecir un partido que ya finalizó.");
+            }
+            const dateStr = match.getString("date");
+            if (dateStr) {
+                const matchTime = new Date(dateStr.replace(" ", "T")).getTime();
+                if (Date.now() >= matchTime - 600000) {
+                    throw new BadRequestError("El tiempo para predecir este partido se ha agotado (se bloquea 10 mins antes).");
                 }
             }
-        }
-        
-        // Guardar puntos en la predicción de forma explícita
-        pred.set("points", points);
-        $app.dao().saveRecord(pred);
-    }
-    
-    console.log("Recálculo completado.");
-}, "matches");
-
-// 3. Validar seguridad: No permitir apuestas de partidos bloqueados o jugados
-onRecordBeforeCreateRequest((e) => {
-    const matchId = e.record.getString("match");
-    if (!matchId) return;
-
-    try {
-        const match = $app.dao().findRecordById("matches", matchId);
-        if (match.getBool("played")) {
-            throw new BadRequestError("No puedes predecir un partido que ya finalizó.");
-        }
-        const matchDateStr = match.getString("date");
-        if (matchDateStr) {
-            const matchTime = new Date(matchDateStr.replace(" ", "T")).getTime();
-            if (Date.now() >= matchTime - 600000) {
-                throw new BadRequestError("El tiempo para predecir este partido se ha agotado (se bloquea 10 mins antes).");
+        } catch (err) {
+            if (err.message && err.message.includes("predecir")) {
+                throw err;
             }
         }
-    } catch (err) {
-        if (err.message && err.message.includes("predecir")) {
-            throw err;
-        }
     }
+    // Evitar trampa: forzar a 0 en la creación
+    e.record.set("points", 0);
+    e.next();
 }, "predictions");
 
-onRecordBeforeUpdateRequest((e) => {
-    // Si los goles no cambiaron, es un recálculo interno del servidor (actualizando puntos), se permite
-    try {
-        const oldPred = $app.dao().findRecordById("predictions", e.record.getId());
-        if (oldPred.getInt("homeScore") === e.record.getInt("homeScore") && 
-            oldPred.getInt("awayScore") === e.record.getInt("awayScore")) {
-            return;
-        }
-    } catch(err) {}
+onRecordUpdateRequest((e) => {
+    const original = e.record.originalCopy();
+    
+    // Evitar trampa: restaurar los puntos originales si el cliente intento editarlos
+    e.record.set("points", original.getInt("points"));
+    
+    // Si los goles no cambiaron, es un save interno (p. ej. calculo de puntos)
+    if (original.getInt("homeScore") === e.record.getInt("homeScore") && 
+        original.getInt("awayScore") === e.record.getInt("awayScore")) {
+        e.next();
+        return;
+    }
 
     const matchId = e.record.getString("match");
-    if (!matchId) return;
-
-    try {
-        const match = $app.dao().findRecordById("matches", matchId);
-        if (match.getBool("played")) {
-            throw new BadRequestError("No puedes predecir un partido que ya finalizó.");
-        }
-        const matchDateStr = match.getString("date");
-        if (matchDateStr) {
-            const matchTime = new Date(matchDateStr.replace(" ", "T")).getTime();
-            if (Date.now() >= matchTime - 600000) {
-                throw new BadRequestError("El tiempo para predecir este partido se ha agotado (se bloquea 10 mins antes).");
+    if (matchId) {
+        try {
+            const match = $app.findRecordById("matches", matchId);
+            if (match.getBool("played")) {
+                throw new BadRequestError("No puedes predecir un partido que ya finalizó.");
             }
-        }
-    } catch (err) {
-        if (err.message && err.message.includes("predecir")) {
-            throw err;
-        }
-    }
-}, "predictions");
-
-// 4. Anti-Espionaje: Ocultar marcadores de otros usuarios en partidos no jugados/bloqueados
-onRecordsListRequest((e) => {
-    const authId = e.httpContext ? e.httpContext.get("authRecord")?.id : null;
-    const now = Date.now();
-    const records = e.records || [];
-    const matchIds = [];
-    
-    for (let i = 0; i < records.length; i++) {
-        const mid = records[i].get("match");
-        if (mid && !matchIds.includes(mid)) matchIds.push(mid);
-    }
-    if (matchIds.length === 0) return;
-    
-    const matchMap = {};
-    const matches = $app.dao().findRecordsByIds("matches", matchIds);
-    for (let i = 0; i < matches.length; i++) {
-        matchMap[matches[i].getId()] = matches[i];
-    }
-    
-    for (let i = 0; i < records.length; i++) {
-        const r = records[i];
-        if (r.get("user") === authId) continue;
-        const match = matchMap[r.get("match")];
-        if (!match || match.getBool("played")) continue;
-        
-        const dateStr = match.getString("date");
-        if (dateStr) {
-            const matchTime = new Date(dateStr.replace(" ", "T")).getTime();
-            if (now < matchTime - 600000) {
-                r.set("homeScore", -1);
-                r.set("awayScore", -1);
+            const dateStr = match.getString("date");
+            if (dateStr) {
+                const matchTime = new Date(dateStr.replace(" ", "T")).getTime();
+                if (Date.now() >= matchTime - 600000) {
+                    throw new BadRequestError("El tiempo para predecir este partido se ha agotado (se bloquea 10 mins antes).");
+                }
+            }
+        } catch (err) {
+            if (err.message && err.message.includes("predecir")) {
+                throw err;
             }
         }
     }
+    e.next();
 }, "predictions");
 
-onRecordViewRequest((e) => {
-    const authId = e.httpContext ? e.httpContext.get("authRecord")?.id : null;
-    const now = Date.now();
-    if (!e.record) return;
+
+// 4. Anti-Espionaje: Ocultar marcadores de otros usuarios en partidos no jugados
+onRecordEnrich((e) => {
+    // Esto se ejecuta en TODAS las lecturas (List, View, Realtime)
+    const authRecord = e.requestInfo?.auth;
+    const authId = authRecord ? authRecord.getId() : null;
+    const userId = e.record.getString("user");
     
-    if (e.record.get("user") === authId) return;
-    const matchId = e.record.get("match");
-    if (!matchId) return;
-    
-    try {
-        const match = $app.dao().findRecordById("matches", matchId);
-        if (match.getBool("played")) return;
-        
-        const dateStr = match.getString("date");
-        if (dateStr) {
-            const matchTime = new Date(dateStr.replace(" ", "T")).getTime();
-            if (now < matchTime - 600000) {
-                e.record.set("homeScore", -1);
-                e.record.set("awayScore", -1);
-            }
+    // Si no es el dueño de la prediccion
+    if (userId !== authId) {
+        const matchId = e.record.getString("match");
+        if (matchId) {
+            try {
+                // Recuperar estado del partido
+                const match = $app.findRecordById("matches", matchId);
+                if (!match.getBool("played")) {
+                    const dateStr = match.getString("date");
+                    if (dateStr) {
+                        const matchTime = new Date(dateStr.replace(" ", "T")).getTime();
+                        if (Date.now() < matchTime - 600000) {
+                            // Partido aun no arranca -> ocultar score
+                            e.record.set("homeScore", -1);
+                            e.record.set("awayScore", -1);
+                        }
+                    }
+                }
+            } catch (err) {}
         }
-    } catch (err) {}
+    }
+    
+    e.next();
 }, "predictions");
+
 
 // 5. Sanitización de tags: siempre minúsculas y alfanuméricos
-function sanitizeTag(val) {
-    if (!val || typeof val !== "string") return "";
-    return val.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-}
-
-onRecordBeforeCreateRequest((e) => {
+onRecordCreateRequest((e) => {
     const tag = e.record.getString("tag");
-    if (tag) e.record.set("tag", sanitizeTag(tag));
+    if (tag) {
+        const clean = typeof tag === "string" ? tag.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() : "";
+        e.record.set("tag", clean);
+    }
+    e.next();
 }, "matches");
 
-onRecordBeforeUpdateRequest((e) => {
+onRecordUpdateRequest((e) => {
     const tag = e.record.getString("tag");
-    if (tag) e.record.set("tag", sanitizeTag(tag));
+    if (tag) {
+        const clean = typeof tag === "string" ? tag.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() : "";
+        e.record.set("tag", clean);
+    }
+    e.next();
 }, "matches");
 
-onRecordBeforeCreateRequest((e) => {
+onRecordCreateRequest((e) => {
     const tag = e.record.getString("tag");
-    if (tag) e.record.set("tag", sanitizeTag(tag));
+    if (tag) {
+        const clean = typeof tag === "string" ? tag.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() : "";
+        e.record.set("tag", clean);
+    }
+    e.next();
 }, "contests");
 
-onRecordBeforeUpdateRequest((e) => {
+onRecordUpdateRequest((e) => {
     const tag = e.record.getString("tag");
-    if (tag) e.record.set("tag", sanitizeTag(tag));
+    if (tag) {
+        const clean = typeof tag === "string" ? tag.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() : "";
+        e.record.set("tag", clean);
+    }
+    e.next();
 }, "contests");
-
-// Sanitizar tags en posts también
-// Sanitización de posts manejada en el frontend.

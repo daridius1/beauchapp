@@ -1,6 +1,7 @@
 export const formatMatchDate = (dateStr: string | undefined): string => {
   if (!dateStr) return 'Sin Fecha';
-  const d = new Date(dateStr);
+  const normalizedStr = dateStr.replace(' ', 'T');
+  const d = new Date(normalizedStr);
   if (isNaN(d.getTime())) return 'Sin Fecha';
   const dd = String(d.getDate()).padStart(2, '0');
   const mm = String(d.getMonth() + 1).padStart(2, '0');

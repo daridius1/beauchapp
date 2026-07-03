@@ -205,11 +205,17 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       await pb.collection('posts').update(post.id, { likes: newLikes });
     } catch (err) {
       console.error(err);
+      // Revertir actualizacion optimista
+      setPosts(currentPosts => 
+        currentPosts.map(p => 
+          p.id === post.id ? { ...p, likes: post.likes || [] } : p
+        )
+      );
     }
   };
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
+    const d = new Date(dateStr.replace(' ', 'T'));
     return d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL', { hour: '2-digit', minute:'2-digit' });
   };
 

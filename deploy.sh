@@ -21,7 +21,7 @@ echo "1. Creando estructura en el servidor y descargando PocketBase..."
 ssh -t $SERVER "sudo apt update && sudo apt install wget unzip git tmux mc curl -y && mkdir -p ~/red-social/pb_public && cd ~/red-social && if [ ! -f pocketbase ]; then echo 'Obteniendo última versión de PocketBase...' && VERSION=\$(curl -s https://api.github.com/repos/pocketbase/pocketbase/releases/latest | grep '\"tag_name\":' | sed -E 's/.*\"v([^\"]+)\".*/\1/') && echo \"Descargando versión \$VERSION...\" && wget \"https://github.com/pocketbase/pocketbase/releases/latest/download/pocketbase_\${VERSION}_linux_amd64.zip\" -O pb.zip && unzip -o pb.zip && chmod +x pocketbase && rm pb.zip; fi"
 
 echo "2. Subiendo backend y base de datos inicial..."
-scp -r ./backend/pb_migrations ./backend/pb_hooks ./backend/pb_data ./backend/seed.js $SERVER:~/red-social/
+scp -r ./backend/pb_migrations ./backend/pb_hooks ./backend/seed.js ./backend/start.sh ./backend/.env.example $SERVER:~/red-social/
 
 echo "3. Subiendo el frontend estático..."
 scp -r $LOCAL_BUILD_DIR/* $SERVER:~/red-social/pb_public/
@@ -35,7 +35,7 @@ After=network.target
 Type=simple
 User=salas
 WorkingDirectory=/home/salas/red-social
-ExecStart=/home/salas/red-social/pocketbase serve --http=\"127.0.0.1:8090\"
+ExecStart=/bin/bash /home/salas/red-social/start.sh --http=\"127.0.0.1:8090\"
 Restart=on-failure
 
 [Install]

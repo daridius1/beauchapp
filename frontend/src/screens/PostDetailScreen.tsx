@@ -140,18 +140,33 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       await pb.collection('posts').update(post.id, { likes: newLikes });
     } catch (err) {
       console.error('Error liking post', err);
+      if (mainPost?.id === post.id) setMainPost({ ...mainPost, likes: post.likes || [] });
+      if (parent?.id === post.id) setParent({ ...parent, likes: post.likes || [] });
+      setSiblings(sibs => sibs.map(p => p.id === post.id ? { ...p, likes: post.likes || [] } : p));
+      setChildren(kids => kids.map(p => p.id === post.id ? { ...p, likes: post.likes || [] } : p));
     }
   };
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
+    const d = new Date(dateStr.replace(' ', 'T'));
     return d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL', { hour: '2-digit', minute:'2-digit' });
   };
 
-  if (loading || !mainPost) {
+  if (loading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  if (!mainPost) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={{ color: theme.colors.textMuted }}>Publicación no encontrada.</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
+          <Text style={{ color: theme.colors.primary }}>Volver</Text>
+        </TouchableOpacity>
       </View>
     );
   }

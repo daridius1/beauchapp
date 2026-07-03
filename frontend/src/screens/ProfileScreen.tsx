@@ -56,11 +56,12 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       setPosts(posts.map(p => p.id === post.id ? { ...p, likes: newLikes } : p));
     } catch (err) {
       console.error('Error liking post', err);
+      setPosts(posts.map(p => p.id === post.id ? { ...p, likes: post.likes || [] } : p));
     }
   };
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
+    const d = new Date(dateStr.replace(' ', 'T'));
     return d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL', { hour: '2-digit', minute:'2-digit' });
   };
 
