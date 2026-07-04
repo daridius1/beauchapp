@@ -137,13 +137,24 @@ export const UserProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                 onPress={() => navigation.push('PostDetail', { postId: post.id })}
               >
                 <View style={styles.postHeader}>
-                  <View style={styles.avatarMini}>
-                    <Text style={styles.avatarMiniText}>{author?.name ? author.name.charAt(0).toUpperCase() : 'U'}</Text>
-                  </View>
+                  <TouchableOpacity 
+                    onPress={() => navigation.push('UserProfile', { userId: post.author })}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.avatarMini}>
+                      <Text style={styles.avatarMiniText}>{author?.name ? author.name.charAt(0).toUpperCase() : 'U'}</Text>
+                    </View>
+                  </TouchableOpacity>
                   <View style={styles.postMeta}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={styles.postAuthor}>{author?.name || 'Usuario'}</Text>
-                      {author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
+                      <TouchableOpacity 
+                        onPress={() => navigation.push('UserProfile', { userId: post.author })}
+                        activeOpacity={0.7}
+                        style={{ flexDirection: 'row', alignItems: 'center' }}
+                      >
+                        <Text style={styles.postAuthor}>{author?.name || 'Usuario'}</Text>
+                        {author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
+                      </TouchableOpacity>
                     </View>
                     <Text style={styles.postDate}>{formatDate(post.created)}</Text>
                   </View>
