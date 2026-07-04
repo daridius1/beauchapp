@@ -36,7 +36,7 @@ onRecordUpdateRequest((e) => {
     const played = e.record.getBool("played");
     if (!played) return; // solo recalcular si el partido ya se jugo
 
-    const matchId = e.record.getId();
+    const matchId = e.record.id;
     const homeScore = e.record.getInt("homeScore");
     const awayScore = e.record.getInt("awayScore");
     
@@ -102,7 +102,7 @@ onRecordCreateRequest((e) => {
                     throw new BadRequestError("El tiempo para predecir este partido se ha agotado (se bloquea 10 mins antes).");
                 }
             }
-        } catch (err) {
+        console.log("RECALC COMPLETE"); } catch (err) {
             if (err.message && err.message.includes("predecir")) {
                 throw err;
             }
@@ -140,7 +140,7 @@ onRecordUpdateRequest((e) => {
                     throw new BadRequestError("El tiempo para predecir este partido se ha agotado (se bloquea 10 mins antes).");
                 }
             }
-        } catch (err) {
+        console.log("RECALC COMPLETE"); } catch (err) {
             if (err.message && err.message.includes("predecir")) {
                 throw err;
             }
@@ -154,7 +154,7 @@ onRecordUpdateRequest((e) => {
 onRecordEnrich((e) => {
     // Esto se ejecuta en TODAS las lecturas (List, View, Realtime)
     const authRecord = e.requestInfo?.auth;
-    const authId = authRecord ? authRecord.getId() : null;
+    const authId = authRecord ? authRecord.id : null;
     const userId = e.record.getString("user");
     
     // Si no es el dueño de la prediccion
@@ -175,7 +175,7 @@ onRecordEnrich((e) => {
                         }
                     }
                 }
-            } catch (err) {}
+            console.log("RECALC COMPLETE"); } catch (err) {}
         }
     }
     
@@ -219,3 +219,122 @@ onRecordUpdateRequest((e) => {
     }
     e.next();
 }, "contests");
+
+// 6. Lógica de Árboles Estilo Reddit para Posts (Lógica inyectada directamente en los hooks)
+
+onRecordCreateRequest((e) => {
+    try {
+        const parentId = e.record.getString("replyTo");
+
+        if (parentId) {
+            // Es una respuesta: limpiar tags
+            e.record.set("tags", []);
+
+            // Buscar el root
+            try {
+                const parent = $app.findRecordById("posts", parentId);
+                let rootId = parent.getString("root");
+                if (!rootId) {
+                    rootId = parent.id; // El padre es la raíz
+                }
+                e.record.set("root", rootId);
+            } catch (err) {
+                console.log("Error in root hook:", err);
+            }
+        }
+
+        // Inicializar conteo
+        e.record.set("commentCount", 0);
+    } catch (outerErr) {
+        console.log("OUTER ERROR in posts create hook:", outerErr);
+    }
+    e.next();
+}, "posts");
+
+onRecordAfterCreateSuccess((e) => {
+    const rootId = e.record.getString("root");
+    if (rootId) {
+        try {
+            const rows = arrayOf(new DynamicModel({ "id": "", "replyTo": "", "commentCount": 0 }));
+            $app.db().select("id", "replyTo", "commentCount").from("posts").where(
+                $dbx.or($dbx.hashExp({ "root": rootId }), $dbx.hashExp({ "id": rootId }))
+            ).all(rows);
+            
+            const childrenMap = {};
+            for (let j = 0; j < rows.length; j++) {
+                const r = rows[j];
+                if (r.replyTo) {
+                    if (!childrenMap[r.replyTo]) childrenMap[r.replyTo] = [];
+                    childrenMap[r.replyTo].push(r.id);
+                }
+            }
+            
+            function countDescendants(postId) {
+                const kids = childrenMap[postId] || [];
+                let count = kids.length;
+                for (let i = 0; i < kids.length; i++) {
+                    count += countDescendants(kids[i]);
+                }
+                return count;
+            }
+            
+            for (let j = 0; j < rows.length; j++) {
+                const r = rows[j];
+                const newCount = countDescendants(r.id);
+                if (r.commentCount !== newCount) {
+                    $app.db().newQuery("UPDATE posts SET commentCount = {:count} WHERE id = {:id}").bind({
+                        "count": newCount,
+                        "id": r.id,
+                    }).execute();
+                }
+            }
+        } catch (err) {
+            console.log("Error recalcTree create:", err);
+        }
+    }
+    e.next();
+}, "posts");
+
+onRecordAfterDeleteSuccess((e) => {
+    const rootId = e.record.getString("root");
+    if (rootId) {
+        try {
+            const rows = arrayOf(new DynamicModel({ "id": "", "replyTo": "", "commentCount": 0 }));
+            $app.db().select("id", "replyTo", "commentCount").from("posts").where(
+                $dbx.or($dbx.hashExp({ "root": rootId }), $dbx.hashExp({ "id": rootId }))
+            ).all(rows);
+            
+            const childrenMap = {};
+            for (let j = 0; j < rows.length; j++) {
+                const r = rows[j];
+                if (r.replyTo) {
+                    if (!childrenMap[r.replyTo]) childrenMap[r.replyTo] = [];
+                    childrenMap[r.replyTo].push(r.id);
+                }
+            }
+            
+            function countDescendants(postId) {
+                const kids = childrenMap[postId] || [];
+                let count = kids.length;
+                for (let i = 0; i < kids.length; i++) {
+                    count += countDescendants(kids[i]);
+                }
+                return count;
+            }
+            
+            for (let j = 0; j < rows.length; j++) {
+                const r = rows[j];
+                const newCount = countDescendants(r.id);
+                if (r.commentCount !== newCount) {
+                    $app.db().newQuery("UPDATE posts SET commentCount = {:count} WHERE id = {:id}").bind({
+                        "count": newCount,
+                        "id": r.id,
+                    }).execute();
+                }
+            }
+        } catch (err) {
+            console.log("Error recalcTree delete:", err);
+        }
+    }
+    e.next();
+}, "posts");

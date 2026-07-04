@@ -63,17 +63,22 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       if (activeSearch) {
         const safeSearch = activeSearch.replace(/"/g, '\\"');
         filterConditions.push(`content ~ "${safeSearch}"`);
+      } else {
+        // Si no hay búsqueda de texto, mostrar SOLO las raíces (posts originales)
+        filterConditions.push(`root = ""`);
       }
+      
       if (filterTags.length > 0) {
         filterTags.forEach(t => {
           const safeTag = t.replace(/"/g, '\\"');
-          filterConditions.push(`tags ~ "${safeTag}"`);
+          // Hereda los tags del post raíz
+          filterConditions.push(`(tags ~ "${safeTag}" || root.tags ~ "${safeTag}")`);
         });
       }
 
       const options: any = {
         sort: '-created',
-        expand: 'author,replyTo.author,posts_via_replyTo'
+        expand: 'author,replyTo.author'
       };
       if (filterConditions.length > 0) {
         options.filter = filterConditions.join(' && ');
@@ -375,7 +380,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
           posts.map(post => {
             const isLiked = user && (post.likes || []).includes(user.id);
             const author = post.expand?.author;
-            const repliesCount = post.expand?.posts_via_replyTo ? post.expand.posts_via_replyTo.length : 0;
+            const repliesCount = post.commentCount || 0;
             return (
               <TouchableOpacity 
                 key={post.id} 

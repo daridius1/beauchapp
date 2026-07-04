@@ -30,7 +30,7 @@ export const UserProfileScreen: React.FC<Props> = ({ route, navigation }) => {
       const postsRes = await pb.collection('posts').getList(1, 50, {
         filter: `author = "${userId}"`,
         sort: '-created',
-        expand: 'author,replyTo.author,posts_via_replyTo'
+        expand: 'author,replyTo.author'
       });
       setPosts(postsRes.items);
     } catch (err) {
@@ -127,7 +127,7 @@ export const UserProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           posts.map(post => {
             const isLiked = currentUser && (post.likes || []).includes(currentUser.id);
             const author = post.expand?.author;
-            const repliesCount = post.expand?.posts_via_replyTo ? post.expand.posts_via_replyTo.length : 0;
+            const repliesCount = post.commentCount || 0;
             
             return (
               <TouchableOpacity 

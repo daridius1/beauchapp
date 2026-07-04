@@ -13,14 +13,11 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { postId } = route.params;
   const { user } = useAuth();
   
-  const [parent, setParent] = useState<any>(null);
-  const [siblings, setSiblings] = useState<any[]>([]);
+  const [threadPath, setThreadPath] = useState<any[]>([]);
   const [mainPost, setMainPost] = useState<any>(null);
   const [children, setChildren] = useState<any[]>([]);
   
   const [content, setContent] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
 
@@ -30,36 +27,34 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     if (!hideLoading) setLoading(true);
     try {
       // 1. Fetch focused post
-      const postRes = await pb.collection('posts').getOne(postId, { expand: 'author,posts_via_replyTo' });
+      const postRes = await pb.collection('posts').getOne(postId, { expand: 'author' });
       setMainPost(postRes);
       
-      if (!hideLoading) {
-        setTags(postRes.tags || []);
-      }
-
-      // 2. Fetch parent context (if exists) and siblings
-      if (postRes.replyTo) {
-        const parentRes = await pb.collection('posts').getOne(postRes.replyTo, { expand: 'author,posts_via_replyTo' });
-        setParent(parentRes);
-
-        const sibRes = await pb.collection('posts').getList(1, 100, {
-          filter: `replyTo = "${parentRes.id}"`,
-          sort: '+created',
-          expand: 'author,posts_via_replyTo'
-        });
-        setSiblings(sibRes.items);
-      } else {
-        setParent(null);
-        setSiblings([postRes]); // If it has no parent, it's a root post
-      }
-
-      // 3. Fetch children of the focused post
-      const childrenRes = await pb.collection('posts').getList(1, 100, {
-        filter: `replyTo = "${postId}"`,
-        sort: '+created',
-        expand: 'author,posts_via_replyTo'
+      const rootId = postRes.root || postRes.id;
+      
+      // 2. Fetch entire thread in one go
+      const threadRes = await pb.collection('posts').getFullList({
+        filter: `root = "${rootId}" || id = "${rootId}"`,
+        expand: 'author',
+        sort: '+created'
       });
-      setChildren(childrenRes.items);
+      
+      const postMap = new Map();
+      threadRes.forEach(p => postMap.set(p.id, p));
+      
+      // 3. Build threadPath (from root down to focused post, exclusive)
+      const path = [];
+      let curr = postRes.replyTo;
+      while (curr && postMap.has(curr)) {
+        path.unshift(postMap.get(curr));
+        curr = postMap.get(curr).replyTo;
+      }
+      setThreadPath(path);
+      
+      // 4. Find direct children
+      const kids = threadRes.filter(p => p.replyTo === postId);
+      setChildren(kids);
+      
     } catch (err) {
       console.error('Error fetching post details', err);
     } finally {
@@ -74,46 +69,17 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }, [postId])
   );
 
-  const addTag = (text: string) => {
-    const clean = text.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-    if (clean && tags.length < 4 && clean.length <= 15 && !tags.includes(clean)) {
-      setTags([...tags, clean]);
-    }
-    setTagInput('');
-  };
-
-  const handleTagInputChange = (text: string) => {
-    if (text.endsWith(' ') || text.endsWith(',') || text.endsWith('\n')) {
-      addTag(text);
-    } else {
-      setTagInput(text);
-    }
-  };
-
-  const removeTag = (index: number) => {
-    setTags(tags.filter((_, i) => i !== index));
-  };
-
   const handleReply = async () => {
     if (!content.trim() || !user || !mainPost) return;
     setPosting(true);
     try {
-      let finalTags = [...tags];
-      const pendingTag = tagInput.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-      if (pendingTag && finalTags.length < 4 && pendingTag.length <= 15 && !finalTags.includes(pendingTag)) {
-        finalTags.push(pendingTag);
-      }
-
       await pb.collection('posts').create({
         content: content.trim(),
-        tags: finalTags,
         author: user.id,
         replyTo: mainPost.id
       });
       setContent('');
-      setTags(mainPost.tags || []);
-      setTagInput('');
-      fetchData();
+      fetchData(true);
     } catch (err) {
       console.error('Error replying', err);
     } finally {
@@ -133,16 +99,14 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       }
       // Optimistic update
       if (mainPost?.id === post.id) setMainPost({ ...mainPost, likes: newLikes });
-      if (parent?.id === post.id) setParent({ ...parent, likes: newLikes });
-      setSiblings(sibs => sibs.map(p => p.id === post.id ? { ...p, likes: newLikes } : p));
+      setThreadPath(path => path.map(p => p.id === post.id ? { ...p, likes: newLikes } : p));
       setChildren(kids => kids.map(p => p.id === post.id ? { ...p, likes: newLikes } : p));
 
       await pb.collection('posts').update(post.id, { likes: newLikes });
     } catch (err) {
       console.error('Error liking post', err);
       if (mainPost?.id === post.id) setMainPost({ ...mainPost, likes: post.likes || [] });
-      if (parent?.id === post.id) setParent({ ...parent, likes: post.likes || [] });
-      setSiblings(sibs => sibs.map(p => p.id === post.id ? { ...p, likes: post.likes || [] } : p));
+      setThreadPath(path => path.map(p => p.id === post.id ? { ...p, likes: post.likes || [] } : p));
       setChildren(kids => kids.map(p => p.id === post.id ? { ...p, likes: post.likes || [] } : p));
     }
   };
@@ -172,11 +136,10 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   }
 
   // Render a single post card
-  const renderPost = (post: any, isFocused: boolean = false) => {
+  const renderPost = (post: any, isFocused: boolean = false, isParent: boolean = false) => {
     const author = post.expand?.author;
     const isLiked = user && (post.likes || []).includes(user.id);
-    const isParent = parent && post.id === parent.id;
-    const repliesCount = post.expand?.posts_via_replyTo ? post.expand.posts_via_replyTo.length : 0;
+    const repliesCount = post.commentCount || 0;
 
     const CardComponent = isFocused ? View : TouchableOpacity;
     const cardProps = isFocused ? {} : { 
@@ -202,7 +165,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </TouchableOpacity>
         
-        {isParent && <Text style={styles.contextBadge}>Post Original</Text>}
+        {isParent && <Text style={styles.contextBadge}>Contexto Superior</Text>}
         
         <Text style={[styles.postContent, isFocused && styles.mainPostContent]}>{post.content}</Text>
         
@@ -223,12 +186,10 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               {(post.likes || []).length}
             </Text>
           </TouchableOpacity>
-          {!isFocused && (
-             <View style={styles.actionBtn}>
-               <Text style={styles.actionIcon}>💬</Text>
-               <Text style={styles.actionCount}>{repliesCount}</Text>
-             </View>
-          )}
+          <View style={styles.actionBtn}>
+            <Text style={styles.actionIcon}>💬</Text>
+            <Text style={styles.actionCount}>{repliesCount}</Text>
+          </View>
         </View>
       </CardComponent>
     );
@@ -246,106 +207,60 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
       <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContent}>
         
-        {/* Render Parent Context */}
-        {parent && (
-          <View style={styles.parentContextWrapper}>
-            {renderPost(parent, false)}
+        {/* Render Thread Path (Ancestors) */}
+        {threadPath.map((ancestor, index) => (
+          <View key={ancestor.id} style={styles.parentContextWrapper}>
+            {renderPost(ancestor, false, true)}
             <View style={styles.contextLineContainer}>
               <View style={styles.verticalLine} />
             </View>
           </View>
-        )}
+        ))}
 
-        {/* Render Siblings & Focused Post */}
-        {siblings.map(sib => {
-          const isFocused = sib.id === postId;
-          return (
-            <React.Fragment key={sib.id}>
-              
-              <View style={isFocused ? styles.focusedWrapper : styles.siblingWrapper}>
-                 {renderPost(sib, isFocused)}
+        {/* Render Focused Post */}
+        <View style={styles.focusedWrapper}>
+           {renderPost(mainPost, true, false)}
+        </View>
+
+        {/* Reply Box and Children */}
+        <View style={styles.focusedChildrenSection}>
+          
+          {/* Reply Input Box */}
+          <View style={styles.replyBox}>
+            <View style={{ flex: 1 }}>
+              <TextInput
+                style={styles.replyInput}
+                placeholder="Escribe tu respuesta..."
+                placeholderTextColor={theme.colors.textMuted}
+                value={content}
+                onChangeText={setContent}
+                multiline
+              />
+            </View>
+            <TouchableOpacity 
+              style={[styles.replyBtn, (!content.trim() || posting) && styles.replyBtnDisabled]}
+              onPress={handleReply}
+              disabled={!content.trim() || posting}
+            >
+              <Text style={styles.replyBtnText}>{posting ? '...' : 'Publicar'}</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {/* Children List */}
+          {children.length > 0 && (
+            <View style={styles.childrenContainer}>
+              <View style={styles.childrenIndentLine} />
+              <View style={styles.childrenList}>
+                {children.map(child => (
+                   <View key={child.id} style={styles.childItem}>
+                     {renderPost(child, false, false)}
+                   </View>
+                ))}
               </View>
+            </View>
+          )}
 
-              {/* If this is the focused post, render the reply box and its children directly underneath */}
-              {isFocused && (
-                <View style={styles.focusedChildrenSection}>
-                  
-                  {/* Reply Input Box */}
-                  <View style={styles.replyBox}>
-                    <View style={{ flex: 1 }}>
-                      <TextInput
-                        style={styles.replyInput}
-                        placeholder="Escribe tu respuesta..."
-                        placeholderTextColor={theme.colors.textMuted}
-                        value={content}
-                        onChangeText={setContent}
-                        multiline
-                      />
-
-                      {tags.length > 0 && (
-                        <View style={styles.activeTagsRow}>
-                          {tags.map((t, i) => (
-                            <TouchableOpacity key={i} onPress={() => removeTag(i)} style={styles.tagChipEditable}>
-                              <Text style={styles.tagChipEditableText}>#{t} ✕</Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      )}
-
-                      <View style={styles.tagsInputContainer}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <TextInput
-                            style={[styles.tagsInput, tags.length >= 4 && { opacity: 0.5 }]}
-                            placeholder={tags.length >= 4 ? "Límite de tags alcanzado" : "Añadir tag..."}
-                            placeholderTextColor={theme.colors.textMuted}
-                            value={tagInput}
-                            onChangeText={handleTagInputChange}
-                            onSubmitEditing={() => addTag(tagInput)}
-                            maxLength={16}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            editable={tags.length < 4}
-                          />
-                          {tags.length < 4 && (
-                            <TouchableOpacity 
-                              onPress={() => addTag(tagInput)} 
-                              style={[styles.addTagBtn, tagInput.trim().length === 0 && styles.addTagBtnDisabled]}
-                              disabled={tagInput.trim().length === 0}
-                            >
-                              <Text style={styles.addTagBtnText}>+</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-                    <TouchableOpacity 
-                      style={[styles.replyBtn, (!content.trim() || posting) && styles.replyBtnDisabled]}
-                      onPress={handleReply}
-                      disabled={!content.trim() || posting}
-                    >
-                      <Text style={styles.replyBtnText}>{posting ? '...' : 'Publicar'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                  
-                  {/* Children List */}
-                  {children.length > 0 && (
-                    <View style={styles.childrenContainer}>
-                      <View style={styles.childrenIndentLine} />
-                      <View style={styles.childrenList}>
-                        {children.map(child => (
-                           <View key={child.id} style={styles.childItem}>
-                             {renderPost(child, false)}
-                           </View>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-
-                </View>
-              )}
-            </React.Fragment>
-          );
-        })}
+        </View>
       </ScrollView>
     </View>
   );
