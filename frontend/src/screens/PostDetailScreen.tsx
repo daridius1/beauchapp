@@ -20,7 +20,6 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
-  const [showHiddenAncestors, setShowHiddenAncestors] = useState(false);
 
   const isFirstLoad = useRef(true);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -222,39 +221,14 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       >
         
         {/* Render Thread Path (Ancestors) */}
-        {threadPath.map((ancestor, index) => {
-          const isIntermediate = index > 0 && index < threadPath.length - 1;
-          
-          if (isIntermediate && !showHiddenAncestors) {
-            if (index === 1) {
-              return (
-                <View key="show-more" style={styles.parentContextWrapper}>
-                  <TouchableOpacity 
-                    style={styles.showMoreBtn} 
-                    onPress={() => setShowHiddenAncestors(true)}
-                  >
-                    <Text style={styles.showMoreText}>
-                      Mostrar {threadPath.length - 2} {threadPath.length - 2 === 1 ? 'mensaje intermedio' : 'mensajes intermedios'}
-                    </Text>
-                  </TouchableOpacity>
-                  <View style={styles.contextLineContainer}>
-                    <View style={styles.verticalLine} />
-                  </View>
-                </View>
-              );
-            }
-            return null;
-          }
-
-          return (
-            <View key={ancestor.id} style={styles.parentContextWrapper}>
-              {renderPost(ancestor, false, true)}
-              <View style={styles.contextLineContainer}>
-                <View style={styles.verticalLine} />
-              </View>
+        {threadPath.map((ancestor, index) => (
+          <View key={ancestor.id} style={styles.parentContextWrapper}>
+            {renderPost(ancestor, false, true)}
+            <View style={styles.contextLineContainer}>
+              <View style={styles.verticalLine} />
             </View>
-          );
-        })}
+          </View>
+        ))}
 
         {/* Render Focused Post */}
         <View 
@@ -456,20 +430,5 @@ const styles = StyleSheet.create({
   childItem: {
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
-  },
-  showMoreBtn: {
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#151515',
-    marginHorizontal: theme.spacing.md,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  showMoreText: {
-    color: theme.colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
   }
 });
