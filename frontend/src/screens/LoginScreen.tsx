@@ -253,7 +253,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               >
                 <TextInput
                   ref={emailInputRef}
-                  style={[styles.input, styles.emailPrefixInput, { width: Math.max(inputWidth + 4, 10), maxWidth: '60%' }]}
+                  style={[styles.input, styles.emailPrefixInput, { width: Math.max(inputWidth + 30, 10), marginRight: -30, maxWidth: '60%' }]}
                   placeholder="tu.usuario"
                   placeholderTextColor={theme.colors.textMuted}
                   value={email}
