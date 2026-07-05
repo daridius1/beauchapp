@@ -92,8 +92,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         });
       } else {
         await login(identity, password);
-        // Redirigir siempre a Home después de login
-        navigation.navigate('Home');
+        // El AuthContext cambiará el 'user' y App.tsx nos redigirá al Stack correcto automáticamente
       }
     } catch (err) {
       // Los errores globales ya los maneja el AuthContext

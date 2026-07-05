@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, TouchableOpacity, Text, Image, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, TouchableOpacity, Text, Image, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { compressImage } from '../utils/imageCompressor';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
@@ -51,6 +51,14 @@ export const ImagePicker: React.FC<Props> = ({ onImageReady, value }) => {
       }
     }
   };
+
+  if (Platform.OS !== 'web') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Subida de imágenes estará disponible pronto en móvil.</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
