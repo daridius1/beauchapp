@@ -19,7 +19,12 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "display": "standalone",
+      "themeColor": "#1A1A1A",
+      "backgroundColor": "#1A1A1A",
+      "name": "Beauchapp",
+      "shortName": "Beauchapp"
     },
     "plugins": [
       "expo-font"
