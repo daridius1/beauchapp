@@ -235,7 +235,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
-        {isSignUp && !isForgotPassword ? (
+        {isSignUp || isForgotPassword ? (
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Correo institucional</Text>
             <View style={styles.emailContainer}>
@@ -249,16 +249,22 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-              <Text style={styles.emailSuffix}>@ing.uchile.cl</Text>
+              <View style={styles.emailSuffixContainer}>
+                <Text style={styles.emailSuffix}>@ing.uchile.cl</Text>
+              </View>
             </View>
-            <Text style={styles.helperText}>Es tu correo de la FCFM. Si no lo recuerdas, revisa servicios.cec.uchile.cl</Text>
+            <Text style={styles.helperText}>
+              {isForgotPassword 
+                ? 'Escribe tu usuario para enviarte un enlace de recuperación.'
+                : 'Es tu correo de la FCFM. Si no lo recuerdas, revisa servicios.cec.uchile.cl'}
+            </Text>
           </View>
         ) : (
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{isForgotPassword ? 'Correo institucional' : 'Correo o Nombre de usuario'}</Text>
+            <Text style={styles.label}>Correo o Nombre de usuario</Text>
             <TextInput
               style={styles.input}
-              placeholder={isForgotPassword ? "juan@ing.uchile.cl" : "Ej: jperez99 o juan@ing.uchile.cl"}
+              placeholder="Ej: jperez99 o juan@ing.uchile.cl"
               placeholderTextColor={theme.colors.textMuted}
               value={email}
               onChangeText={setEmail}
@@ -266,9 +272,6 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               autoCapitalize="none"
               autoCorrect={false}
             />
-            {isForgotPassword && (
-              <Text style={styles.helperText}>Escribe tu correo de la facultad para enviarte un enlace de recuperación.</Text>
-            )}
           </View>
         )}
 
@@ -420,13 +423,21 @@ const styles = StyleSheet.create({
   emailPrefixInput: {
     flex: 1,
     borderBottomWidth: 0,
-    textAlign: 'right',
+    textAlign: 'left',
+  },
+  emailSuffixContainer: {
+    backgroundColor: theme.colors.cardBg,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   emailSuffix: {
-    fontSize: 16,
+    fontSize: 13,
     color: theme.colors.textMuted,
-    paddingVertical: 10,
-    paddingLeft: 4,
+    fontWeight: '500',
   },
   helperText: {
     fontSize: 11,
