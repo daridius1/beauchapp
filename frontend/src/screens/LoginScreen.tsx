@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Linking } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Linking, Pressable } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
@@ -20,6 +20,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [hasSentResetEmail, setHasSentResetEmail] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [inputWidth, setInputWidth] = useState(80);
+  const emailInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -239,19 +241,29 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Correo institucional</Text>
             <View style={styles.emailContainer}>
-              <TextInput
-                style={[styles.input, styles.emailPrefixInput]}
-                placeholder="tu.usuario"
-                placeholderTextColor={theme.colors.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <View style={styles.emailSuffixContainer}>
-                <Text style={styles.emailSuffix}>@ing.uchile.cl</Text>
-              </View>
+              <Text 
+                style={{ fontSize: 16, position: 'absolute', opacity: 0, left: -9999 }}
+                onLayout={(e) => setInputWidth(e.nativeEvent.layout.width)}
+              >
+                {email || 'tu.usuario'}
+              </Text>
+              <Pressable 
+                style={{ flexDirection: 'row', alignItems: 'center', flex: 1, flexWrap: 'nowrap', overflow: 'hidden' }}
+                onPress={() => emailInputRef.current?.focus()}
+              >
+                <TextInput
+                  ref={emailInputRef}
+                  style={[styles.input, styles.emailPrefixInput, { width: Math.max(inputWidth + 4, 10), maxWidth: '60%' }]}
+                  placeholder="tu.usuario"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <Text style={styles.inlineEmailSuffix}>@ing.uchile.cl</Text>
+              </Pressable>
             </View>
             <Text style={styles.helperText}>
               {isForgotPassword 
@@ -421,25 +433,16 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   emailPrefixInput: {
-    flex: 1,
     borderBottomWidth: 0,
     textAlign: 'left',
     fontSize: 16,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
   },
-  emailSuffixContainer: {
-    backgroundColor: 'rgba(156, 163, 175, 0.15)', // More visible gray background
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginLeft: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(156, 163, 175, 0.3)',
-  },
-  emailSuffix: {
-    fontSize: 15,
+  inlineEmailSuffix: {
+    fontSize: 16,
     color: theme.colors.text,
     fontWeight: '700',
-    letterSpacing: 0.3,
   },
   helperText: {
     fontSize: 11,
