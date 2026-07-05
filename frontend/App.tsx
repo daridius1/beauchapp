@@ -23,6 +23,20 @@ import { RootStackParamList } from './src/types/navigation';
 import Toast from 'react-native-toast-message';
 import * as Linking from 'expo-linking';
 
+if (Platform.OS === 'web') {
+  const style = document.createElement('style');
+  style.textContent = `
+    body {
+      background-color: #1A1A1A;
+      overflow-x: hidden;
+    }
+    #root {
+      height: 100vh;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 // ----------------------------------------------------
@@ -159,6 +173,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.cardBg,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    overflow: 'hidden',
   },
   body: {
     flex: 1,
