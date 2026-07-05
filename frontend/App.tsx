@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { StyleSheet, View, SafeAreaView, StatusBar, Text, ScrollView, Platform, ActivityIndicator, PanResponder } from 'react-native';
+import { StyleSheet, View, SafeAreaView, StatusBar, Text, ScrollView, Platform, ActivityIndicator, PanResponder, Dimensions } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -48,16 +48,16 @@ function AppContent() {
   const [currentRouteName, setCurrentRouteName] = useState<string>('Home');
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
 
-  // Gesto PanResponder para deslizar a la derecha y abrir el menú
+  // Gesto PanResponder para deslizar a la izquierda y abrir el menú derecho
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        const isSwipeRight = gestureState.dx > 40 && Math.abs(gestureState.dy) < 30;
-        const isNearLeftEdge = gestureState.x0 < 50;
-        return isSwipeRight && isNearLeftEdge && !isSidebarOpen;
+        const isSwipeLeft = gestureState.dx < -40 && Math.abs(gestureState.dy) < 30;
+        const isNearRightEdge = gestureState.x0 > Dimensions.get('window').width - 50;
+        return isSwipeLeft && isNearRightEdge && !isSidebarOpen;
       },
       onPanResponderRelease: (evt, gestureState) => {
-        if (gestureState.dx > 40) {
+        if (gestureState.dx < -40) {
           setIsSidebarOpen(true);
         }
       },
