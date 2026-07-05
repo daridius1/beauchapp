@@ -74,7 +74,7 @@ export const ImagePicker: React.FC<Props> = ({ onImageReady, value }) => {
         )}
       </TouchableOpacity>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {!!error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
 };

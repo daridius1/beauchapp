@@ -71,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
                 </Text>
               </View>
               <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
-              {user.username && <Text style={styles.userUsername} numberOfLines={1}>@{user.username}</Text>}
+              {!!user.username && <Text style={styles.userUsername} numberOfLines={1}>@{user.username}</Text>}
               <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
             </View>
           ) : (

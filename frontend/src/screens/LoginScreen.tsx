@@ -144,7 +144,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           {isForgotPassword ? (hasSentResetEmail ? 'Revisa tu correo CEC' : 'Recuperar Contraseña') : isSignUp ? 'Registro' : 'Iniciar Sesión'}
         </Text>
 
-        {activeError && (
+        {!!activeError && (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{activeError}</Text>
           </View>
@@ -202,7 +202,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ) : (
           <>
-        {successMessage && (
+        {!!successMessage && (
           <View style={styles.successBox}>
             <Text style={styles.successText}>{successMessage}</Text>
           </View>
@@ -248,12 +248,12 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 {email || 'tu.usuario'}
               </Text>
               <Pressable 
-                style={{ flexDirection: 'row', alignItems: 'center', flex: 1, flexWrap: 'nowrap', overflow: 'hidden' }}
+                style={{ flexDirection: 'row', alignItems: 'center', flex: 1, overflow: 'hidden' }}
                 onPress={() => emailInputRef.current?.focus()}
               >
                 <TextInput
                   ref={emailInputRef}
-                  style={[styles.input, styles.emailPrefixInput, { width: Math.max(inputWidth + 30, 10), marginRight: -30, maxWidth: '60%' }]}
+                  style={[styles.input, styles.emailPrefixInput, { width: Math.max(inputWidth + 30, 10), marginRight: -30, flexShrink: 1 }]}
                   placeholder="tu.usuario"
                   placeholderTextColor={theme.colors.textMuted}
                   value={email}
