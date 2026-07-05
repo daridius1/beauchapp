@@ -10,7 +10,7 @@ import { UserPredictionsPanel } from './components/UserPredictionsPanel';
 import { ParticipantsTable } from './components/ParticipantsTable';
 import { AdminPanel } from './components/AdminPanel';
 import Toast from 'react-native-toast-message';
-import { theme } from '../HomeScreen';
+import { theme } from '../../theme/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PollaContest'>;
 

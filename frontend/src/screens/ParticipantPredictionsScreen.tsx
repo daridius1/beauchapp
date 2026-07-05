@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { pb } from '../services/pocketbase';
-import { theme } from './HomeScreen';
+import { theme } from '../theme/theme';
 import { Match } from './PollaContest/types';
 import Toast from 'react-native-toast-message';
 import { formatMatchDate } from '../utils/date';

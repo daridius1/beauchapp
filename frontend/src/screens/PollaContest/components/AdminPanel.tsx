@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Platform } from 'react-native';
 import { Match, EditingScoreState, NewMatchForm } from '../types';
 import { styles } from '../styles';
-import { theme } from '../../HomeScreen';
+import { theme } from '../../../theme/theme';
 import { formatMatchDate } from '../../../utils/date';
 
 interface AdminPanelProps {

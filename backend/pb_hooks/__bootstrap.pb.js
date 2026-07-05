@@ -19,6 +19,18 @@ onBootstrap((e) => {
     settings.meta.senderName = $os.getenv("SENDER_NAME") || "Beauchapp";
     settings.meta.senderAddress = $os.getenv("SENDER_ADDRESS") || "onboarding@resend.dev";
 
+    // Configuración S3/R2 para almacenamiento de archivos
+    const r2Endpoint = $os.getenv("R2_ENDPOINT");
+    if (r2Endpoint) {
+        settings.s3.enabled = true;
+        settings.s3.endpoint = r2Endpoint;
+        settings.s3.bucket = $os.getenv("R2_BUCKET_NAME");
+        settings.s3.region = "auto";
+        settings.s3.accessKey = $os.getenv("R2_ACCESS_KEY_ID");
+        settings.s3.secret = $os.getenv("R2_SECRET_ACCESS_KEY");
+        settings.s3.forcePathStyle = true;
+    }
+
     try {
         $app.save(settings);
     } catch (err) {

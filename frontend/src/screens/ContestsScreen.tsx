@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { pb } from '../services/pocketbase';
-import { theme } from './HomeScreen';
+import { theme } from '../theme/theme';
 import { RootStackParamList } from '../types/navigation';
 import Toast from 'react-native-toast-message';
 

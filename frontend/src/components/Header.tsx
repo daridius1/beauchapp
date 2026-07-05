@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
-import { theme } from '../screens/HomeScreen';
+import { theme } from '../theme/theme';
 
 interface HeaderProps {
   title: string;

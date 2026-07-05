@@ -33,4 +33,23 @@ const getBackendUrl = () => {
 const POCKETBASE_URL = getBackendUrl();
 console.log('PocketBase URL:', POCKETBASE_URL);
 
-export const pb = new PocketBase(POCKETBASE_URL);
+export const pb = new PocketBase(getBackendUrl());
+
+pb.autoCancellation(false);
+
+// Función optimizada para obtener imágenes:
+// Si hay un dominio público de R2 configurado, la carga directo desde Cloudflare (ahorrando servidor).
+// Si no, hace fallback al proxy de PocketBase normal.
+export const getFileUrl = (record: any, filename: string) => {
+  if (!filename) return '';
+  
+  const r2Url = process.env.EXPO_PUBLIC_R2_URL;
+  if (r2Url) {
+    // Estructura oficial de PocketBase en S3: <collectionId>/<recordId>/<filename>
+    // Quitamos slash final si lo tiene
+    const base = r2Url.replace(/\/$/, '');
+    return `${base}/${record.collectionId}/${record.id}/${filename}`;
+  }
+
+  return pb.files.getURL(record, filename);
+};

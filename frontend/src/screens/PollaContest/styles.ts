@@ -1,5 +1,5 @@
 import { StyleSheet, Platform } from 'react-native';
-import { theme } from '../HomeScreen';
+import { theme } from '../../theme/theme';
 
 export const styles = StyleSheet.create({
   keyboardContainer: {

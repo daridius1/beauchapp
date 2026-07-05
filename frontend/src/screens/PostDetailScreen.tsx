@@ -1,11 +1,12 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
-import { pb } from '../services/pocketbase';
-import { theme } from './HomeScreen';
+import { pb, getFileUrl } from '../services/pocketbase';
+import { theme } from '../theme/theme';
+import { ImagePicker } from '../components/ImagePicker';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PostDetail'>;
 
@@ -16,6 +17,11 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [threadPath, setThreadPath] = useState<any[]>([]);
   const [mainPost, setMainPost] = useState<any>(null);
   const [children, setChildren] = useState<any[]>([]);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [childrenPage, setChildrenPage] = useState(1);
+  const [hasMoreChildren, setHasMoreChildren] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -25,38 +31,63 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const scrollViewRef = useRef<ScrollView>(null);
   const hasScrolledRef = useRef(false);
 
-  const fetchData = async (hideLoading = false) => {
-    if (!hideLoading) setLoading(true);
+  useEffect(() => {
+    if (photo) {
+      const url = URL.createObjectURL(photo);
+      setPhotoPreview(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPhotoPreview(null);
+    }
+  }, [photo]);
+
+  const fetchAncestors = async (post: any) => {
+    const path = [];
+    let curr = post.replyTo;
+    while (curr) {
+      try {
+        const parent = await pb.collection('posts').getOne(curr, { expand: 'author' });
+        path.unshift(parent);
+        curr = parent.replyTo;
+      } catch (e) {
+        break; // Parent might be deleted
+      }
+    }
+    return path;
+  };
+
+  const fetchChildren = async (parentId: string, pageNum = 1, isLoadMore = false) => {
+    if (isLoadMore) setLoadingMore(true);
     try {
-      // 1. Fetch focused post
-      const postRes = await pb.collection('posts').getOne(postId, { expand: 'author' });
-      setMainPost(postRes);
-      
-      const rootId = postRes.root || postRes.id;
-      
-      // 2. Fetch entire thread in one go
-      const threadRes = await pb.collection('posts').getFullList({
-        filter: `root = "${rootId}" || id = "${rootId}"`,
+      const res = await pb.collection('posts').getList(pageNum, 15, {
+        filter: `replyTo = "${parentId}"`,
         expand: 'author',
         sort: '+created'
       });
-      
-      const postMap = new Map();
-      threadRes.forEach(p => postMap.set(p.id, p));
-      
-      // 3. Build threadPath (from root down to focused post, exclusive)
-      const path = [];
-      let curr = postRes.replyTo;
-      while (curr && postMap.has(curr)) {
-        path.unshift(postMap.get(curr));
-        curr = postMap.get(curr).replyTo;
+      if (isLoadMore) {
+        setChildren(prev => [...prev, ...res.items]);
+      } else {
+        setChildren(res.items);
       }
+      setHasMoreChildren(res.page < res.totalPages);
+      setChildrenPage(pageNum);
+    } catch (err) {
+      console.error('Error fetching children', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const fetchData = async (hideLoading = false) => {
+    if (!hideLoading) setLoading(true);
+    try {
+      const postRes = await pb.collection('posts').getOne(postId, { expand: 'author' });
+      setMainPost(postRes);
+      
+      const path = await fetchAncestors(postRes);
       setThreadPath(path);
       
-      // 4. Find direct children
-      const kids = threadRes.filter(p => p.replyTo === postId);
-      setChildren(kids);
-      
+      await fetchChildren(postId, 1, false);
     } catch (err) {
       console.error('Error fetching post details', err);
     } finally {
@@ -76,11 +107,15 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     if (!content.trim() || !user || !mainPost) return;
     setPosting(true);
     try {
-      await pb.collection('posts').create({
+      const postData: any = {
         content: content.trim(),
         author: user.id,
         replyTo: mainPost.id
-      });
+      };
+      if (photo) postData.photo = photo;
+
+      await pb.collection('posts').create(postData);
+      setPhoto(null);
       setContent('');
       fetchData(true);
     } catch (err) {
@@ -177,6 +212,12 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
         
         <Text style={[styles.postContent, isFocused && styles.mainPostContent]}>{post.content}</Text>
+        {post.photo && (
+          <Image 
+            source={{ uri: getFileUrl(post, post.photo) }}
+            style={styles.postImage}
+          />
+        )}
         
         {post.tags && post.tags.length > 0 && (
           <View style={styles.tagsRow}>
@@ -249,6 +290,14 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.focusedChildrenSection}>
           
           {/* Reply Input Box */}
+          {photoPreview && (
+            <View style={styles.previewContainer}>
+              <Image source={{ uri: photoPreview }} style={styles.previewImage} />
+              <TouchableOpacity style={styles.removeButton} onPress={() => setPhoto(null)}>
+                <Text style={styles.removeText}>X</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           <View style={styles.replyBox}>
             <View style={{ flex: 1 }}>
               <TextInput
@@ -260,13 +309,16 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 multiline
               />
             </View>
-            <TouchableOpacity 
-              style={[styles.replyBtn, (!content.trim() || posting) && styles.replyBtnDisabled]}
-              onPress={handleReply}
-              disabled={!content.trim() || posting}
-            >
-              <Text style={styles.replyBtnText}>{posting ? '...' : 'Publicar'}</Text>
-            </TouchableOpacity>
+            <View style={styles.footerActions}>
+              <ImagePicker onImageReady={(f) => setPhoto(f)} value={photo} />
+              <TouchableOpacity 
+                style={[styles.replyBtn, ((!content.trim() && !photo) || posting) && styles.replyBtnDisabled]}
+                onPress={handleReply}
+                disabled={(!content.trim() && !photo) || posting}
+              >
+                <Text style={styles.replyBtnText}>{posting ? '...' : 'Publicar'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           
           {/* Children List */}
@@ -281,6 +333,15 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 ))}
               </View>
             </View>
+          )}
+          {hasMoreChildren && (
+            <TouchableOpacity 
+              style={styles.loadMoreBtn}
+              onPress={() => fetchChildren(postId, childrenPage + 1, true)}
+              disabled={loadingMore}
+            >
+              {loadingMore ? <ActivityIndicator size="small" color={theme.colors.text} /> : <Text style={styles.loadMoreText}>Ver más comentarios</Text>}
+            </TouchableOpacity>
           )}
 
         </View>
@@ -326,7 +387,28 @@ const styles = StyleSheet.create({
   postActions: { flexDirection: 'row', alignItems: 'center' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', marginRight: theme.spacing.lg },
   actionIcon: { fontSize: 14, marginRight: 6 },
-  actionIconActive: { color: '#ef4444' },
+  actionIconActive: { color: theme.colors.primary },
+  postImage: {
+    width: '100%',
+    height: 250,
+    borderRadius: 8,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+    resizeMode: 'cover',
+  },
+  loadMoreBtn: {
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 8,
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  loadMoreText: {
+    color: theme.colors.text,
+    fontSize: 14,
+  },
   actionCount: { color: theme.colors.textMuted, fontSize: 13, fontWeight: '500' },
   
   parentContextWrapper: {
@@ -413,7 +495,43 @@ const styles = StyleSheet.create({
   replyBtn: { backgroundColor: theme.colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 4, marginBottom: theme.spacing.xs },
   replyBtnDisabled: { opacity: 0.5 },
   replyBtnText: { color: '#000', fontWeight: '700', fontSize: 14 },
-  
+  footerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  previewContainer: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+    marginLeft: theme.spacing.md,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  previewImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  removeButton: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: '#333',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+
   childrenContainer: {
     flexDirection: 'row',
   },

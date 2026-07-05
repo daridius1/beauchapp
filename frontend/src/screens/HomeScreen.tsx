@@ -1,33 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
-import { pb } from '../services/pocketbase';
+import { pb, getFileUrl } from '../services/pocketbase';
+import { ImagePicker } from '../components/ImagePicker';
 
-export const theme = {
-  colors: {
-    primary: '#ffffff', // White accent
-    background: '#000000', // Pure black background
-    cardBg: '#0a0a0a', // Almost black cards
-    text: '#ffffff', // Pure white text
-    textMuted: '#888888', // Muted gray text
-    border: '#222222', // Subtle dark border
-    accent: '#ffffff', // White accents
-  },
-  spacing: {
-    xs: 4,
-    sm: 8,
-    md: 16,
-    lg: 24,
-    xl: 32,
-  },
-  borderRadius: {
-    md: 4,
-    lg: 4,
-  }
-};
+import { theme } from '../theme/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -37,6 +17,11 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [content, setContent] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
   const [filterTags, setFilterTags] = useState<string[]>([]);
@@ -44,6 +29,16 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [tempTag, setTempTag] = useState('');
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+
+  useEffect(() => {
+    if (photo) {
+      const url = URL.createObjectURL(photo);
+      setPhotoPreview(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPhotoPreview(null);
+    }
+  }, [photo]);
 
   useEffect(() => {
     if (route.params?.initialFilterTag) {
@@ -57,7 +52,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   }, [route.params, navigation]);
 
-  const fetchPosts = async () => {
+  const fetchPosts = async (pageNum = 1, isLoadMore = false) => {
     try {
       let filterConditions = [];
       if (activeSearch) {
@@ -84,18 +79,25 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         options.filter = filterConditions.join(' && ');
       }
 
-      const res = await pb.collection('posts').getList(1, 50, options);
-      setPosts(res.items);
+      const res = await pb.collection('posts').getList(pageNum, 15, options);
+      if (isLoadMore) {
+        setPosts(prev => [...prev, ...res.items]);
+      } else {
+        setPosts(res.items);
+      }
+      setHasMore(res.page < res.totalPages);
+      setPage(pageNum);
     } catch (err) {
       console.error('Error fetching posts', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
-      fetchPosts();
+      fetchPosts(1, false);
     }, [activeSearch, filterTags.join(',')])
   );
 
@@ -173,15 +175,19 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         finalTags.push(pendingTag);
       }
 
-      await pb.collection('posts').create({
+      const postData: any = {
         content: content.trim(),
         tags: finalTags,
         author: user.id
-      });
+      };
+      if (photo) postData.photo = photo;
+
+      await pb.collection('posts').create(postData);
       setContent('');
       setTags([]);
       setTagInput('');
-      fetchPosts();
+      setPhoto(null);
+      fetchPosts(1, false);
     } catch (err) {
       console.error(err);
     } finally {
@@ -222,6 +228,15 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr.replace(' ', 'T'));
     return d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL', { hour: '2-digit', minute:'2-digit' });
+  };
+
+  const handleScroll = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 500;
+    if (isCloseToBottom && hasMore && !loadingMore && !loading) {
+      setLoadingMore(true);
+      fetchPosts(page + 1, true);
+    }
   };
 
   return (
@@ -302,7 +317,12 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       </View>
 
-      <ScrollView style={styles.feedList} contentContainerStyle={styles.feedContent}>
+      <ScrollView 
+        style={styles.feedList} 
+        contentContainerStyle={styles.feedContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={400}
+      >
         {user ? (
           <View style={styles.composeBox}>
             <View style={styles.composeRow}>
@@ -329,7 +349,14 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                 ))}
               </View>
             )}
-
+            {photoPreview && (
+              <View style={styles.previewContainer}>
+                <Image source={{ uri: photoPreview }} style={styles.previewImage} />
+                <TouchableOpacity style={styles.removeButton} onPress={() => setPhoto(null)}>
+                  <Text style={styles.removeText}>X</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <View style={styles.composeFooter}>
               <View style={styles.tagsInputContainer}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -356,13 +383,16 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                   )}
                 </View>
               </View>
-              <TouchableOpacity 
-                style={[styles.postBtn, (!content.trim() || posting) && styles.postBtnDisabled]}
-                onPress={handlePost}
-                disabled={!content.trim() || posting}
-              >
+              <View style={styles.footerActions}>
+                <ImagePicker onImageReady={(f) => setPhoto(f)} value={photo} />
+                <TouchableOpacity 
+                  style={[styles.postBtn, ((!content.trim() && !photo) || posting) && styles.postBtnDisabled]}
+                  onPress={handlePost}
+                  disabled={(!content.trim() && !photo) || posting}
+                >
                 <Text style={styles.postBtnText}>{posting ? '...' : 'Publicar'}</Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         ) : (
@@ -417,6 +447,14 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                   </Text>
                 ) : null}
                 <Text style={styles.postContent}>{post.content}</Text>
+                {post.photo && (
+                  <Image 
+                    source={{ uri: getFileUrl(post, post.photo) }}
+                    style={styles.postImage}
+                    // @ts-ignore - loading lazy works on web
+                    loading="lazy"
+                  />
+                )}
                 
                 {post.tags && post.tags.length > 0 && (
                   <View style={styles.tagsRow}>
@@ -451,6 +489,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
             );
           })
         )}
+        {loadingMore && <ActivityIndicator size="small" color={theme.colors.text} style={{ padding: 20 }} />}
       </ScrollView>
     </View>
   );
@@ -524,6 +563,14 @@ const styles = StyleSheet.create({
   },
   feedContent: {
     paddingBottom: theme.spacing.xl,
+  },
+  postImage: {
+    width: '100%',
+    height: 250,
+    borderRadius: 8,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+    resizeMode: 'cover',
   },
   composeBox: {
     padding: theme.spacing.md,
@@ -638,6 +685,46 @@ const styles = StyleSheet.create({
   loginPromptText: {
     color: theme.colors.textMuted,
     marginBottom: theme.spacing.md,
+  },
+  emptyText: {
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginTop: theme.spacing.xl,
+  },
+  previewContainer: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+    marginLeft: 40,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  previewImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  removeButton: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: '#333',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  footerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   loginPromptBtn: {
     backgroundColor: theme.colors.primary,

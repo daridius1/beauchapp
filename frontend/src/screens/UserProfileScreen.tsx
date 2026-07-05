@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
-import { pb } from '../services/pocketbase';
-import { theme } from './HomeScreen';
+import { pb, getFileUrl } from '../services/pocketbase';
+import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'UserProfile'>;
@@ -168,6 +168,13 @@ export const UserProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                 
                 <Text style={styles.postContent}>{post.content}</Text>
                 
+                {post.photo && (
+                  <Image 
+                    source={{ uri: getFileUrl(post, post.photo) }}
+                    style={styles.postImage}
+                  />
+                )}
+                
                 {post.tags && post.tags.length > 0 && (
                   <View style={styles.tagsRow}>
                     {post.tags.map((t: string, i: number) => (
@@ -252,6 +259,14 @@ const styles = StyleSheet.create({
   postActions: { flexDirection: 'row', alignItems: 'center' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', marginRight: theme.spacing.lg },
   actionIcon: { fontSize: 14, marginRight: 6 },
-  actionIconActive: { color: '#ef4444' },
+  actionIconActive: { color: theme.colors.primary },
+  postImage: {
+    width: '100%',
+    height: 250,
+    borderRadius: 8,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+    resizeMode: 'cover',
+  },
   actionCount: { color: theme.colors.textMuted, fontSize: 13, fontWeight: '500' },
 });

@@ -5,7 +5,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../types/navigation';
 import { Match, PredictionState } from '../types';
 import { styles } from '../styles';
-import { theme } from '../../HomeScreen';
+import { theme } from '../../../theme/theme';
 import { formatMatchDate } from '../../../utils/date';
 
 interface UserPredictionsPanelProps {
