@@ -93,13 +93,6 @@ export const UserProfileScreen: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>← Volver</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Perfil de Usuario</Text>
-        <View style={{ width: 60 }} />
-      </View>
 
       <ScrollView style={styles.feedList} contentContainerStyle={styles.feedContent}>
         

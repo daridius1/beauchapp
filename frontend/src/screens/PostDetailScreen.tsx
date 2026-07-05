@@ -247,13 +247,6 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>← Volver</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Hilo de Conversación</Text>
-        <View style={{ width: 60 }} />
-      </View>
 
       <ScrollView 
         ref={scrollViewRef}

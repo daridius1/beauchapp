@@ -59,9 +59,16 @@ function AppContent() {
       case 'WorldCupContest': return 'Polla Mundialera';
       case 'Superadmin': return 'Panel Superadmin';
       case 'Login': return 'Iniciar Sesión';
+      case 'PostDetail': return 'Conversación';
+      case 'UserProfile': return 'Perfil de Usuario';
+      case 'ParticipantPredictions': return 'Predicciones';
+      case 'MatchPredictions': return 'Partidos';
       default: return 'Beauchapp';
     }
   };
+
+  const rootScreens = ['Home', 'Profile', 'Contests', 'Superadmin'];
+  const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
 
   if (!isInitialized) {
     return (
@@ -100,6 +107,7 @@ function AppContent() {
             <Header 
               title={getScreenTitle(currentRouteName)} 
               onToggleSidebar={() => setIsSidebarOpen(true)} 
+              onBack={canGoBack ? () => navigationRef.goBack() : undefined}
             />
             <View style={styles.body}>
               <Stack.Navigator screenOptions={{ headerShown: false }}>

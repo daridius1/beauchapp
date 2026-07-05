@@ -1,31 +1,44 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { theme } from '../theme/theme';
+import { Feather } from '@expo/vector-icons';
 
 interface HeaderProps {
   title: string;
-  onToggleSidebar: () => void;
+  onToggleSidebar?: () => void;
+  onBack?: () => void;
+  rightComponent?: React.ReactNode;
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar }) => {
+export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, rightComponent }) => {
   return (
     <View style={styles.header}>
-      <TouchableOpacity 
-        style={styles.menuButton} 
-        onPress={onToggleSidebar}
-        activeOpacity={0.7}
-      >
-        <View style={styles.hamburger}>
-          <View style={styles.hamburgerLine} />
-          <View style={[styles.hamburgerLine, { marginVertical: 4 }]} />
-          <View style={styles.hamburgerLine} />
-        </View>
-      </TouchableOpacity>
+      <View style={styles.sideContainer}>
+        {onBack ? (
+          <TouchableOpacity style={styles.iconButton} onPress={onBack} activeOpacity={0.7}>
+            <Feather name="arrow-left" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.iconPlaceholder} />
+        )}
+      </View>
       
       <Text style={styles.headerTitle}>{title}</Text>
       
-      {/* Elemento de balanceo a la derecha */}
-      <View style={styles.rightPlaceholder} />
+      <View style={[styles.sideContainer, { justifyContent: 'flex-end' }]}>
+        {rightComponent}
+        <TouchableOpacity 
+          style={styles.iconButton} 
+          onPress={onToggleSidebar}
+          activeOpacity={0.7}
+        >
+          <View style={styles.hamburger}>
+            <View style={styles.hamburgerLine} />
+            <View style={[styles.hamburgerLine, { marginVertical: 4 }]} />
+            <View style={styles.hamburgerLine} />
+          </View>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -41,15 +54,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
-  menuButton: {
+  sideContainer: {
+    minWidth: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
     padding: theme.spacing.sm,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  iconPlaceholder: {
+    width: 40,
   },
   hamburger: {
     width: 24,
     height: 18,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   hamburgerLine: {
     width: 20,
@@ -61,8 +83,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: theme.colors.text,
-  },
-  rightPlaceholder: {
-    width: 40,
+    flex: 1,
+    textAlign: 'center',
   },
 });

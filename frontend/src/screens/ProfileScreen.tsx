@@ -83,11 +83,6 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.backBtn} />
-        <Text style={styles.headerTitle}>Mi Perfil</Text>
-        <View style={{ width: 60 }} />
-      </View>
 
       <ScrollView style={styles.feedList} contentContainerStyle={styles.feedContent}>
         
