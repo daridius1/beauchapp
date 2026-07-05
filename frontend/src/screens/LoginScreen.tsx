@@ -241,7 +241,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.emailContainer}>
               <TextInput
                 style={[styles.input, styles.emailPrefixInput]}
-                placeholder="jperez99"
+                placeholder="tu.usuario"
                 placeholderTextColor={theme.colors.textMuted}
                 value={email}
                 onChangeText={setEmail}
@@ -424,20 +424,22 @@ const styles = StyleSheet.create({
     flex: 1,
     borderBottomWidth: 0,
     textAlign: 'left',
+    fontSize: 16,
   },
   emailSuffixContainer: {
-    backgroundColor: theme.colors.cardBg,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 6,
+    backgroundColor: 'rgba(156, 163, 175, 0.15)', // More visible gray background
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
     marginLeft: 8,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: 'rgba(156, 163, 175, 0.3)',
   },
   emailSuffix: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    fontWeight: '500',
+    fontSize: 15,
+    color: theme.colors.text,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   helperText: {
     fontSize: 11,
