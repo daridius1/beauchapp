@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
 import { pb, getFileUrl } from '../services/pocketbase';
 import { ImagePicker } from '../components/ImagePicker';
+import { Feather } from '@expo/vector-icons';
 
 import { theme } from '../theme/theme';
 
@@ -310,7 +311,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={handleSearch} style={styles.inlineActionBtn}>
-                <Text style={styles.inlineActionBtnTextSearch}>🔍</Text>
+                <Feather name="search" size={20} color={theme.colors.primary} />
               </TouchableOpacity>
             </>
           )}
