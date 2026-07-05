@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Linking } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
@@ -18,6 +18,16 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [username, setUsername] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [hasSentResetEmail, setHasSentResetEmail] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (resendCooldown > 0) {
+      timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   const handleSubmit = async () => {
     setLocalError(null);
@@ -70,7 +80,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     try {
       if (isForgotPassword) {
         await requestPasswordReset(identity);
-        setSuccessMessage('Te enviamos un correo con las instrucciones.\n\nPor favor, ten paciencia y revisa tu carpeta de SPAM si no lo encuentras inmediatamente.');
+        setHasSentResetEmail(true);
+        setResendCooldown(60);
       } else if (isSignUp) {
         await signup(identity, password, name.trim(), username.trim().toLowerCase());
         navigation.reset({
@@ -87,6 +98,18 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  const handleResendResetEmail = async () => {
+    if (resendCooldown > 0) return;
+    setLocalError(null);
+    clearError();
+    try {
+      await requestPasswordReset(email.trim().toLowerCase());
+      setResendCooldown(60);
+    } catch (err) {
+      // handled globally
+    }
+  };
+
   const toggleMode = () => {
     setIsSignUp(!isSignUp);
     clearError();
@@ -97,6 +120,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setName('');
     setUsername('');
     setSuccessMessage(null);
+    setHasSentResetEmail(false);
   };
 
   const toggleForgotPassword = () => {
@@ -106,6 +130,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setSuccessMessage(null);
     setEmail('');
     setPassword('');
+    setHasSentResetEmail(false);
   };
 
   const activeError = localError || error;
@@ -114,7 +139,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.formCard}>
         <Text style={styles.title}>
-          {isForgotPassword ? 'Recuperar Contraseña' : isSignUp ? 'Registro' : 'Iniciar Sesión'}
+          {isForgotPassword ? (hasSentResetEmail ? 'Revisa tu correo CEC' : 'Recuperar Contraseña') : isSignUp ? 'Registro' : 'Iniciar Sesión'}
         </Text>
 
         {activeError && (
@@ -123,6 +148,58 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
+        {isForgotPassword && hasSentResetEmail ? (
+          <View>
+            <Text style={styles.subtitle}>
+              Hemos enviado las instrucciones a {email}. Por favor, revisa tu bandeja de entrada o SPAM.
+            </Text>
+            
+            <View style={styles.infoBox}>
+              <Text style={styles.infoTitle}>¿No sabes cómo entrar a tu correo?</Text>
+              <Text style={styles.infoText}>
+                • El correo del CEC es tu correo de la FCFM.{"\n"}
+                • <Text style={{fontWeight: 'bold', color: theme.colors.text}}>Tu usuario y contraseña son los mismos que usas en los laboratorios de computación del CEC.</Text>
+              </Text>
+              
+              <TouchableOpacity 
+                style={styles.linkButton} 
+                onPress={() => Linking.openURL('https://correo.cec.uchile.cl/')}
+              >
+                <Text style={styles.linkButtonText}>Ir al Correo del CEC</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.secondaryLinkButton} 
+                onPress={() => Linking.openURL('https://servicios.cec.uchile.cl/')}
+              >
+                <Text style={styles.secondaryLinkButtonText}>¿Olvidaste tu clave o nunca te has creado una cuenta del CEC? Haz clic aquí</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.submitButton, (loading || resendCooldown > 0) && styles.disabledButton]} 
+              onPress={handleResendResetEmail}
+              disabled={loading || resendCooldown > 0}
+            >
+              {loading ? (
+                <ActivityIndicator color="#000000" size="small" />
+              ) : (
+                <Text style={styles.submitButtonText}>
+                  {resendCooldown > 0 ? `Reenviar correo en ${resendCooldown}s` : 'Reenviar correo'}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.toggleLink} onPress={() => setHasSentResetEmail(false)}>
+              <Text style={styles.toggleLinkText}>Me equivoqué de correo</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.toggleLink} onPress={toggleForgotPassword}>
+              <Text style={styles.forgotPasswordText}>Volver a Iniciar Sesión</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
         {successMessage && (
           <View style={styles.successBox}>
             <Text style={styles.successText}>{successMessage}</Text>
@@ -257,6 +334,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               : isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
           </Text>
         </TouchableOpacity>
+        </>
+        )}
       </View>
     </ScrollView>
   );
@@ -388,5 +467,47 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     color: theme.colors.textMuted,
     fontSize: 13,
+  },
+  infoBox: {
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    width: '100%',
+    marginBottom: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    lineHeight: 22,
+    marginBottom: theme.spacing.md,
+  },
+  linkButton: {
+    backgroundColor: '#2563eb',
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  linkButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  secondaryLinkButton: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  secondaryLinkButtonText: {
+    color: theme.colors.accent,
+    fontSize: 12,
+    textAlign: 'center',
   },
 });
