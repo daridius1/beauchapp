@@ -15,13 +15,13 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen, onNavigate }) => {
   const { user, logout } = useAuth();
-  const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
+  const slideAnim = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(slideAnim, {
-        toValue: isOpen ? 0 : -SIDEBAR_WIDTH,
+        toValue: isOpen ? 0 : SIDEBAR_WIDTH,
         duration: 250,
         useNativeDriver: true,
       }),
@@ -137,13 +137,13 @@ const styles = StyleSheet.create({
   },
   sidebar: {
     position: 'absolute',
-    left: 0,
+    right: 0,
     top: 0,
     bottom: 0,
     width: SIDEBAR_WIDTH,
     backgroundColor: theme.colors.cardBg,
-    borderRightWidth: 1,
-    borderRightColor: theme.colors.border,
+    borderLeftWidth: 1,
+    borderLeftColor: theme.colors.border,
     paddingTop: 50,
     flexDirection: 'column',
     justifyContent: 'space-between',
