@@ -8,14 +8,16 @@ import { RootStackParamList } from '../types/navigation';
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
-  const { login, signup, error, clearError, loading } = useAuth();
+  const { login, signup, requestPasswordReset, error, clearError, loading } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     setLocalError(null);
@@ -29,22 +31,27 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     
     let identity = email.trim().toLowerCase();
     
-    if (isSignUp) {
+    if (isForgotPassword) {
       if (identity && !identity.includes('@')) {
         identity += '@ing.uchile.cl';
       }
       if (!identity.endsWith('@ing.uchile.cl')) {
-        setLocalError('Solo se permiten correos institucionales @ing.uchile.cl');
+        setLocalError('Debes usar tu correo @ing.uchile.cl');
         return;
       }
+    } else if (isSignUp) {
+      if (identity.includes('@')) {
+         identity = identity.split('@')[0];
+      }
+      identity += '@ing.uchile.cl';
     } else {
       if (identity.includes('@') && !identity.endsWith('@ing.uchile.cl')) {
         setLocalError('Si usas correo, debe ser @ing.uchile.cl');
         return;
       }
     }
-    if (!password || password.length < 6) {
-      setLocalError('La contraseña debe tener al menos 6 caracteres.');
+    if (!isForgotPassword && (!password || password.length < 8)) {
+      setLocalError('La contraseña debe tener al menos 8 caracteres.');
       return;
     }
     if (isSignUp && password !== confirmPassword) {
@@ -61,10 +68,19 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     try {
-      if (isSignUp) {
+      if (isForgotPassword) {
+        await requestPasswordReset(identity);
+        setSuccessMessage('Te enviamos un enlace de recuperación. (Revisa SPAM. Puede tardar un momento por límites de envíos, ¡ten paciencia!)');
+        setTimeout(() => {
+          setIsForgotPassword(false);
+          setSuccessMessage(null);
+        }, 5000);
+      } else if (isSignUp) {
         await signup(identity, password, name.trim(), username.trim().toLowerCase());
-        alert('¡Cuenta creada exitosamente!\n\nRevisa tu correo electrónico (incluyendo la carpeta de SPAM) y haz clic en el enlace para verificar tu cuenta antes de iniciar sesión.');
-        toggleMode(); // volver al modo login
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Verification' }],
+        });
       } else {
         await login(identity, password);
         // Redirigir siempre a Home después de login
@@ -84,6 +100,16 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setConfirmPassword('');
     setName('');
     setUsername('');
+    setSuccessMessage(null);
+  };
+
+  const toggleForgotPassword = () => {
+    setIsForgotPassword(!isForgotPassword);
+    clearError();
+    setLocalError(null);
+    setSuccessMessage(null);
+    setEmail('');
+    setPassword('');
   };
 
   const activeError = localError || error;
@@ -91,7 +117,9 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.formCard}>
-        <Text style={styles.title}>{isSignUp ? 'Registro' : 'Iniciar Sesión'}</Text>
+        <Text style={styles.title}>
+          {isForgotPassword ? 'Recuperar Contraseña' : isSignUp ? 'Registro' : 'Iniciar Sesión'}
+        </Text>
 
         {activeError && (
           <View style={styles.errorBox}>
@@ -99,7 +127,13 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
-        {isSignUp && (
+        {successMessage && (
+          <View style={styles.successBox}>
+            <Text style={styles.successText}>{successMessage}</Text>
+          </View>
+        )}
+
+        {!isForgotPassword && isSignUp && (
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Nombre a mostrar</Text>
             <TextInput
@@ -113,7 +147,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
-        {isSignUp && (
+        {!isForgotPassword && isSignUp && (
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Nombre de usuario</Text>
             <TextInput
@@ -128,35 +162,60 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>{isSignUp ? 'Correo institucional' : 'Correo o Nombre de usuario'}</Text>
-          <TextInput
-            style={styles.input}
-            placeholder={isSignUp ? "usuario@ing.uchile.cl" : "Ej: jperez99 o juan@ing.uchile.cl"}
-            placeholderTextColor={theme.colors.textMuted}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
+        {isSignUp && !isForgotPassword ? (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Correo institucional</Text>
+            <View style={styles.emailContainer}>
+              <TextInput
+                style={[styles.input, styles.emailPrefixInput]}
+                placeholder="jperez99"
+                placeholderTextColor={theme.colors.textMuted}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Text style={styles.emailSuffix}>@ing.uchile.cl</Text>
+            </View>
+            <Text style={styles.helperText}>Es tu correo de la FCFM. Si no lo recuerdas, revisa servicios.cec.uchile.cl</Text>
+          </View>
+        ) : (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>{isForgotPassword ? 'Correo institucional' : 'Correo o Nombre de usuario'}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder={isForgotPassword ? "juan@ing.uchile.cl" : "Ej: jperez99 o juan@ing.uchile.cl"}
+              placeholderTextColor={theme.colors.textMuted}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {isForgotPassword && (
+              <Text style={styles.helperText}>Escribe tu correo de la facultad para enviarte un enlace de recuperación.</Text>
+            )}
+          </View>
+        )}
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Contraseña</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Contraseña"
-            placeholderTextColor={theme.colors.textMuted}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
+        {!isForgotPassword && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Contraseña</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Contraseña"
+              placeholderTextColor={theme.colors.textMuted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+        )}
 
-        {isSignUp && (
+        {!isForgotPassword && isSignUp && (
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Confirmar contraseña</Text>
             <TextInput
@@ -182,14 +241,24 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
             <ActivityIndicator color="#000000" size="small" />
           ) : (
             <Text style={styles.submitButtonText}>
-              {isSignUp ? 'Crear cuenta' : 'Iniciar Sesión'}
+              {isForgotPassword ? 'Recuperar Contraseña' : isSignUp ? 'Crear cuenta' : 'Iniciar Sesión'}
             </Text>
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.toggleLink} onPress={toggleMode} disabled={loading}>
+        {!isForgotPassword && !isSignUp && (
+          <TouchableOpacity style={styles.toggleLink} onPress={toggleForgotPassword} disabled={loading}>
+            <Text style={styles.forgotPasswordText}>
+              ¿Olvidaste tu contraseña?
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity style={styles.toggleLink} onPress={isForgotPassword ? toggleForgotPassword : toggleMode} disabled={loading}>
           <Text style={styles.toggleLinkText}>
-            {isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
+            {isForgotPassword 
+              ? 'Volver al inicio de sesión'
+              : isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -235,6 +304,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  successBox: {
+    backgroundColor: 'rgba(52, 211, 153, 0.1)',
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.3)',
+  },
+  successText: {
+    color: '#34d399',
+    fontSize: 14,
+    fontWeight: '500',
+  },
   inputGroup: {
     marginBottom: theme.spacing.lg,
   },
@@ -253,6 +335,28 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
     paddingVertical: 10,
     paddingHorizontal: 0,
+  },
+  emailContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  emailPrefixInput: {
+    flex: 1,
+    borderBottomWidth: 0,
+    textAlign: 'right',
+  },
+  emailSuffix: {
+    fontSize: 16,
+    color: theme.colors.textMuted,
+    paddingVertical: 10,
+    paddingLeft: 4,
+  },
+  helperText: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    marginTop: 6,
   },
   domainWarning: {
     fontSize: 11,
@@ -284,5 +388,9 @@ const styles = StyleSheet.create({
     color: theme.colors.accent,
     fontSize: 13,
     fontWeight: '500',
+  },
+  forgotPasswordText: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
   },
 });

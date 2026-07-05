@@ -15,8 +15,12 @@ import { ParticipantPredictionsScreen } from './src/screens/ParticipantPredictio
 import { MatchPredictionsScreen } from './src/screens/MatchPredictionsScreen';
 import { PostDetailScreen } from './src/screens/PostDetailScreen';
 import { UserProfileScreen } from './src/screens/UserProfileScreen';
+import { VerificationScreen } from './src/screens/VerificationScreen';
+import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
+import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import { RootStackParamList } from './src/types/navigation';
 import Toast from 'react-native-toast-message';
+import * as Linking from 'expo-linking';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -24,7 +28,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 // COMPONENTE CONTENEDOR PRINCIPAL
 // ----------------------------------------------------
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, isInitialized } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [currentRouteName, setCurrentRouteName] = useState<string>('Home');
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
@@ -58,7 +62,7 @@ function AppContent() {
     }
   };
 
-  if (loading) {
+  if (!isInitialized) {
     return (
       <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
         <StatusBar barStyle="light-content" backgroundColor={theme.colors.cardBg} />
@@ -73,6 +77,16 @@ function AppContent() {
       
       <NavigationContainer 
         ref={navigationRef}
+        linking={{
+          prefixes: [Linking.createURL('/'), 'http://localhost:8081'],
+          config: {
+            screens: {
+              Verification: 'verification',
+              VerifyEmail: 'verify',
+              ResetPassword: 'reset-password',
+            }
+          }
+        }}
         onStateChange={async () => {
           const currentRoute = navigationRef.getCurrentRoute();
           if (currentRoute) {
@@ -112,6 +126,9 @@ function AppContent() {
         ) : (
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Verification" component={VerificationScreen} />
+            <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
           </Stack.Navigator>
         )}
       </NavigationContainer>

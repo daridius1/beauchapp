@@ -4,8 +4,8 @@ migrate((app) => {
     {
       "authAlert": {
         "emailTemplate": {
-          "body": "<p>Hello,</p>\n<p>We noticed a login to your {APP_NAME} account from a new location.</p>\n<p>If this was you, you may disregard this email.</p>\n<p><strong>If this wasn't you, you should immediately change your {APP_NAME} account password to revoke access from all other locations.</strong></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>",
-          "subject": "Login from a new location"
+          "body": "<div style=\"font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0f172a; color: #f8fafc; border-radius: 8px;\">\n    <h2 style=\"font-weight: 600; color: #f8fafc;\">Alerta de Seguridad</h2>\n    <p style=\"font-size: 16px; line-height: 1.5; color: #94a3b8;\">Hemos detectado un inicio de sesión en tu cuenta de {APP_NAME} desde una nueva ubicación.</p>\n    <p style=\"font-size: 16px; line-height: 1.5; color: #94a3b8;\">Si fuiste tú, puedes ignorar este mensaje.</p>\n    <p style=\"font-size: 16px; line-height: 1.5; color: #94a3b8;\"><strong>Si no fuiste tú, por favor cambia tu contraseña inmediatamente para proteger tu cuenta.</strong></p>\n</div>",
+          "subject": "Nuevo inicio de sesión detectado"
         },
         "enabled": true
       },
@@ -14,8 +14,8 @@ migrate((app) => {
         "duration": 1209600
       },
       "confirmEmailChangeTemplate": {
-        "body": "<p>Hello,</p>\n<p>Click on the button below to confirm your new email address.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-email-change/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Confirm new email</a>\n</p>\n<p><i>If you didn't ask to change your email address, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>",
-        "subject": "Confirm your {APP_NAME} new email address"
+        "body": "<div style=\"font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0f172a; color: #f8fafc; border-radius: 8px;\">\n    <h2 style=\"font-weight: 600; color: #f8fafc;\">Cambio de correo electrónico</h2>\n    <p style=\"font-size: 16px; line-height: 1.5; color: #94a3b8;\">Haz clic en el botón de abajo para confirmar tu nueva dirección de correo.</p>\n    <div style=\"margin: 30px 0;\">\n        <a href=\"{APP_URL}/_/#/auth/confirm-email-change/{TOKEN}\" style=\"background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;\">Confirmar nuevo correo</a>\n    </div>\n    <p style=\"font-size: 14px; color: #94a3b8; border-top: 1px solid #334155; padding-top: 20px;\">\n        Si no solicitaste este cambio, puedes ignorar este mensaje de forma segura.\n    </p>\n</div>",
+        "subject": "Confirma tu nuevo correo en {APP_NAME}"
       },
       "createRule": "",
       "deleteRule": "id = @request.auth.id",
@@ -217,14 +217,14 @@ migrate((app) => {
         "duration": 1800
       },
       "resetPasswordTemplate": {
-        "body": "<p>Hello,</p>\n<p>Click on the button below to reset your password.</p>\n<p>\n  <a class=\"btn\" href=\"{APP_URL}/_/#/auth/confirm-password-reset/{TOKEN}\" target=\"_blank\" rel=\"noopener\">Reset password</a>\n</p>\n<p><i>If you didn't ask to reset your password, you can ignore this email.</i></p>\n<p>\n  Thanks,<br/>\n  {APP_NAME} team\n</p>",
-        "subject": "Reset your {APP_NAME} password"
+        "body": "<div style=\"font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0f172a; color: #f8fafc; border-radius: 8px;\">\n    <h2 style=\"font-weight: 600; color: #f8fafc;\">Recuperación de contraseña</h2>\n    <p style=\"font-size: 16px; line-height: 1.5; color: #94a3b8;\">Haz clic en el botón de abajo para restablecer tu contraseña.</p>\n    <div style=\"margin: 30px 0;\">\n        <a href=\"{APP_URL}/reset-password?token={TOKEN}\" style=\"background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;\">Restablecer contraseña</a>\n    </div>\n    <p style=\"font-size: 14px; color: #94a3b8; border-top: 1px solid #334155; padding-top: 20px;\">\n        Si no solicitaste restablecer tu contraseña, puedes ignorar este correo.\n    </p>\n</div>",
+        "subject": "Restablece tu contraseña de {APP_NAME}"
       },
       "system": false,
       "type": "auth",
       "updateRule": "id = @request.auth.id",
       "verificationTemplate": {
-        "body": "\n<div style=\"font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;\">\n    <h2 style=\"font-weight: 600; color: #1a1a1a;\">¡Bienvenido a {APP_NAME}! 🏆</h2>\n    <p style=\"font-size: 16px; line-height: 1.5;\">Gracias por unirte. Por favor, haz clic en el siguiente botón para verificar tu cuenta institucional:</p>\n    <div style=\"margin: 30px 0;\">\n        <a href=\"{APP_URL}/_/#/auth/confirm-verification/{TOKEN}\" style=\"background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;\">Verificar Correo</a>\n    </div>\n    <p style=\"font-size: 14px; color: #666; border-top: 1px solid #eaeaea; padding-top: 20px;\">\n        Si el botón no funciona, ingresa a este enlace:<br>\n        <a href=\"{APP_URL}/_/#/auth/confirm-verification/{TOKEN}\" style=\"color: #4f46e5; word-break: break-all;\">{APP_URL}/_/#/auth/confirm-verification/{TOKEN}</a>\n    </p>\n</div>\n    ",
+        "body": "<div style=\"font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0f172a; color: #f8fafc; border-radius: 8px;\">\n    <h2 style=\"font-weight: 600; color: #f8fafc;\">Verifica tu cuenta</h2>\n    <p style=\"font-size: 16px; line-height: 1.5; color: #94a3b8;\">Gracias por registrarte. Por favor, haz clic en el siguiente botón para verificar tu correo institucional:</p>\n    <div style=\"margin: 30px 0;\">\n        <a href=\"{APP_URL}/verify?token={TOKEN}\" style=\"background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;\">Verificar cuenta</a>\n    </div>\n    <p style=\"font-size: 14px; color: #94a3b8; border-top: 1px solid #334155; padding-top: 20px;\">\n        O ingresa a este enlace:<br>\n        <a href=\"{APP_URL}/verify?token={TOKEN}\" style=\"color: #38bdf8; word-break: break-all;\">{APP_URL}/verify?token={TOKEN}</a>\n    </p>\n</div>",
         "subject": "Verifica tu cuenta en {APP_NAME}"
       },
       "verificationToken": {
@@ -1350,7 +1350,7 @@ migrate((app) => {
     }
   ];
 
-  return app.importCollections(snapshot, false);
+  return app.importCollectionsByMarshaledJSON(JSON.stringify(snapshot), false);
 }, (app) => {
   return null;
 })
