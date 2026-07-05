@@ -70,11 +70,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     try {
       if (isForgotPassword) {
         await requestPasswordReset(identity);
-        setSuccessMessage('Te enviamos un enlace de recuperación. (Revisa SPAM. Puede tardar un momento por límites de envíos, ¡ten paciencia!)');
-        setTimeout(() => {
-          setIsForgotPassword(false);
-          setSuccessMessage(null);
-        }, 5000);
+        setSuccessMessage('Te enviamos un correo con las instrucciones.\n\nPor favor, ten paciencia y revisa tu carpeta de SPAM si no lo encuentras inmediatamente.');
       } else if (isSignUp) {
         await signup(identity, password, name.trim(), username.trim().toLowerCase());
         navigation.reset({
@@ -305,17 +301,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   successBox: {
-    backgroundColor: 'rgba(52, 211, 153, 0.1)',
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(52, 211, 153, 0.3)',
+    borderColor: theme.colors.border,
   },
   successText: {
-    color: '#34d399',
+    color: theme.colors.text,
     fontSize: 14,
-    fontWeight: '500',
+    lineHeight: 20,
+    textAlign: 'center',
   },
   inputGroup: {
     marginBottom: theme.spacing.lg,
