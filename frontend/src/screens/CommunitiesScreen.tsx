@@ -21,7 +21,6 @@ export const CommunitiesScreen: React.FC<Props> = ({ navigation }) => {
       
       const records = await pb.collection('communities').getFullList({
         sort: '+name',
-        expand: 'members',
       });
       setCommunities(records);
     } catch (error) {
@@ -66,39 +65,27 @@ export const CommunitiesScreen: React.FC<Props> = ({ navigation }) => {
           communities.length === 0 ? (
             <Text style={styles.emptyText}>Aún no hay comunidades creadas.</Text>
           ) : (
-            communities.map((community) => {
-              const members = community.expand?.members || [];
-              return (
-                <View key={community.id} style={styles.communityCard}>
-                  <Text style={styles.communityName}>{community.name}</Text>
-                  {!!community.description && (
-                    <Text style={styles.communityDesc}>{community.description}</Text>
-                  )}
-                  
-                  <View style={styles.membersSection}>
-                    <Text style={styles.membersTitle}>
-                      <Feather name="users" size={14} color={theme.colors.textMuted} /> Miembros ({members.length})
+            communities.map((community) => (
+              <TouchableOpacity 
+                key={community.id} 
+                style={styles.communityCard}
+                onPress={() => navigation.push('CommunityDetail', { communityId: community.id })}
+              >
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardInfo}>
+                    <Text style={styles.communityName}>
+                      {community.name}
                     </Text>
-                    {members.length > 0 ? (
-                      <View style={styles.membersList}>
-                        {members.map((member: any) => (
-                          <View key={member.id} style={styles.memberChip}>
-                            <View style={styles.avatarMini}>
-                              <Text style={styles.avatarMiniText}>
-                                {member.name ? member.name.charAt(0).toUpperCase() : 'U'}
-                              </Text>
-                            </View>
-                            <Text style={styles.memberName}>{member.name}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    ) : (
-                      <Text style={styles.noMembersText}>No hay miembros en esta comunidad.</Text>
+                    {!!community.description && (
+                      <Text style={styles.communityDesc} numberOfLines={2}>
+                        {community.description}
+                      </Text>
                     )}
                   </View>
+                  <Feather name="chevron-right" size={24} color={theme.colors.textMuted} />
                 </View>
-              );
-            })
+              </TouchableOpacity>
+            ))
           )
         )}
       </ScrollView>
@@ -156,59 +143,15 @@ const styles = StyleSheet.create({
   communityDesc: {
     fontSize: 14,
     color: theme.colors.textMuted,
-    marginBottom: theme.spacing.md,
+    marginTop: 4,
   },
-  membersSection: {
-    marginTop: theme.spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    paddingTop: theme.spacing.sm,
-  },
-  membersTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.colors.textMuted,
-    marginBottom: 10,
+  cardHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  membersList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  memberChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  avatarMini: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 6,
-  },
-  avatarMiniText: {
-    color: '#000',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  memberName: {
-    color: theme.colors.text,
-    fontSize: 13,
-  },
-  noMembersText: {
-    color: '#555',
-    fontSize: 13,
-    fontStyle: 'italic',
+  cardInfo: {
+    flex: 1,
+    paddingRight: theme.spacing.md,
   }
 });

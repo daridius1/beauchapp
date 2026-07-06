@@ -7,6 +7,7 @@ export type RootStackParamList = {
   ParticipantPredictions: { contestId: string; participantId: string; participantName: string };
   MatchPredictions: { matchId: string; contestId: string };
   Communities: undefined;
+  CommunityDetail: { communityId: string };
   Superadmin: undefined;
   PostDetail: { postId: string };
   UserProfile: { userId: string };

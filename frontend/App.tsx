@@ -12,6 +12,7 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ContestsScreen } from './src/screens/ContestsScreen';
 import { PollaContestScreen } from './src/screens/PollaContest';
 import { CommunitiesScreen } from './src/screens/CommunitiesScreen';
+import { CommunityDetailScreen } from './src/screens/CommunityDetailScreen';
 import { SuperadminScreen } from './src/screens/SuperadminScreen';
 import { ParticipantPredictionsScreen } from './src/screens/ParticipantPredictionsScreen';
 import { MatchPredictionsScreen } from './src/screens/MatchPredictionsScreen';
@@ -117,6 +118,7 @@ function AppContent() {
                 <Stack.Screen name="Contests" component={ContestsScreen} />
                 <Stack.Screen name="PollaContest" component={PollaContestScreen} />
                 <Stack.Screen name="Communities" component={CommunitiesScreen} />
+              <Stack.Screen name="CommunityDetail" component={CommunityDetailScreen} />
                 <Stack.Screen name="Superadmin" component={SuperadminScreen} />
                 <Stack.Screen name="ParticipantPredictions" component={ParticipantPredictionsScreen} />
                 <Stack.Screen name="MatchPredictions" component={MatchPredictionsScreen} />
