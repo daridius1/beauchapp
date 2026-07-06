@@ -67,6 +67,7 @@ const styles = StyleSheet.create({
     minWidth: 40,
     flexDirection: 'row',
     alignItems: 'center',
+    zIndex: 1,
   },
   iconButton: {
     padding: theme.spacing.sm,
@@ -92,7 +93,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: theme.colors.text,
-    flex: 1,
     textAlign: 'center',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 0,
   },
 });
