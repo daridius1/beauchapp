@@ -475,7 +475,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                   </Text>
                 ) : null}
                 <Text style={styles.postContent}>{post.content}</Text>
-                {post.photo && (
+                {!!post.photo && (
                   <TouchableOpacity 
                     activeOpacity={0.8} 
                     onPress={() => {

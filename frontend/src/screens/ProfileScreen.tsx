@@ -161,7 +161,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 
                 <Text style={styles.postContent}>{post.content}</Text>
                 
-                {post.photo && (
+                {!!post.photo && (
                   <TouchableOpacity 
                     activeOpacity={0.8} 
                     onPress={() => {

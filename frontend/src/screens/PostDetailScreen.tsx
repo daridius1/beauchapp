@@ -222,7 +222,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
         
         <Text style={[styles.postContent, isFocused && styles.mainPostContent]}>{post.content}</Text>
-        {post.photo && (
+        {!!post.photo && (
           <TouchableOpacity 
             activeOpacity={0.8} 
             onPress={() => {
