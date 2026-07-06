@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image } from 'react-native';
-import { RefreshControl } from 'react-native-web-refresh-control';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, RefreshControl, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -321,6 +320,11 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               <TouchableOpacity onPress={handleSearch} style={styles.inlineActionBtn}>
                 <Feather name="search" size={20} color={theme.colors.primary} />
               </TouchableOpacity>
+              {Platform.OS === 'web' && (
+                <TouchableOpacity onPress={onRefresh} style={styles.inlineActionBtn} disabled={refreshing}>
+                  <Feather name="refresh-cw" size={20} color={refreshing ? theme.colors.textMuted : theme.colors.primary} />
+                </TouchableOpacity>
+              )}
             </>
           )}
         </View>
