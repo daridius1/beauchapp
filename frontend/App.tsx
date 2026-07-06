@@ -48,12 +48,13 @@ function AppContent() {
   const { user, isInitialized } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [currentRouteName, setCurrentRouteName] = useState<string>('Home');
+  const [currentRouteParams, setCurrentRouteParams] = useState<any>({});
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
 
 
 
   // Mapeo de títulos de pantalla
-  const getScreenTitle = (screen: string) => {
+  const getScreenTitle = (screen: string, params: any) => {
     switch (screen) {
       case 'Home': return 'Inicio';
       case 'Profile': return 'Mi Perfil';
@@ -65,11 +66,13 @@ function AppContent() {
       case 'UserProfile': return 'Perfil de Usuario';
       case 'ParticipantPredictions': return 'Predicciones';
       case 'MatchPredictions': return 'Partidos';
+      case 'Communities': return 'Comunidades';
+      case 'CommunityDetail': return params?.communityName || 'Comunidad';
       default: return 'Beauchapp';
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Contests', 'Superadmin'];
+  const rootScreens = ['Home', 'Profile', 'Contests', 'Superadmin', 'Communities'];
   const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
 
   if (!isInitialized) {
@@ -101,13 +104,14 @@ function AppContent() {
           const currentRoute = navigationRef.getCurrentRoute();
           if (currentRoute) {
             setCurrentRouteName(currentRoute.name);
+            setCurrentRouteParams(currentRoute.params || {});
           }
         }}
       >
         {user ? (
           <>
             <Header 
-              title={getScreenTitle(currentRouteName)} 
+              title={getScreenTitle(currentRouteName, currentRouteParams)} 
               onToggleSidebar={() => setIsSidebarOpen(true)} 
               onBack={canGoBack ? () => navigationRef.goBack() : undefined}
             />

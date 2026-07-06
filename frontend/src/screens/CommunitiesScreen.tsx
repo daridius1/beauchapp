@@ -56,7 +56,6 @@ export const CommunitiesScreen: React.FC<Props> = ({ navigation }) => {
       )}
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.pageTitle}>Comunidades</Text>
         <Text style={styles.pageSubtitle}>Descubre y conéctate con los distintos grupos de la facultad.</Text>
 
         {loading && !refreshing ? (
@@ -69,7 +68,7 @@ export const CommunitiesScreen: React.FC<Props> = ({ navigation }) => {
               <TouchableOpacity 
                 key={community.id} 
                 style={styles.communityCard}
-                onPress={() => navigation.push('CommunityDetail', { communityId: community.id })}
+                onPress={() => navigation.push('CommunityDetail', { communityId: community.id, communityName: community.name })}
               >
                 <View style={styles.cardHeader}>
                   <View style={styles.cardInfo}>
@@ -109,12 +108,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: theme.spacing.lg,
     paddingBottom: 40,
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: 8,
   },
   pageSubtitle: {
     fontSize: 14,

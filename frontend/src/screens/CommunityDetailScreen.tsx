@@ -101,13 +101,6 @@ export const CommunityDetailScreen: React.FC<Props> = ({ route, navigation }) =>
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Feather name="arrow-left" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{community.name}</Text>
-      </View>
-      
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {!!community.description && (
           <View style={styles.descriptionCard}>
@@ -173,25 +166,6 @@ const styles = StyleSheet.create({
   center: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: theme.spacing.xl,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  backButton: {
-    padding: theme.spacing.xs,
-    marginRight: theme.spacing.md,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.colors.text,
   },
   scrollContent: {
     padding: theme.spacing.lg,
