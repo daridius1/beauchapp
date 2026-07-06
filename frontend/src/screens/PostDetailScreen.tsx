@@ -7,6 +7,7 @@ import { RootStackParamList } from '../types/navigation';
 import { pb, getFileUrl } from '../services/pocketbase';
 import { theme } from '../theme/theme';
 import { ImagePicker } from '../components/ImagePicker';
+import { ImageViewer } from '../components/ImageViewer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PostDetail'>;
 
@@ -26,6 +27,8 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
 
   const isFirstLoad = useRef(true);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -220,10 +223,18 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         
         <Text style={[styles.postContent, isFocused && styles.mainPostContent]}>{post.content}</Text>
         {post.photo && (
-          <Image 
-            source={{ uri: getFileUrl(post, post.photo) }}
-            style={styles.postImage}
-          />
+          <TouchableOpacity 
+            activeOpacity={0.8} 
+            onPress={() => {
+              setViewerImageUrl(getFileUrl(post, post.photo));
+              setViewerVisible(true);
+            }}
+          >
+            <Image 
+              source={{ uri: getFileUrl(post, post.photo) }}
+              style={styles.postImage}
+            />
+          </TouchableOpacity>
         )}
         
         {post.tags && post.tags.length > 0 && (
@@ -346,6 +357,12 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
         </View>
       </ScrollView>
+
+      <ImageViewer 
+        visible={viewerVisible}
+        imageUrl={viewerImageUrl}
+        onClose={() => setViewerVisible(false)}
+      />
     </View>
   );
 };

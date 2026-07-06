@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
 import { pb, getFileUrl } from '../services/pocketbase';
 import { ImagePicker } from '../components/ImagePicker';
+import { ImageViewer } from '../components/ImageViewer';
 import { Feather } from '@expo/vector-icons';
 
 import { theme } from '../theme/theme';
@@ -28,6 +29,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [filterTags, setFilterTags] = useState<string[]>([]);
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [tempTag, setTempTag] = useState('');
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
+  const hasScrolledRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -472,12 +476,20 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                 ) : null}
                 <Text style={styles.postContent}>{post.content}</Text>
                 {post.photo && (
-                  <Image 
-                    source={{ uri: getFileUrl(post, post.photo) }}
-                    style={styles.postImage}
-                    // @ts-ignore - loading lazy works on web
-                    loading="lazy"
-                  />
+                  <TouchableOpacity 
+                    activeOpacity={0.8} 
+                    onPress={() => {
+                      setViewerImageUrl(getFileUrl(post, post.photo));
+                      setViewerVisible(true);
+                    }}
+                  >
+                    <Image 
+                      source={{ uri: getFileUrl(post, post.photo) }}
+                      style={styles.postImage}
+                      // @ts-ignore - loading lazy works on web
+                      loading="lazy"
+                    />
+                  </TouchableOpacity>
                 )}
                 
                 {post.tags && post.tags.length > 0 && (
@@ -515,6 +527,12 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         )}
         {loadingMore && <ActivityIndicator size="small" color={theme.colors.text} style={{ padding: 20 }} />}
       </ScrollView>
+
+      <ImageViewer 
+        visible={viewerVisible}
+        imageUrl={viewerImageUrl}
+        onClose={() => setViewerVisible(false)}
+      />
     </View>
   );
 };

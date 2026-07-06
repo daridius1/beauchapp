@@ -6,6 +6,7 @@ import { RootStackParamList } from '../types/navigation';
 import { pb, getFileUrl } from '../services/pocketbase';
 import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
+import { ImageViewer } from '../components/ImageViewer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -14,6 +15,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
 
   const isFirstLoad = useRef(true);
 
@@ -159,10 +162,18 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.postContent}>{post.content}</Text>
                 
                 {post.photo && (
-                  <Image 
-                    source={{ uri: getFileUrl(post, post.photo) }}
-                    style={styles.postImage}
-                  />
+                  <TouchableOpacity 
+                    activeOpacity={0.8} 
+                    onPress={() => {
+                      setViewerImageUrl(getFileUrl(post, post.photo));
+                      setViewerVisible(true);
+                    }}
+                  >
+                    <Image 
+                      source={{ uri: getFileUrl(post, post.photo) }}
+                      style={styles.postImage}
+                    />
+                  </TouchableOpacity>
                 )}
                 
                 {post.tags && post.tags.length > 0 && (
@@ -192,6 +203,12 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           })
         )}
       </ScrollView>
+
+      <ImageViewer 
+        visible={viewerVisible}
+        imageUrl={viewerImageUrl}
+        onClose={() => setViewerVisible(false)}
+      />
     </View>
   );
 };
