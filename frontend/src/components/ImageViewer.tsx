@@ -14,12 +14,21 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ visible, imageUrl, onC
 
   const handleDownload = async () => {
     if (Platform.OS === 'web') {
-      const link = document.createElement('a');
-      link.href = imageUrl;
-      link.download = 'imagen_beauchapp.jpg';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      try {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = 'imagen_beauchapp.jpg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      } catch (err) {
+        console.error('Error al descargar la imagen:', err);
+        window.open(imageUrl, '_blank');
+      }
     } else {
       Linking.openURL(imageUrl);
     }
