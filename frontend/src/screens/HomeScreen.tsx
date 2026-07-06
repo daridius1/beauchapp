@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -30,6 +30,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [tempTag, setTempTag] = useState('');
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (photo) {
@@ -95,6 +96,12 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       setLoadingMore(false);
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchPosts(1, false);
+    setRefreshing(false);
+  }, [activeSearch, filterTags.join(',')]);
 
   useFocusEffect(
     useCallback(() => {
@@ -323,6 +330,14 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         contentContainerStyle={styles.feedContent}
         onScroll={handleScroll}
         scrollEventThrottle={400}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
       >
         {user ? (
           <View style={styles.composeBox}>
