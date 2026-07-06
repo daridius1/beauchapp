@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, DeviceEventEmitter } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { pb } from '../services/pocketbase';
 import { theme } from '../theme/theme';
@@ -21,26 +21,27 @@ export const ContestsScreen: React.FC<Props> = ({ navigation }) => {
   const [contests, setContests] = useState<Contest[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    const fetchContests = async () => {
-      try {
-        setLoading(true);
-        // Obtener solo concursos activos
-        const records = await pb.collection('contests').getFullList<Contest>({
-          filter: 'active = true',
-          sort: '-created',
-        });
-        setContests(records);
-      } catch (err: any) {
-        console.error('Error al cargar concursos:', err);
-        Toast.show({ type: 'error', text1: 'No se pudieron cargar los concursos. Por favor intenta de nuevo.', position: 'top' });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchContests();
+  const fetchContests = useCallback(async () => {
+    try {
+      setLoading(true);
+      const records = await pb.collection('contests').getFullList<Contest>({
+        filter: 'active = true',
+        sort: '-created',
+      });
+      setContests(records);
+    } catch (err: any) {
+      console.error('Error al cargar concursos:', err);
+      Toast.show({ type: 'error', text1: 'No se pudieron cargar los concursos. Por favor intenta de nuevo.', position: 'top' });
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchContests();
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', fetchContests);
+    return () => sub.remove();
+  }, [fetchContests]);
 
   if (loading) {
     return (

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, RefreshControl, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, RefreshControl, Platform, DeviceEventEmitter } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -102,6 +102,13 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     await fetchPosts(1, false);
     setRefreshing(false);
   }, [activeSearch, filterTags.join(',')]);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
+      onRefresh();
+    });
+    return () => sub.remove();
+  }, [onRefresh]);
 
   useFocusEffect(
     useCallback(() => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Platform, DeviceEventEmitter } from 'react-native';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
 
@@ -30,7 +30,7 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
         {Platform.OS === 'web' && (
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => window.location.reload()}
+            onPress={() => DeviceEventEmitter.emit('onGlobalRefresh')}
             activeOpacity={0.7}
           >
             <Feather name="refresh-cw" size={20} color={theme.colors.text} />
