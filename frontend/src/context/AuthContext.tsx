@@ -1,17 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { pb } from '../services/pocketbase';
 
-export interface UserProfile {
+export interface User {
   id: string;
   email: string;
   name: string;
   username: string;
-  created: string;
-  updated: string;
+  avatar?: string;
+  collectionId: string;
+  isSuperadmin: boolean;
+  type: 'student' | 'organization';
 }
 
 interface AuthContextType {
-  user: UserProfile | null;
+  user: User | null;
   loading: boolean;
   isInitialized: boolean;
   error: string | null;

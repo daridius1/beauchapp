@@ -4,10 +4,24 @@
 // 1. Filtro de exclusividad universitaria
 // Interceptar el registro de usuarios para validar el correo institucional @ing.uchile.cl
 onRecordCreateRequest((e) => {
+    const type = e.record.getString("type");
+
+    if (type === "organization") {
+        // Only superusers (admins) can create an organization
+        if (!e.requestInfo?.auth?.isSuperuser()) {
+            throw new BadRequestError("No tienes permisos para crear una cuenta de organización.");
+        }
+        // Organizations bypass email requirements
+        e.next();
+        return;
+    }
+
+    // For everyone else, enforce student type
+    e.record.set("type", "student");
+
     const email = e.record.getString("email");
-    
     if (!email) {
-        throw new BadRequestError("El correo electrónico es requerido.");
+        throw new BadRequestError("El correo electrónico es requerido para estudiantes.");
     }
     
     if (!email.endsWith("@ing.uchile.cl")) {

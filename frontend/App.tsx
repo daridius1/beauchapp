@@ -68,6 +68,7 @@ function AppContent() {
       case 'MatchPredictions': return 'Partidos';
       case 'Communities': return 'Comunidades';
       case 'CommunityDetail': return params?.communityName || 'Comunidad';
+      case 'NotFound': return 'No Encontrado';
       default: return 'Beauchapp';
     }
   };
@@ -97,6 +98,7 @@ function AppContent() {
               Verification: 'verification',
               VerifyEmail: 'verify',
               ResetPassword: 'reset-password',
+              NotFound: '*',
             }
           }
         }}
@@ -128,6 +130,7 @@ function AppContent() {
                 <Stack.Screen name="MatchPredictions" component={MatchPredictionsScreen} />
                 <Stack.Screen name="PostDetail" component={PostDetailScreen} />
                 <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+                <Stack.Screen name="NotFound" component={NotFoundScreen} />
               </Stack.Navigator>
             </View>
             <Sidebar 

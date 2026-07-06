@@ -109,7 +109,7 @@ export const CommunityDetailScreen: React.FC<Props> = ({ route, navigation }) =>
           </View>
         )}
         
-        {user && (
+        {user && user.type !== 'organization' && (
           <TouchableOpacity 
             style={[styles.actionButton, isCurrentlyActive ? styles.actionButtonLeave : styles.actionButtonJoin]}
             onPress={handleJoinOrLeave}

@@ -11,6 +11,7 @@ export type RootStackParamList = {
   Superadmin: undefined;
   PostDetail: { postId: string };
   UserProfile: { userId: string };
+  NotFound: undefined;
   Verification: undefined;
   VerifyEmail: undefined;
   ResetPassword: undefined;

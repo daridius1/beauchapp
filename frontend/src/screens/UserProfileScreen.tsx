@@ -105,6 +105,13 @@ export const UserProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
           <Text style={styles.profileName}>{profileUser.name || 'Usuario'}</Text>
           {profileUser?.username ? <Text style={styles.profileUsername}>@{profileUser.username}</Text> : null}
+          {profileUser.type === 'organization' ? (
+            <View style={styles.orgBadge}>
+              <Text style={styles.orgBadgeText}>Organización</Text>
+            </View>
+          ) : (
+            <Text style={styles.profileCareer}>Estudiante</Text>
+          )}
           {currentUser && currentUser.id === profileUser.id && (
             <Text style={styles.profileEmail}>{profileUser.email}</Text>
           )}
@@ -227,6 +234,19 @@ const styles = StyleSheet.create({
   avatarLargeText: { color: '#000', fontSize: 36, fontWeight: '800' },
   profileName: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
   profileUsername: { fontSize: 15, color: theme.colors.textMuted, marginBottom: 8 },
+  profileCareer: { fontSize: 14, color: theme.colors.textMuted, marginBottom: 16 },
+  orgBadge: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginBottom: 16,
+  },
+  orgBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   profileEmail: { fontSize: 14, color: theme.colors.textMuted, marginBottom: theme.spacing.sm },
   statsText: { fontSize: 13, fontWeight: '600', color: theme.colors.textMuted },
   

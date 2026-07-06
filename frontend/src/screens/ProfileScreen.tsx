@@ -103,9 +103,17 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </Text>
           </View>
-          <Text style={styles.profileName}>{user.name || 'Usuario'}</Text>
-          {user?.username ? <Text style={styles.profileUsername}>@{user.username}</Text> : null}
-          <Text style={styles.profileEmail}>{user.email}</Text>
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>{user.name}</Text>
+            <Text style={styles.profileUsername}>@{user.username}</Text>
+            {user.type === 'organization' ? (
+              <View style={styles.orgBadge}>
+                <Text style={styles.orgBadgeText}>Organización</Text>
+              </View>
+            ) : (
+              <Text style={styles.profileCareer}>Estudiante</Text>
+            )}
+          </View>
           <Text style={styles.statsText}>{posts.length} Publicaciones</Text>
         </View>
 
@@ -239,8 +247,27 @@ const styles = StyleSheet.create({
   },
   avatarLargeText: { color: '#000', fontSize: 36, fontWeight: '800' },
   profileName: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
+  profileCareer: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    marginTop: 4,
+  },
+  orgBadge: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  orgBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   profileUsername: { fontSize: 15, color: theme.colors.textMuted, marginBottom: 8 },
   profileEmail: { fontSize: 14, color: theme.colors.textMuted, marginBottom: theme.spacing.sm },
+  statsContainer: { fontSize: 14, color: theme.colors.textMuted, marginBottom: theme.spacing.sm },
   statsText: { fontSize: 13, fontWeight: '600', color: theme.colors.textMuted },
   
   logoutButton: {

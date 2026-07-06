@@ -545,16 +545,22 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
             setError={setError}
           />
         ) : activeTab === 'matches' ? (
-          <UserPredictionsPanel 
-            groupedMatches={groupedActiveMatches}
-            predictions={predictions}
-            handleScoreChange={handleScoreChange}
-            handleSavePredictions={handleSavePredictions}
-            saving={saving}
-            isAdminMode={isAdminMode}
-            contestId={contestId}
-            contestTag={contest?.tag}
-          />
+          user?.type === 'organization' ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={{ color: theme.colors.textMuted, fontSize: 16, textAlign: 'center' }}>Las organizaciones no pueden participar en esta actividad.</Text>
+            </View>
+          ) : (
+            <UserPredictionsPanel 
+              groupedMatches={groupedActiveMatches}
+              predictions={predictions}
+              handleScoreChange={handleScoreChange}
+              handleSavePredictions={handleSavePredictions}
+              saving={saving}
+              isAdminMode={isAdminMode}
+              contestId={contestId}
+              contestTag={contest?.tag}
+            />
+          )
         ) : (
           <ParticipantsTable participants={participants} contestId={contestId} />
         )}
