@@ -16,7 +16,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ visible, imageUrl, onC
     if (Platform.OS === 'web') {
       try {
         const response = await fetch(imageUrl);
-        const blob = await response.blob();
+        const originalBlob = await response.blob();
+        const blob = new Blob([originalBlob], { type: 'application/octet-stream' });
         const blobUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
