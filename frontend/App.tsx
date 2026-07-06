@@ -58,7 +58,7 @@ function AppContent() {
     switch (screen) {
       case 'Home': return 'Inicio';
       case 'Profile': return 'Mi Perfil';
-      case 'Contests': return 'Concursos';
+      case 'Contests': return 'Actividades';
       case 'WorldCupContest': return 'Polla Mundialera';
       case 'Superadmin': return 'Panel Superadmin';
       case 'Login': return 'Iniciar Sesión';

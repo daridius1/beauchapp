@@ -55,15 +55,15 @@ export const ContestsScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.headerSection}>
-        <Text style={styles.title}>Concursos Disponibles</Text>
+        <Text style={styles.title}>Actividades Activas</Text>
         <Text style={styles.subtitle}>
-          Participa y predice marcadores para competir con la comunidad de Beauchef.
+          Participa y demuestra tus conocimientos.
         </Text>
       </View>
 
       {contests.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No hay concursos activos en este momento.</Text>
+          <Text style={styles.emptyText}>No hay actividades activas en este momento.</Text>
         </View>
       ) : (
         <View style={styles.listContainer}>
