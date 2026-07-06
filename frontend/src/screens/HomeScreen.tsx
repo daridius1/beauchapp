@@ -320,11 +320,6 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               <TouchableOpacity onPress={handleSearch} style={styles.inlineActionBtn}>
                 <Feather name="search" size={20} color={theme.colors.primary} />
               </TouchableOpacity>
-              {Platform.OS === 'web' && (
-                <TouchableOpacity onPress={onRefresh} style={styles.inlineActionBtn} disabled={refreshing}>
-                  <Feather name="refresh-cw" size={20} color={refreshing ? theme.colors.textMuted : theme.colors.primary} />
-                </TouchableOpacity>
-              )}
             </>
           )}
         </View>
