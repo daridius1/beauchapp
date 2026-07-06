@@ -6,6 +6,7 @@ export type RootStackParamList = {
   PollaContest: { contestId: string };
   ParticipantPredictions: { contestId: string; participantId: string; participantName: string };
   MatchPredictions: { matchId: string; contestId: string };
+  Communities: undefined;
   Superadmin: undefined;
   PostDetail: { postId: string };
   UserProfile: { userId: string };

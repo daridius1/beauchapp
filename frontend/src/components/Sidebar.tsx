@@ -23,12 +23,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
       Animated.timing(slideAnim, {
         toValue: isOpen ? 0 : SIDEBAR_WIDTH,
         duration: 250,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(opacityAnim, {
         toValue: isOpen ? 1 : 0,
         duration: 250,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, [isOpen]);
@@ -47,13 +47,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
 
   const menuItems = [
     { id: 'Home', label: 'Inicio' },
+    { id: 'Communities', label: 'Comunidades' },
     { id: 'Contests', label: 'Concursos' },
     { id: 'Profile', label: 'Perfil' },
   ];
 
 
   return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents={isOpen ? 'auto' : 'none'}>
+    <View style={[StyleSheet.absoluteFillObject, { pointerEvents: isOpen ? 'auto' : 'none' }]}>
       {/* Backdrop (Fondo oscuro transparente) */}
       <Animated.View style={[styles.backdrop, { opacity: opacityAnim }]}>
         <Pressable style={styles.backdropPressable} onPress={onClose} />
