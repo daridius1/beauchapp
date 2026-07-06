@@ -109,7 +109,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.divider} />
 
         {/* User Posts */}
-        {loading && isFirstLoad.current ? (
+        {loading ? (
           <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 20 }} />
         ) : posts.length === 0 ? (
           <Text style={styles.noPostsText}>Aún no has publicado nada.</Text>

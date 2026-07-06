@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Text, ActivityIndicator, Image } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Text, ActivityIndicator, Image, DeviceEventEmitter } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { pb } from '../../services/pocketbase';
 import { useAuth } from '../../context/AuthContext';
@@ -129,6 +129,8 @@ export const PollaContestScreen: React.FC<Props> = ({ navigation, route }) => {
 
   useEffect(() => {
     fetchData();
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => fetchData(true));
+    return () => sub.remove();
   }, [contestId, user]);
 
   const handleScoreChange = (matchId: string, side: 'home' | 'away', value: string) => {
