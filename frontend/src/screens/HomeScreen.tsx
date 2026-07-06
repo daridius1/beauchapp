@@ -98,6 +98,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const onRefresh = useCallback(async () => {
+    setLoading(true);
     setRefreshing(true);
     await fetchPosts(1, false);
     setRefreshing(false);
