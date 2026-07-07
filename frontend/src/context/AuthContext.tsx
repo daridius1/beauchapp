@@ -83,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Debes verificar tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada o spam.');
       }
       
-      setUser(authData.record as unknown as UserProfile);
+      setUser(authData.record as unknown as User);
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err?.message || 'Error al iniciar sesión. Verifica tus credenciales.');
