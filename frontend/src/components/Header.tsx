@@ -14,23 +14,32 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, onTitlePress, rightComponent }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const handleTitlePress = () => {
     if (!onTitlePress) return;
     
-    // Ejecutar callback
+    // Ejecutar callback de refresco
     onTitlePress();
     
-    // Ejecutar animación de pulso y rebote sutil
+    // Ejecutar rotación de 360 grados de la flecha
+    rotateAnim.setValue(0);
+    Animated.timing(rotateAnim, {
+      toValue: 1,
+      duration: 700,
+      useNativeDriver: true,
+    }).start();
+
+    // Ejecutar animación de pulso y rebote sutil de la cabecera entera
     Animated.sequence([
       Animated.parallel([
         Animated.timing(scaleAnim, {
-          toValue: 0.93,
+          toValue: 0.95,
           duration: 90,
           useNativeDriver: true,
         }),
         Animated.timing(opacityAnim, {
-          toValue: 0.45,
+          toValue: 0.6,
           duration: 90,
           useNativeDriver: true,
         }),
@@ -51,6 +60,11 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
     ]).start();
   };
 
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   return (
     <View style={styles.header}>
       <View style={styles.sideContainer}>
@@ -69,8 +83,11 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
           activeOpacity={0.8} 
           style={styles.headerTitleContainer}
         >
-          <Animated.View style={{ transform: [{ scale: scaleAnim }], opacity: opacityAnim }}>
+          <Animated.View style={[styles.titleInnerContainer, { transform: [{ scale: scaleAnim }], opacity: opacityAnim }]}>
             <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+            <Animated.View style={{ marginLeft: 6, transform: [{ rotate: spin }] }}>
+              <Feather name="refresh-cw" size={13} color={theme.colors.textMuted} />
+            </Animated.View>
           </Animated.View>
         </TouchableOpacity>
       ) : (
@@ -152,6 +169,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 0,
+  },
+  titleInnerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 18,
