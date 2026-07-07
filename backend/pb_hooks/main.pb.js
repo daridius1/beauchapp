@@ -982,15 +982,38 @@ routerAdd("GET", "/admin/generate-link", (e) => {
             }
         });
 
-        // Copiar Enlace
+        // Copiar Enlace con fallback para HTTP (contextos no seguros)
         document.getElementById("copyBtn").addEventListener("click", () => {
-            navigator.clipboard.writeText(urlBox.textContent);
+            const urlText = urlBox.textContent;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(urlText).then(() => {
+                    showCopySuccess();
+                });
+            } else {
+                // Fallback para HTTP IP (donde navigator.clipboard está bloqueado)
+                const textArea = document.createElement("textarea");
+                textArea.value = urlText;
+                textArea.style.position = "fixed";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showCopySuccess();
+                } catch (err) {
+                    console.error('Fallback copy failed', err);
+                }
+                document.body.removeChild(textArea);
+            }
+        });
+
+        function showCopySuccess() {
             const btn = document.getElementById("copyBtn");
             btn.textContent = "✓ ¡Copiado!";
             setTimeout(() => {
                 btn.textContent = "Copiar Enlace";
             }, 2000);
-        });
+        }
     </script>
 </body>
 </html>
@@ -1016,12 +1039,18 @@ routerAdd("POST", "/api/admin/generate-link", (e) => {
         userRec.set("subtype", subtype);
         userRec.set("verified", false);
         
+        // Generar token y expiración directamente aquí (las llamadas a $app.save evitan los hooks API onRecordCreateRequest)
+        const token = $security.randomString(15);
+        userRec.set("registrationToken", token);
+        
+        const oneWeekLater = new Date();
+        oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+        userRec.set("tokenExpiresAt", oneWeekLater.toISOString());
+        
         // Poner contraseña temporal súper segura aleatoria de 30 chars
         const tempPass = $security.randomString(30);
         userRec.setPassword(tempPass);
 
-        // Guardar record (esto llamará a nuestro hook onRecordCreateRequest de users,
-        // el cual autogenerará el token y el tokenExpiresAt automáticamente!)
         $app.save(userRec);
     } catch (err) {
         return e.json(400, { error: "No se pudo crear la organización inactiva: " + err.message });
