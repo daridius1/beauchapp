@@ -249,12 +249,13 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xl,
     backgroundColor: theme.colors.cardBg,
   },
-  profileName: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
-  profileInfo: { alignItems: 'center' },
+  profileName: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginBottom: 4, textAlign: 'center' },
+  profileInfo: { alignItems: 'center', width: '100%' },
   profileCareer: {
     fontSize: 14,
     color: theme.colors.textMuted,
     marginTop: 4,
+    textAlign: 'center',
   },
   orgBadge: {
     backgroundColor: theme.colors.primary,
@@ -269,7 +270,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  profileUsername: { fontSize: 15, color: theme.colors.textMuted, marginBottom: 8 },
+  profileUsername: { fontSize: 15, color: theme.colors.textMuted, marginBottom: 8, textAlign: 'center' },
   profileBio: {
     fontSize: 14,
     color: theme.colors.text,
