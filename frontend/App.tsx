@@ -9,9 +9,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { theme } from './src/theme/theme';
 import { LoginScreen } from './src/screens/LoginScreen';
-import { CommunitiesScreen } from './src/screens/CommunitiesScreen';
-import { CentersScreen } from './src/screens/CentersScreen';
-import { TeamsScreen } from './src/screens/TeamsScreen';
+import { ProfilesListScreen } from './src/screens/ProfilesListScreen';
 import { PostDetailScreen } from './src/screens/PostDetailScreen';
 import { VerificationScreen } from './src/screens/VerificationScreen';
 import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
@@ -118,9 +116,9 @@ function AppContent() {
                 <Stack.Navigator screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="Home" component={HomeScreen} />
                   <Stack.Screen name="Profile" component={ProfileScreen} />
-                  <Stack.Screen name="Communities" component={CommunitiesScreen} />
-                  <Stack.Screen name="Centers" component={CentersScreen} />
-                  <Stack.Screen name="Teams" component={TeamsScreen} />
+                  <Stack.Screen name="Communities" component={ProfilesListScreen} />
+                  <Stack.Screen name="Centers" component={ProfilesListScreen} />
+                  <Stack.Screen name="Teams" component={ProfilesListScreen} />
                   <Stack.Screen name="PostDetail" component={PostDetailScreen} />
                   <Stack.Screen name="UserProfile" component={ProfileScreen} />
                   <Stack.Screen name="NotFound" component={NotFoundScreen} />
