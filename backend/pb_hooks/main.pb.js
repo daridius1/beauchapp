@@ -8,7 +8,7 @@ onRecordCreateRequest((e) => {
 
     if (type === "organization") {
         // Only superusers (admins) can create an organization
-        if (!e.requestInfo?.auth?.isSuperuser()) {
+        if (!e.auth || !e.auth.isSuperuser()) {
             throw new BadRequestError("No tienes permisos para crear una cuenta de organización.");
         }
         // Organizations bypass email requirements
