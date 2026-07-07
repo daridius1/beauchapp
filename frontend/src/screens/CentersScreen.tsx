@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scrollContent: {
-    padding: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
     paddingBottom: 40,
   },
   pageSubtitle: {
