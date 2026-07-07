@@ -92,7 +92,7 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
     return d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL', { hour: '2-digit', minute:'2-digit' });
   };
 
-  if (loading && isFirstLoad.current) {
+  if (loading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
