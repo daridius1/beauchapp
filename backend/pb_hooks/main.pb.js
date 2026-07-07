@@ -364,7 +364,7 @@ function canManageTeamMember(e) {
         if (!teamId) return false;
 
         const team = $app.findRecordById("teams", teamId);
-        if (team.getString("owner_org") === e.auth.id) return true;
+        if (team && team.getString("owner_org") === e.auth.id) return true;
 
         const adminMemberships = $app.findRecordsByFilter(
             "team_members",
@@ -383,14 +383,14 @@ function canManageTeamMember(e) {
 
 onRecordCreateRequest((e) => {
     if (!canManageTeamMember(e)) {
-        throw new BadRequestError("No tienes permisos para agregar miembros a este equipo.");
+        throw new Error("No tienes permisos para agregar miembros a este equipo.");
     }
     e.next();
 }, "team_members");
 
 onRecordUpdateRequest((e) => {
     if (!canManageTeamMember(e)) {
-        throw new BadRequestError("No tienes permisos para modificar miembros de este equipo.");
+        throw new Error("No tienes permisos para modificar miembros de este equipo.");
     }
     e.next();
 }, "team_members");
