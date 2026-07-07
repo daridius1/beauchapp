@@ -137,15 +137,7 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
       
       <View style={[styles.sideContainer, { justifyContent: 'flex-end' }]}>
         {rightComponent}
-        {Platform.OS === 'web' && (
-          <TouchableOpacity 
-            style={styles.iconButton}
-            onPress={() => DeviceEventEmitter.emit('onGlobalRefresh')}
-            activeOpacity={0.7}
-          >
-            <Feather name="refresh-cw" size={20} color={theme.colors.text} />
-          </TouchableOpacity>
-        )}
+
         <TouchableOpacity 
           style={styles.iconButton} 
           onPress={onToggleSidebar}
