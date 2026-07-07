@@ -924,7 +924,7 @@ routerAdd("GET", "/admin/generate-link", (e) => {
 
             try {
                 // Autenticar contra la colección de superusuarios
-                const response = await fetch("/api/collections/users/auth-with-password", {
+                const response = await fetch("/api/collections/_superusers/auth-with-password", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ identity: email, password: password })
