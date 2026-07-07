@@ -13,6 +13,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, onTitlePress, rightComponent }) => {
   const titleOpacity = useRef(new Animated.Value(1)).current;
+  const titleTranslateY = useRef(new Animated.Value(0)).current;
   const spinnerOpacity = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
@@ -22,13 +23,21 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
     // Ejecutar callback de refresco
     onTitlePress();
     
-    // Reiniciar rotación
+    // Reiniciar valores de animación
     rotateAnim.setValue(0);
+    titleTranslateY.setValue(0);
+    titleOpacity.setValue(1);
+    spinnerOpacity.setValue(0);
 
-    // Ejecutar secuencia de animación
+    // Secuencia de animación de deslizamiento y rotación
     Animated.sequence([
-      // 1. Desvanecer título y mostrar spinner (más suave, 250ms)
+      // 1. El título se desliza hacia arriba (-20) y se desvanece, el spinner aparece
       Animated.parallel([
+        Animated.timing(titleTranslateY, {
+          toValue: -20,
+          duration: 250,
+          useNativeDriver: true,
+        }),
         Animated.timing(titleOpacity, {
           toValue: 0,
           duration: 250,
@@ -40,15 +49,28 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
           useNativeDriver: true,
         }),
       ]),
-      // 2. Rotar el spinner 360 grados
+      // 2. Rotación de 360 grados del spinner
       Animated.timing(rotateAnim, {
         toValue: 1,
         duration: 800,
         useNativeDriver: true,
       }),
-      // 3. Desvanecer spinner y volver a mostrar el título (más suave, 250ms)
+      // 3. El spinner se desvanece y preparamos el título abajo (+20) de forma invisible (duration: 0)
       Animated.parallel([
         Animated.timing(spinnerOpacity, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(titleTranslateY, {
+          toValue: 20,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ]),
+      // 4. El título aparece desde abajo hacia el centro (0) con fundido
+      Animated.parallel([
+        Animated.timing(titleTranslateY, {
           toValue: 0,
           duration: 250,
           useNativeDriver: true,
@@ -85,8 +107,14 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
           activeOpacity={0.8} 
           style={styles.headerTitleContainer}
         >
-          {/* Título */}
-          <Animated.View style={{ opacity: titleOpacity, position: 'absolute', justifyContent: 'center', alignItems: 'center' }}>
+          {/* Título animado */}
+          <Animated.View style={{ 
+            opacity: titleOpacity, 
+            transform: [{ translateY: titleTranslateY }],
+            position: 'absolute', 
+            justifyContent: 'center', 
+            alignItems: 'center' 
+          }}>
             <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
           </Animated.View>
           
