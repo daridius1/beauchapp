@@ -29,12 +29,17 @@ onRecordCreateRequest((e) => {
     }
 }, "users");
 
-// 1.5. Proteger campo type (solo admins reales de PocketBase pueden modificarlo)
+// 1.5. Proteger campos type y subtype (solo admins reales de PocketBase pueden modificarlos)
 onRecordUpdateRequest((e) => {
     const original = e.record.originalCopy();
     if (e.record.get("type") !== original.get("type")) {
         if (!e.auth || !e.auth.isSuperuser()) {
             e.record.set("type", original.get("type"));
+        }
+    }
+    if (e.record.get("subtype") !== original.get("subtype")) {
+        if (!e.auth || !e.auth.isSuperuser()) {
+            e.record.set("subtype", original.get("subtype"));
         }
     }
 }, "users");
@@ -160,148 +165,52 @@ onRecordAfterDeleteSuccess((e) => {
 
 }, "posts");
 
-// 8. Control de acceso para team_members
+// 8. Validación de tipos para organization_members
 onRecordCreateRequest((e) => {
-    console.log("team_members CREATE hook triggered!");
-    
-    const checkTeamPermsLocal = (ev) => {
-        try {
-            if (!ev.auth) return { allowed: false, reason: "No auth" };
-            if (ev.auth.isSuperuser()) return { allowed: true };
-            const teamId = ev.record.getString("team");
-            if (!teamId) return { allowed: false, reason: "No teamId" };
-            let team = null;
-            try {
-                team = $app.findRecordById("teams", teamId);
-            } catch(err) {
-                 return { allowed: false, reason: "Team not found" };
-            }
-            if (team && team.getString("owner_org") === ev.auth.id) return { allowed: true };
-            const adminMemberships = $app.findRecordsByFilter(
-                "team_members",
-                "team = {:team} && user = {:user} && role = 'admin' && status = 'active'",
-                "",
-                1,
-                0,
-                { team: teamId, user: ev.auth.id }
-            );
-            if (adminMemberships.length > 0) return { allowed: true };
-            return { allowed: false, reason: "Not owner nor admin." };
-        } catch (err) {
-            return { allowed: false, reason: "Exception: " + err.message };
-        }
-    };
-
-    const res = checkTeamPermsLocal(e);
-    console.log("checkTeamPerms result:", JSON.stringify(res));
-    if (!res.allowed) {
-        throw new ApiError(400, "No tienes permisos. Razón: " + res.reason);
-    }
-
     const userId = e.record.getString("user");
-    if (!userId) {
-        throw new ApiError(400, "El campo 'user' es requerido.");
+    const orgId = e.record.getString("organization");
+
+    if (!userId || !orgId) {
+        throw new ApiError(400, "Los campos 'user' y 'organization' son requeridos.");
     }
 
     try {
-        $app.findRecordById("users", userId);
+        const userRec = $app.findRecordById("users", userId);
+        if (userRec.getString("type") !== "student") {
+            throw new Error("El integrante debe ser una cuenta de estudiante.");
+        }
     } catch(err) {
-        throw new ApiError(400, "El usuario no existe.");
+        throw new ApiError(400, err.message || "El usuario no existe.");
     }
 
-    const teamId = e.record.getString("team");
-    if (!teamId) {
-        throw new ApiError(400, "El campo 'team' es requerido.");
+    try {
+        const orgRec = $app.findRecordById("users", orgId);
+        if (orgRec.getString("type") !== "organization") {
+            throw new Error("El destino debe ser una cuenta de organización.");
+        }
+    } catch(err) {
+        throw new ApiError(400, err.message || "La organización no existe.");
     }
 
     const existing = $app.findRecordsByFilter(
-        "team_members",
-        "team = {:team} && user = {:user}",
+        "organization_members",
+        "organization = {:orgId} && user = {:userId}",
         "",
         1,
         0,
-        { team: teamId, user: userId }
+        { orgId: orgId, user: userId }
     );
     if (existing.length > 0) {
-        throw new ApiError(400, "El usuario ya es miembro de este equipo.");
+        throw new ApiError(400, "El usuario ya participa en esta organización.");
     }
 
     return e.next();
-}, "team_members");
+}, "organization_members");
 
 onRecordUpdateRequest((e) => {
-    const checkTeamPermsLocal = (ev) => {
-        try {
-            if (!ev.auth) return { allowed: false, reason: "No auth" };
-            if (ev.auth.isSuperuser()) return { allowed: true };
-            const teamId = ev.record.getString("team");
-            if (!teamId) return { allowed: false, reason: "No teamId" };
-            let team = null;
-            try {
-                team = $app.findRecordById("teams", teamId);
-            } catch(err) {
-                 return { allowed: false, reason: "Team not found" };
-            }
-            if (team && team.getString("owner_org") === ev.auth.id) return { allowed: true };
-            const adminMemberships = $app.findRecordsByFilter(
-                "team_members",
-                "team = {:team} && user = {:user} && role = 'admin' && status = 'active'",
-                "",
-                1,
-                0,
-                { team: teamId, user: ev.auth.id }
-            );
-            if (adminMemberships.length > 0) return { allowed: true };
-            return { allowed: false, reason: "Not owner nor admin." };
-        } catch (err) {
-            return { allowed: false, reason: "Exception: " + err.message };
-        }
-    };
-
-    const res = checkTeamPermsLocal(e);
-    if (!res.allowed) {
-        throw new ApiError(400, "No tienes permisos para modificar. Razón: " + res.reason);
+    const original = e.record.originalCopy();
+    if (e.record.get("user") !== original.get("user") || e.record.get("organization") !== original.get("organization")) {
+        throw new ApiError(400, "No se pueden modificar los campos 'user' u 'organization' una vez creados.");
     }
     return e.next();
-}, "team_members");
-
-onRecordDeleteRequest((e) => {
-    const checkTeamPermsLocal = (ev) => {
-        try {
-            if (!ev.auth) return { allowed: false, reason: "No auth" };
-            if (ev.auth.isSuperuser()) return { allowed: true };
-            
-            // Allow user to delete their own membership (leave the team)
-            const userId = ev.record.getString("user");
-            if (userId && userId === ev.auth.id) return { allowed: true };
-
-            const teamId = ev.record.getString("team");
-            if (!teamId) return { allowed: false, reason: "No teamId" };
-            let team = null;
-            try {
-                team = $app.findRecordById("teams", teamId);
-            } catch(err) {
-                 return { allowed: false, reason: "Team not found" };
-            }
-            if (team && team.getString("owner_org") === ev.auth.id) return { allowed: true };
-            const adminMemberships = $app.findRecordsByFilter(
-                "team_members",
-                "team = {:team} && user = {:user} && role = 'admin' && status = 'active'",
-                "",
-                1,
-                0,
-                { team: teamId, user: ev.auth.id }
-            );
-            if (adminMemberships.length > 0) return { allowed: true };
-            return { allowed: false, reason: "Not owner, admin, nor the member itself." };
-        } catch (err) {
-            return { allowed: false, reason: "Exception: " + err.message };
-        }
-    };
-
-    const res = checkTeamPermsLocal(e);
-    if (!res.allowed) {
-        throw new ApiError(400, "No tienes permisos para eliminar este miembro. Razón: " + res.reason);
-    }
-    return e.next();
-}, "team_members");
+}, "organization_members");

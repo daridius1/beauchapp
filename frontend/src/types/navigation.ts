@@ -4,7 +4,7 @@ export type RootStackParamList = {
   Profile: undefined;
   Communities: undefined;
   CommunityDetail: { communityId: string; communityName?: string };
-  Organizations: undefined;
+  Centers: undefined;
   Teams: undefined;
   TeamDetail: { teamId: string; teamName?: string };
   PostDetail: { postId: string };

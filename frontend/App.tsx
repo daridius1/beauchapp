@@ -11,7 +11,7 @@ import { theme } from './src/theme/theme';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { CommunitiesScreen } from './src/screens/CommunitiesScreen';
 import { CommunityDetailScreen } from './src/screens/CommunityDetailScreen';
-import { OrganizationsScreen } from './src/screens/OrganizationsScreen';
+import { CentersScreen } from './src/screens/CentersScreen';
 import { TeamsScreen } from './src/screens/TeamsScreen';
 import { TeamDetailScreen } from './src/screens/TeamDetailScreen';
 import { PostDetailScreen } from './src/screens/PostDetailScreen';
@@ -62,7 +62,7 @@ function AppContent() {
       case 'UserProfile': return 'Perfil de Usuario';
       case 'Communities': return 'Comunidades';
       case 'CommunityDetail': return params?.communityName || 'Comunidad';
-      case 'Organizations': return 'Organizaciones';
+      case 'Centers': return 'Centros';
       case 'Teams': return 'Equipos';
       case 'TeamDetail': return params?.teamName || 'Equipo';
       case 'NotFound': return 'No Encontrado';
@@ -70,7 +70,7 @@ function AppContent() {
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Communities', 'Organizations', 'Teams'];
+  const rootScreens = ['Home', 'Profile', 'Communities', 'Centers', 'Teams'];
   const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
 
   if (!isInitialized) {
@@ -94,7 +94,7 @@ function AppContent() {
             screens: {
               Profile: 'profile',
               Communities: 'communities',
-              Organizations: 'organizations',
+              Centers: 'centers',
               Teams: 'teams',
               TeamDetail: 'teams/:teamId',
               Verification: 'verification',
@@ -125,7 +125,7 @@ function AppContent() {
                   <Stack.Screen name="Profile" component={ProfileScreen} />
                   <Stack.Screen name="Communities" component={CommunitiesScreen} />
                   <Stack.Screen name="CommunityDetail" component={CommunityDetailScreen} />
-                  <Stack.Screen name="Organizations" component={OrganizationsScreen} />
+                  <Stack.Screen name="Centers" component={CentersScreen} />
                   <Stack.Screen name="Teams" component={TeamsScreen} />
                   <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
                   <Stack.Screen name="PostDetail" component={PostDetailScreen} />

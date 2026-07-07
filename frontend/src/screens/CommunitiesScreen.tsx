@@ -19,7 +19,8 @@ export const CommunitiesScreen: React.FC<Props> = ({ navigation }) => {
     try {
       if (showRefresh) setRefreshing(true);
       
-      const records = await pb.collection('communities').getFullList({
+      const records = await pb.collection('users').getFullList({
+        filter: 'type = "organization" && subtype = "community"',
         sort: '+name',
       });
       setCommunities(records);

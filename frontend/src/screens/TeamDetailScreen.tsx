@@ -19,16 +19,16 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   
   const [addingFromBtn, setAddingFromBtn] = useState(false);
 
-  const isOwner = user?.id === team?.owner_org;
-  const isAdmin = isOwner || members.some(m => m.user === user?.id && m.role === 'admin' && m.status === 'active');
+  const isOwner = user?.id === teamId;
+  const isAdmin = isOwner;
 
   const fetchTeamData = useCallback(async () => {
     try {
       const [teamData, membersData] = await Promise.all([
-        pb.collection('teams').getOne(teamId, { expand: 'owner_org' }),
-        pb.collection('team_members').getFullList({
-          filter: `team = "${teamId}"`,
-          sort: '-role,created',
+        pb.collection('users').getOne(teamId, { expand: 'owner' }),
+        pb.collection('organization_members').getFullList({
+          filter: `organization = "${teamId}"`,
+          sort: 'created',
           expand: 'user'
         })
       ]);
@@ -77,7 +77,7 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           return;
         } else {
           // Si existía como inactivo, lo reactivamos
-          await pb.collection('team_members').update(existingMember.id, {
+          await pb.collection('organization_members').update(existingMember.id, {
             status: 'active'
           });
           fetchTeamData();
@@ -85,10 +85,9 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         }
       }
 
-      await pb.collection('team_members').create({
-        team: teamId,
+      await pb.collection('organization_members').create({
+        organization: teamId,
         user: finalUser.id,
-        role: 'member',
         status: 'active'
       });
 
@@ -101,22 +100,10 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
-  const handleToggleRole = async (memberId: string, currentRole: string) => {
-    try {
-      const newRole = currentRole === 'admin' ? 'member' : 'admin';
-      await pb.collection('team_members').update(memberId, {
-        role: newRole
-      });
-      fetchTeamData();
-    } catch (error: any) {
-      Alert.alert('Error', 'No se pudo cambiar el rol');
-    }
-  };
-
   const handleToggleStatus = async (memberId: string, currentStatus: string) => {
     try {
       const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-      await pb.collection('team_members').update(memberId, {
+      await pb.collection('organization_members').update(memberId, {
         status: newStatus
       });
       fetchTeamData();
@@ -150,9 +137,11 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.header}>
           <Text style={styles.title}>{team.name}</Text>
           {!!team.description && <Text style={styles.description}>{team.description}</Text>}
-          <Text style={styles.ownerText}>
-            Gestionado por: {team.expand?.owner_org?.name || team.expand?.owner_org?.username}
-          </Text>
+          {team.expand?.owner && (
+            <Text style={styles.ownerText}>
+              Gestionado por: {team.expand.owner.name || team.expand.owner.username}
+            </Text>
+          )}
         </View>
 
         {isAdmin && (
@@ -175,40 +164,32 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 {activeMembers.length === 0 ? (
                   <Text style={styles.emptyText}>Aún no hay integrantes en este equipo.</Text>
                 ) : (
-                  activeMembers.map(member => (
-                    <View key={member.id} style={styles.memberCard}>
-                      <View style={styles.memberInfo}>
-                        <Text style={styles.memberName}>
-                          {member.expand?.user?.name || member.expand?.user?.username}
-                        </Text>
-                        <Text style={styles.memberUsername}>@{member.expand?.user?.username}</Text>
-                        <View style={styles.badgesRow}>
-                          {member.role === 'admin' && (
-                            <View style={styles.adminBadge}>
-                              <Text style={styles.adminBadgeText}>Admin</Text>
-                            </View>
-                          )}
+                  activeMembers.map(member => {
+                    const isCurrentMember = member.user === user?.id;
+                    const canDeactivate = isAdmin || isCurrentMember;
+
+                    return (
+                      <View key={member.id} style={styles.memberCard}>
+                        <View style={styles.memberInfo}>
+                          <Text style={styles.memberName}>
+                            {member.expand?.user?.name || member.expand?.user?.username}
+                          </Text>
+                          <Text style={styles.memberUsername}>@{member.expand?.user?.username}</Text>
                         </View>
+                        
+                        {canDeactivate && (
+                          <View style={styles.memberActions}>
+                            <TouchableOpacity 
+                              style={styles.actionBtn}
+                              onPress={() => handleToggleStatus(member.id, member.status)}
+                            >
+                              <Feather name="x" size={20} color={theme.colors.danger} />
+                            </TouchableOpacity>
+                          </View>
+                        )}
                       </View>
-                      
-                      {isAdmin && member.user !== user?.id && (
-                        <View style={styles.memberActions}>
-                          <TouchableOpacity 
-                            style={styles.actionBtn}
-                            onPress={() => handleToggleRole(member.id, member.role)}
-                          >
-                            <Feather name={member.role === 'admin' ? 'arrow-down' : 'arrow-up'} size={20} color={theme.colors.text} />
-                          </TouchableOpacity>
-                          <TouchableOpacity 
-                            style={styles.actionBtn}
-                            onPress={() => handleToggleStatus(member.id, member.status)}
-                          >
-                            <Feather name="x" size={20} color={theme.colors.danger} />
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-                  ))
+                    );
+                  })
                 )}
               </>
             );

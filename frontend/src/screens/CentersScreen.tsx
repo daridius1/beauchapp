@@ -7,25 +7,25 @@ import { pb } from '../services/pocketbase';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Organizations'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Centers'>;
 
-export const OrganizationsScreen: React.FC<Props> = ({ navigation }) => {
-  const [organizations, setOrganizations] = useState<any[]>([]);
+export const CentersScreen: React.FC<Props> = ({ navigation }) => {
+  const [centers, setCenters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const isFirstLoad = useRef(true);
 
-  const fetchOrganizations = async (showRefresh = false) => {
+  const fetchCenters = async (showRefresh = false) => {
     try {
       if (showRefresh) setRefreshing(true);
       
       const records = await pb.collection('users').getFullList({
-        filter: 'type = "organization"',
+        filter: 'type = "organization" && subtype = "center"',
         sort: '+name',
       });
-      setOrganizations(records);
+      setCenters(records);
     } catch (error) {
-      console.error('Error fetching organizations:', error);
+      console.error('Error fetching centers:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -36,14 +36,14 @@ export const OrganizationsScreen: React.FC<Props> = ({ navigation }) => {
   useFocusEffect(
     useCallback(() => {
       if (isFirstLoad.current) {
-        fetchOrganizations();
+        fetchCenters();
       }
     }, [])
   );
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
-      fetchOrganizations(true);
+      fetchCenters(true);
     });
     return () => sub.remove();
   }, []);
@@ -57,27 +57,27 @@ export const OrganizationsScreen: React.FC<Props> = ({ navigation }) => {
       )}
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.pageSubtitle}>Descubre las organizaciones, centros de estudiantes y grupos oficiales de la facultad.</Text>
+        <Text style={styles.pageSubtitle}>Descubre los centros de estudiantes y organizaciones de la facultad.</Text>
 
         {loading && !refreshing ? (
           <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 50 }} />
         ) : (
-          organizations.length === 0 ? (
-            <Text style={styles.emptyText}>Aún no hay organizaciones creadas.</Text>
+          centers.length === 0 ? (
+            <Text style={styles.emptyText}>Aún no hay centros creados.</Text>
           ) : (
-            organizations.map((org) => (
+            centers.map((center) => (
               <TouchableOpacity 
-                key={org.id} 
+                key={center.id} 
                 style={styles.communityCard}
-                onPress={() => navigation.push('UserProfile', { userId: org.id })}
+                onPress={() => navigation.push('UserProfile', { userId: center.id })}
               >
                 <View style={styles.cardHeader}>
                   <View style={styles.cardInfo}>
                     <Text style={styles.communityName}>
-                      {org.name || org.username}
+                      {center.name || center.username}
                     </Text>
                     <Text style={styles.communityDesc}>
-                      @{org.username}
+                      @{center.username}
                     </Text>
                   </View>
                   <Feather name="chevron-right" size={24} color={theme.colors.textMuted} />

@@ -22,19 +22,19 @@ export const CommunityDetailScreen: React.FC<Props> = ({ route, navigation }) =>
 
   const fetchCommunityData = async () => {
     try {
-      const commRecord = await pb.collection('communities').getOne(communityId);
+      const commRecord = await pb.collection('users').getOne(communityId);
       setCommunity(commRecord);
 
-      const membersRecords = await pb.collection('community_members').getFullList({
-        filter: `community = "${communityId}" && status = "active"`,
+      const membersRecords = await pb.collection('organization_members').getFullList({
+        filter: `organization = "${communityId}" && status = "active"`,
         expand: 'user',
       });
       setMembers(membersRecords);
 
       if (user) {
         try {
-          const userMem = await pb.collection('community_members').getFirstListItem(
-            `community = "${communityId}" && user = "${user.id}"`
+          const userMem = await pb.collection('organization_members').getFirstListItem(
+            `organization = "${communityId}" && user = "${user.id}"`
           );
           setUserMembership(userMem);
         } catch (err: any) {
@@ -54,28 +54,18 @@ export const CommunityDetailScreen: React.FC<Props> = ({ route, navigation }) =>
     fetchCommunityData();
   }, [communityId, user]);
 
-  const handleJoinOrLeave = async () => {
-    if (!user) return;
+  const handleLeave = async () => {
+    if (!user || !userMembership) return;
     setActionLoading(true);
 
     try {
-      if (userMembership) {
-        const newStatus = userMembership.status === 'active' ? 'inactive' : 'active';
-        await pb.collection('community_members').update(userMembership.id, {
-          status: newStatus
-        });
-      } else {
-        await pb.collection('community_members').create({
-          user: user.id,
-          community: communityId,
-          status: 'active'
-        });
-      }
-      
+      await pb.collection('organization_members').update(userMembership.id, {
+        status: 'inactive'
+      });
       await fetchCommunityData();
     } catch (error) {
-      console.error('Error updating membership:', error);
-      Alert.alert("Error", "No se pudo actualizar tu estado en la comunidad.");
+      console.error('Error leaving community:', error);
+      Alert.alert("Error", "No se pudo procesar tu salida de la comunidad.");
     } finally {
       setActionLoading(false);
     }
@@ -109,20 +99,18 @@ export const CommunityDetailScreen: React.FC<Props> = ({ route, navigation }) =>
           </View>
         )}
         
-        {user && user.type !== 'organization' && (
+        {user && user.type !== 'organization' && isCurrentlyActive && (
           <TouchableOpacity 
-            style={[styles.actionButton, isCurrentlyActive ? styles.actionButtonLeave : styles.actionButtonJoin]}
-            onPress={handleJoinOrLeave}
+            style={[styles.actionButton, styles.actionButtonLeave]}
+            onPress={handleLeave}
             disabled={actionLoading}
           >
             {actionLoading ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <>
-                <Feather name={isCurrentlyActive ? "log-out" : "user-plus"} size={18} color="#fff" />
-                <Text style={styles.actionButtonText}>
-                  {isCurrentlyActive ? 'Salir de la comunidad' : 'Unirse a la comunidad'}
-                </Text>
+                <Feather name="log-out" size={18} color="#fff" />
+                <Text style={styles.actionButtonText}>Salir de la comunidad</Text>
               </>
             )}
           </TouchableOpacity>
