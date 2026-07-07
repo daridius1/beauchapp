@@ -13,7 +13,6 @@ import { CommunitiesScreen } from './src/screens/CommunitiesScreen';
 import { CentersScreen } from './src/screens/CentersScreen';
 import { TeamsScreen } from './src/screens/TeamsScreen';
 import { PostDetailScreen } from './src/screens/PostDetailScreen';
-import { UserProfileScreen } from './src/screens/UserProfileScreen';
 import { VerificationScreen } from './src/screens/VerificationScreen';
 import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
 import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
@@ -123,7 +122,7 @@ function AppContent() {
                   <Stack.Screen name="Centers" component={CentersScreen} />
                   <Stack.Screen name="Teams" component={TeamsScreen} />
                   <Stack.Screen name="PostDetail" component={PostDetailScreen} />
-                  <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+                  <Stack.Screen name="UserProfile" component={ProfileScreen} />
                   <Stack.Screen name="NotFound" component={NotFoundScreen} />
                 </Stack.Navigator>
               </View>

@@ -1,7 +1,7 @@
 export type RootStackParamList = {
   Home: { initialFilterTag?: string; initialPostTags?: string[] } | undefined;
   Login: undefined;
-  Profile: undefined;
+  Profile: { userId?: string } | undefined;
   Communities: undefined;
   Centers: undefined;
   Teams: undefined;

@@ -9,11 +9,16 @@ import { useAuth } from '../context/AuthContext';
 import { ImageViewer } from '../components/ImageViewer';
 import { Avatar } from '../components/Avatar';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Profile' | 'UserProfile'>;
 
-export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
-  const { user, logout } = useAuth();
+export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { user: currentUser } = useAuth();
   
+  // Si no hay userId en los parámetros, usamos el id del usuario actual logueado
+  const routeParams = route.params as any;
+  const targetUserId = routeParams?.userId || currentUser?.id;
+
+  const [profileUser, setProfileUser] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewerVisible, setViewerVisible] = useState(false);
@@ -21,18 +26,24 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   const isFirstLoad = useRef(true);
 
-  const fetchPosts = async (hideLoading = false) => {
-    if (!user) return;
+  const fetchProfileAndPosts = async (hideLoading = false) => {
+    if (!targetUserId) return;
     try {
       if (!hideLoading) setLoading(true);
+      
+      // 1. Obtener datos del usuario del perfil
+      const userRes = await pb.collection('users').getOne(targetUserId);
+      setProfileUser(userRes);
+
+      // 2. Obtener publicaciones del usuario
       const postsRes = await pb.collection('posts').getList(1, 50, {
-        filter: `author = "${user.id}"`,
+        filter: `author = "${targetUserId}"`,
         sort: '-created',
         expand: 'author,replyTo.author'
       });
       setPosts(postsRes.items);
     } catch (err) {
-      console.error('Error fetching user posts', err);
+      console.error('Error fetching profile and posts', err);
     } finally {
       if (!hideLoading) setLoading(false);
     }
@@ -40,27 +51,27 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
-      fetchPosts(false);
+      fetchProfileAndPosts(true);
     });
     return () => sub.remove();
-  }, []);
+  }, [targetUserId]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchPosts(!isFirstLoad.current);
+      fetchProfileAndPosts(!isFirstLoad.current);
       isFirstLoad.current = false;
-    }, [])
+    }, [targetUserId])
   );
 
   const toggleLike = async (post: any) => {
-    if (!user) return;
+    if (!currentUser) return;
     try {
       const currentLikes = post.likes || [];
       let newLikes = [...currentLikes];
-      if (newLikes.includes(user.id)) {
-        newLikes = newLikes.filter((id: string) => id !== user.id);
+      if (newLikes.includes(currentUser.id)) {
+        newLikes = newLikes.filter((id: string) => id !== currentUser.id);
       } else {
-        newLikes.push(user.id);
+        newLikes.push(currentUser.id);
       }
       await pb.collection('posts').update(post.id, { likes: newLikes });
       
@@ -76,17 +87,20 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     return d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL', { hour: '2-digit', minute:'2-digit' });
   };
 
-  const handleLogout = () => {
-    logout();
-    navigation.navigate('Home');
-  };
-
-  if (!user) {
+  if (loading && isFirstLoad.current) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.noPostsText}>Inicia sesión para ver tu perfil.</Text>
-        <TouchableOpacity style={{ backgroundColor: theme.colors.primary, padding: 12, borderRadius: 4 }} onPress={() => navigation.navigate('Login')}>
-          <Text style={{ color: '#000', fontWeight: 'bold' }}>Iniciar Sesión</Text>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  if (!profileUser) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.noPostsText}>Usuario no encontrado.</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.backBtnText}>Volver</Text>
         </TouchableOpacity>
       </View>
     );
@@ -94,28 +108,32 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-
       <ScrollView style={styles.feedList} contentContainerStyle={styles.feedContent}>
         
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={{ marginBottom: theme.spacing.md }}>
-            <Avatar user={user} size={80} />
+            <Avatar user={profileUser} size={80} />
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{user.name}</Text>
-            <Text style={styles.profileUsername}>@{user.username}</Text>
-            {user.type === 'organization' ? (
+            <Text style={styles.profileName}>{profileUser.name}</Text>
+            {!!profileUser.username && <Text style={styles.profileUsername}>@{profileUser.username}</Text>}
+            
+            {profileUser.type === 'organization' ? (
               <View style={styles.orgBadge}>
                 <Text style={styles.orgBadgeText}>
-                  {user.subtype === 'center' ? 'Centro de Estudiantes' :
-                   user.subtype === 'team' ? 'Equipo Oficial' :
-                   user.subtype === 'community' ? 'Comunidad libre' :
+                  {profileUser.subtype === 'center' ? 'Centro de Estudiantes' :
+                   profileUser.subtype === 'team' ? 'Equipo Oficial' :
+                   profileUser.subtype === 'community' ? 'Comunidad libre' :
                    'Organización'}
                 </Text>
               </View>
             ) : (
               <Text style={styles.profileCareer}>Estudiante</Text>
+            )}
+
+            {!!profileUser.description && (
+              <Text style={styles.profileBio}>{profileUser.description}</Text>
             )}
           </View>
           <Text style={styles.statsText}>{posts.length} Publicaciones</Text>
@@ -124,13 +142,11 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.divider} />
 
         {/* User Posts */}
-        {loading ? (
-          <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 20 }} />
-        ) : posts.length === 0 ? (
-          <Text style={styles.noPostsText}>Aún no has publicado nada.</Text>
+        {posts.length === 0 ? (
+          <Text style={styles.noPostsText}>Este usuario aún no ha publicado nada.</Text>
         ) : (
           posts.map(post => {
-            const isLiked = (post.likes || []).includes(user.id);
+            const isLiked = currentUser && (post.likes || []).includes(currentUser.id);
             const author = post.expand?.author;
             const repliesCount = post.commentCount || 0;
             
@@ -141,7 +157,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 activeOpacity={0.7}
                 onPress={() => navigation.push('PostDetail', { postId: post.id })}
               >
-                <View style={styles.postHeader}>
+                <View style={styles.postHeaderRow}>
                   <TouchableOpacity 
                     onPress={() => navigation.push('UserProfile', { userId: post.author })}
                     activeOpacity={0.7}
@@ -173,36 +189,28 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 
                 <Text style={styles.postContent}>{post.content}</Text>
                 
-                {!!post.photo && (
+                {post.photo && (
                   <TouchableOpacity 
-                    activeOpacity={0.8} 
+                    activeOpacity={0.9}
                     onPress={() => {
                       setViewerImageUrl(getFileUrl(post, post.photo));
                       setViewerVisible(true);
                     }}
                   >
                     <Image 
-                      source={{ uri: getFileUrl(post, post.photo) }}
+                      source={{ uri: getFileUrl(post, post.photo) }} 
                       style={styles.postImage}
                     />
                   </TouchableOpacity>
                 )}
                 
-                {post.tags && post.tags.length > 0 && (
-                  <View style={styles.tagsRow}>
-                    {post.tags.map((t: string, i: number) => (
-                      <View key={i} style={styles.tagChip}>
-                        <Text style={styles.tagChipText}>#{t}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
                 <View style={styles.postActions}>
                   <TouchableOpacity style={styles.actionBtn} onPress={() => toggleLike(post)}>
-                    <Text style={styles.actionIcon}>{isLiked ? '❤️' : '🤍'}</Text>
-                    <Text style={[styles.actionCount, isLiked && styles.actionIconActive]}>
-                      {(post.likes || []).length}
+                    <Text style={[styles.actionIcon, isLiked && styles.actionIconActive]}>
+                      {isLiked ? '❤️' : '🤍'}
+                    </Text>
+                    <Text style={styles.actionCount}>
+                      {post.likes?.length || 0}
                     </Text>
                   </TouchableOpacity>
                   <View style={styles.actionBtn}>
@@ -216,25 +224,23 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         )}
       </ScrollView>
 
-      <ImageViewer 
-        visible={viewerVisible}
-        imageUrl={viewerImageUrl}
-        onClose={() => setViewerVisible(false)}
-      />
+      {viewerImageUrl && (
+        <ImageViewer 
+          visible={viewerVisible} 
+          imageUrl={viewerImageUrl} 
+          onClose={() => {
+            setViewerVisible(false);
+            setViewerImageUrl(null);
+          }} 
+        />
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
-  centerContainer: { flex: 1, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border,
-  },
-  backBtn: { width: 60 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: theme.colors.text },
-  
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background },
   feedList: { flex: 1 },
   feedContent: { paddingBottom: theme.spacing.xl },
   
@@ -243,7 +249,6 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xl,
     backgroundColor: theme.colors.cardBg,
   },
-
   profileName: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
   profileInfo: { alignItems: 'center' },
   profileCareer: {
@@ -256,31 +261,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     marginTop: 8,
   },
   orgBadgeText: {
-    color: '#fff',
+    color: '#000000',
     fontSize: 12,
     fontWeight: 'bold',
   },
   profileUsername: { fontSize: 15, color: theme.colors.textMuted, marginBottom: 8 },
-  profileEmail: { fontSize: 14, color: theme.colors.textMuted, marginBottom: theme.spacing.sm },
-  statsContainer: { fontSize: 14, color: theme.colors.textMuted, marginBottom: theme.spacing.sm },
-  statsText: { fontSize: 13, fontWeight: '600', color: theme.colors.textMuted },
-  
-  logoutButton: {
-    marginTop: theme.spacing.lg,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#ef4444',
-    borderRadius: 4,
+  profileBio: {
+    fontSize: 14,
+    color: theme.colors.text,
+    textAlign: 'center',
+    marginTop: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    lineHeight: 20,
   },
-  logoutButtonText: {
-    color: '#ef4444',
-    fontWeight: '600',
-    fontSize: 13,
+  statsText: { fontSize: 13, fontWeight: '600', color: theme.colors.textMuted, marginTop: theme.spacing.md },
+  
+  backBtn: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: theme.borderRadius.md,
+    marginTop: 20,
+  },
+  backBtnText: {
+    color: '#000000',
+    fontWeight: 'bold',
   },
 
   divider: { height: 1, backgroundColor: theme.colors.border },
@@ -288,8 +297,7 @@ const styles = StyleSheet.create({
   noPostsText: { padding: theme.spacing.xl, textAlign: 'center', color: theme.colors.textMuted, fontStyle: 'italic' },
   
   postCard: { padding: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
-  postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: theme.spacing.sm },
-
+  postHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: theme.spacing.sm },
   postMeta: { justifyContent: 'center' },
   postAuthor: { color: theme.colors.text, fontWeight: '700', fontSize: 15 },
   postUsername: { color: theme.colors.textMuted, fontSize: 13 },
