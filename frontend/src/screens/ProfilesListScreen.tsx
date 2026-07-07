@@ -49,8 +49,13 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   useEffect(() => {
-    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
-      fetchProfiles(true);
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchProfiles(true),
+        new Promise(resolve => setTimeout(resolve, 600))
+      ]);
+      setLoading(false);
     });
     return () => sub.remove();
   }, [routeName]);
@@ -62,9 +67,13 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
     }, [routeName])
   );
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    fetchProfiles(true);
+    await Promise.all([
+      fetchProfiles(true),
+      new Promise(resolve => setTimeout(resolve, 600))
+    ]);
+    setRefreshing(false);
   };
 
   return (

@@ -50,8 +50,13 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   useEffect(() => {
-    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
-      fetchProfileAndPosts(true);
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchProfileAndPosts(true),
+        new Promise(resolve => setTimeout(resolve, 600))
+      ]);
+      setLoading(false);
     });
     return () => sub.remove();
   }, [targetUserId]);

@@ -100,8 +100,13 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   useEffect(() => {
-    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
-      fetchData(false);
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchData(false),
+        new Promise(resolve => setTimeout(resolve, 600))
+      ]);
+      setLoading(false);
     });
     return () => sub.remove();
   }, [postId]);

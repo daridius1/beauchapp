@@ -104,7 +104,10 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const onRefresh = useCallback(async () => {
     setLoading(true);
     setRefreshing(true);
-    await fetchPosts(1, false);
+    await Promise.all([
+      fetchPosts(1, false),
+      new Promise(resolve => setTimeout(resolve, 600))
+    ]);
     setRefreshing(false);
   }, [activeSearch, filterTags.join(',')]);
 
