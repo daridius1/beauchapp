@@ -68,7 +68,7 @@ export const TeamsScreen: React.FC<Props> = ({ navigation }) => {
               <TouchableOpacity 
                 key={team.id} 
                 style={styles.teamCard}
-                onPress={() => navigation.push('TeamDetail', { teamId: team.id, teamName: team.name })}
+                onPress={() => navigation.push('UserProfile', { userId: team.id, title: team.name })}
               >
                 <View style={styles.cardHeader}>
                   <View style={styles.cardInfo}>

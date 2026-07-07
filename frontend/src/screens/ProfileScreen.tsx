@@ -108,7 +108,12 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.profileUsername}>@{user.username}</Text>
             {user.type === 'organization' ? (
               <View style={styles.orgBadge}>
-                <Text style={styles.orgBadgeText}>Organización</Text>
+                <Text style={styles.orgBadgeText}>
+                  {user.subtype === 'center' ? 'Centro de Estudiantes' :
+                   user.subtype === 'team' ? 'Equipo Oficial' :
+                   user.subtype === 'community' ? 'Comunidad libre' :
+                   'Organización'}
+                </Text>
               </View>
             ) : (
               <Text style={styles.profileCareer}>Estudiante</Text>

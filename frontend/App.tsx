@@ -10,10 +10,8 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { theme } from './src/theme/theme';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { CommunitiesScreen } from './src/screens/CommunitiesScreen';
-import { CommunityDetailScreen } from './src/screens/CommunityDetailScreen';
 import { CentersScreen } from './src/screens/CentersScreen';
 import { TeamsScreen } from './src/screens/TeamsScreen';
-import { TeamDetailScreen } from './src/screens/TeamDetailScreen';
 import { PostDetailScreen } from './src/screens/PostDetailScreen';
 import { UserProfileScreen } from './src/screens/UserProfileScreen';
 import { VerificationScreen } from './src/screens/VerificationScreen';
@@ -59,12 +57,10 @@ function AppContent() {
       case 'Profile': return 'Mi Perfil';
       case 'Login': return 'Iniciar Sesión';
       case 'PostDetail': return 'Conversación';
-      case 'UserProfile': return 'Perfil de Usuario';
+      case 'UserProfile': return params?.title || 'Perfil';
       case 'Communities': return 'Comunidades';
-      case 'CommunityDetail': return params?.communityName || 'Comunidad';
       case 'Centers': return 'Centros';
       case 'Teams': return 'Equipos';
-      case 'TeamDetail': return params?.teamName || 'Equipo';
       case 'NotFound': return 'No Encontrado';
       default: return 'Beauchapp';
     }
@@ -96,7 +92,7 @@ function AppContent() {
               Communities: 'communities',
               Centers: 'centers',
               Teams: 'teams',
-              TeamDetail: 'teams/:teamId',
+              UserProfile: 'users/:userId',
               Verification: 'verification',
               VerifyEmail: 'verify',
               ResetPassword: 'reset-password',
@@ -124,10 +120,8 @@ function AppContent() {
                   <Stack.Screen name="Home" component={HomeScreen} />
                   <Stack.Screen name="Profile" component={ProfileScreen} />
                   <Stack.Screen name="Communities" component={CommunitiesScreen} />
-                  <Stack.Screen name="CommunityDetail" component={CommunityDetailScreen} />
                   <Stack.Screen name="Centers" component={CentersScreen} />
                   <Stack.Screen name="Teams" component={TeamsScreen} />
-                  <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
                   <Stack.Screen name="PostDetail" component={PostDetailScreen} />
                   <Stack.Screen name="UserProfile" component={UserProfileScreen} />
                   <Stack.Screen name="NotFound" component={NotFoundScreen} />

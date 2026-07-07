@@ -107,7 +107,12 @@ export const UserProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           {profileUser?.username ? <Text style={styles.profileUsername}>@{profileUser.username}</Text> : null}
           {profileUser.type === 'organization' ? (
             <View style={styles.orgBadge}>
-              <Text style={styles.orgBadgeText}>Organización</Text>
+              <Text style={styles.orgBadgeText}>
+                {profileUser.subtype === 'center' ? 'Centro de Estudiantes' :
+                 profileUser.subtype === 'team' ? 'Equipo Oficial' :
+                 profileUser.subtype === 'community' ? 'Comunidad libre' :
+                 'Organización'}
+              </Text>
             </View>
           ) : (
             <Text style={styles.profileCareer}>Estudiante</Text>

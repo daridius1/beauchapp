@@ -9,6 +9,8 @@ export interface User {
   avatar?: string;
   collectionId: string;
   type: 'student' | 'organization';
+  subtype?: 'center' | 'team' | 'community';
+  description?: string;
 }
 
 interface AuthContextType {

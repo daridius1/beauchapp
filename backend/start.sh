@@ -17,5 +17,5 @@ if [ -z "$RESEND_API_KEY" ]; then
 fi
 
 # Arrancar PocketBase con las variables de SMTP inyectadas como env vars del proceso
-exec "$SCRIPT_DIR/pocketbase" serve \
+exec "$SCRIPT_DIR/pocketbase" serve --dev \
     "$@"

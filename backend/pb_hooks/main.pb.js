@@ -82,6 +82,11 @@ onRecordUpdateRequest((e) => {
 // 6. Lógica de Árboles Estilo Reddit para Posts (Lógica inyectada directamente en los hooks)
 
 onRecordCreateRequest((e) => {
+    console.log("[DEBUG] onRecordCreateRequest triggered for posts");
+    console.log("[DEBUG] Auth user ID:", e.auth ? e.auth.id : "null");
+    console.log("[DEBUG] Record author field:", e.record.get("author"));
+    console.log("[DEBUG] Is superuser auth:", e.hasSuperuserAuth());
+
     try {
         const parentId = e.record.getString("replyTo");
 
@@ -98,16 +103,17 @@ onRecordCreateRequest((e) => {
                 }
                 e.record.set("root", rootId);
             } catch (err) {
-                console.log("Error in root hook:", err);
+                console.log("[DEBUG] Error in root hook:", err);
             }
         }
 
         // Inicializar conteo
         e.record.set("commentCount", 0);
+        console.log("[DEBUG] Posts check passed, calling e.next()...");
+        return e.next();
     } catch (outerErr) {
-        console.log("OUTER ERROR in posts create hook:", outerErr);
+        console.log("[DEBUG] OUTER ERROR in posts create hook:", outerErr);
     }
-
 }, "posts");
 
 onRecordAfterCreateSuccess((e) => {

@@ -69,7 +69,7 @@ export const CommunitiesScreen: React.FC<Props> = ({ navigation }) => {
               <TouchableOpacity 
                 key={community.id} 
                 style={styles.communityCard}
-                onPress={() => navigation.push('CommunityDetail', { communityId: community.id, communityName: community.name })}
+                onPress={() => navigation.push('UserProfile', { userId: community.id, title: community.name })}
               >
                 <View style={styles.cardHeader}>
                   <View style={styles.cardInfo}>

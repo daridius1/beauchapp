@@ -3,12 +3,10 @@ export type RootStackParamList = {
   Login: undefined;
   Profile: undefined;
   Communities: undefined;
-  CommunityDetail: { communityId: string; communityName?: string };
   Centers: undefined;
   Teams: undefined;
-  TeamDetail: { teamId: string; teamName?: string };
   PostDetail: { postId: string };
-  UserProfile: { userId: string };
+  UserProfile: { userId: string; title?: string };
   NotFound: undefined;
   Verification: undefined;
   VerifyEmail: undefined;
