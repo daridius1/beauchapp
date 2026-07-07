@@ -40,16 +40,20 @@ pb.autoCancellation(false);
 // Función optimizada para obtener imágenes:
 // Si hay un dominio público de R2 configurado, la carga directo desde Cloudflare (ahorrando servidor).
 // Si no, hace fallback al proxy de PocketBase normal.
-export const getFileUrl = (record: any, filename: string) => {
+export const getFileUrl = (record: any, filename: string, size?: string) => {
   if (!filename) return '';
   
   const r2Url = process.env.EXPO_PUBLIC_R2_URL;
   if (r2Url) {
     // Estructura oficial de PocketBase en S3: <collectionId>/<recordId>/<filename>
-    // Quitamos slash final si lo tiene
+    // Si hay un tamaño, construimos la ruta de la miniatura: <collectionId>/<recordId>/thumbs_<filename>/<size>_<filename>
     const base = r2Url.replace(/\/$/, '');
+    if (size) {
+      return `${base}/${record.collectionId}/${record.id}/thumbs_${filename}/${size}_${filename}`;
+    }
     return `${base}/${record.collectionId}/${record.id}/${filename}`;
   }
 
-  return pb.files.getURL(record, filename);
+  const options = size ? { thumb: size } : undefined;
+  return pb.files.getURL(record, filename, options);
 };

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Animated, Dimensions, Pressable } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
+import { Avatar } from './Avatar';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SIDEBAR_WIDTH = Math.min(SCREEN_WIDTH * 0.75, 300);
@@ -51,6 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
     { id: 'Centers', label: 'Centros' },
     { id: 'Teams', label: 'Equipos' },
     { id: 'Profile', label: 'Perfil' },
+    { id: 'Settings', label: 'Ajustes' },
   ];
 
 
@@ -67,10 +69,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
         <View style={styles.header}>
           {user ? (
             <View>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                </Text>
+              <View style={{ marginBottom: theme.spacing.sm }}>
+                <Avatar user={user} size={60} />
               </View>
               <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
               {!!user.username && <Text style={styles.userUsername} numberOfLines={1}>@{user.username}</Text>}

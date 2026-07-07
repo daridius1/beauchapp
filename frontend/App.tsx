@@ -15,6 +15,7 @@ import { VerificationScreen } from './src/screens/VerificationScreen';
 import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
 import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import { NotFoundScreen } from './src/screens/NotFoundScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
 import { RootStackParamList } from './src/types/navigation';
 import Toast from 'react-native-toast-message';
 import * as Linking from 'expo-linking';
@@ -58,12 +59,13 @@ function AppContent() {
       case 'Communities': return 'Comunidades';
       case 'Centers': return 'Centros';
       case 'Teams': return 'Equipos';
+      case 'Settings': return 'Ajustes';
       case 'NotFound': return 'No Encontrado';
       default: return 'Beauchapp';
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Communities', 'Centers', 'Teams'];
+  const rootScreens = ['Home', 'Profile', 'Communities', 'Centers', 'Teams', 'Settings'];
   const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
 
   if (!isInitialized) {
@@ -124,6 +126,7 @@ function AppContent() {
                   <Stack.Screen name="Teams" component={ProfilesListScreen} />
                   <Stack.Screen name="PostDetail" component={PostDetailScreen} />
                   <Stack.Screen name="UserProfile" component={ProfileScreen} />
+                  <Stack.Screen name="Settings" component={SettingsScreen} />
                   <Stack.Screen name="NotFound" component={NotFoundScreen} />
                 </Stack.Navigator>
               </View>
