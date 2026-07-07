@@ -352,3 +352,44 @@ onRecordAfterDeleteSuccess((e) => {
     }
     e.next();
 }, "posts");
+
+// 8. Control de acceso para team_members
+function canManageTeamMember(e) {
+    try {
+        if (!e.auth) return false;
+        if (e.auth.isSuperuser()) return true;
+
+        const teamId = e.record.getString("team");
+        if (!teamId) return false;
+
+        const team = $app.findRecordById("teams", teamId);
+        if (team.getString("owner_org") === e.auth.id) return true;
+
+        const adminMemberships = $app.findRecordsByFilter(
+            "team_members",
+            "team = {:team} && user = {:user} && role = 'admin' && status = 'active'",
+            "",
+            1,
+            0,
+            { team: teamId, user: e.auth.id }
+        );
+        if (adminMemberships.length > 0) return true;
+    } catch (err) {
+        console.error("Error checking team permissions:", err);
+    }
+    return false;
+}
+
+onRecordCreateRequest((e) => {
+    if (!canManageTeamMember(e)) {
+        throw new BadRequestError("No tienes permisos para agregar miembros a este equipo.");
+    }
+    e.next();
+}, "team_members");
+
+onRecordUpdateRequest((e) => {
+    if (!canManageTeamMember(e)) {
+        throw new BadRequestError("No tienes permisos para modificar miembros de este equipo.");
+    }
+    e.next();
+}, "team_members");

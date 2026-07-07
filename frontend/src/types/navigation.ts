@@ -9,6 +9,8 @@ export type RootStackParamList = {
   Communities: undefined;
   CommunityDetail: { communityId: string; communityName?: string };
   Organizations: undefined;
+  Teams: undefined;
+  TeamDetail: { teamId: string; teamName?: string };
   Superadmin: undefined;
   PostDetail: { postId: string };
   UserProfile: { userId: string };

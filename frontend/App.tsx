@@ -14,6 +14,8 @@ import { PollaContestScreen } from './src/screens/PollaContest';
 import { CommunitiesScreen } from './src/screens/CommunitiesScreen';
 import { CommunityDetailScreen } from './src/screens/CommunityDetailScreen';
 import { OrganizationsScreen } from './src/screens/OrganizationsScreen';
+import { TeamsScreen } from './src/screens/TeamsScreen';
+import { TeamDetailScreen } from './src/screens/TeamDetailScreen';
 import { SuperadminScreen } from './src/screens/SuperadminScreen';
 import { ParticipantPredictionsScreen } from './src/screens/ParticipantPredictionsScreen';
 import { MatchPredictionsScreen } from './src/screens/MatchPredictionsScreen';
@@ -71,12 +73,14 @@ function AppContent() {
       case 'Communities': return 'Comunidades';
       case 'CommunityDetail': return params?.communityName || 'Comunidad';
       case 'Organizations': return 'Organizaciones';
+      case 'Teams': return 'Equipos';
+      case 'TeamDetail': return params?.teamName || 'Equipo';
       case 'NotFound': return 'No Encontrado';
       default: return 'Beauchapp';
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Contests', 'Superadmin', 'Communities', 'Organizations'];
+  const rootScreens = ['Home', 'Profile', 'Contests', 'Superadmin', 'Communities', 'Organizations', 'Teams'];
   const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
 
   if (!isInitialized) {
@@ -102,6 +106,8 @@ function AppContent() {
               Contests: 'activities',
               Communities: 'communities',
               Organizations: 'organizations',
+              Teams: 'teams',
+              TeamDetail: 'teams/:teamId',
               Verification: 'verification',
               VerifyEmail: 'verify',
               ResetPassword: 'reset-password',
@@ -132,6 +138,8 @@ function AppContent() {
                 <Stack.Screen name="Communities" component={CommunitiesScreen} />
               <Stack.Screen name="CommunityDetail" component={CommunityDetailScreen} />
                 <Stack.Screen name="Organizations" component={OrganizationsScreen} />
+                <Stack.Screen name="Teams" component={TeamsScreen} />
+                <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
                 <Stack.Screen name="Superadmin" component={SuperadminScreen} />
                 <Stack.Screen name="ParticipantPredictions" component={ParticipantPredictionsScreen} />
                 <Stack.Screen name="MatchPredictions" component={MatchPredictionsScreen} />

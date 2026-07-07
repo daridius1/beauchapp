@@ -1,0 +1,366 @@
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { StyleSheet, View, Text, ScrollView, ActivityIndicator, TouchableOpacity, TextInput, Alert, DeviceEventEmitter } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
+import { useAuth } from '../context/AuthContext';
+import { pb } from '../services/pocketbase';
+import { theme } from '../theme/theme';
+import { Feather } from '@expo/vector-icons';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'TeamDetail'>;
+
+export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { teamId, teamName } = route.params;
+  const { user } = useAuth();
+  const [team, setTeam] = useState<any>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  const [newMemberUsername, setNewMemberUsername] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const isOwner = user?.id === team?.owner_org;
+  const isAdmin = isOwner || members.some(m => m.user === user?.id && m.role === 'admin' && m.status === 'active');
+
+  const fetchTeamData = useCallback(async () => {
+    try {
+      const [teamData, membersData] = await Promise.all([
+        pb.collection('teams').getOne(teamId, { expand: 'owner_org' }),
+        pb.collection('team_members').getFullList({
+          filter: `team = "${teamId}"`,
+          sort: '-role,created',
+          expand: 'user'
+        })
+      ]);
+      setTeam(teamData);
+      setMembers(membersData);
+    } catch (error) {
+      console.error('Error fetching team details:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [teamId]);
+
+  useEffect(() => {
+    fetchTeamData();
+  }, [fetchTeamData]);
+
+  const handleAddMember = async () => {
+    if (!newMemberUsername.trim()) return;
+    try {
+      setAdding(true);
+      // Buscar usuario por username o email
+      const users = await pb.collection('users').getFullList({
+        filter: `username = "${newMemberUsername.trim().toLowerCase()}" || email = "${newMemberUsername.trim().toLowerCase()}"`,
+      });
+
+      if (users.length === 0) {
+        Alert.alert('Error', 'Usuario no encontrado');
+        return;
+      }
+
+      const targetUser = users[0];
+      
+      // Comprobar si ya es miembro
+      if (members.some(m => m.user === targetUser.id)) {
+        Alert.alert('Error', 'El usuario ya pertenece a este equipo');
+        return;
+      }
+
+      await pb.collection('team_members').create({
+        team: teamId,
+        user: targetUser.id,
+        role: 'member',
+        status: 'active'
+      });
+
+      setNewMemberUsername('');
+      fetchTeamData();
+    } catch (error: any) {
+      console.error('Error adding member:', error);
+      Alert.alert('Error', error.message || 'No se pudo agregar al miembro');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleToggleRole = async (memberId: string, currentRole: string) => {
+    try {
+      const newRole = currentRole === 'admin' ? 'member' : 'admin';
+      await pb.collection('team_members').update(memberId, {
+        role: newRole
+      });
+      fetchTeamData();
+    } catch (error: any) {
+      Alert.alert('Error', 'No se pudo cambiar el rol');
+    }
+  };
+
+  const handleToggleStatus = async (memberId: string, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+      await pb.collection('team_members').update(memberId, {
+        status: newStatus
+      });
+      fetchTeamData();
+    } catch (error: any) {
+      Alert.alert('Error', 'No se pudo cambiar el estado');
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  if (!team) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <Text style={styles.errorText}>Equipo no encontrado.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.header}>
+          <Text style={styles.title}>{team.name}</Text>
+          {!!team.description && <Text style={styles.description}>{team.description}</Text>}
+          <Text style={styles.ownerText}>
+            Gestionado por: {team.expand?.owner_org?.name || team.expand?.owner_org?.username}
+          </Text>
+        </View>
+
+        {isAdmin && (
+          <View style={styles.adminSection}>
+            <Text style={styles.sectionTitle}>Añadir Integrante</Text>
+            <View style={styles.addMemberRow}>
+              <TextInput
+                style={styles.input}
+                placeholder="Username o email"
+                value={newMemberUsername}
+                onChangeText={setNewMemberUsername}
+                placeholderTextColor={theme.colors.textMuted}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity 
+                style={[styles.addButton, adding && styles.addButtonDisabled]}
+                onPress={handleAddMember}
+                disabled={adding}
+              >
+                {adding ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <Text style={styles.addButtonText}>Añadir</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        <Text style={styles.sectionTitle}>Integrantes ({members.length})</Text>
+        {members.length === 0 ? (
+          <Text style={styles.emptyText}>Aún no hay integrantes en este equipo.</Text>
+        ) : (
+          members.map(member => (
+            <View key={member.id} style={[styles.memberCard, member.status === 'inactive' && styles.memberCardInactive]}>
+              <View style={styles.memberInfo}>
+                <Text style={styles.memberName}>
+                  {member.expand?.user?.name || member.expand?.user?.username}
+                </Text>
+                <Text style={styles.memberUsername}>@{member.expand?.user?.username}</Text>
+                <View style={styles.badgesRow}>
+                  {member.role === 'admin' && (
+                    <View style={styles.adminBadge}>
+                      <Text style={styles.adminBadgeText}>Admin</Text>
+                    </View>
+                  )}
+                  {member.status === 'inactive' && (
+                    <View style={styles.inactiveBadge}>
+                      <Text style={styles.inactiveBadgeText}>Inactivo</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              
+              {isAdmin && member.user !== user?.id && (
+                <View style={styles.memberActions}>
+                  <TouchableOpacity 
+                    style={styles.actionBtn}
+                    onPress={() => handleToggleRole(member.id, member.role)}
+                  >
+                    <Feather name={member.role === 'admin' ? 'arrow-down' : 'arrow-up'} size={20} color={theme.colors.text} />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.actionBtn}
+                    onPress={() => handleToggleStatus(member.id, member.status)}
+                  >
+                    <Feather name={member.status === 'active' ? 'user-x' : 'user-check'} size={20} color={theme.colors.danger} />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          ))
+        )}
+      </ScrollView>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollContent: {
+    padding: theme.spacing.lg,
+    paddingBottom: 40,
+  },
+  errorText: {
+    color: theme.colors.text,
+    fontSize: 16,
+  },
+  header: {
+    marginBottom: theme.spacing.xl,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  description: {
+    fontSize: 16,
+    color: theme.colors.textMuted,
+    marginBottom: 8,
+  },
+  ownerText: {
+    fontSize: 14,
+    color: theme.colors.primary,
+    fontWeight: '600',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.md,
+    marginTop: theme.spacing.md,
+  },
+  adminSection: {
+    backgroundColor: theme.colors.cardBg,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  addMemberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.sm,
+    padding: 10,
+    color: theme.colors.text,
+    marginRight: 10,
+  },
+  addButton: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: theme.borderRadius.sm,
+    justifyContent: 'center',
+  },
+  addButtonDisabled: {
+    opacity: 0.7,
+  },
+  addButtonText: {
+    color: '#000',
+    fontWeight: 'bold',
+  },
+  emptyText: {
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  memberCard: {
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  memberCardInactive: {
+    opacity: 0.6,
+  },
+  memberInfo: {
+    flex: 1,
+  },
+  memberName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: 2,
+  },
+  memberUsername: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    marginBottom: 6,
+  },
+  badgesRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  adminBadge: {
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.5)',
+  },
+  adminBadgeText: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  inactiveBadge: {
+    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 0, 0, 0.3)',
+  },
+  inactiveBadgeText: {
+    color: theme.colors.danger,
+    fontSize: 12,
+  },
+  memberActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionBtn: {
+    padding: 8,
+    backgroundColor: theme.colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  }
+});
