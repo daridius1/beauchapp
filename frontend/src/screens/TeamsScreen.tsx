@@ -67,32 +67,25 @@ export const TeamsScreen: React.FC<Props> = ({ navigation }) => {
             teams.map((team) => (
               <TouchableOpacity 
                 key={team.id} 
-                style={styles.teamCard}
+                style={styles.itemContainer}
                 onPress={() => navigation.push('UserProfile', { userId: team.id, title: team.name })}
               >
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardAvatar}>
-                    {team.avatar ? (
-                      <Image 
-                        source={{ uri: getFileUrl(team, team.avatar) }} 
-                        style={styles.cardAvatarImage} 
-                      />
-                    ) : (
-                      <Text style={styles.cardAvatarText}>
-                        {team.name ? team.name.charAt(0).toUpperCase() : 'U'}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={styles.cardInfo}>
-                    <Text style={styles.teamName}>
-                      {team.name}
+                <View style={styles.cardAvatar}>
+                  {team.avatar ? (
+                    <Image 
+                      source={{ uri: getFileUrl(team, team.avatar) }} 
+                      style={styles.cardAvatarImage} 
+                    />
+                  ) : (
+                    <Text style={styles.cardAvatarText}>
+                      {team.name ? team.name.charAt(0).toUpperCase() : 'U'}
                     </Text>
-                    <Text style={styles.teamDesc} numberOfLines={2}>
-                      {team.description ? team.description : `@${team.username}`}
-                    </Text>
-                  </View>
-                  <Feather name="chevron-right" size={24} color={theme.colors.textMuted} />
+                  )}
                 </View>
+                <Text style={styles.itemName}>
+                  {team.name || team.username}
+                </Text>
+                <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
               </TouchableOpacity>
             ))
           )
@@ -129,22 +122,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 40,
   },
-  teamCard: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  cardHeader: {
+
+  itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   cardAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: theme.colors.primary + '15',
     justifyContent: 'center',
     alignItems: 'center',
@@ -156,23 +145,14 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   cardAvatarText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: theme.colors.primary,
   },
-  cardInfo: {
+  itemName: {
     flex: 1,
-    paddingRight: theme.spacing.md,
-  },
-  teamName: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: 4,
   },
-  teamDesc: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    marginBottom: 8,
-  }
 });

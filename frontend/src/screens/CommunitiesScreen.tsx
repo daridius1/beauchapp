@@ -68,32 +68,25 @@ export const CommunitiesScreen: React.FC<Props> = ({ navigation }) => {
             communities.map((community) => (
               <TouchableOpacity 
                 key={community.id} 
-                style={styles.communityCard}
+                style={styles.itemContainer}
                 onPress={() => navigation.push('UserProfile', { userId: community.id, title: community.name })}
               >
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardAvatar}>
-                    {community.avatar ? (
-                      <Image 
-                        source={{ uri: getFileUrl(community, community.avatar) }} 
-                        style={styles.cardAvatarImage} 
-                      />
-                    ) : (
-                      <Text style={styles.cardAvatarText}>
-                        {community.name ? community.name.charAt(0).toUpperCase() : 'U'}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={styles.cardInfo}>
-                    <Text style={styles.communityName}>
-                      {community.name}
+                <View style={styles.cardAvatar}>
+                  {community.avatar ? (
+                    <Image 
+                      source={{ uri: getFileUrl(community, community.avatar) }} 
+                      style={styles.cardAvatarImage} 
+                    />
+                  ) : (
+                    <Text style={styles.cardAvatarText}>
+                      {community.name ? community.name.charAt(0).toUpperCase() : 'U'}
                     </Text>
-                    <Text style={styles.communityDesc} numberOfLines={2}>
-                      {community.description ? community.description : `@${community.username}`}
-                    </Text>
-                  </View>
-                  <Feather name="chevron-right" size={24} color={theme.colors.textMuted} />
+                  )}
                 </View>
+                <Text style={styles.itemName}>
+                  {community.name || community.username}
+                </Text>
+                <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
               </TouchableOpacity>
             ))
           )
@@ -130,33 +123,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 40,
   },
-  communityCard: {
-    backgroundColor: theme.colors.cardBg,
-    padding: theme.spacing.lg,
-    borderRadius: 12,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  communityName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  communityDesc: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    marginTop: 4,
-  },
-  cardHeader: {
+
+  itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   cardAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: theme.colors.primary + '15',
     justifyContent: 'center',
     alignItems: 'center',
@@ -168,12 +146,14 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   cardAvatarText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: theme.colors.primary,
   },
-  cardInfo: {
+  itemName: {
     flex: 1,
-    paddingRight: theme.spacing.md,
-  }
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
 });

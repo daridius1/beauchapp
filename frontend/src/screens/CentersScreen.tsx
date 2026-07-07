@@ -68,32 +68,25 @@ export const CentersScreen: React.FC<Props> = ({ navigation }) => {
             centers.map((center) => (
               <TouchableOpacity 
                 key={center.id} 
-                style={styles.communityCard}
+                style={styles.itemContainer}
                 onPress={() => navigation.push('UserProfile', { userId: center.id })}
               >
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardAvatar}>
-                    {center.avatar ? (
-                      <Image 
-                        source={{ uri: getFileUrl(center, center.avatar) }} 
-                        style={styles.cardAvatarImage} 
-                      />
-                    ) : (
-                      <Text style={styles.cardAvatarText}>
-                        {center.name ? center.name.charAt(0).toUpperCase() : 'U'}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={styles.cardInfo}>
-                    <Text style={styles.communityName}>
-                      {center.name || center.username}
+                <View style={styles.cardAvatar}>
+                  {center.avatar ? (
+                    <Image 
+                      source={{ uri: getFileUrl(center, center.avatar) }} 
+                      style={styles.cardAvatarImage} 
+                    />
+                  ) : (
+                    <Text style={styles.cardAvatarText}>
+                      {center.name ? center.name.charAt(0).toUpperCase() : 'U'}
                     </Text>
-                    <Text style={styles.communityDesc} numberOfLines={2}>
-                      {center.description ? center.description : `@${center.username}`}
-                    </Text>
-                  </View>
-                  <Feather name="chevron-right" size={24} color={theme.colors.textMuted} />
+                  )}
                 </View>
+                <Text style={styles.itemName}>
+                  {center.name || center.username}
+                </Text>
+                <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
               </TouchableOpacity>
             ))
           )
@@ -130,22 +123,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 40,
   },
-  communityCard: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  cardHeader: {
+
+  itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   cardAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: theme.colors.primary + '15',
     justifyContent: 'center',
     alignItems: 'center',
@@ -157,22 +146,14 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   cardAvatarText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: theme.colors.primary,
   },
-  cardInfo: {
+  itemName: {
     flex: 1,
-    paddingRight: theme.spacing.md,
-  },
-  communityName: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: 4,
-  },
-  communityDesc: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
   },
 });
