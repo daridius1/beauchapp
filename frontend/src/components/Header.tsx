@@ -27,16 +27,16 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
 
     // Ejecutar secuencia de animación
     Animated.sequence([
-      // 1. Desvanecer título y mostrar spinner
+      // 1. Desvanecer título y mostrar spinner (más suave, 250ms)
       Animated.parallel([
         Animated.timing(titleOpacity, {
           toValue: 0,
-          duration: 150,
+          duration: 250,
           useNativeDriver: true,
         }),
         Animated.timing(spinnerOpacity, {
           toValue: 1,
-          duration: 150,
+          duration: 250,
           useNativeDriver: true,
         }),
       ]),
@@ -46,16 +46,16 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
         duration: 800,
         useNativeDriver: true,
       }),
-      // 3. Desvanecer spinner y volver a mostrar el título
+      // 3. Desvanecer spinner y volver a mostrar el título (más suave, 250ms)
       Animated.parallel([
         Animated.timing(spinnerOpacity, {
           toValue: 0,
-          duration: 150,
+          duration: 250,
           useNativeDriver: true,
         }),
         Animated.timing(titleOpacity, {
           toValue: 1,
-          duration: 150,
+          duration: 250,
           useNativeDriver: true,
         }),
       ]),
