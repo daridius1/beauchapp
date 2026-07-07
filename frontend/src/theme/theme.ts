@@ -7,6 +7,9 @@ export const theme = {
     textMuted: '#888888',
     border: '#222222',
     accent: '#ffffff',
+    error: '#ff4444',
+    danger: '#ff4444',
+    surface: '#121212',
   },
   spacing: {
     xs: 4,
@@ -16,6 +19,7 @@ export const theme = {
     xl: 32,
   },
   borderRadius: {
+    sm: 2,
     md: 4,
     lg: 4,
   }

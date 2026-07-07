@@ -29,15 +29,14 @@ onRecordCreateRequest((e) => {
     }
 }, "users");
 
-// 1.5. Proteger campo isSuperadmin (solo admins reales pueden modificarlo)
+// 1.5. Proteger campo type (solo admins reales de PocketBase pueden modificarlo)
 onRecordUpdateRequest((e) => {
     const original = e.record.originalCopy();
-    if (e.record.get("isSuperadmin") !== original.get("isSuperadmin")) {
+    if (e.record.get("type") !== original.get("type")) {
         if (!e.auth || !e.auth.isSuperuser()) {
-            e.record.set("isSuperadmin", original.get("isSuperadmin"));
+            e.record.set("type", original.get("type"));
         }
     }
-
 }, "users");
 
 // 2. Recálculo automático de puntuación para predicciones
@@ -452,6 +451,47 @@ onRecordUpdateRequest((e) => {
     const res = checkTeamPermsLocal(e);
     if (!res.allowed) {
         throw new ApiError(400, "No tienes permisos para modificar. Razón: " + res.reason);
+    }
+    return e.next();
+}, "team_members");
+
+onRecordDeleteRequest((e) => {
+    const checkTeamPermsLocal = (ev) => {
+        try {
+            if (!ev.auth) return { allowed: false, reason: "No auth" };
+            if (ev.auth.isSuperuser()) return { allowed: true };
+            
+            // Allow user to delete their own membership (leave the team)
+            const userId = ev.record.getString("user");
+            if (userId && userId === ev.auth.id) return { allowed: true };
+
+            const teamId = ev.record.getString("team");
+            if (!teamId) return { allowed: false, reason: "No teamId" };
+            let team = null;
+            try {
+                team = $app.findRecordById("teams", teamId);
+            } catch(err) {
+                 return { allowed: false, reason: "Team not found" };
+            }
+            if (team && team.getString("owner_org") === ev.auth.id) return { allowed: true };
+            const adminMemberships = $app.findRecordsByFilter(
+                "team_members",
+                "team = {:team} && user = {:user} && role = 'admin' && status = 'active'",
+                "",
+                1,
+                0,
+                { team: teamId, user: ev.auth.id }
+            );
+            if (adminMemberships.length > 0) return { allowed: true };
+            return { allowed: false, reason: "Not owner, admin, nor the member itself." };
+        } catch (err) {
+            return { allowed: false, reason: "Exception: " + err.message };
+        }
+    };
+
+    const res = checkTeamPermsLocal(e);
+    if (!res.allowed) {
+        throw new ApiError(400, "No tienes permisos para eliminar este miembro. Razón: " + res.reason);
     }
     return e.next();
 }, "team_members");

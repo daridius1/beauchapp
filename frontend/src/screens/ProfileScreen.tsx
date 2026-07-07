@@ -247,6 +247,7 @@ const styles = StyleSheet.create({
   },
   avatarLargeText: { color: '#000', fontSize: 36, fontWeight: '800' },
   profileName: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
+  profileInfo: { alignItems: 'center' },
   profileCareer: {
     fontSize: 14,
     color: theme.colors.textMuted,

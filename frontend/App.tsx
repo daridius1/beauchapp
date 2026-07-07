@@ -16,7 +16,6 @@ import { CommunityDetailScreen } from './src/screens/CommunityDetailScreen';
 import { OrganizationsScreen } from './src/screens/OrganizationsScreen';
 import { TeamsScreen } from './src/screens/TeamsScreen';
 import { TeamDetailScreen } from './src/screens/TeamDetailScreen';
-import { SuperadminScreen } from './src/screens/SuperadminScreen';
 import { ParticipantPredictionsScreen } from './src/screens/ParticipantPredictionsScreen';
 import { MatchPredictionsScreen } from './src/screens/MatchPredictionsScreen';
 import { PostDetailScreen } from './src/screens/PostDetailScreen';
@@ -64,7 +63,6 @@ function AppContent() {
       case 'Profile': return 'Mi Perfil';
       case 'Contests': return 'Actividades';
       case 'WorldCupContest': return 'Polla Mundialera';
-      case 'Superadmin': return 'Panel Superadmin';
       case 'Login': return 'Iniciar Sesión';
       case 'PostDetail': return 'Conversación';
       case 'UserProfile': return 'Perfil de Usuario';
@@ -80,7 +78,7 @@ function AppContent() {
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Contests', 'Superadmin', 'Communities', 'Organizations', 'Teams'];
+  const rootScreens = ['Home', 'Profile', 'Contests', 'Communities', 'Organizations', 'Teams'];
   const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
 
   if (!isInitialized) {
@@ -141,7 +139,6 @@ function AppContent() {
                   <Stack.Screen name="Organizations" component={OrganizationsScreen} />
                   <Stack.Screen name="Teams" component={TeamsScreen} />
                   <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
-                  <Stack.Screen name="Superadmin" component={SuperadminScreen} />
                   <Stack.Screen name="ParticipantPredictions" component={ParticipantPredictionsScreen} />
                   <Stack.Screen name="MatchPredictions" component={MatchPredictionsScreen} />
                   <Stack.Screen name="PostDetail" component={PostDetailScreen} />

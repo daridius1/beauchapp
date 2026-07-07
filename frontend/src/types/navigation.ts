@@ -11,7 +11,6 @@ export type RootStackParamList = {
   Organizations: undefined;
   Teams: undefined;
   TeamDetail: { teamId: string; teamName?: string };
-  Superadmin: undefined;
   PostDetail: { postId: string };
   UserProfile: { userId: string };
   NotFound: undefined;

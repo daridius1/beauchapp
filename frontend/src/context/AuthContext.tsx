@@ -8,7 +8,6 @@ export interface User {
   username: string;
   avatar?: string;
   collectionId: string;
-  isSuperadmin: boolean;
   type: 'student' | 'organization';
 }
 
@@ -30,7 +29,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (pb.authStore.isValid && pb.authStore.token) {
           // Refresh the auth token to ensure session is still valid in DB
           const authData = await pb.collection('users').authRefresh();
-          setUser(authData.record as unknown as UserProfile);
+          setUser(authData.record as unknown as User);
         } else {
           setUser(null);
         }
@@ -60,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Suscribirse a cambios en el AuthStore
     const unsubscribe = pb.authStore.onChange((token, model) => {
       if (model) {
-        setUser(model as unknown as UserProfile);
+        setUser(model as unknown as User);
       } else {
         setUser(null);
       }

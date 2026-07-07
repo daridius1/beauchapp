@@ -156,7 +156,7 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {isAdmin && (
-          <View style={[styles.section, { zIndex: 10 }]}>
+          <View style={[styles.adminSection, { zIndex: 10 }]}>
             <Text style={styles.sectionTitle}>Añadir Integrante</Text>
             <UserSearchAutocomplete
               onSelectUser={(user) => handleAddMember(user, false)}
