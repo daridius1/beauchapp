@@ -21,6 +21,7 @@ import { UserProfileScreen } from './src/screens/UserProfileScreen';
 import { VerificationScreen } from './src/screens/VerificationScreen';
 import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
 import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
+import { NotFoundScreen } from './src/screens/NotFoundScreen';
 import { RootStackParamList } from './src/types/navigation';
 import Toast from 'react-native-toast-message';
 import * as Linking from 'expo-linking';
