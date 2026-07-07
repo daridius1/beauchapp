@@ -36,7 +36,7 @@ onRecordCreateRequest((e) => {
 onRecordUpdateRequest((e) => {
     const original = e.record.originalCopy();
     if (e.record.get("isSuperadmin") !== original.get("isSuperadmin")) {
-        if (!e.requestInfo?.auth?.isSuperuser()) {
+        if (!e.auth || !e.auth.isSuperuser()) {
             e.record.set("isSuperadmin", original.get("isSuperadmin"));
         }
     }
