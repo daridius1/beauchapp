@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { StyleSheet, View, SafeAreaView, StatusBar, Text, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, SafeAreaView, StatusBar, Text, ScrollView, Platform, ActivityIndicator, DeviceEventEmitter } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -111,6 +111,13 @@ function AppContent() {
                 title={getScreenTitle(currentRouteName, currentRouteParams)} 
                 onToggleSidebar={() => setIsSidebarOpen(true)} 
                 onBack={canGoBack ? () => navigationRef.goBack() : undefined}
+                onTitlePress={() => {
+                  if (currentRouteName !== 'Home') {
+                    navigationRef.navigate('Home' as never);
+                  } else {
+                    DeviceEventEmitter.emit('onGlobalRefresh');
+                  }
+                }}
               />
               <View style={styles.body}>
                 <Stack.Navigator screenOptions={{ headerShown: false }}>

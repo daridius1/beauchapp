@@ -7,10 +7,11 @@ interface HeaderProps {
   title: string;
   onToggleSidebar?: () => void;
   onBack?: () => void;
+  onTitlePress?: () => void;
   rightComponent?: React.ReactNode;
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, rightComponent }) => {
+export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, onTitlePress, rightComponent }) => {
   return (
     <View style={styles.header}>
       <View style={styles.sideContainer}>
@@ -23,9 +24,9 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
         )}
       </View>
       
-      {onBack ? (
+      {onTitlePress ? (
         <TouchableOpacity 
-          onPress={onBack} 
+          onPress={onTitlePress} 
           activeOpacity={0.7} 
           style={styles.headerTitleContainer}
         >
