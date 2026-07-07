@@ -17,7 +17,7 @@ onRecordCreateRequest((e) => {
 
     if (type === "organization") {
         // Only superusers (admins) can create an organization
-        if (!e.auth || !e.auth.isSuperuser()) {
+        if (!e.hasSuperuserAuth()) {
             throw new BadRequestError("No tienes permisos para crear una cuenta de organización.");
         }
         // If not verified, generate token and expiration
@@ -49,12 +49,12 @@ onRecordCreateRequest((e) => {
 onRecordUpdateRequest((e) => {
     const original = e.record.originalCopy();
     if (e.record.get("type") !== original.get("type")) {
-        if (!e.auth || !e.auth.isSuperuser()) {
+        if (!e.hasSuperuserAuth()) {
             e.record.set("type", original.get("type"));
         }
     }
     if (e.record.get("subtype") !== original.get("subtype")) {
-        if (!e.auth || !e.auth.isSuperuser()) {
+        if (!e.hasSuperuserAuth()) {
             e.record.set("subtype", original.get("subtype"));
         }
     }
