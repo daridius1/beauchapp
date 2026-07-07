@@ -96,14 +96,12 @@ function AppContent() {
           prefixes: [Linking.createURL('/'), 'http://localhost:8081'],
           config: {
             screens: {
-              Home: '',
               Profile: 'profile',
               Contests: 'activities',
               Communities: 'communities',
               Verification: 'verification',
               VerifyEmail: 'verify',
               ResetPassword: 'reset-password',
-              NotFound: '*',
             }
           }
         }}
