@@ -14,8 +14,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, onTitlePress, rightComponent }) => {
   const titleOpacity = useRef(new Animated.Value(1)).current;
   const titleTranslateY = useRef(new Animated.Value(0)).current;
-  const spinnerOpacity = useRef(new Animated.Value(0)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const handleTitlePress = () => {
     if (!onTitlePress) return;
@@ -24,14 +22,12 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
     onTitlePress();
     
     // Reiniciar valores de animación
-    rotateAnim.setValue(0);
     titleTranslateY.setValue(0);
     titleOpacity.setValue(1);
-    spinnerOpacity.setValue(0);
 
-    // Secuencia de animación de deslizamiento y rotación
+    // Secuencia de animación: el texto sale por arriba, espera un momento y entra por abajo
     Animated.sequence([
-      // 1. El título se desliza hacia arriba (-20) y se desvanece, el spinner aparece
+      // 1. El título se desliza hacia arriba (-20) y se desvanece
       Animated.parallel([
         Animated.timing(titleTranslateY, {
           toValue: -20,
@@ -43,31 +39,15 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
           duration: 250,
           useNativeDriver: true,
         }),
-        Animated.timing(spinnerOpacity, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
       ]),
-      // 2. Rotación de 360 grados del spinner
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 800,
+      // 2. Tiempo de espera representando la recarga (400ms)
+      Animated.delay(400),
+      // 3. Preparamos el título abajo (+20) de forma invisible (duration: 0)
+      Animated.timing(titleTranslateY, {
+        toValue: 20,
+        duration: 0,
         useNativeDriver: true,
       }),
-      // 3. El spinner se desvanece y preparamos el título abajo (+20) de forma invisible (duration: 0)
-      Animated.parallel([
-        Animated.timing(spinnerOpacity, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(titleTranslateY, {
-          toValue: 20,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ]),
       // 4. El título aparece desde abajo hacia el centro (0) con fundido
       Animated.parallel([
         Animated.timing(titleTranslateY, {
@@ -83,11 +63,6 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
       ]),
     ]).start();
   };
-
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   return (
     <View style={styles.header}>
@@ -116,17 +91,6 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
             alignItems: 'center' 
           }}>
             <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
-          </Animated.View>
-          
-          {/* Spinner de Actualización */}
-          <Animated.View style={{ 
-            opacity: spinnerOpacity, 
-            position: 'absolute',
-            transform: [{ rotate: spin }],
-            justifyContent: 'center',
-            alignItems: 'center'
-          }}>
-            <Feather name="refresh-cw" size={18} color={theme.colors.text} />
           </Animated.View>
         </TouchableOpacity>
       ) : (
