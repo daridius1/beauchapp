@@ -112,11 +112,7 @@ function AppContent() {
                 onToggleSidebar={() => setIsSidebarOpen(true)} 
                 onBack={canGoBack ? () => navigationRef.goBack() : undefined}
                 onTitlePress={() => {
-                  if (currentRouteName !== 'Home') {
-                    navigationRef.navigate('Home' as never);
-                  } else {
-                    DeviceEventEmitter.emit('onGlobalRefresh');
-                  }
+                  DeviceEventEmitter.emit('onGlobalRefresh');
                 }}
               />
               <View style={styles.body}>
