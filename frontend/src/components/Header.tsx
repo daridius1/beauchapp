@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Platform, DeviceEventEmitter } from 'react-native';
+import React, { useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Platform, DeviceEventEmitter, Animated } from 'react-native';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
 
@@ -12,6 +12,45 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, onTitlePress, rightComponent }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(1)).current;
+
+  const handleTitlePress = () => {
+    if (!onTitlePress) return;
+    
+    // Ejecutar callback
+    onTitlePress();
+    
+    // Ejecutar animación de pulso y rebote sutil
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(scaleAnim, {
+          toValue: 0.93,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 0.45,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 4,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  };
+
   return (
     <View style={styles.header}>
       <View style={styles.sideContainer}>
@@ -26,11 +65,13 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
       
       {onTitlePress ? (
         <TouchableOpacity 
-          onPress={onTitlePress} 
-          activeOpacity={0.7} 
+          onPress={handleTitlePress} 
+          activeOpacity={0.8} 
           style={styles.headerTitleContainer}
         >
-          <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+          <Animated.View style={{ transform: [{ scale: scaleAnim }], opacity: opacityAnim }}>
+            <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+          </Animated.View>
         </TouchableOpacity>
       ) : (
         <View style={styles.headerTitleContainer}>
