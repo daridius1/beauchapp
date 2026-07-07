@@ -13,7 +13,6 @@ onRecordCreateRequest((e) => {
         }
         // Organizations bypass email requirements and are auto-verified
         e.record.set("verified", true);
-        e.next();
         return;
     }
 
@@ -28,8 +27,6 @@ onRecordCreateRequest((e) => {
     if (!email.endsWith("@ing.uchile.cl")) {
         throw new BadRequestError("Acceso denegado. Solo se permiten correos con el dominio @ing.uchile.cl");
     }
-    
-    e.next();
 }, "users");
 
 // 1.5. Proteger campo isSuperadmin (solo admins reales pueden modificarlo)
@@ -40,13 +37,13 @@ onRecordUpdateRequest((e) => {
             e.record.set("isSuperadmin", original.get("isSuperadmin"));
         }
     }
-    e.next();
+
 }, "users");
 
 // 2. Recálculo automático de puntuación para predicciones
 onRecordUpdateRequest((e) => {
     // Primero, ejecutar la actualizacion
-    e.next();
+
 
     const played = e.record.getBool("played");
     if (!played) return; // solo recalcular si el partido ya se jugo
@@ -125,7 +122,7 @@ onRecordCreateRequest((e) => {
     }
     // Evitar trampa: forzar a 0 en la creación
     e.record.set("points", 0);
-    e.next();
+
 }, "predictions");
 
 onRecordUpdateRequest((e) => {
@@ -137,7 +134,7 @@ onRecordUpdateRequest((e) => {
     // Si los goles no cambiaron, es un save interno (p. ej. calculo de puntos)
     if (original.getInt("homeScore") === e.record.getInt("homeScore") && 
         original.getInt("awayScore") === e.record.getInt("awayScore")) {
-        e.next();
+    
         return;
     }
 
@@ -161,7 +158,7 @@ onRecordUpdateRequest((e) => {
             }
         }
     }
-    e.next();
+
 }, "predictions");
 
 
@@ -194,7 +191,7 @@ onRecordEnrich((e) => {
         }
     }
     
-    e.next();
+
 }, "predictions");
 
 
@@ -205,7 +202,7 @@ onRecordCreateRequest((e) => {
         const clean = typeof tag === "string" ? tag.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() : "";
         e.record.set("tag", clean);
     }
-    e.next();
+
 }, "matches");
 
 onRecordUpdateRequest((e) => {
@@ -214,7 +211,7 @@ onRecordUpdateRequest((e) => {
         const clean = typeof tag === "string" ? tag.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() : "";
         e.record.set("tag", clean);
     }
-    e.next();
+
 }, "matches");
 
 onRecordCreateRequest((e) => {
@@ -223,7 +220,7 @@ onRecordCreateRequest((e) => {
         const clean = typeof tag === "string" ? tag.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() : "";
         e.record.set("tag", clean);
     }
-    e.next();
+
 }, "contests");
 
 onRecordUpdateRequest((e) => {
@@ -232,7 +229,7 @@ onRecordUpdateRequest((e) => {
         const clean = typeof tag === "string" ? tag.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() : "";
         e.record.set("tag", clean);
     }
-    e.next();
+
 }, "contests");
 
 // 6. Lógica de Árboles Estilo Reddit para Posts (Lógica inyectada directamente en los hooks)
@@ -263,7 +260,7 @@ onRecordCreateRequest((e) => {
     } catch (outerErr) {
         console.log("OUTER ERROR in posts create hook:", outerErr);
     }
-    e.next();
+
 }, "posts");
 
 onRecordAfterCreateSuccess((e) => {
@@ -307,7 +304,7 @@ onRecordAfterCreateSuccess((e) => {
             console.log("Error recalcTree create:", err);
         }
     }
-    e.next();
+
 }, "posts");
 
 onRecordAfterDeleteSuccess((e) => {
@@ -351,46 +348,110 @@ onRecordAfterDeleteSuccess((e) => {
             console.log("Error recalcTree delete:", err);
         }
     }
-    e.next();
+
 }, "posts");
 
 // 8. Control de acceso para team_members
-function canManageTeamMember(e) {
-    try {
-        if (!e.auth) return false;
-        if (e.auth.isSuperuser()) return true;
-
-        const teamId = e.record.getString("team");
-        if (!teamId) return false;
-
-        const team = $app.findRecordById("teams", teamId);
-        if (team && team.getString("owner_org") === e.auth.id) return true;
-
-        const adminMemberships = $app.findRecordsByFilter(
-            "team_members",
-            "team = {:team} && user = {:user} && role = 'admin' && status = 'active'",
-            "",
-            1,
-            0,
-            { team: teamId, user: e.auth.id }
-        );
-        if (adminMemberships.length > 0) return true;
-    } catch (err) {
-        console.error("Error checking team permissions:", err);
-    }
-    return false;
-}
-
 onRecordCreateRequest((e) => {
-    if (!canManageTeamMember(e)) {
-        throw new Error("No tienes permisos para agregar miembros a este equipo.");
+    console.log("team_members CREATE hook triggered!");
+    
+    const checkTeamPermsLocal = (ev) => {
+        try {
+            if (!ev.auth) return { allowed: false, reason: "No auth" };
+            if (ev.auth.isSuperuser()) return { allowed: true };
+            const teamId = ev.record.getString("team");
+            if (!teamId) return { allowed: false, reason: "No teamId" };
+            let team = null;
+            try {
+                team = $app.findRecordById("teams", teamId);
+            } catch(err) {
+                 return { allowed: false, reason: "Team not found" };
+            }
+            if (team && team.getString("owner_org") === ev.auth.id) return { allowed: true };
+            const adminMemberships = $app.findRecordsByFilter(
+                "team_members",
+                "team = {:team} && user = {:user} && role = 'admin' && status = 'active'",
+                "",
+                1,
+                0,
+                { team: teamId, user: ev.auth.id }
+            );
+            if (adminMemberships.length > 0) return { allowed: true };
+            return { allowed: false, reason: "Not owner nor admin." };
+        } catch (err) {
+            return { allowed: false, reason: "Exception: " + err.message };
+        }
+    };
+
+    const res = checkTeamPermsLocal(e);
+    console.log("checkTeamPerms result:", JSON.stringify(res));
+    if (!res.allowed) {
+        throw new ApiError(400, "No tienes permisos. Razón: " + res.reason);
     }
-    e.next();
+
+    const userId = e.record.getString("user");
+    if (!userId) {
+        throw new ApiError(400, "El campo 'user' es requerido.");
+    }
+
+    try {
+        $app.findRecordById("users", userId);
+    } catch(err) {
+        throw new ApiError(400, "El usuario no existe.");
+    }
+
+    const teamId = e.record.getString("team");
+    if (!teamId) {
+        throw new ApiError(400, "El campo 'team' es requerido.");
+    }
+
+    const existing = $app.findRecordsByFilter(
+        "team_members",
+        "team = {:team} && user = {:user}",
+        "",
+        1,
+        0,
+        { team: teamId, user: userId }
+    );
+    if (existing.length > 0) {
+        throw new ApiError(400, "El usuario ya es miembro de este equipo.");
+    }
+
+    return e.next();
 }, "team_members");
 
 onRecordUpdateRequest((e) => {
-    if (!canManageTeamMember(e)) {
-        throw new Error("No tienes permisos para modificar miembros de este equipo.");
+    const checkTeamPermsLocal = (ev) => {
+        try {
+            if (!ev.auth) return { allowed: false, reason: "No auth" };
+            if (ev.auth.isSuperuser()) return { allowed: true };
+            const teamId = ev.record.getString("team");
+            if (!teamId) return { allowed: false, reason: "No teamId" };
+            let team = null;
+            try {
+                team = $app.findRecordById("teams", teamId);
+            } catch(err) {
+                 return { allowed: false, reason: "Team not found" };
+            }
+            if (team && team.getString("owner_org") === ev.auth.id) return { allowed: true };
+            const adminMemberships = $app.findRecordsByFilter(
+                "team_members",
+                "team = {:team} && user = {:user} && role = 'admin' && status = 'active'",
+                "",
+                1,
+                0,
+                { team: teamId, user: ev.auth.id }
+            );
+            if (adminMemberships.length > 0) return { allowed: true };
+            return { allowed: false, reason: "Not owner nor admin." };
+        } catch (err) {
+            return { allowed: false, reason: "Exception: " + err.message };
+        }
+    };
+
+    const res = checkTeamPermsLocal(e);
+    if (!res.allowed) {
+        throw new ApiError(400, "No tienes permisos para modificar. Razón: " + res.reason);
     }
-    e.next();
+    return e.next();
 }, "team_members");

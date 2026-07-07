@@ -17,7 +17,7 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [adding, setAdding] = useState(false);
+  const [addingFromBtn, setAddingFromBtn] = useState(false);
 
   const isOwner = user?.id === team?.owner_org;
   const isAdmin = isOwner || members.some(m => m.user === user?.id && m.role === 'admin' && m.status === 'active');
@@ -45,9 +45,11 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     fetchTeamData();
   }, [fetchTeamData]);
 
-  const handleAddMember = async (queryOrUser: string | any) => {
+  const handleAddMember = async (queryOrUser: string | any, fromButton = false) => {
     try {
-      setAdding(true);
+      if (fromButton) {
+        setAddingFromBtn(true);
+      }
       let finalUser = null;
       
       if (typeof queryOrUser === 'string') {
@@ -68,9 +70,19 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       if (!finalUser) return;
 
       // Comprobar si ya es miembro
-      if (members.some(m => m.user === finalUser.id)) {
-        Alert.alert('Error', 'El usuario ya pertenece a este equipo');
-        return;
+      const existingMember = members.find(m => m.user === finalUser.id);
+      if (existingMember) {
+        if (existingMember.status === 'active') {
+          Alert.alert('Error', 'El usuario ya pertenece a este equipo');
+          return;
+        } else {
+          // Si existía como inactivo, lo reactivamos
+          await pb.collection('team_members').update(existingMember.id, {
+            status: 'active'
+          });
+          fetchTeamData();
+          return;
+        }
       }
 
       await pb.collection('team_members').create({
@@ -85,7 +97,7 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       console.error('Error adding member:', error);
       Alert.alert('Error', error.message || 'No se pudo agregar al miembro');
     } finally {
-      setAdding(false);
+      setAddingFromBtn(false);
     }
   };
 
@@ -147,57 +159,61 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={[styles.section, { zIndex: 10 }]}>
             <Text style={styles.sectionTitle}>Añadir Integrante</Text>
             <UserSearchAutocomplete
-              onSelectUser={(user) => handleAddMember(user)}
-              onButtonPress={(username) => handleAddMember(username)}
-              isProcessing={adding}
+              onSelectUser={(user) => handleAddMember(user, false)}
+              onButtonPress={(username) => handleAddMember(username, true)}
+              isProcessing={addingFromBtn}
             />
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Integrantes ({members.length})</Text>
-        {members.length === 0 ? (
-          <Text style={styles.emptyText}>Aún no hay integrantes en este equipo.</Text>
-        ) : (
-          members.map(member => (
-            <View key={member.id} style={[styles.memberCard, member.status === 'inactive' && styles.memberCardInactive]}>
-              <View style={styles.memberInfo}>
-                <Text style={styles.memberName}>
-                  {member.expand?.user?.name || member.expand?.user?.username}
-                </Text>
-                <Text style={styles.memberUsername}>@{member.expand?.user?.username}</Text>
-                <View style={styles.badgesRow}>
-                  {member.role === 'admin' && (
-                    <View style={styles.adminBadge}>
-                      <Text style={styles.adminBadgeText}>Admin</Text>
+        {
+          (() => {
+            const activeMembers = members.filter(member => member.status === 'active');
+            return (
+              <>
+                <Text style={styles.sectionTitle}>Integrantes ({activeMembers.length})</Text>
+                {activeMembers.length === 0 ? (
+                  <Text style={styles.emptyText}>Aún no hay integrantes en este equipo.</Text>
+                ) : (
+                  activeMembers.map(member => (
+                    <View key={member.id} style={styles.memberCard}>
+                      <View style={styles.memberInfo}>
+                        <Text style={styles.memberName}>
+                          {member.expand?.user?.name || member.expand?.user?.username}
+                        </Text>
+                        <Text style={styles.memberUsername}>@{member.expand?.user?.username}</Text>
+                        <View style={styles.badgesRow}>
+                          {member.role === 'admin' && (
+                            <View style={styles.adminBadge}>
+                              <Text style={styles.adminBadgeText}>Admin</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      
+                      {isAdmin && member.user !== user?.id && (
+                        <View style={styles.memberActions}>
+                          <TouchableOpacity 
+                            style={styles.actionBtn}
+                            onPress={() => handleToggleRole(member.id, member.role)}
+                          >
+                            <Feather name={member.role === 'admin' ? 'arrow-down' : 'arrow-up'} size={20} color={theme.colors.text} />
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.actionBtn}
+                            onPress={() => handleToggleStatus(member.id, member.status)}
+                          >
+                            <Feather name="x" size={20} color={theme.colors.danger} />
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
-                  )}
-                  {member.status === 'inactive' && (
-                    <View style={styles.inactiveBadge}>
-                      <Text style={styles.inactiveBadgeText}>Inactivo</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-              
-              {isAdmin && member.user !== user?.id && (
-                <View style={styles.memberActions}>
-                  <TouchableOpacity 
-                    style={styles.actionBtn}
-                    onPress={() => handleToggleRole(member.id, member.role)}
-                  >
-                    <Feather name={member.role === 'admin' ? 'arrow-down' : 'arrow-up'} size={20} color={theme.colors.text} />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.actionBtn}
-                    onPress={() => handleToggleStatus(member.id, member.status)}
-                  >
-                    <Feather name={member.status === 'active' ? 'user-x' : 'user-check'} size={20} color={theme.colors.danger} />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          ))
-        )}
+                  ))
+                )}
+              </>
+            );
+          })()
+        }
       </ScrollView>
     </View>
   );

@@ -122,50 +122,52 @@ function AppContent() {
           }
         }}
       >
-        {user ? (
-          <>
-            <Header 
-              title={getScreenTitle(currentRouteName, currentRouteParams)} 
-              onToggleSidebar={() => setIsSidebarOpen(true)} 
-              onBack={canGoBack ? () => navigationRef.goBack() : undefined}
-            />
-            <View style={styles.body}>
-              <Stack.Navigator screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="Home" component={HomeScreen} />
-                <Stack.Screen name="Profile" component={ProfileScreen} />
-                <Stack.Screen name="Contests" component={ContestsScreen} />
-                <Stack.Screen name="PollaContest" component={PollaContestScreen} />
-                <Stack.Screen name="Communities" component={CommunitiesScreen} />
-              <Stack.Screen name="CommunityDetail" component={CommunityDetailScreen} />
-                <Stack.Screen name="Organizations" component={OrganizationsScreen} />
-                <Stack.Screen name="Teams" component={TeamsScreen} />
-                <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
-                <Stack.Screen name="Superadmin" component={SuperadminScreen} />
-                <Stack.Screen name="ParticipantPredictions" component={ParticipantPredictionsScreen} />
-                <Stack.Screen name="MatchPredictions" component={MatchPredictionsScreen} />
-                <Stack.Screen name="PostDetail" component={PostDetailScreen} />
-                <Stack.Screen name="UserProfile" component={UserProfileScreen} />
-                <Stack.Screen name="NotFound" component={NotFoundScreen} />
-              </Stack.Navigator>
-            </View>
-            <Sidebar 
-              isOpen={isSidebarOpen} 
-              onClose={() => setIsSidebarOpen(false)} 
-              activeScreen={currentRouteName}
-              onNavigate={(screen) => {
-                navigationRef.navigate(screen as never);
-                setIsSidebarOpen(false);
-              }}
-            />
-          </>
-        ) : (
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Verification" component={VerificationScreen} />
-            <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
-            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-          </Stack.Navigator>
-        )}
+        <View style={styles.appContainer}>
+          {user ? (
+            <>
+              <Header 
+                title={getScreenTitle(currentRouteName, currentRouteParams)} 
+                onToggleSidebar={() => setIsSidebarOpen(true)} 
+                onBack={canGoBack ? () => navigationRef.goBack() : undefined}
+              />
+              <View style={styles.body}>
+                <Stack.Navigator screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="Home" component={HomeScreen} />
+                  <Stack.Screen name="Profile" component={ProfileScreen} />
+                  <Stack.Screen name="Contests" component={ContestsScreen} />
+                  <Stack.Screen name="PollaContest" component={PollaContestScreen} />
+                  <Stack.Screen name="Communities" component={CommunitiesScreen} />
+                  <Stack.Screen name="CommunityDetail" component={CommunityDetailScreen} />
+                  <Stack.Screen name="Organizations" component={OrganizationsScreen} />
+                  <Stack.Screen name="Teams" component={TeamsScreen} />
+                  <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
+                  <Stack.Screen name="Superadmin" component={SuperadminScreen} />
+                  <Stack.Screen name="ParticipantPredictions" component={ParticipantPredictionsScreen} />
+                  <Stack.Screen name="MatchPredictions" component={MatchPredictionsScreen} />
+                  <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+                  <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+                  <Stack.Screen name="NotFound" component={NotFoundScreen} />
+                </Stack.Navigator>
+              </View>
+              <Sidebar 
+                isOpen={isSidebarOpen} 
+                onClose={() => setIsSidebarOpen(false)} 
+                activeScreen={currentRouteName}
+                onNavigate={(screen) => {
+                  navigationRef.navigate(screen as never);
+                  setIsSidebarOpen(false);
+                }}
+              />
+            </>
+          ) : (
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Verification" component={VerificationScreen} />
+              <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+              <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+            </Stack.Navigator>
+          )}
+        </View>
       </NavigationContainer>
       <Toast />
     </SafeAreaView>
@@ -191,5 +193,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-
+  appContainer: {
+    flex: 1,
+    width: '100%',
+    ...Platform.select({
+      web: {
+        maxWidth: 800,
+        alignSelf: 'center',
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderColor: theme.colors.border,
+      }
+    })
+  },
 });
