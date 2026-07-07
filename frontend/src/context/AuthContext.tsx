@@ -78,7 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Iniciar sesión con email y contraseña
       const authData = await pb.collection('users').authWithPassword(email, password);
       
-      if (!authData.record.verified) {
+      if (!authData.record.verified && authData.record.type !== 'organization') {
         pb.authStore.clear();
         throw new Error('Debes verificar tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada o spam.');
       }

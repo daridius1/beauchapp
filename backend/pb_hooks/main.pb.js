@@ -11,7 +11,8 @@ onRecordCreateRequest((e) => {
         if (!e.auth || !e.auth.isSuperuser()) {
             throw new BadRequestError("No tienes permisos para crear una cuenta de organización.");
         }
-        // Organizations bypass email requirements
+        // Organizations bypass email requirements and are auto-verified
+        e.record.set("verified", true);
         e.next();
         return;
     }
