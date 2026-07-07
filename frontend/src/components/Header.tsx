@@ -23,7 +23,19 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
         )}
       </View>
       
-      <Text style={styles.headerTitle}>{title}</Text>
+      {onBack ? (
+        <TouchableOpacity 
+          onPress={onBack} 
+          activeOpacity={0.7} 
+          style={styles.headerTitleContainer}
+        >
+          <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+        </View>
+      )}
       
       <View style={[styles.sideContainer, { justifyContent: 'flex-end' }]}>
         {rightComponent}
@@ -89,14 +101,20 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.text,
     borderRadius: 1.25,
   },
+  headerTitleContainer: {
+    position: 'absolute',
+    left: 60,
+    right: 60,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 0,
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: theme.colors.text,
     textAlign: 'center',
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 0,
   },
 });

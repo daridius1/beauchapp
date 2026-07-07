@@ -51,10 +51,10 @@ function AppContent() {
   const getScreenTitle = (screen: string, params: any) => {
     switch (screen) {
       case 'Home': return 'Inicio';
-      case 'Profile': return 'Mi Perfil';
+      case 'Profile': return 'Perfil';
       case 'Login': return 'Iniciar Sesión';
       case 'PostDetail': return 'Conversación';
-      case 'UserProfile': return params?.title || 'Perfil';
+      case 'UserProfile': return 'Perfil';
       case 'Communities': return 'Comunidades';
       case 'Centers': return 'Centros';
       case 'Teams': return 'Equipos';
