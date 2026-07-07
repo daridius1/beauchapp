@@ -95,7 +95,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     } catch (err) {
       console.error('Error fetching post details', err);
     } finally {
-      setLoading(false);
+      if (!hideLoading) setLoading(false);
     }
   };
 
@@ -103,7 +103,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
       setLoading(true);
       await Promise.all([
-        fetchData(false),
+        fetchData(true),
         new Promise(resolve => setTimeout(resolve, 900))
       ]);
       setLoading(false);

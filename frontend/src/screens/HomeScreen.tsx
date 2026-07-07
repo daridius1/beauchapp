@@ -58,7 +58,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   }, [route.params, navigation]);
 
-  const fetchPosts = async (pageNum = 1, isLoadMore = false) => {
+  const fetchPosts = async (pageNum = 1, isLoadMore = false, hideLoading = false) => {
     try {
       let filterConditions = [];
       if (activeSearch) {
@@ -96,7 +96,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     } catch (err) {
       console.error('Error fetching posts', err);
     } finally {
-      setLoading(false);
+      if (!hideLoading) setLoading(false);
       setLoadingMore(false);
     }
   };
@@ -105,10 +105,11 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     setLoading(true);
     setRefreshing(true);
     await Promise.all([
-      fetchPosts(1, false),
+      fetchPosts(1, false, true),
       new Promise(resolve => setTimeout(resolve, 900))
     ]);
     setRefreshing(false);
+    setLoading(false);
   }, [activeSearch, filterTags.join(',')]);
 
   useEffect(() => {
