@@ -18,6 +18,8 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   
   const [newMemberUsername, setNewMemberUsername] = useState('');
   const [adding, setAdding] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const isOwner = user?.id === team?.owner_org;
   const isAdmin = isOwner || members.some(m => m.user === user?.id && m.role === 'admin' && m.status === 'active');
@@ -45,36 +47,64 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     fetchTeamData();
   }, [fetchTeamData]);
 
-  const handleAddMember = async () => {
-    if (!newMemberUsername.trim()) return;
-    try {
-      setAdding(true);
-      // Buscar usuario por username o email
-      const users = await pb.collection('users').getFullList({
-        filter: `username = "${newMemberUsername.trim().toLowerCase()}" || email = "${newMemberUsername.trim().toLowerCase()}"`,
-      });
-
-      if (users.length === 0) {
-        Alert.alert('Error', 'Usuario no encontrado');
+  useEffect(() => {
+    const timeoutId = setTimeout(async () => {
+      const query = newMemberUsername.trim().toLowerCase();
+      if (query.length < 2) {
+        setSuggestions([]);
+        setShowSuggestions(false);
         return;
       }
+      try {
+        const result = await pb.collection('users').getList(1, 5, {
+          filter: `username ~ "${query}" || name ~ "${query}"`,
+          sort: 'username'
+        });
+        setSuggestions(result.items);
+        setShowSuggestions(true);
+      } catch (error) {
+        // Ignore aborts or minor errors
+      }
+    }, 300);
 
-      const targetUser = users[0];
+    return () => clearTimeout(timeoutId);
+  }, [newMemberUsername]);
+
+  const handleAddMember = async (targetUser?: any) => {
+    const query = newMemberUsername.trim();
+    if (!query && !targetUser) return;
+    try {
+      setAdding(true);
+      let finalUser = targetUser;
       
+      if (!finalUser) {
+        // Buscar usuario por username exacto si no se seleccionó de la lista
+        const users = await pb.collection('users').getFullList({
+          filter: `username = "${query.toLowerCase()}"`,
+        });
+        if (users.length === 0) {
+          Alert.alert('Error', 'Usuario no encontrado. Revisa el username exacto.');
+          return;
+        }
+        finalUser = users[0];
+      }
+
       // Comprobar si ya es miembro
-      if (members.some(m => m.user === targetUser.id)) {
+      if (members.some(m => m.user === finalUser.id)) {
         Alert.alert('Error', 'El usuario ya pertenece a este equipo');
         return;
       }
 
       await pb.collection('team_members').create({
         team: teamId,
-        user: targetUser.id,
+        user: finalUser.id,
         role: 'member',
         status: 'active'
       });
 
       setNewMemberUsername('');
+      setSuggestions([]);
+      setShowSuggestions(false);
       fetchTeamData();
     } catch (error: any) {
       console.error('Error adding member:', error);
@@ -141,7 +171,7 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <View style={styles.addMemberRow}>
               <TextInput
                 style={styles.input}
-                placeholder="Username o email"
+                placeholder="Busca por @username o nombre"
                 value={newMemberUsername}
                 onChangeText={setNewMemberUsername}
                 placeholderTextColor={theme.colors.textMuted}
@@ -149,7 +179,7 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               />
               <TouchableOpacity 
                 style={[styles.addButton, adding && styles.addButtonDisabled]}
-                onPress={handleAddMember}
+                onPress={() => handleAddMember()}
                 disabled={adding}
               >
                 {adding ? (
@@ -159,6 +189,25 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 )}
               </TouchableOpacity>
             </View>
+            
+            {showSuggestions && suggestions.length > 0 && (
+              <View style={styles.suggestionsContainer}>
+                {suggestions.map(s => (
+                  <TouchableOpacity 
+                    key={s.id} 
+                    style={styles.suggestionItem}
+                    onPress={() => {
+                      setNewMemberUsername(s.username);
+                      setShowSuggestions(false);
+                      handleAddMember(s);
+                    }}
+                  >
+                    <Text style={styles.suggestionName}>{s.name || s.username}</Text>
+                    <Text style={styles.suggestionUsername}>@{s.username}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -289,6 +338,30 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: '#000',
     fontWeight: 'bold',
+  },
+  suggestionsContainer: {
+    marginTop: 8,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  suggestionName: {
+    color: theme.colors.text,
+    fontWeight: '600',
+  },
+  suggestionUsername: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
   },
   emptyText: {
     color: theme.colors.textMuted,
