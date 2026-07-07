@@ -8,8 +8,8 @@ import { pb, getFileUrl } from '../services/pocketbase';
 import { ImagePicker } from '../components/ImagePicker';
 import { ImageViewer } from '../components/ImageViewer';
 import { Feather } from '@expo/vector-icons';
-
 import { theme } from '../theme/theme';
+import { Avatar } from '../components/Avatar';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -354,8 +354,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         {user ? (
           <View style={styles.composeBox}>
             <View style={styles.composeRow}>
-              <View style={styles.avatarMini}>
-                <Text style={styles.avatarMiniText}>{user.name ? user.name.charAt(0).toUpperCase() : 'U'}</Text>
+              <View style={{ marginRight: theme.spacing.sm }}>
+                <Avatar user={user} size={40} />
               </View>
               <TextInput
                 style={styles.composeInput}
@@ -451,8 +451,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                     onPress={() => navigation.push('UserProfile', { userId: post.author })}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.avatarMini}>
-                      <Text style={styles.avatarMiniText}>{author?.name ? author.name.charAt(0).toUpperCase() : 'U'}</Text>
+                    <View style={{ marginRight: theme.spacing.sm }}>
+                      <Avatar user={author} size={40} />
                     </View>
                   </TouchableOpacity>
                   <View style={styles.postMeta}>
@@ -624,20 +624,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: theme.spacing.sm,
   },
-  avatarMini: {
-    width: 40,
-    height: 40,
-    borderRadius: 4,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: theme.spacing.sm,
-  },
-  avatarMiniText: {
-    color: '#000',
-    fontSize: 18,
-    fontWeight: '700',
-  },
+
   composeInput: {
     flex: 1,
     color: theme.colors.text,

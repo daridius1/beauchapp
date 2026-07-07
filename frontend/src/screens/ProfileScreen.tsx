@@ -7,6 +7,7 @@ import { pb, getFileUrl } from '../services/pocketbase';
 import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { ImageViewer } from '../components/ImageViewer';
+import { Avatar } from '../components/Avatar';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -98,17 +99,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <View style={styles.avatarLarge}>
-            {user.avatar ? (
-              <Image 
-                source={{ uri: getFileUrl(user, user.avatar) }} 
-                style={styles.avatarLargeImage} 
-              />
-            ) : (
-              <Text style={styles.avatarLargeText}>
-                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-              </Text>
-            )}
+          <View style={{ marginBottom: theme.spacing.md }}>
+            <Avatar user={user} size={80} />
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{user.name}</Text>
@@ -154,8 +146,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                     onPress={() => navigation.push('UserProfile', { userId: post.author })}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.avatarMini}>
-                      <Text style={styles.avatarMiniText}>{author?.name ? author.name.charAt(0).toUpperCase() : 'U'}</Text>
+                    <View style={{ marginRight: theme.spacing.sm }}>
+                      <Avatar user={author} size={40} />
                     </View>
                   </TouchableOpacity>
                   <View style={styles.postMeta}>
@@ -251,18 +243,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xl,
     backgroundColor: theme.colors.cardBg,
   },
-  avatarLarge: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: theme.spacing.md,
-    overflow: 'hidden',
-  },
-  avatarLargeImage: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarLargeText: { color: '#000', fontSize: 36, fontWeight: '800' },
+
   profileName: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
   profileInfo: { alignItems: 'center' },
   profileCareer: {
@@ -308,8 +289,7 @@ const styles = StyleSheet.create({
   
   postCard: { padding: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: theme.spacing.sm },
-  avatarMini: { width: 40, height: 40, borderRadius: 4, backgroundColor: theme.colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: theme.spacing.sm },
-  avatarMiniText: { color: '#000', fontSize: 18, fontWeight: '700' },
+
   postMeta: { justifyContent: 'center' },
   postAuthor: { color: theme.colors.text, fontWeight: '700', fontSize: 15 },
   postUsername: { color: theme.colors.textMuted, fontSize: 13 },

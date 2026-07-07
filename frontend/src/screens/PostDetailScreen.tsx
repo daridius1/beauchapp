@@ -8,6 +8,7 @@ import { pb, getFileUrl } from '../services/pocketbase';
 import { theme } from '../theme/theme';
 import { ImagePicker } from '../components/ImagePicker';
 import { ImageViewer } from '../components/ImageViewer';
+import { Avatar } from '../components/Avatar';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PostDetail'>;
 
@@ -202,8 +203,8 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             onPress={() => navigation.push('UserProfile', { userId: post.author })}
             activeOpacity={0.7}
           >
-            <View style={styles.avatarMini}>
-              <Text style={styles.avatarMiniText}>{author?.name ? author.name.charAt(0).toUpperCase() : 'U'}</Text>
+            <View style={{ marginRight: theme.spacing.sm }}>
+              <Avatar user={author} size={40} />
             </View>
           </TouchableOpacity>
           <View style={styles.postMeta}>
@@ -385,8 +386,7 @@ const styles = StyleSheet.create({
   parentCard: { paddingBottom: theme.spacing.sm },
   
   postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: theme.spacing.sm },
-  avatarMini: { width: 40, height: 40, borderRadius: 4, backgroundColor: theme.colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: theme.spacing.sm },
-  avatarMiniText: { color: '#000', fontSize: 18, fontWeight: '700' },
+
   postMeta: { justifyContent: 'center' },
   postAuthor: { color: theme.colors.text, fontWeight: '700', fontSize: 15 },
   postUsername: { color: theme.colors.textMuted, fontSize: 13 },

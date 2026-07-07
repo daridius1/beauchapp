@@ -6,6 +6,7 @@ import { RootStackParamList } from '../types/navigation';
 import { pb, getFileUrl } from '../services/pocketbase';
 import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
+import { Avatar } from '../components/Avatar';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'UserProfile'>;
 
@@ -98,17 +99,8 @@ export const UserProfileScreen: React.FC<Props> = ({ route, navigation }) => {
         
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <View style={styles.avatarLarge}>
-            {profileUser.avatar ? (
-              <Image 
-                source={{ uri: getFileUrl(profileUser, profileUser.avatar) }} 
-                style={styles.avatarLargeImage} 
-              />
-            ) : (
-              <Text style={styles.avatarLargeText}>
-                {profileUser.name ? profileUser.name.charAt(0).toUpperCase() : 'U'}
-              </Text>
-            )}
+          <View style={{ marginBottom: theme.spacing.md }}>
+            <Avatar user={profileUser} size={80} />
           </View>
           <Text style={styles.profileName}>{profileUser.name || 'Usuario'}</Text>
           {profileUser?.username ? <Text style={styles.profileUsername}>@{profileUser.username}</Text> : null}
@@ -153,8 +145,8 @@ export const UserProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                     onPress={() => navigation.push('UserProfile', { userId: post.author })}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.avatarMini}>
-                      <Text style={styles.avatarMiniText}>{author?.name ? author.name.charAt(0).toUpperCase() : 'U'}</Text>
+                    <View style={{ marginRight: theme.spacing.sm }}>
+                      <Avatar user={author} size={40} />
                     </View>
                   </TouchableOpacity>
                   <View style={styles.postMeta}>
@@ -237,18 +229,6 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xl,
     backgroundColor: theme.colors.cardBg,
   },
-  avatarLarge: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: theme.spacing.md,
-    overflow: 'hidden',
-  },
-  avatarLargeImage: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarLargeText: { color: '#000', fontSize: 36, fontWeight: '800' },
   profileName: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
   profileUsername: { fontSize: 15, color: theme.colors.textMuted, marginBottom: 8 },
   profileCareer: { fontSize: 14, color: theme.colors.textMuted, marginBottom: 16 },
@@ -273,8 +253,6 @@ const styles = StyleSheet.create({
   
   postCard: { padding: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: theme.spacing.sm },
-  avatarMini: { width: 40, height: 40, borderRadius: 4, backgroundColor: theme.colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: theme.spacing.sm },
-  avatarMiniText: { color: '#000', fontSize: 18, fontWeight: '700' },
   postMeta: { justifyContent: 'center' },
   postAuthor: { color: theme.colors.text, fontWeight: '700', fontSize: 15 },
   postUsername: { color: theme.colors.textMuted, fontSize: 13 },

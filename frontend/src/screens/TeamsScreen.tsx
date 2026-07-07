@@ -1,12 +1,13 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, DeviceEventEmitter, TextInput, Image } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, DeviceEventEmitter, TextInput } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { useAuth } from '../context/AuthContext';
-import { pb, getFileUrl } from '../services/pocketbase';
+import { pb } from '../services/pocketbase';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
+import { Avatar } from '../components/Avatar';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Teams'>;
 
@@ -70,17 +71,8 @@ export const TeamsScreen: React.FC<Props> = ({ navigation }) => {
                 style={styles.itemContainer}
                 onPress={() => navigation.push('UserProfile', { userId: team.id, title: team.name })}
               >
-                <View style={styles.cardAvatar}>
-                  {team.avatar ? (
-                    <Image 
-                      source={{ uri: getFileUrl(team, team.avatar) }} 
-                      style={styles.cardAvatarImage} 
-                    />
-                  ) : (
-                    <Text style={styles.cardAvatarText}>
-                      {team.name ? team.name.charAt(0).toUpperCase() : 'U'}
-                    </Text>
-                  )}
+                <View style={{ marginRight: theme.spacing.md }}>
+                  <Avatar user={team} size={40} />
                 </View>
                 <Text style={styles.itemName}>
                   {team.name || team.username}
@@ -130,25 +122,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
-  cardAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primary + '15',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: theme.spacing.md,
-    overflow: 'hidden',
-  },
-  cardAvatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  cardAvatarText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-  },
+
   itemName: {
     flex: 1,
     fontSize: 16,
