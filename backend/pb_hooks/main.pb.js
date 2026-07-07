@@ -64,7 +64,7 @@ onRecordCreateRequest((e) => {
 
 // 1.5. Proteger campos type y subtype (solo admins reales de PocketBase pueden modificarlos)
 onRecordUpdateRequest((e) => {
-    const original = e.record.originalCopy();
+    const original = e.record.original();
     if (e.record.get("type") !== original.get("type")) {
         if (!e.hasSuperuserAuth()) {
             e.record.set("type", original.get("type"));
@@ -75,6 +75,7 @@ onRecordUpdateRequest((e) => {
             e.record.set("subtype", original.get("subtype"));
         }
     }
+    return e.next();
 }, "users");
 
 
@@ -247,7 +248,7 @@ onRecordCreateRequest((e) => {
 }, "organization_members");
 
 onRecordUpdateRequest((e) => {
-    const original = e.record.originalCopy();
+    const original = e.record.original();
     if (e.record.get("user") !== original.get("user") || e.record.get("organization") !== original.get("organization")) {
         throw new ApiError(400, "No se pueden modificar los campos 'user' u 'organization' una vez creados.");
     }

@@ -44,13 +44,10 @@ export const getFileUrl = (record: any, filename: string, size?: string) => {
   if (!filename) return '';
   
   const r2Url = process.env.EXPO_PUBLIC_R2_URL;
-  if (r2Url) {
-    // Estructura oficial de PocketBase en S3: <collectionId>/<recordId>/<filename>
-    // Si hay un tamaño, construimos la ruta de la miniatura: <collectionId>/<recordId>/thumbs_<filename>/<size>_<filename>
+  // Solo descargamos directo de R2 si es el archivo original (sin tamaño de miniatura).
+  // Los thumbnails se generan "al vuelo" (lazy) y se sirven a través del proxy de PocketBase.
+  if (r2Url && !size) {
     const base = r2Url.replace(/\/$/, '');
-    if (size) {
-      return `${base}/${record.collectionId}/${record.id}/thumbs_${filename}/${size}_${filename}`;
-    }
     return `${base}/${record.collectionId}/${record.id}/${filename}`;
   }
 
