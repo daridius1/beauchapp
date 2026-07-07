@@ -12,8 +12,8 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, onTitlePress, rightComponent }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const opacityAnim = useRef(new Animated.Value(1)).current;
+  const titleOpacity = useRef(new Animated.Value(1)).current;
+  const spinnerOpacity = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const handleTitlePress = () => {
@@ -22,38 +22,40 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
     // Ejecutar callback de refresco
     onTitlePress();
     
-    // Ejecutar rotación de 360 grados de la flecha
+    // Reiniciar rotación
     rotateAnim.setValue(0);
-    Animated.timing(rotateAnim, {
-      toValue: 1,
-      duration: 700,
-      useNativeDriver: true,
-    }).start();
 
-    // Ejecutar animación de pulso y rebote sutil de la cabecera entera
+    // Ejecutar secuencia de animación
     Animated.sequence([
+      // 1. Desvanecer título y mostrar spinner
       Animated.parallel([
-        Animated.timing(scaleAnim, {
-          toValue: 0.95,
-          duration: 90,
+        Animated.timing(titleOpacity, {
+          toValue: 0,
+          duration: 150,
           useNativeDriver: true,
         }),
-        Animated.timing(opacityAnim, {
-          toValue: 0.6,
-          duration: 90,
+        Animated.timing(spinnerOpacity, {
+          toValue: 1,
+          duration: 150,
           useNativeDriver: true,
         }),
       ]),
+      // 2. Rotar el spinner 360 grados
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      // 3. Desvanecer spinner y volver a mostrar el título
       Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 4,
-          tension: 50,
+        Animated.timing(spinnerOpacity, {
+          toValue: 0,
+          duration: 150,
           useNativeDriver: true,
         }),
-        Animated.timing(opacityAnim, {
+        Animated.timing(titleOpacity, {
           toValue: 1,
-          duration: 120,
+          duration: 150,
           useNativeDriver: true,
         }),
       ]),
@@ -83,11 +85,20 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
           activeOpacity={0.8} 
           style={styles.headerTitleContainer}
         >
-          <Animated.View style={[styles.titleInnerContainer, { transform: [{ scale: scaleAnim }], opacity: opacityAnim }]}>
+          {/* Título */}
+          <Animated.View style={{ opacity: titleOpacity, position: 'absolute', justifyContent: 'center', alignItems: 'center' }}>
             <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
-            <Animated.View style={{ marginLeft: 6, transform: [{ rotate: spin }] }}>
-              <Feather name="refresh-cw" size={13} color={theme.colors.textMuted} />
-            </Animated.View>
+          </Animated.View>
+          
+          {/* Spinner de Actualización */}
+          <Animated.View style={{ 
+            opacity: spinnerOpacity, 
+            position: 'absolute',
+            transform: [{ rotate: spin }],
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            <Feather name="refresh-cw" size={18} color={theme.colors.text} />
           </Animated.View>
         </TouchableOpacity>
       ) : (
@@ -170,11 +181,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 0,
   },
-  titleInnerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
