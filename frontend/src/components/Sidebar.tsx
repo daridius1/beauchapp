@@ -50,7 +50,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
     { id: 'Communities', label: 'Comunidades' },
     { id: 'Organizations', label: 'Organizaciones' },
     { id: 'Teams', label: 'Equipos' },
-    { id: 'Contests', label: 'Actividades' },
     { id: 'Profile', label: 'Perfil' },
   ];
 

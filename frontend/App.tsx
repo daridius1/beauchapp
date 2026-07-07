@@ -6,18 +6,14 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { Header } from './src/components/Header';
 import { Sidebar } from './src/components/Sidebar';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { ProfileScreen } from './src/screens/ProfileScreen';
 import { theme } from './src/theme/theme';
 import { LoginScreen } from './src/screens/LoginScreen';
-import { ProfileScreen } from './src/screens/ProfileScreen';
-import { ContestsScreen } from './src/screens/ContestsScreen';
-import { PollaContestScreen } from './src/screens/PollaContest';
 import { CommunitiesScreen } from './src/screens/CommunitiesScreen';
 import { CommunityDetailScreen } from './src/screens/CommunityDetailScreen';
 import { OrganizationsScreen } from './src/screens/OrganizationsScreen';
 import { TeamsScreen } from './src/screens/TeamsScreen';
 import { TeamDetailScreen } from './src/screens/TeamDetailScreen';
-import { ParticipantPredictionsScreen } from './src/screens/ParticipantPredictionsScreen';
-import { MatchPredictionsScreen } from './src/screens/MatchPredictionsScreen';
 import { PostDetailScreen } from './src/screens/PostDetailScreen';
 import { UserProfileScreen } from './src/screens/UserProfileScreen';
 import { VerificationScreen } from './src/screens/VerificationScreen';
@@ -61,13 +57,9 @@ function AppContent() {
     switch (screen) {
       case 'Home': return 'Inicio';
       case 'Profile': return 'Mi Perfil';
-      case 'Contests': return 'Actividades';
-      case 'WorldCupContest': return 'Polla Mundialera';
       case 'Login': return 'Iniciar Sesión';
       case 'PostDetail': return 'Conversación';
       case 'UserProfile': return 'Perfil de Usuario';
-      case 'ParticipantPredictions': return 'Predicciones';
-      case 'MatchPredictions': return 'Partidos';
       case 'Communities': return 'Comunidades';
       case 'CommunityDetail': return params?.communityName || 'Comunidad';
       case 'Organizations': return 'Organizaciones';
@@ -78,7 +70,7 @@ function AppContent() {
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Contests', 'Communities', 'Organizations', 'Teams'];
+  const rootScreens = ['Home', 'Profile', 'Communities', 'Organizations', 'Teams'];
   const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
 
   if (!isInitialized) {
@@ -101,7 +93,6 @@ function AppContent() {
           config: {
             screens: {
               Profile: 'profile',
-              Contests: 'activities',
               Communities: 'communities',
               Organizations: 'organizations',
               Teams: 'teams',
@@ -132,15 +123,11 @@ function AppContent() {
                 <Stack.Navigator screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="Home" component={HomeScreen} />
                   <Stack.Screen name="Profile" component={ProfileScreen} />
-                  <Stack.Screen name="Contests" component={ContestsScreen} />
-                  <Stack.Screen name="PollaContest" component={PollaContestScreen} />
                   <Stack.Screen name="Communities" component={CommunitiesScreen} />
                   <Stack.Screen name="CommunityDetail" component={CommunityDetailScreen} />
                   <Stack.Screen name="Organizations" component={OrganizationsScreen} />
                   <Stack.Screen name="Teams" component={TeamsScreen} />
                   <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
-                  <Stack.Screen name="ParticipantPredictions" component={ParticipantPredictionsScreen} />
-                  <Stack.Screen name="MatchPredictions" component={MatchPredictionsScreen} />
                   <Stack.Screen name="PostDetail" component={PostDetailScreen} />
                   <Stack.Screen name="UserProfile" component={UserProfileScreen} />
                   <Stack.Screen name="NotFound" component={NotFoundScreen} />
