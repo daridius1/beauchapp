@@ -57,7 +57,6 @@ export const CommunitiesScreen: React.FC<Props> = ({ navigation }) => {
       )}
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.pageSubtitle}>Descubre y conéctate con los distintos grupos de la facultad.</Text>
 
         {loading && !refreshing ? (
           <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 50 }} />

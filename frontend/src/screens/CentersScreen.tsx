@@ -57,7 +57,6 @@ export const CentersScreen: React.FC<Props> = ({ navigation }) => {
       )}
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.pageSubtitle}>Descubre los centros de estudiantes y organizaciones de la facultad.</Text>
 
         {loading && !refreshing ? (
           <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 50 }} />
