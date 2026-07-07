@@ -13,6 +13,7 @@ import { ContestsScreen } from './src/screens/ContestsScreen';
 import { PollaContestScreen } from './src/screens/PollaContest';
 import { CommunitiesScreen } from './src/screens/CommunitiesScreen';
 import { CommunityDetailScreen } from './src/screens/CommunityDetailScreen';
+import { OrganizationsScreen } from './src/screens/OrganizationsScreen';
 import { SuperadminScreen } from './src/screens/SuperadminScreen';
 import { ParticipantPredictionsScreen } from './src/screens/ParticipantPredictionsScreen';
 import { MatchPredictionsScreen } from './src/screens/MatchPredictionsScreen';
@@ -69,12 +70,13 @@ function AppContent() {
       case 'MatchPredictions': return 'Partidos';
       case 'Communities': return 'Comunidades';
       case 'CommunityDetail': return params?.communityName || 'Comunidad';
+      case 'Organizations': return 'Organizaciones';
       case 'NotFound': return 'No Encontrado';
       default: return 'Beauchapp';
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Contests', 'Superadmin', 'Communities'];
+  const rootScreens = ['Home', 'Profile', 'Contests', 'Superadmin', 'Communities', 'Organizations'];
   const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
 
   if (!isInitialized) {
@@ -99,6 +101,7 @@ function AppContent() {
               Profile: 'profile',
               Contests: 'activities',
               Communities: 'communities',
+              Organizations: 'organizations',
               Verification: 'verification',
               VerifyEmail: 'verify',
               ResetPassword: 'reset-password',
@@ -128,6 +131,7 @@ function AppContent() {
                 <Stack.Screen name="PollaContest" component={PollaContestScreen} />
                 <Stack.Screen name="Communities" component={CommunitiesScreen} />
               <Stack.Screen name="CommunityDetail" component={CommunityDetailScreen} />
+                <Stack.Screen name="Organizations" component={OrganizationsScreen} />
                 <Stack.Screen name="Superadmin" component={SuperadminScreen} />
                 <Stack.Screen name="ParticipantPredictions" component={ParticipantPredictionsScreen} />
                 <Stack.Screen name="MatchPredictions" component={MatchPredictionsScreen} />
