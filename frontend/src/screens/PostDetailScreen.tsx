@@ -104,7 +104,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       setLoading(true);
       await Promise.all([
         fetchData(false),
-        new Promise(resolve => setTimeout(resolve, 600))
+        new Promise(resolve => setTimeout(resolve, 900))
       ]);
       setLoading(false);
     });

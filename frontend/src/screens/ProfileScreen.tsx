@@ -54,7 +54,7 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
       setLoading(true);
       await Promise.all([
         fetchProfileAndPosts(true),
-        new Promise(resolve => setTimeout(resolve, 600))
+        new Promise(resolve => setTimeout(resolve, 900))
       ]);
       setLoading(false);
     });

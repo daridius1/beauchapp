@@ -53,7 +53,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
       setLoading(true);
       await Promise.all([
         fetchProfiles(true),
-        new Promise(resolve => setTimeout(resolve, 600))
+        new Promise(resolve => setTimeout(resolve, 900))
       ]);
       setLoading(false);
     });
@@ -71,7 +71,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
     setRefreshing(true);
     await Promise.all([
       fetchProfiles(true),
-      new Promise(resolve => setTimeout(resolve, 600))
+      new Promise(resolve => setTimeout(resolve, 900))
     ]);
     setRefreshing(false);
   };
