@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, ActivityIndicator, TouchableOpacity, TextInput, Alert, DeviceEventEmitter } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert, DeviceEventEmitter } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { useAuth } from '../context/AuthContext';
 import { pb } from '../services/pocketbase';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
+import { UserSearchAutocomplete } from '../components/UserSearchAutocomplete';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TeamDetail'>;
 
@@ -16,10 +17,7 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [newMemberUsername, setNewMemberUsername] = useState('');
   const [adding, setAdding] = useState(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const isOwner = user?.id === team?.owner_org;
   const isAdmin = isOwner || members.some(m => m.user === user?.id && m.role === 'admin' && m.status === 'active');
@@ -47,47 +45,27 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     fetchTeamData();
   }, [fetchTeamData]);
 
-  useEffect(() => {
-    const timeoutId = setTimeout(async () => {
-      const query = newMemberUsername.trim().toLowerCase();
-      if (query.length < 2) {
-        setSuggestions([]);
-        setShowSuggestions(false);
-        return;
-      }
-      try {
-        const result = await pb.collection('users').getList(1, 5, {
-          filter: `username ~ "${query}" || name ~ "${query}"`,
-          sort: 'username'
-        });
-        setSuggestions(result.items);
-        setShowSuggestions(true);
-      } catch (error) {
-        // Ignore aborts or minor errors
-      }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [newMemberUsername]);
-
-  const handleAddMember = async (targetUser?: any) => {
-    const query = newMemberUsername.trim();
-    if (!query && !targetUser) return;
+  const handleAddMember = async (queryOrUser: string | any) => {
     try {
       setAdding(true);
-      let finalUser = targetUser;
+      let finalUser = null;
       
-      if (!finalUser) {
-        // Buscar usuario por username exacto si no se seleccionó de la lista
+      if (typeof queryOrUser === 'string') {
+        if (!queryOrUser.trim()) return;
+        const query = queryOrUser.trim().toLowerCase();
         const users = await pb.collection('users').getFullList({
-          filter: `username = "${query.toLowerCase()}"`,
+          filter: `username = "${query}"`,
         });
         if (users.length === 0) {
           Alert.alert('Error', 'Usuario no encontrado. Revisa el username exacto.');
           return;
         }
         finalUser = users[0];
+      } else {
+        finalUser = queryOrUser;
       }
+
+      if (!finalUser) return;
 
       // Comprobar si ya es miembro
       if (members.some(m => m.user === finalUser.id)) {
@@ -102,9 +80,6 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         status: 'active'
       });
 
-      setNewMemberUsername('');
-      setSuggestions([]);
-      setShowSuggestions(false);
       fetchTeamData();
     } catch (error: any) {
       console.error('Error adding member:', error);
@@ -169,48 +144,13 @@ export const TeamDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {isAdmin && (
-          <View style={styles.adminSection}>
+          <View style={[styles.section, { zIndex: 10 }]}>
             <Text style={styles.sectionTitle}>Añadir Integrante</Text>
-            <View style={styles.addMemberRow}>
-              <TextInput
-                style={styles.input}
-                placeholder="Busca por @username o nombre"
-                value={newMemberUsername}
-                onChangeText={setNewMemberUsername}
-                placeholderTextColor={theme.colors.textMuted}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity 
-                style={[styles.addButton, adding && styles.addButtonDisabled]}
-                onPress={() => handleAddMember()}
-                disabled={adding}
-              >
-                {adding ? (
-                  <ActivityIndicator size="small" color="#000" />
-                ) : (
-                  <Text style={styles.addButtonText}>Añadir</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-            
-            {showSuggestions && suggestions.length > 0 && (
-              <View style={styles.suggestionsContainer}>
-                {suggestions.map(s => (
-                  <TouchableOpacity 
-                    key={s.id} 
-                    style={styles.suggestionItem}
-                    onPress={() => {
-                      setNewMemberUsername(s.username);
-                      setShowSuggestions(false);
-                      handleAddMember(s);
-                    }}
-                  >
-                    <Text style={styles.suggestionName}>{s.name || s.username}</Text>
-                    <Text style={styles.suggestionUsername}>@{s.username}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            <UserSearchAutocomplete
+              onSelectUser={(user) => handleAddMember(user)}
+              onButtonPress={(username) => handleAddMember(username)}
+              isProcessing={adding}
+            />
           </View>
         )}
 
@@ -336,7 +276,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addButtonDisabled: {
-    opacity: 0.7,
+    opacity: 0.5,
   },
   addButtonText: {
     color: '#000',
@@ -345,7 +285,7 @@ const styles = StyleSheet.create({
   suggestionsContainer: {
     marginTop: 8,
     backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.sm,
+    borderRadius: theme.borderRadius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
     overflow: 'hidden',
