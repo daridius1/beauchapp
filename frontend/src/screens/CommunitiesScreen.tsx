@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, DeviceEventEmitter } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, DeviceEventEmitter, Image } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
-import { pb } from '../services/pocketbase';
+import { pb, getFileUrl } from '../services/pocketbase';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
 
@@ -72,15 +72,25 @@ export const CommunitiesScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => navigation.push('UserProfile', { userId: community.id, title: community.name })}
               >
                 <View style={styles.cardHeader}>
+                  <View style={styles.cardAvatar}>
+                    {community.avatar ? (
+                      <Image 
+                        source={{ uri: getFileUrl(community, community.avatar) }} 
+                        style={styles.cardAvatarImage} 
+                      />
+                    ) : (
+                      <Text style={styles.cardAvatarText}>
+                        {community.name ? community.name.charAt(0).toUpperCase() : 'U'}
+                      </Text>
+                    )}
+                  </View>
                   <View style={styles.cardInfo}>
                     <Text style={styles.communityName}>
                       {community.name}
                     </Text>
-                    {!!community.description && (
-                      <Text style={styles.communityDesc} numberOfLines={2}>
-                        {community.description}
-                      </Text>
-                    )}
+                    <Text style={styles.communityDesc} numberOfLines={2}>
+                      {community.description ? community.description : `@${community.username}`}
+                    </Text>
                   </View>
                   <Feather name="chevron-right" size={24} color={theme.colors.textMuted} />
                 </View>
@@ -141,8 +151,26 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  cardAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing.md,
+    overflow: 'hidden',
+  },
+  cardAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  cardAvatarText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
   },
   cardInfo: {
     flex: 1,

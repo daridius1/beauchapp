@@ -99,9 +99,16 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.avatarLarge}>
-            <Text style={styles.avatarLargeText}>
-              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-            </Text>
+            {user.avatar ? (
+              <Image 
+                source={{ uri: getFileUrl(user, user.avatar) }} 
+                style={styles.avatarLargeImage} 
+              />
+            ) : (
+              <Text style={styles.avatarLargeText}>
+                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              </Text>
+            )}
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{user.name}</Text>
@@ -245,10 +252,15 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.cardBg,
   },
   avatarLarge: {
-    width: 80, height: 80, borderRadius: 8,
+    width: 80, height: 80, borderRadius: 40,
     backgroundColor: theme.colors.primary,
     justifyContent: 'center', alignItems: 'center',
     marginBottom: theme.spacing.md,
+    overflow: 'hidden',
+  },
+  avatarLargeImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarLargeText: { color: '#000', fontSize: 36, fontWeight: '800' },
   profileName: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },

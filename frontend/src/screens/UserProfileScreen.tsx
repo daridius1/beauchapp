@@ -99,9 +99,16 @@ export const UserProfileScreen: React.FC<Props> = ({ route, navigation }) => {
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.avatarLarge}>
-            <Text style={styles.avatarLargeText}>
-              {profileUser.name ? profileUser.name.charAt(0).toUpperCase() : 'U'}
-            </Text>
+            {profileUser.avatar ? (
+              <Image 
+                source={{ uri: getFileUrl(profileUser, profileUser.avatar) }} 
+                style={styles.avatarLargeImage} 
+              />
+            ) : (
+              <Text style={styles.avatarLargeText}>
+                {profileUser.name ? profileUser.name.charAt(0).toUpperCase() : 'U'}
+              </Text>
+            )}
           </View>
           <Text style={styles.profileName}>{profileUser.name || 'Usuario'}</Text>
           {profileUser?.username ? <Text style={styles.profileUsername}>@{profileUser.username}</Text> : null}
@@ -231,10 +238,15 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.cardBg,
   },
   avatarLarge: {
-    width: 80, height: 80, borderRadius: 8,
+    width: 80, height: 80, borderRadius: 40,
     backgroundColor: theme.colors.primary,
     justifyContent: 'center', alignItems: 'center',
     marginBottom: theme.spacing.md,
+    overflow: 'hidden',
+  },
+  avatarLargeImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarLargeText: { color: '#000', fontSize: 36, fontWeight: '800' },
   profileName: { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
