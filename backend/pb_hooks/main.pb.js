@@ -1,35 +1,49 @@
 // Beauchapp PocketBase Hooks
 // Lógica de negocio del lado del servidor - Compatible con PocketBase v0.23+
 
-function generateToken() {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    let token = '';
-    for (let i = 0; i < 15; i++) {
-        token += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return token;
-}
-
 // 1. Filtro de exclusividad universitaria
 // Interceptar el registro de usuarios para validar el correo institucional @ing.uchile.cl
 onRecordCreateRequest((e) => {
+    console.log("[DEBUG] onRecordCreateRequest hook triggered for users");
     const type = e.record.getString("type");
+    console.log("[DEBUG] Record type:", type);
+    console.log("[DEBUG] Is superuser auth:", e.hasSuperuserAuth());
+
+    // Helper para generar token localmente (evita problemas de aislamiento en Goja)
+    const generateTokenLocal = () => {
+        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        let token = '';
+        for (let i = 0; i < 15; i++) {
+            token += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return token;
+    };
 
     if (type === "organization") {
         // Only superusers (admins) can create an organization
         if (!e.hasSuperuserAuth()) {
+            console.log("[DEBUG] Blocked: No superuser auth!");
             throw new BadRequestError("No tienes permisos para crear una cuenta de organización.");
         }
         // If not verified, generate token and expiration
-        if (!e.record.getBool("verified")) {
-            const token = generateToken();
-            e.record.set("registrationToken", token);
-            
-            const oneWeekLater = new Date();
-            oneWeekLater.setDate(oneWeekLater.getDate() + 7);
-            e.record.set("tokenExpiresAt", oneWeekLater.toISOString());
+        try {
+            if (!e.record.getBool("verified")) {
+                const token = generateTokenLocal();
+                console.log("[DEBUG] Trying to set registrationToken to:", token);
+                e.record.set("registrationToken", token);
+                
+                const oneWeekLater = new Date();
+                oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+                console.log("[DEBUG] Trying to set tokenExpiresAt to:", oneWeekLater.toISOString());
+                e.record.set("tokenExpiresAt", oneWeekLater.toISOString());
+                console.log("[DEBUG] Generated activation token successfully:", token);
+            }
+        } catch (err) {
+            console.log("[DEBUG] Exception setting token fields:", err.message);
+            throw err;
         }
-        return;
+        console.log("[DEBUG] Organization record checks passed. Proceeding with e.next()...");
+        return e.next();
     }
 
     // For everyone else, enforce student type
@@ -43,6 +57,9 @@ onRecordCreateRequest((e) => {
     if (!email.endsWith("@ing.uchile.cl")) {
         throw new BadRequestError("Acceso denegado. Solo se permiten correos con el dominio @ing.uchile.cl");
     }
+    
+    console.log("[DEBUG] Student record checks passed. Proceeding with e.next()...");
+    return e.next();
 }, "users");
 
 // 1.5. Proteger campos type y subtype (solo admins reales de PocketBase pueden modificarlos)
