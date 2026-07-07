@@ -637,3 +637,400 @@ routerAdd("POST", "/api/register-organization", (e) => {
 
     return e.json(200, { success: true });
 });
+
+// 10. Servir la vista del generador de enlaces (para administradores)
+routerAdd("GET", "/admin/generate-link", (e) => {
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Enlaces - Beauchapp</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --primary-color: #38bdf8;
+            --primary-hover: #0ea5e9;
+            --text-color: #f1f5f9;
+            --text-muted: #94a3b8;
+            --danger-color: #ef4444;
+            --success-color: #22c55e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at top right, rgba(56, 189, 248, 0.1), transparent 40%),
+                              radial-gradient(circle at bottom left, rgba(30, 41, 59, 0.5), transparent 50%);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #fff 0%, var(--primary-color) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            padding-left: 4px;
+        }
+
+        input, select {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: var(--text-color);
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+        }
+
+        .btn {
+            width: 100%;
+            background: var(--primary-color);
+            color: #0f172a;
+            border: none;
+            border-radius: 12px;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            text-align: left;
+            display: none;
+        }
+
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+        }
+
+        .result-container {
+            margin-top: 25px;
+            padding: 20px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            display: none;
+            text-align: left;
+        }
+
+        .result-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--success-color);
+            margin-bottom: 10px;
+        }
+
+        .url-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-family: monospace;
+            font-size: 13px;
+            color: var(--primary-color);
+            word-break: break-all;
+            margin-bottom: 15px;
+            user-select: all;
+        }
+
+        .copy-btn {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="mainContainer">
+        <h1>Generador de Enlaces</h1>
+        <p class="subtitle" id="formSubtitle">Crea un enlace de registro seguro para una nueva organización</p>
+        
+        <div class="alert alert-danger" id="errorAlert"></div>
+
+        <!-- Vista de Login si no está autenticado -->
+        <form id="loginForm" style="display: none;">
+            <p class="subtitle" style="margin-top: -15px; color: var(--danger-color);">Inicia sesión con tu cuenta de Administrador de PocketBase</p>
+            <div class="form-group">
+                <label for="loginEmail">Correo del Administrador</label>
+                <input type="email" id="loginEmail" required placeholder="admin@beauchapp.cl">
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Contraseña</label>
+                <input type="password" id="loginPassword" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn">Iniciar Sesión</button>
+        </form>
+
+        <!-- Vista del Generador -->
+        <form id="generatorForm" style="display: none;">
+            <div class="form-group">
+                <label for="subtype">Subtipo de Organización</label>
+                <select id="subtype" required>
+                    <option value="center">Centro de Estudiantes</option>
+                    <option value="team">Equipo Oficial</option>
+                    <option value="community">Comunidad libre</option>
+                </select>
+            </div>
+            <button type="submit" class="btn">Generar Enlace</button>
+            <button type="button" class="copy-btn" id="logoutBtn" style="margin-top: 15px;">Cerrar Sesión</button>
+        </form>
+
+        <div class="result-container" id="resultBox">
+            <div class="result-title">✓ Enlace Generado Exitosamente</div>
+            <div class="url-box" id="urlBox"></div>
+            <button class="copy-btn" id="copyBtn">Copiar Enlace</button>
+        </div>
+    </div>
+
+    <script>
+        let token = "";
+
+        // Intentar recuperar sesión existente
+        try {
+            const authData = JSON.parse(localStorage.getItem("pocketbase_auth") || localStorage.getItem("pb_auth"));
+            if (authData && authData.token) {
+                token = authData.token;
+            }
+        } catch (e) {}
+
+        const loginForm = document.getElementById("loginForm");
+        const generatorForm = document.getElementById("generatorForm");
+        const errorAlert = document.getElementById("errorAlert");
+        const resultBox = document.getElementById("resultBox");
+        const urlBox = document.getElementById("urlBox");
+
+        function showError(msg) {
+            errorAlert.textContent = msg;
+            errorAlert.style.display = "block";
+        }
+
+        function hideError() {
+            errorAlert.style.display = "none";
+        }
+
+        function showGenerator() {
+            loginForm.style.display = "none";
+            generatorForm.style.display = "block";
+            document.getElementById("formSubtitle").style.display = "block";
+        }
+
+        function showLogin() {
+            loginForm.style.display = "block";
+            generatorForm.style.display = "none";
+            document.getElementById("formSubtitle").style.display = "none";
+        }
+
+        if (token) {
+            showGenerator();
+        } else {
+            showLogin();
+        }
+
+        // Manejar Login
+        loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            hideError();
+            const email = document.getElementById("loginEmail").value;
+            const password = document.getElementById("loginPassword").value;
+
+            try {
+                // Autenticar contra la colección de superusuarios
+                const response = await fetch("/api/collections/users/auth-with-password", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ identity: email, password: password })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || "Credenciales incorrectas.");
+
+                token = data.token;
+                localStorage.setItem("pb_auth", JSON.stringify({ token, model: data.record }));
+                showGenerator();
+            } catch (err) {
+                showError(err.message);
+            }
+        });
+
+        // Cerrar sesión
+        document.getElementById("logoutBtn").addEventListener("click", () => {
+            token = "";
+            localStorage.removeItem("pb_auth");
+            showLogin();
+            resultBox.style.display = "none";
+        });
+
+        // Generar Enlace
+        generatorForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            hideError();
+            resultBox.style.display = "none";
+            const subtype = document.getElementById("subtype").value;
+
+            try {
+                const response = await fetch("/api/admin/generate-link", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + token
+                    },
+                    body: JSON.stringify({ subtype })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        token = "";
+                        localStorage.removeItem("pb_auth");
+                        showLogin();
+                        throw new Error("Sesión expirada. Por favor, inicia sesión de nuevo.");
+                    }
+                    throw new Error(data.error || "Error al generar enlace.");
+                }
+
+                urlBox.textContent = data.link;
+                resultBox.style.display = "block";
+            } catch (err) {
+                showError(err.message);
+            }
+        });
+
+        // Copiar Enlace
+        document.getElementById("copyBtn").addEventListener("click", () => {
+            navigator.clipboard.writeText(urlBox.textContent);
+            const btn = document.getElementById("copyBtn");
+            btn.textContent = "✓ ¡Copiado!";
+            setTimeout(() => {
+                btn.textContent = "Copiar Enlace";
+            }, 2000);
+        });
+    </script>
+</body>
+</html>
+    `;
+    return e.html(200, htmlContent);
+});
+
+// Endpoint POST para generar el link de una organización
+routerAdd("POST", "/api/admin/generate-link", (e) => {
+    const body = e.requestInfo().body;
+    const subtype = body.subtype || "";
+
+    if (subtype !== "center" && subtype !== "team" && subtype !== "community") {
+        return e.json(400, { error: "El subtipo no es válido." });
+    }
+
+    // Crear el usuario inactivo con token
+    const usersCol = $app.findCollectionByNameOrId("users");
+    const userRec = new Record(usersCol);
+
+    try {
+        userRec.set("type", "organization");
+        userRec.set("subtype", subtype);
+        userRec.set("verified", false);
+        
+        // Poner contraseña temporal súper segura aleatoria de 30 chars
+        const tempPass = $security.randomString(30);
+        userRec.setPassword(tempPass);
+
+        // Guardar record (esto llamará a nuestro hook onRecordCreateRequest de users,
+        // el cual autogenerará el token y el tokenExpiresAt automáticamente!)
+        $app.save(userRec);
+    } catch (err) {
+        return e.json(400, { error: "No se pudo crear la organización inactiva: " + err.message });
+    }
+
+    // Obtener la URL base dinámicamente de los headers
+    const host = e.requestInfo().headers["host"] || "localhost:8090";
+    const protocol = e.requestInfo().headers["x-forwarded-proto"] || "http";
+    const activationUrl = protocol + "://" + host + "/register-org?token=" + userRec.getString("registrationToken");
+
+    return e.json(200, { success: true, link: activationUrl });
+}, $apis.requireSuperuserAuth());
