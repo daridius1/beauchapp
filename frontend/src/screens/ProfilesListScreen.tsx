@@ -31,7 +31,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
     filter = 'type = "organization" && subtype = "team"';
     emptyText = 'Aún no hay equipos creados.';
   } else if (routeName === 'Students') {
-    filter = 'type = "student"';
+    filter = 'type != "organization"';
     emptyText = 'Aún no hay personas registradas.';
   }
 

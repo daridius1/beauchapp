@@ -172,7 +172,7 @@ export const DirectoryScreen: React.FC<Props> = ({ navigation }) => {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.resultName}>{item.name}</Text>
                     <Text style={{ color: getSubtypeColor(item.subtype || item.type), fontSize: 12, fontWeight: '600' }}>
-                      {item.type === 'student' ? 'Persona' : getSubtypeLabel(item.subtype)}
+                      {item.type !== 'organization' ? 'Persona' : getSubtypeLabel(item.subtype)}
                     </Text>
                   </View>
                   <Feather name="chevron-right" size={18} color={theme.colors.textMuted} />
