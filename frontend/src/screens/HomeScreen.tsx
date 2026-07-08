@@ -295,7 +295,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 500;
     if (isCloseToBottom && hasMore && !loadingMore && !loading) {
       setLoadingMore(true);
-      fetchPosts(page + 1, true);
+      fetchPosts(page + 1, true, true);
     }
   };
 
