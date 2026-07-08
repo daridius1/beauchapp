@@ -63,7 +63,7 @@ export const DirectoryScreen: React.FC<Props> = ({ navigation }) => {
     const delayDebounce = setTimeout(async () => {
       try {
         setSearching(true);
-        const filterStr = `type = "organization" && (name ~ "${searchQuery}" || username ~ "${searchQuery}")`;
+        const filterStr = `name ~ "${searchQuery}" || username ~ "${searchQuery}"`;
         const res = await pb.collection('users').getList(1, 20, {
           filter: filterStr,
           sort: 'name',
@@ -88,11 +88,12 @@ export const DirectoryScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const getSubtypeColor = (subtype: string) => {
-    switch (subtype) {
+  const getSubtypeColor = (val: string) => {
+    switch (val) {
       case 'center': return '#8B5CF6'; // Violeta
       case 'team': return '#F59E0B'; // Ámbar/Naranja
       case 'community': return '#3B82F6'; // Azul
+      case 'student': return '#10B981'; // Verde/Teal
       default: return theme.colors.primary;
     }
   };
@@ -118,6 +119,13 @@ export const DirectoryScreen: React.FC<Props> = ({ navigation }) => {
       description: 'Grupos organizados oficiales, deportivos, robótica, investigación y tecnología.',
       icon: 'cpu' as const,
       color: '#F59E0B',
+    },
+    {
+      id: 'Students',
+      title: 'Personas',
+      description: 'Explora y conecta con perfiles de tus compañeros y otros estudiantes.',
+      icon: 'user' as const,
+      color: '#10B981',
     },
   ];
 
@@ -163,8 +171,8 @@ export const DirectoryScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.resultName}>{item.name}</Text>
-                    <Text style={{ color: getSubtypeColor(item.subtype), fontSize: 12, fontWeight: '600' }}>
-                      {getSubtypeLabel(item.subtype)}
+                    <Text style={{ color: getSubtypeColor(item.subtype || item.type), fontSize: 12, fontWeight: '600' }}>
+                      {item.type === 'student' ? 'Persona' : getSubtypeLabel(item.subtype)}
                     </Text>
                   </View>
                   <Feather name="chevron-right" size={18} color={theme.colors.textMuted} />

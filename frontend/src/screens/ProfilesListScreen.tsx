@@ -8,7 +8,7 @@ import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Communities' | 'Centers' | 'Teams'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Communities' | 'Centers' | 'Teams' | 'Students'>;
 
 export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -30,6 +30,9 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   } else if (routeName === 'Teams') {
     filter = 'type = "organization" && subtype = "team"';
     emptyText = 'Aún no hay equipos creados.';
+  } else if (routeName === 'Students') {
+    filter = 'type = "student"';
+    emptyText = 'Aún no hay personas registradas.';
   }
 
   const fetchProfiles = async (hideLoading = false) => {

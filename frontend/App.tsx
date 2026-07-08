@@ -62,12 +62,13 @@ function AppContent() {
       case 'Teams': return 'Equipos';
       case 'Settings': return 'Ajustes';
       case 'Directory': return 'Perfiles';
+      case 'Students': return 'Personas';
       case 'NotFound': return 'No Encontrado';
       default: return 'Beauchapp';
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Communities', 'Centers', 'Teams', 'Settings', 'Directory'];
+  const rootScreens = ['Home', 'Profile', 'Communities', 'Centers', 'Teams', 'Settings', 'Directory', 'Students'];
   const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
 
   if (!isInitialized) {
@@ -95,6 +96,7 @@ function AppContent() {
               Teams: 'teams',
               Directory: 'directory',
               UserProfile: 'users/:userId',
+              Students: 'students',
               Verification: 'verification',
               VerifyEmail: 'verify',
               ResetPassword: 'reset-password',
@@ -132,6 +134,7 @@ function AppContent() {
                   <Stack.Screen name="Home" component={HomeScreen} />
                   <Stack.Screen name="Profile" component={ProfileScreen} />
                   <Stack.Screen name="Directory" component={DirectoryScreen} />
+                  <Stack.Screen name="Students" component={ProfilesListScreen} />
                   <Stack.Screen name="Communities" component={ProfilesListScreen} />
                   <Stack.Screen name="Centers" component={ProfilesListScreen} />
                   <Stack.Screen name="Teams" component={ProfilesListScreen} />
