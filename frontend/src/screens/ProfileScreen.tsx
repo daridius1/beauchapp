@@ -242,15 +242,23 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.statCount}>{posts.length}</Text>
               <Text style={styles.statLabel}>Publicaciones</Text>
             </View>
-            <View style={styles.statBox}>
+            <TouchableOpacity 
+              style={styles.statBox}
+              activeOpacity={0.7}
+              onPress={() => navigation.push('FollowList', { userId: targetUserId, type: 'followers', username: profileUser.username })}
+            >
               <Text style={styles.statCount}>{followersCount}</Text>
               <Text style={styles.statLabel}>Seguidores</Text>
-            </View>
+            </TouchableOpacity>
             {profileUser.type === 'student' && (
-              <View style={styles.statBox}>
+              <TouchableOpacity 
+                style={styles.statBox}
+                activeOpacity={0.7}
+                onPress={() => navigation.push('FollowList', { userId: targetUserId, type: 'following', username: profileUser.username })}
+              >
                 <Text style={styles.statCount}>{followingCount}</Text>
                 <Text style={styles.statLabel}>Siguiendo</Text>
-              </View>
+              </TouchableOpacity>
             )}
           </View>
         </View>

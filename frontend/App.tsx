@@ -18,6 +18,7 @@ import { NotFoundScreen } from './src/screens/NotFoundScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { DirectoryScreen } from './src/screens/DirectoryScreen';
 import { RootStackParamList } from './src/types/navigation';
+import { FollowListScreen } from './src/screens/FollowListScreen';
 import Toast from 'react-native-toast-message';
 import * as Linking from 'expo-linking';
 
@@ -63,6 +64,10 @@ function AppContent() {
       case 'Settings': return 'Ajustes';
       case 'Directory': return 'Perfiles';
       case 'Students': return 'Personas';
+      case 'FollowList': {
+        const type = params?.type;
+        return type === 'followers' ? 'Seguidores' : 'Siguiendo';
+      }
       case 'NotFound': return 'No Encontrado';
       default: return 'Beauchapp';
     }
@@ -97,6 +102,7 @@ function AppContent() {
               Directory: 'directory',
               UserProfile: 'users/:userId',
               Students: 'students',
+              FollowList: 'users/:userId/:type',
               Verification: 'verification',
               VerifyEmail: 'verify',
               ResetPassword: 'reset-password',
@@ -140,6 +146,7 @@ function AppContent() {
                   <Stack.Screen name="Teams" component={ProfilesListScreen} />
                   <Stack.Screen name="PostDetail" component={PostDetailScreen} />
                   <Stack.Screen name="UserProfile" component={ProfileScreen} />
+                  <Stack.Screen name="FollowList" component={FollowListScreen} />
                   <Stack.Screen name="Settings" component={SettingsScreen} />
                   <Stack.Screen name="NotFound" component={NotFoundScreen} />
                 </Stack.Navigator>

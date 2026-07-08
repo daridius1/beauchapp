@@ -14,4 +14,5 @@ export type RootStackParamList = {
   Settings: undefined;
   Directory: undefined;
   Students: undefined;
+  FollowList: { userId: string; type: 'followers' | 'following'; username?: string };
 };
