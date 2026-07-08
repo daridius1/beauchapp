@@ -28,6 +28,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [activeSearch, setActiveSearch] = useState('');
   const [filterTags, setFilterTags] = useState<string[]>([]);
   const [isAddingTag, setIsAddingTag] = useState(false);
+  const [activeMenuPostId, setActiveMenuPostId] = useState<string | null>(null);
+  const [deleteConfirmPostId, setDeleteConfirmPostId] = useState<string | null>(null);
   const [tempTag, setTempTag] = useState('');
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
@@ -249,31 +251,14 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
-  const handleDeletePost = async (postId: string) => {
-    const performDelete = async () => {
-      try {
-        setPosts(currentPosts => currentPosts.filter(p => p.id !== postId));
-        await pb.collection('posts').update(postId, { deleted: true });
-        DeviceEventEmitter.emit('onGlobalRefresh');
-      } catch (err) {
-        console.error('Error soft-deleting post', err);
-        fetchPosts(1, false, true);
-      }
-    };
-
-    if (Platform.OS === 'web') {
-      if (window.confirm('¿Estás seguro de que quieres eliminar esta publicación?')) {
-        performDelete();
-      }
-    } else {
-      Alert.alert(
-        'Eliminar publicación',
-        '¿Estás seguro de que quieres eliminar esta publicación?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Eliminar', onPress: performDelete, style: 'destructive' }
-        ]
-      );
+  const performDelete = async (postId: string) => {
+    try {
+      setPosts(currentPosts => currentPosts.filter(p => p.id !== postId));
+      await pb.collection('posts').update(postId, { deleted: true });
+      DeviceEventEmitter.emit('onGlobalRefresh');
+    } catch (err) {
+      console.error('Error soft-deleting post', err);
+      fetchPosts(1, false, true);
     }
   };
 
@@ -478,28 +463,56 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                 activeOpacity={0.7}
                 onPress={() => navigation.push('PostDetail', { postId: post.id })}
               >
-                <View style={styles.postHeader}>
-                  <TouchableOpacity 
-                    onPress={() => navigation.push('UserProfile', { userId: post.author })}
-                    activeOpacity={0.7}
-                  >
-                    <View style={{ marginRight: theme.spacing.sm }}>
-                      <Avatar user={author} size={40} />
+                <View style={[styles.postHeader, { justifyContent: 'space-between', alignItems: 'center', position: 'relative' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                    <TouchableOpacity 
+                      onPress={() => navigation.push('UserProfile', { userId: post.author })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ marginRight: theme.spacing.sm }}>
+                        <Avatar user={author} size={40} />
+                      </View>
+                    </TouchableOpacity>
+                    <View style={styles.postMeta}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity 
+                          onPress={() => navigation.push('UserProfile', { userId: post.author })}
+                          activeOpacity={0.7}
+                          style={{ flexDirection: 'row', alignItems: 'center' }}
+                        >
+                          <Text style={styles.postAuthor}>{author?.name || 'Usuario'}</Text>
+                          {author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={styles.postDate}>{formatDate(post.created)}</Text>
                     </View>
-                  </TouchableOpacity>
-                  <View style={styles.postMeta}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <TouchableOpacity 
-                        onPress={() => navigation.push('UserProfile', { userId: post.author })}
-                        activeOpacity={0.7}
-                        style={{ flexDirection: 'row', alignItems: 'center' }}
-                      >
-                        <Text style={styles.postAuthor}>{author?.name || 'Usuario'}</Text>
-                        {author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={styles.postDate}>{formatDate(post.created)}</Text>
                   </View>
+                  
+                  {user && post.author === user.id && (
+                    <View style={{ position: 'relative', zIndex: 10 }}>
+                      <TouchableOpacity 
+                        style={{ padding: 8 }} 
+                        onPress={() => setActiveMenuPostId(activeMenuPostId === post.id ? null : post.id)}
+                      >
+                        <Feather name="more-horizontal" size={20} color={theme.colors.textMuted} />
+                      </TouchableOpacity>
+                      
+                      {activeMenuPostId === post.id && (
+                        <View style={styles.dropdownMenu}>
+                          <TouchableOpacity 
+                            style={styles.dropdownItem} 
+                            onPress={() => {
+                              setActiveMenuPostId(null);
+                              setDeleteConfirmPostId(post.id);
+                            }}
+                          >
+                            <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
+                            <Text style={styles.dropdownItemText}>Eliminar</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
                 {post.replyTo && post.expand?.replyTo?.expand?.author ? (
                   <Text style={styles.replyContextText}>
@@ -552,15 +565,6 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                     <Text style={styles.actionIcon}>💬</Text>
                     <Text style={styles.actionCount}>{repliesCount}</Text>
                   </View>
-                  {user && post.author === user.id && (
-                    <TouchableOpacity 
-                      style={[styles.actionBtn, { marginLeft: 'auto' }]} 
-                      onPress={() => handleDeletePost(post.id)}
-                    >
-                      <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 4 }} />
-                      <Text style={[styles.actionCount, { color: theme.colors.error }]}>Eliminar</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
               </TouchableOpacity>
             );
@@ -574,6 +578,40 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         imageUrl={viewerImageUrl}
         onClose={() => setViewerVisible(false)}
       />
+
+      {/* Modal de confirmación de eliminación customizado */}
+      {deleteConfirmPostId !== null && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Feather name="alert-triangle" size={24} color={theme.colors.error} style={{ marginRight: 10 }} />
+              <Text style={styles.modalTitle}>¿Eliminar publicación?</Text>
+            </View>
+            <Text style={styles.modalBody}>
+              Esta acción es permanente para los demás usuarios. El contenido y archivos adjuntos se ocultarán, pero el hilo y sus comentarios se mantendrán para preservar la conversación.
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnCancel]} 
+                onPress={() => setDeleteConfirmPostId(null)}
+              >
+                <Text style={styles.modalBtnCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnDelete]} 
+                onPress={() => {
+                  if (deleteConfirmPostId) {
+                    performDelete(deleteConfirmPostId);
+                    setDeleteConfirmPostId(null);
+                  }
+                }}
+              >
+                <Text style={styles.modalBtnDeleteText}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -919,5 +957,98 @@ const styles = StyleSheet.create({
   },
   inlineActionBtnTextSearch: {
     fontSize: 16,
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    right: 8,
+    top: 40,
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 8,
+    padding: 4,
+    zIndex: 1000,
+    minWidth: 110,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  dropdownItemText: {
+    color: '#ff4444',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10000,
+  },
+  modalCard: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  modalTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalBody: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: theme.spacing.lg,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: theme.spacing.sm,
+  },
+  modalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 95,
+  },
+  modalBtnCancel: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  modalBtnCancelText: {
+    color: theme.colors.textMuted,
+    fontWeight: '600',
+  },
+  modalBtnDelete: {
+    backgroundColor: theme.colors.error,
+  },
+  modalBtnDeleteText: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
 });
