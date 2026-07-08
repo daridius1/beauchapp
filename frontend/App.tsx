@@ -16,6 +16,7 @@ import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
 import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import { NotFoundScreen } from './src/screens/NotFoundScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { DirectoryScreen } from './src/screens/DirectoryScreen';
 import { RootStackParamList } from './src/types/navigation';
 import Toast from 'react-native-toast-message';
 import * as Linking from 'expo-linking';
@@ -60,12 +61,13 @@ function AppContent() {
       case 'Centers': return 'Centros';
       case 'Teams': return 'Equipos';
       case 'Settings': return 'Ajustes';
+      case 'Directory': return 'Perfiles';
       case 'NotFound': return 'No Encontrado';
       default: return 'Beauchapp';
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Communities', 'Centers', 'Teams', 'Settings'];
+  const rootScreens = ['Home', 'Profile', 'Communities', 'Centers', 'Teams', 'Settings', 'Directory'];
   const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
 
   if (!isInitialized) {
@@ -91,6 +93,7 @@ function AppContent() {
               Communities: 'communities',
               Centers: 'centers',
               Teams: 'teams',
+              Directory: 'directory',
               UserProfile: 'users/:userId',
               Verification: 'verification',
               VerifyEmail: 'verify',
@@ -128,6 +131,7 @@ function AppContent() {
                 <Stack.Navigator screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="Home" component={HomeScreen} />
                   <Stack.Screen name="Profile" component={ProfileScreen} />
+                  <Stack.Screen name="Directory" component={DirectoryScreen} />
                   <Stack.Screen name="Communities" component={ProfilesListScreen} />
                   <Stack.Screen name="Centers" component={ProfilesListScreen} />
                   <Stack.Screen name="Teams" component={ProfilesListScreen} />

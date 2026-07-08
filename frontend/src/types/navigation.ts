@@ -12,4 +12,5 @@ export type RootStackParamList = {
   VerifyEmail: undefined;
   ResetPassword: undefined;
   Settings: undefined;
+  Directory: undefined;
 };
