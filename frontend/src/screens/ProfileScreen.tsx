@@ -202,28 +202,26 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                   </View>
 
                   {currentUser && post.author === currentUser.id && (
-                    <View style={{ position: 'relative', zIndex: 10 }}>
+                    <TouchableOpacity 
+                      style={{ padding: 8 }} 
+                      onPress={() => setActiveMenuPostId(activeMenuPostId === post.id ? null : post.id)}
+                    >
+                      <Feather name="more-horizontal" size={20} color={theme.colors.textMuted} />
+                    </TouchableOpacity>
+                  )}
+
+                  {activeMenuPostId === post.id && (
+                    <View style={styles.dropdownMenu}>
                       <TouchableOpacity 
-                        style={{ padding: 8 }} 
-                        onPress={() => setActiveMenuPostId(activeMenuPostId === post.id ? null : post.id)}
+                        style={styles.dropdownItem} 
+                        onPress={() => {
+                          setActiveMenuPostId(null);
+                          setDeleteConfirmPostId(post.id);
+                        }}
                       >
-                        <Feather name="more-horizontal" size={20} color={theme.colors.textMuted} />
+                        <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
+                        <Text style={styles.dropdownItemText}>Eliminar</Text>
                       </TouchableOpacity>
-                      
-                      {activeMenuPostId === post.id && (
-                        <View style={styles.dropdownMenu}>
-                          <TouchableOpacity 
-                            style={styles.dropdownItem} 
-                            onPress={() => {
-                              setActiveMenuPostId(null);
-                              setDeleteConfirmPostId(post.id);
-                            }}
-                          >
-                            <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
-                            <Text style={styles.dropdownItemText}>Eliminar</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
                     </View>
                   )}
                 </View>
