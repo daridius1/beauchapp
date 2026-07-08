@@ -98,6 +98,13 @@ function AppContent() {
             }
           }
         }}
+        onReady={() => {
+          const currentRoute = navigationRef.getCurrentRoute();
+          if (currentRoute) {
+            setCurrentRouteName(currentRoute.name);
+            setCurrentRouteParams(currentRoute.params || {});
+          }
+        }}
         onStateChange={async () => {
           const currentRoute = navigationRef.getCurrentRoute();
           if (currentRoute) {

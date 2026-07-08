@@ -47,12 +47,12 @@ export const SettingsScreen: React.FC = () => {
 
     setIsSaving(true);
     try {
-      // Comprimir la imagen usando la utilidad existente (reduce a menos de 250KB y convierte a WebP)
-      const compressedBlob = await compressImage(file);
+      // Comprimir la imagen usando la utilidad existente (reduce a menos de 250KB, convierte a JPEG, y recorta a cuadrado)
+      const compressedBlob = await compressImage(file, true, 'image/jpeg');
       const compressedFile = new File(
         [compressedBlob], 
-        file.name.replace(/\.[^/.]+$/, "") + ".webp", 
-        { type: 'image/webp' }
+        file.name.replace(/\.[^/.]+$/, "") + ".jpg", 
+        { type: 'image/jpeg' }
       );
       
       // Crear preview local
@@ -133,11 +133,7 @@ export const SettingsScreen: React.FC = () => {
       {/* Tarjeta de información de la cuenta */}
       <View style={styles.accountCard}>
         <View style={styles.avatarWrapper}>
-          {avatarPreview ? (
-            <Avatar user={{ ...user, avatar: avatarPreview }} size={80} />
-          ) : (
-            <Avatar user={user} size={80} />
-          )}
+          <Avatar user={user} size={80} />
         </View>
         <View style={styles.accountInfo}>
           <Text style={styles.accountName} numberOfLines={1}>{user.name}</Text>

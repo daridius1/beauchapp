@@ -43,14 +43,19 @@ pb.autoCancellation(false);
 export const getFileUrl = (record: any, filename: string, size?: string) => {
   if (!filename) return '';
   
+  // Si ya es una URL completa o un blob local, lo retornamos tal cual sin procesar
+  if (filename.startsWith('blob:') || filename.startsWith('data:') || filename.startsWith('http:') || filename.startsWith('https:')) {
+    return filename;
+  }
+  
   const r2Url = process.env.EXPO_PUBLIC_R2_URL;
-  // Solo descargamos directo de R2 si es el archivo original (sin tamaño de miniatura).
-  // Los thumbnails se generan "al vuelo" (lazy) y se sirven a través del proxy de PocketBase.
+  // Si no se pide miniatura (size) y hay R2 URL, traer directo del CDN de R2
   if (r2Url && !size) {
     const base = r2Url.replace(/\/$/, '');
     return `${base}/${record.collectionId}/${record.id}/${filename}`;
   }
 
+  // Si se pide miniatura (ej: '100x100'), usar el proxy de PocketBase (para generación lazy en servidor)
   const options = size ? { thumb: size } : undefined;
   return pb.files.getURL(record, filename, options);
 };
