@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, RefreshControl, Platform, DeviceEventEmitter } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, RefreshControl, Platform, DeviceEventEmitter, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -60,7 +60,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const fetchPosts = async (pageNum = 1, isLoadMore = false, hideLoading = false) => {
     try {
-      let filterConditions = [];
+      let filterConditions = ["deleted = false"];
       if (activeSearch) {
         const safeSearch = activeSearch.replace(/"/g, '\\"');
         filterConditions.push(`content ~ "${safeSearch}"`);
@@ -245,6 +245,34 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         currentPosts.map(p => 
           p.id === post.id ? { ...p, likes: post.likes || [] } : p
         )
+      );
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    const performDelete = async () => {
+      try {
+        setPosts(currentPosts => currentPosts.filter(p => p.id !== postId));
+        await pb.collection('posts').update(postId, { deleted: true });
+        DeviceEventEmitter.emit('onGlobalRefresh');
+      } catch (err) {
+        console.error('Error soft-deleting post', err);
+        fetchPosts(1, false, true);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('¿Estás seguro de que quieres eliminar esta publicación?')) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Eliminar publicación',
+        '¿Estás seguro de que quieres eliminar esta publicación?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Eliminar', onPress: performDelete, style: 'destructive' }
+        ]
       );
     }
   };
@@ -524,6 +552,15 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                     <Text style={styles.actionIcon}>💬</Text>
                     <Text style={styles.actionCount}>{repliesCount}</Text>
                   </View>
+                  {user && post.author === user.id && (
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { marginLeft: 'auto' }]} 
+                      onPress={() => handleDeletePost(post.id)}
+                    >
+                      <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 4 }} />
+                      <Text style={[styles.actionCount, { color: theme.colors.error }]}>Eliminar</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </TouchableOpacity>
             );

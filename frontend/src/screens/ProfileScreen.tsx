@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, DeviceEventEmitter } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, DeviceEventEmitter, Alert, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
@@ -8,6 +8,7 @@ import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { ImageViewer } from '../components/ImageViewer';
 import { Avatar } from '../components/Avatar';
+import { Feather } from '@expo/vector-icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile' | 'UserProfile'>;
 
@@ -37,7 +38,7 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
 
       // 2. Obtener publicaciones del usuario
       const postsRes = await pb.collection('posts').getList(1, 50, {
-        filter: `author = "${targetUserId}"`,
+        filter: `author = "${targetUserId}" && deleted = false`,
         sort: '-created',
         expand: 'author,replyTo.author'
       });
@@ -84,6 +85,34 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
     } catch (err) {
       console.error('Error liking post', err);
       setPosts(posts.map(p => p.id === post.id ? { ...p, likes: post.likes || [] } : p));
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    const performDelete = async () => {
+      try {
+        setPosts(currentPosts => currentPosts.filter(p => p.id !== postId));
+        await pb.collection('posts').update(postId, { deleted: true });
+        DeviceEventEmitter.emit('onGlobalRefresh');
+      } catch (err) {
+        console.error('Error soft-deleting post', err);
+        fetchProfileAndPosts(true);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('¿Estás seguro de que quieres eliminar esta publicación?')) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Eliminar publicación',
+        '¿Estás seguro de que quieres eliminar esta publicación?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Eliminar', onPress: performDelete, style: 'destructive' }
+        ]
+      );
     }
   };
 
@@ -222,6 +251,15 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                     <Text style={styles.actionIcon}>💬</Text>
                     <Text style={styles.actionCount}>{repliesCount}</Text>
                   </View>
+                  {currentUser && post.author === currentUser.id && (
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { marginLeft: 'auto' }]} 
+                      onPress={() => handleDeletePost(post.id)}
+                    >
+                      <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 4 }} />
+                      <Text style={[styles.actionCount, { color: theme.colors.error }]}>Eliminar</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </TouchableOpacity>
             );

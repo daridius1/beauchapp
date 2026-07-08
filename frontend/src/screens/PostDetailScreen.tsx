@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, DeviceEventEmitter } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, DeviceEventEmitter, Alert, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,7 @@ import { theme } from '../theme/theme';
 import { ImagePicker } from '../components/ImagePicker';
 import { ImageViewer } from '../components/ImageViewer';
 import { Avatar } from '../components/Avatar';
+import { Feather } from '@expo/vector-icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PostDetail'>;
 
@@ -165,6 +166,38 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
+  const handleDeletePost = async (postId: string) => {
+    const performDelete = async () => {
+      try {
+        const markDeleted = (p: any) => p.id === postId ? { ...p, deleted: true, content: "[post/comentario eliminado]", photo: "" } : p;
+        if (mainPost?.id === postId) setMainPost(markDeleted(mainPost));
+        setThreadPath(path => path.map(markDeleted));
+        setChildren(kids => kids.map(markDeleted));
+
+        await pb.collection('posts').update(postId, { deleted: true });
+        DeviceEventEmitter.emit('onGlobalRefresh');
+      } catch (err) {
+        console.error('Error soft-deleting post', err);
+        fetchData(true);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('¿Estás seguro de que quieres eliminar esta publicación?')) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Eliminar publicación',
+        '¿Estás seguro de que quieres eliminar esta publicación?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Eliminar', onPress: performDelete, style: 'destructive' }
+        ]
+      );
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr.replace(' ', 'T'));
     return d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL', { hour: '2-digit', minute:'2-digit' });
@@ -191,7 +224,8 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // Render a single post card
   const renderPost = (post: any, isFocused: boolean = false, isParent: boolean = false) => {
-    const author = post.expand?.author;
+    const isDeleted = post.deleted === true;
+    const author = isDeleted ? null : post.expand?.author;
     const isLiked = user && (post.likes || []).includes(user.id);
     const repliesCount = post.commentCount || 0;
 
@@ -205,7 +239,8 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       <CardComponent {...cardProps} style={[styles.postCard, isFocused && styles.mainPostCard, isParent && styles.parentCard]}>
         <View style={styles.postHeader}>
           <TouchableOpacity 
-            onPress={() => navigation.push('UserProfile', { userId: post.author })}
+            onPress={isDeleted ? undefined : () => navigation.push('UserProfile', { userId: post.author })}
+            disabled={isDeleted}
             activeOpacity={0.7}
           >
             <View style={{ marginRight: theme.spacing.sm }}>
@@ -215,20 +250,27 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.postMeta}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity 
-                onPress={() => navigation.push('UserProfile', { userId: post.author })}
+                onPress={isDeleted ? undefined : () => navigation.push('UserProfile', { userId: post.author })}
+                disabled={isDeleted}
                 activeOpacity={0.7}
                 style={{ flexDirection: 'row', alignItems: 'center' }}
               >
-                <Text style={styles.postAuthor}>{author?.name || 'Usuario'}</Text>
-                {author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
+                <Text style={styles.postAuthor}>{isDeleted ? '[eliminado]' : (author?.name || 'Usuario')}</Text>
+                {!isDeleted && author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
               </TouchableOpacity>
             </View>
             <Text style={styles.postDate}>{formatDate(post.created)}</Text>
           </View>
         </View>
         
-        <Text style={[styles.postContent, isFocused && styles.mainPostContent]}>{post.content}</Text>
-        {!!post.photo && (
+        <Text style={[
+          styles.postContent, 
+          isFocused && styles.mainPostContent,
+          isDeleted && { color: theme.colors.textMuted, fontStyle: 'italic' }
+        ]}>
+          {isDeleted ? '[Mensaje eliminado]' : post.content}
+        </Text>
+        {!isDeleted && !!post.photo && (
           <TouchableOpacity 
             activeOpacity={0.8} 
             onPress={() => {
@@ -254,16 +296,27 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         )}
 
         <View style={styles.postActions}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => toggleLike(post)}>
-            <Text style={styles.actionIcon}>{isLiked ? '❤️' : '🤍'}</Text>
-            <Text style={[styles.actionCount, isLiked && styles.actionIconActive]}>
-              {(post.likes || []).length}
-            </Text>
-          </TouchableOpacity>
+          {!isDeleted && (
+            <TouchableOpacity style={styles.actionBtn} onPress={() => toggleLike(post)}>
+              <Text style={styles.actionIcon}>{isLiked ? '❤️' : '🤍'}</Text>
+              <Text style={[styles.actionCount, isLiked && styles.actionIconActive]}>
+                {(post.likes || []).length}
+              </Text>
+            </TouchableOpacity>
+          )}
           <View style={styles.actionBtn}>
             <Text style={styles.actionIcon}>💬</Text>
             <Text style={styles.actionCount}>{repliesCount}</Text>
           </View>
+          {user && post.author === user.id && !isDeleted && (
+            <TouchableOpacity 
+              style={[styles.actionBtn, { marginLeft: 'auto' }]} 
+              onPress={() => handleDeletePost(post.id)}
+            >
+              <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 4 }} />
+              <Text style={[styles.actionCount, { color: theme.colors.error }]}>Eliminar</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </CardComponent>
     );

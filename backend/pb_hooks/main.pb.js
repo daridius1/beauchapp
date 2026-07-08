@@ -205,6 +205,19 @@ onRecordAfterDeleteSuccess((e) => {
 
 }, "posts");
 
+// Redactar posts eliminados para no administradores
+onRecordEnrich((e) => {
+    if (e.record.getBool("deleted")) {
+        const isAdmin = e.requestInfo && e.requestInfo.admin;
+        if (!isAdmin) {
+            e.record.set("content", "[post/comentario eliminado]");
+            e.record.set("photo", "");
+            e.record.hide("author");
+        }
+    }
+    return e.next();
+}, "posts");
+
 // 8. Validación de tipos para organization_members
 onRecordCreateRequest((e) => {
     const userId = e.record.getString("user");
