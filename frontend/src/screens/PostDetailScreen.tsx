@@ -123,7 +123,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   );
 
   const handleReply = async () => {
-    if (!content.trim() || !user || !mainPost) return;
+    if ((!content.trim() && !photo) || !user || !mainPost) return;
     setPosting(true);
     try {
       const postData: any = {

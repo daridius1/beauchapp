@@ -192,7 +192,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const handlePost = async () => {
-    if (!content.trim() || !user) return;
+    if ((!content.trim() && !photo) || !user) return;
     setPosting(true);
     try {
       let finalTags = [...tags];
