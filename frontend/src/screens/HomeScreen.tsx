@@ -37,6 +37,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [feedTab, setFeedTab] = useState<'all' | 'following'>('all');
 
   useEffect(() => {
     if (photo) {
@@ -62,7 +63,29 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const fetchPosts = async (pageNum = 1, isLoadMore = false, hideLoading = false) => {
     try {
+      if (!hideLoading) setLoading(true);
       let filterConditions = ["deleted = false"];
+      
+      if (feedTab === 'following' && user) {
+        // 1. Obtener la lista de usuarios seguidos
+        const followsRes = await pb.collection('follows').getFullList({
+          filter: `follower = "${user.id}"`
+        });
+        const followingIds = followsRes.map(f => f.following);
+        
+        if (followingIds.length === 0) {
+          // Si no sigue a nadie, el feed está vacío
+          setPosts([]);
+          setHasMore(false);
+          setPage(pageNum);
+          return;
+        }
+        
+        // 2. Construir la condición OR para los autores seguidos
+        const authorConditions = followingIds.map(id => `author = "${id}"`).join(' || ');
+        filterConditions.push(`(${authorConditions})`);
+      }
+
       if (activeSearch) {
         const safeSearch = activeSearch.replace(/"/g, '\\"');
         filterConditions.push(`content ~ "${safeSearch}"`);
@@ -112,7 +135,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     ]);
     setRefreshing(false);
     setLoading(false);
-  }, [activeSearch, filterTags.join(',')]);
+  }, [activeSearch, filterTags.join(','), feedTab, user]);
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
@@ -124,7 +147,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   useFocusEffect(
     useCallback(() => {
       fetchPosts(1, false);
-    }, [activeSearch, filterTags.join(',')])
+    }, [activeSearch, filterTags.join(','), feedTab, user])
   );
 
   const handleSearchChange = (text: string) => {
@@ -354,6 +377,23 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       </View>
 
+      {user && (
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity 
+            style={[styles.tabButton, feedTab === 'all' && styles.tabButtonActive]} 
+            onPress={() => setFeedTab('all')}
+          >
+            <Text style={[styles.tabText, feedTab === 'all' && styles.tabTextActive]}>Descubrir</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tabButton, feedTab === 'following' && styles.tabButtonActive]} 
+            onPress={() => setFeedTab('following')}
+          >
+            <Text style={[styles.tabText, feedTab === 'following' && styles.tabTextActive]}>Siguiendo</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <ScrollView 
         style={styles.feedList} 
         contentContainerStyle={styles.feedContent}
@@ -451,6 +491,22 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {loading ? (
           <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
+        ) : posts.length === 0 ? (
+          feedTab === 'following' ? (
+            <View style={styles.emptyFollowingContainer}>
+              <Feather name="users" size={40} color={theme.colors.textMuted} style={{ marginBottom: theme.spacing.sm }} />
+              <Text style={styles.emptyFollowingTitle}>No hay publicaciones aún</Text>
+              <Text style={styles.emptyFollowingText}>Sigue a otros compañeros, centros o comunidades desde el directorio para ver su contenido aquí.</Text>
+              <TouchableOpacity 
+                style={styles.emptyFollowingBtn} 
+                onPress={() => navigation.navigate('Directory')}
+              >
+                <Text style={styles.emptyFollowingBtnText}>Explorar Perfiles</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={styles.noPostsText}>No hay publicaciones en el muro.</Text>
+          )
         ) : (
           posts.map(post => {
             const isLiked = user && (post.likes || []).includes(user.id);
@@ -1049,5 +1105,66 @@ const styles = StyleSheet.create({
   modalBtnDeleteText: {
     color: '#ffffff',
     fontWeight: '700',
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabButtonActive: {
+    borderBottomColor: theme.colors.primary,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.textMuted,
+  },
+  tabTextActive: {
+    color: theme.colors.text,
+  },
+  emptyFollowingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: 50,
+  },
+  emptyFollowingTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  emptyFollowingText: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: theme.spacing.lg,
+  },
+  emptyFollowingBtn: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: theme.borderRadius.md,
+  },
+  emptyFollowingBtnText: {
+    color: '#000000',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  noPostsText: {
+    padding: theme.spacing.xl,
+    textAlign: 'center',
+    color: theme.colors.textMuted,
+    fontStyle: 'italic',
+    fontSize: 14,
   },
 });
