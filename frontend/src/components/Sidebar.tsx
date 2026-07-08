@@ -49,7 +49,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
   const menuItems = [
     { id: 'Home', label: 'Inicio' },
     { id: 'Directory', label: 'Perfiles' },
-    { id: 'Profile', label: 'Perfil' },
     { id: 'Settings', label: 'Ajustes' },
   ];
 
@@ -66,14 +65,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
         {/* Encabezado del Perfil */}
         <View style={styles.header}>
           {user ? (
-            <View>
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={() => handleLinkPress('Profile')}
+            >
               <View style={{ marginBottom: theme.spacing.sm }}>
                 <Avatar user={user} size={60} />
               </View>
               <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
               {!!user.username && <Text style={styles.userUsername} numberOfLines={1}>@{user.username}</Text>}
-              <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
-            </View>
+            </TouchableOpacity>
           ) : (
             <View>
               <Text style={styles.welcomeTitle}>Invitado</Text>

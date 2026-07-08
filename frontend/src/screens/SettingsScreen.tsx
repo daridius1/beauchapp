@@ -138,6 +138,7 @@ export const SettingsScreen: React.FC = () => {
         <View style={styles.accountInfo}>
           <Text style={styles.accountName} numberOfLines={1}>{user.name}</Text>
           <Text style={styles.accountUsername} numberOfLines={1}>@{user.username}</Text>
+          <Text style={styles.accountEmail} numberOfLines={1}>{user.email}</Text>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{getAccountTypeLabel()}</Text>
           </View>
@@ -279,6 +280,11 @@ const styles = StyleSheet.create({
   accountUsername: {
     color: theme.colors.textMuted,
     fontSize: 14,
+    marginBottom: 2,
+  },
+  accountEmail: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
     marginBottom: 8,
   },
   badge: {
