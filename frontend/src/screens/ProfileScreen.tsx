@@ -26,6 +26,10 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
   const [activeMenuPostId, setActiveMenuPostId] = useState<string | null>(null);
   const [deleteConfirmPostId, setDeleteConfirmPostId] = useState<string | null>(null);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   const isFirstLoad = useRef(true);
 
@@ -45,10 +49,65 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
         expand: 'author,replyTo.author'
       });
       setPosts(postsRes.items);
+
+      // 3. Obtener contadores de seguidores/siguiendo
+      const followersRes = await pb.collection('follows').getList(1, 1, {
+        filter: `following = "${targetUserId}"`
+      });
+      setFollowersCount(followersRes.totalItems);
+
+      if (userRes.type === 'student') {
+        const followingRes = await pb.collection('follows').getList(1, 1, {
+          filter: `follower = "${targetUserId}"`
+        });
+        setFollowingCount(followingRes.totalItems);
+      } else {
+        setFollowingCount(0);
+      }
+
+      // 4. Verificar si el usuario actual sigue a este perfil
+      if (currentUser && currentUser.id !== targetUserId) {
+        const isFollowingRes = await pb.collection('follows').getList(1, 1, {
+          filter: `follower = "${currentUser.id}" && following = "${targetUserId}"`
+        });
+        setIsFollowing(isFollowingRes.totalItems > 0);
+      } else {
+        setIsFollowing(false);
+      }
     } catch (err) {
       console.error('Error fetching profile and posts', err);
     } finally {
       if (!hideLoading) setLoading(false);
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    if (!currentUser || !targetUserId || currentUser.id === targetUserId) return;
+    try {
+      setFollowLoading(true);
+      if (isFollowing) {
+        // Dejar de seguir (Delete record)
+        const followRecordRes = await pb.collection('follows').getList(1, 1, {
+          filter: `follower = "${currentUser.id}" && following = "${targetUserId}"`
+        });
+        if (followRecordRes.items.length > 0) {
+          await pb.collection('follows').delete(followRecordRes.items[0].id);
+          setIsFollowing(false);
+          setFollowersCount(prev => Math.max(0, prev - 1));
+        }
+      } else {
+        // Seguir (Create record)
+        await pb.collection('follows').create({
+          follower: currentUser.id,
+          following: targetUserId
+        });
+        setIsFollowing(true);
+        setFollowersCount(prev => prev + 1);
+      }
+    } catch (err) {
+      console.error('Error toggling follow status', err);
+    } finally {
+      setFollowLoading(false);
     }
   };
 
@@ -155,7 +214,45 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.profileBio}>{profileUser.description}</Text>
             )}
           </View>
-          <Text style={styles.statsText}>{posts.length} Publicaciones</Text>
+
+          {currentUser && currentUser.id !== targetUserId && currentUser.type === 'student' && (
+            <TouchableOpacity 
+              style={[
+                styles.followBtn, 
+                isFollowing ? styles.followBtnActive : styles.followBtnInactive
+              ]} 
+              onPress={handleFollowToggle}
+              disabled={followLoading}
+            >
+              {followLoading ? (
+                <ActivityIndicator size="small" color={isFollowing ? theme.colors.text : '#000000'} />
+              ) : (
+                <Text style={[
+                  styles.followBtnText, 
+                  isFollowing ? styles.followBtnTextActive : styles.followBtnTextInactive
+                ]}>
+                  {isFollowing ? 'Siguiendo' : 'Seguir'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statCount}>{posts.length}</Text>
+              <Text style={styles.statLabel}>Publicaciones</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statCount}>{followersCount}</Text>
+              <Text style={styles.statLabel}>Seguidores</Text>
+            </View>
+            {profileUser.type === 'student' && (
+              <View style={styles.statBox}>
+                <Text style={styles.statCount}>{followingCount}</Text>
+                <Text style={styles.statLabel}>Siguiendo</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.divider} />
@@ -358,7 +455,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     lineHeight: 20,
   },
-  statsText: { fontSize: 13, fontWeight: '600', color: theme.colors.textMuted, marginTop: theme.spacing.md },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: theme.spacing.lg,
+    gap: 24,
+  },
+  statBox: {
+    alignItems: 'center',
+  },
+  statCount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 2,
+  },
+  followBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: theme.spacing.md,
+    minWidth: 100,
+    borderWidth: 1,
+  },
+  followBtnInactive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  followBtnActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  followBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  followBtnTextInactive: {
+    color: '#000000',
+  },
+  followBtnTextActive: {
+    color: theme.colors.text,
+  },
   
   backBtn: {
     backgroundColor: theme.colors.primary,
