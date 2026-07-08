@@ -103,9 +103,16 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
                 <View style={{ marginRight: theme.spacing.md }}>
                   <Avatar user={profile} size={40} />
                 </View>
-                <Text style={styles.itemName}>
-                  {profile.name || profile.username}
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.itemName}>
+                    {profile.name || 'Usuario'}
+                  </Text>
+                  {!!profile.username && (
+                    <Text style={styles.itemUsername}>
+                      @{profile.username}
+                    </Text>
+                  )}
+                </View>
                 <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
               </TouchableOpacity>
             ))
@@ -146,9 +153,13 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   itemName: {
-    flex: 1,
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.text,
+  },
+  itemUsername: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    marginTop: 2,
   },
 });
