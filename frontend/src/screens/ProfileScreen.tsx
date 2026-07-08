@@ -215,7 +215,7 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
             )}
           </View>
 
-          {currentUser && currentUser.id !== targetUserId && currentUser.type === 'student' && (
+          {currentUser && currentUser.id !== targetUserId && currentUser.type !== 'organization' && (
             <TouchableOpacity 
               style={[
                 styles.followBtn, 
