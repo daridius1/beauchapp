@@ -18,7 +18,6 @@ import { NotFoundScreen } from './src/screens/NotFoundScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { DirectoryScreen } from './src/screens/DirectoryScreen';
 import { RootStackParamList } from './src/types/navigation';
-import { FollowListScreen } from './src/screens/FollowListScreen';
 import Toast from 'react-native-toast-message';
 import * as Linking from 'expo-linking';
 
@@ -146,7 +145,7 @@ function AppContent() {
                   <Stack.Screen name="Teams" component={ProfilesListScreen} />
                   <Stack.Screen name="PostDetail" component={PostDetailScreen} />
                   <Stack.Screen name="UserProfile" component={ProfileScreen} />
-                  <Stack.Screen name="FollowList" component={FollowListScreen} />
+                  <Stack.Screen name="FollowList" component={ProfilesListScreen} />
                   <Stack.Screen name="Settings" component={SettingsScreen} />
                   <Stack.Screen name="NotFound" component={NotFoundScreen} />
                 </Stack.Navigator>

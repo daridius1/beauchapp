@@ -8,7 +8,7 @@ import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Communities' | 'Centers' | 'Teams' | 'Students'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Communities' | 'Centers' | 'Teams' | 'Students' | 'FollowList'>;
 
 export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -19,6 +19,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // Configuración dinámica basada en la ruta
   const routeName = route.name;
+  const routeParams = route.params as any;
   let filter = '';
   let emptyText = '';
 
@@ -34,16 +35,43 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   } else if (routeName === 'Students') {
     filter = 'type != "organization"';
     emptyText = 'Aún no hay personas registradas.';
+  } else if (routeName === 'FollowList') {
+    emptyText = routeParams?.type === 'followers'
+      ? 'Esta cuenta aún no tiene seguidores.'
+      : 'Esta cuenta aún no sigue a nadie.';
   }
 
   const fetchProfiles = async (hideLoading = false) => {
     try {
       if (!hideLoading) setLoading(true);
-      const res = await pb.collection('users').getList(1, 100, {
-        filter: filter,
-        sort: 'name',
-      });
-      setProfiles(res.items);
+      
+      if (routeName === 'FollowList') {
+        const userId = routeParams?.userId;
+        const type = routeParams?.type;
+        const isFollowers = type === 'followers';
+        
+        const filterStr = isFollowers 
+          ? `following = "${userId}"` 
+          : `follower = "${userId}"`;
+          
+        const res = await pb.collection('follows').getList(1, 200, {
+          filter: filterStr,
+          expand: isFollowers ? 'follower' : 'following',
+          sort: '-created',
+        });
+        
+        const mappedUsers = res.items
+          .map(item => isFollowers ? item.expand?.follower : item.expand?.following)
+          .filter(user => !!user);
+          
+        setProfiles(mappedUsers);
+      } else {
+        const res = await pb.collection('users').getList(1, 100, {
+          filter: filter,
+          sort: 'name',
+        });
+        setProfiles(res.items);
+      }
     } catch (err) {
       console.error(`Error fetching ${routeName} list:`, err);
     } finally {
@@ -62,13 +90,13 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
       setLoading(false);
     });
     return () => sub.remove();
-  }, [routeName]);
+  }, [routeName, routeParams?.userId, routeParams?.type]);
 
   useFocusEffect(
     useCallback(() => {
       fetchProfiles(!isFirstLoad.current);
       isFirstLoad.current = false;
-    }, [routeName])
+    }, [routeName, routeParams?.userId, routeParams?.type])
   );
 
   const onRefresh = async () => {
