@@ -68,7 +68,7 @@ function AppContent() {
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Communities', 'Centers', 'Teams', 'Settings', 'Directory', 'Students'];
+  const rootScreens = ['Home', 'Profile', 'Settings', 'Directory'];
   const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
 
   if (!isInitialized) {
