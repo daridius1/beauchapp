@@ -257,21 +257,6 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <Feather name="more-horizontal" size={20} color={theme.colors.textMuted} />
             </TouchableOpacity>
           )}
-
-          {activeMenuPostId === post.id && (
-            <View style={styles.dropdownMenu}>
-              <TouchableOpacity 
-                style={styles.dropdownItem} 
-                onPress={() => {
-                  setActiveMenuPostId(null);
-                  setDeleteConfirmPostId(post.id);
-                }}
-              >
-                <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
-                <Text style={styles.dropdownItemText}>Eliminar</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
         
         <Text style={[
@@ -320,6 +305,21 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.actionCount}>{repliesCount}</Text>
           </View>
         </View>
+
+        {activeMenuPostId === post.id && (
+          <View style={styles.dropdownMenu}>
+            <TouchableOpacity 
+              style={styles.dropdownItem} 
+              onPress={() => {
+                setActiveMenuPostId(null);
+                setDeleteConfirmPostId(post.id);
+              }}
+            >
+              <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
+              <Text style={styles.dropdownItemText}>Eliminar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </CardComponent>
     );
   };
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
   listContainer: { flex: 1 },
   listContent: { paddingBottom: theme.spacing.xl },
   
-  postCard: { padding: theme.spacing.md },
+  postCard: { padding: theme.spacing.md, position: 'relative' },
   mainPostCard: { backgroundColor: theme.colors.cardBg, borderTopWidth: 1, borderBottomWidth: 1, borderColor: theme.colors.border },
   parentCard: { paddingBottom: theme.spacing.sm },
   
@@ -662,8 +662,8 @@ const styles = StyleSheet.create({
   },
   dropdownMenu: {
     position: 'absolute',
-    right: 8,
-    top: 40,
+    right: 16,
+    top: 48,
     backgroundColor: '#121212',
     borderWidth: 1,
     borderColor: '#333',

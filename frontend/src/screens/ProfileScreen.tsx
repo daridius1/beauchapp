@@ -209,21 +209,6 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                       <Feather name="more-horizontal" size={20} color={theme.colors.textMuted} />
                     </TouchableOpacity>
                   )}
-
-                  {activeMenuPostId === post.id && (
-                    <View style={styles.dropdownMenu}>
-                      <TouchableOpacity 
-                        style={styles.dropdownItem} 
-                        onPress={() => {
-                          setActiveMenuPostId(null);
-                          setDeleteConfirmPostId(post.id);
-                        }}
-                      >
-                        <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
-                        <Text style={styles.dropdownItemText}>Eliminar</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
                 </View>
                 
                 {post.replyTo && post.expand?.replyTo?.expand?.author ? (
@@ -263,6 +248,21 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                     <Text style={styles.actionCount}>{repliesCount}</Text>
                   </View>
                 </View>
+
+                {activeMenuPostId === post.id && (
+                  <View style={styles.dropdownMenu}>
+                    <TouchableOpacity 
+                      style={styles.dropdownItem} 
+                      onPress={() => {
+                        setActiveMenuPostId(null);
+                        setDeleteConfirmPostId(post.id);
+                      }}
+                    >
+                      <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
+                      <Text style={styles.dropdownItemText}>Eliminar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   
   noPostsText: { padding: theme.spacing.xl, textAlign: 'center', color: theme.colors.textMuted, fontStyle: 'italic' },
   
-  postCard: { padding: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  postCard: { padding: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border, position: 'relative' },
   postHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: theme.spacing.sm },
   postMeta: { justifyContent: 'center' },
   postAuthor: { color: theme.colors.text, fontWeight: '700', fontSize: 15 },
@@ -405,8 +405,8 @@ const styles = StyleSheet.create({
   actionCount: { color: theme.colors.textMuted, fontSize: 13, fontWeight: '500' },
   dropdownMenu: {
     position: 'absolute',
-    right: 8,
-    top: 40,
+    right: 16,
+    top: 48,
     backgroundColor: '#121212',
     borderWidth: 1,
     borderColor: '#333',

@@ -496,21 +496,6 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                       <Feather name="more-horizontal" size={20} color={theme.colors.textMuted} />
                     </TouchableOpacity>
                   )}
-                  
-                  {activeMenuPostId === post.id && (
-                    <View style={styles.dropdownMenu}>
-                      <TouchableOpacity 
-                        style={styles.dropdownItem} 
-                        onPress={() => {
-                          setActiveMenuPostId(null);
-                          setDeleteConfirmPostId(post.id);
-                        }}
-                      >
-                        <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
-                        <Text style={styles.dropdownItemText}>Eliminar</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
                 </View>
                 {post.replyTo && post.expand?.replyTo?.expand?.author ? (
                   <Text style={styles.replyContextText}>
@@ -564,6 +549,21 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                     <Text style={styles.actionCount}>{repliesCount}</Text>
                   </View>
                 </View>
+
+                {activeMenuPostId === post.id && (
+                  <View style={styles.dropdownMenu}>
+                    <TouchableOpacity 
+                      style={styles.dropdownItem} 
+                      onPress={() => {
+                        setActiveMenuPostId(null);
+                        setDeleteConfirmPostId(post.id);
+                      }}
+                    >
+                      <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
+                      <Text style={styles.dropdownItemText}>Eliminar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })
@@ -846,6 +846,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    position: 'relative',
   },
   postHeader: {
     flexDirection: 'row',
@@ -958,8 +959,8 @@ const styles = StyleSheet.create({
   },
   dropdownMenu: {
     position: 'absolute',
-    right: 8,
-    top: 40,
+    right: 16,
+    top: 48,
     backgroundColor: '#121212',
     borderWidth: 1,
     borderColor: '#333',
