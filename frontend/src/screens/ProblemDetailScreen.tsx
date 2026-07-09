@@ -243,8 +243,8 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         // Actualizar
         await pb.collection('problem_ratings').update(existing.items[0].id, {
           rating: selectedRating,
-          // Mantener difficulty si existe, o setear a 0. La BD lo requiere.
-          difficulty: existing.items[0].difficulty || 0
+          // Mantener difficulty si existe, o setear a 1. La BD lo requiere (0 es rechazado por ser requerido).
+          difficulty: existing.items[0].difficulty || 1
         });
       } else {
         // Crear
@@ -252,7 +252,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           problem: ansId,
           user: user.id,
           rating: selectedRating,
-          difficulty: 0 // Default for answers
+          difficulty: 1 // Default for answers (cannot be 0 as required fields reject 0)
         });
       }
 

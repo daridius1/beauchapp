@@ -59,11 +59,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" />
-        <script src="https://cdn.jsdelivr.net/npm/marked@5.1.2/marked.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/mermaid@10.2.4/dist/mermaid.min.js"></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" integrity="sha384-GvrOXuhMATgEsSwCs4smul74iXGOixntILdUW9XmUC6+HX0sLNAK3q71HotJqlAn" crossorigin="anonymous" />
+        <script src="https://cdn.jsdelivr.net/npm/marked@5.1.2/marked.min.js" integrity="sha384-tP9zQHkeb4OfJ9PanaUpV7hxoPxP8KY4mYVYu+FK51pzcM3/idOlmVlA4kPO2SL2" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js" integrity="sha384-rneZSW/1QE+3/U5/u+/7eRNi/tRc+SzS+yXy36fltr1tDN9EHaVo1Bwz2Z8o8DA4" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" integrity="sha384-cpW21h6RZv/phavutF+AuVYrr+dA8xD9zs6FwLpaCct6O9ctzYFfFr4dgmgccOTx" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@10.2.4/dist/mermaid.min.js" integrity="sha384-AZNedbHjmSFvf7jCjWFJDSGZf6jOFwBAPYzmCcWNLZUf55GVtT+45K4yik/OwJIv" crossorigin="anonymous"></script>
         <style>
           html, body {
             background-color: transparent;
@@ -159,20 +160,30 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
             }, 150);
           }
 
+          function escapeHTML(str) {
+            return str
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;');
+          }
+
           window.onload = function() {
             try {
               var processedContent = ${JSON.stringify(processed)};
               var latexBlocks = ${JSON.stringify(blocks)};
 
               var html = marked.parse(processedContent);
+              
+              // Sanitizar el HTML del markdown con DOMPurify antes de inyectar LaTeX
+              var cleanHtml = DOMPurify.sanitize(html);
 
-              // Restore LaTeX blocks after marked has finished
+              // Restore LaTeX blocks after marked has finished, escaping them for safety
               for (var i = 0; i < latexBlocks.length; i++) {
-                html = html.split('LATEXBLOCK' + i + 'END').join(latexBlocks[i]);
+                cleanHtml = cleanHtml.split('LATEXBLOCK' + i + 'END').join(escapeHTML(latexBlocks[i]));
               }
 
               var contentDiv = document.getElementById('content');
-              contentDiv.innerHTML = html;
+              contentDiv.innerHTML = cleanHtml;
 
               if (window.mermaid) {
                 var mermaidBlocks = contentDiv.querySelectorAll('pre code.language-mermaid');
@@ -225,6 +236,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
     return (
       <iframe
         srcDoc={html}
+        sandbox="allow-scripts"
         style={{ 
           border: 'none', 
           width: '100%', 

@@ -11,12 +11,7 @@ onRecordCreateRequest((e) => {
 
     // Helper para generar token localmente (evita problemas de aislamiento en Goja)
     const generateTokenLocal = () => {
-        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-        let token = '';
-        for (let i = 0; i < 15; i++) {
-            token += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return token;
+        return $security.randomString(15);
     };
 
     if (type === "organization") {
@@ -48,6 +43,9 @@ onRecordCreateRequest((e) => {
 
     // For everyone else, enforce student type
     e.record.set("type", "student");
+    if (!e.hasSuperuserAuth()) {
+        e.record.set("verified", false);
+    }
 
     const email = e.record.getString("email");
     if (!email) {
@@ -73,6 +71,12 @@ onRecordUpdateRequest((e) => {
     if (e.record.get("subtype") !== original.get("subtype")) {
         if (!e.hasSuperuserAuth()) {
             e.record.set("subtype", original.get("subtype"));
+        }
+    }
+    // Proteger el campo verified para que no lo modifiquen usuarios comunes
+    if (e.record.get("verified") !== original.get("verified")) {
+        if (!e.hasSuperuserAuth()) {
+            e.record.set("verified", original.get("verified"));
         }
     }
     return e.next();
@@ -208,7 +212,7 @@ onRecordAfterDeleteSuccess((e) => {
 // Redactar posts eliminados para no administradores
 onRecordEnrich((e) => {
     if (e.record.getBool("deleted")) {
-        const isAdmin = e.requestInfo && e.requestInfo.admin;
+        const isAdmin = e.requestInfo() && e.requestInfo().admin;
         if (!isAdmin) {
             e.record.set("content", "[post/comentario eliminado]");
             e.record.set("photo", "");
