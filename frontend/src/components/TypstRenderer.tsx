@@ -21,22 +21,22 @@ export const TypstRenderer: React.FC<TypstRendererProps> = ({ content, height = 
             color: #E2E8F0;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             margin: 0;
-            padding: 16px;
+            padding: 4px;
             overflow-x: auto;
           }
           #content {
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: flex-start;
           }
           svg {
             max-width: 100%;
             height: auto;
-            background: #242424 !important;
-            border-radius: 12px;
-            padding: 16px;
-            border: 1px solid #333;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            background: transparent !important;
+            border-radius: 0;
+            padding: 0;
+            border: none;
+            box-shadow: none;
             margin-bottom: 20px;
           }
           .loader {
@@ -45,6 +45,7 @@ export const TypstRenderer: React.FC<TypstRendererProps> = ({ content, height = 
             font-style: italic;
             text-align: center;
             margin-top: 30px;
+            width: 100%;
           }
           .error {
             color: #EF4444;
@@ -72,7 +73,10 @@ export const TypstRenderer: React.FC<TypstRendererProps> = ({ content, height = 
                   getModule: () => 'https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-ts-renderer/pkg/typst_ts_renderer_bg.wasm',
                 });
 
-                const mainContent = ${JSON.stringify(content)};
+                // Prepara la configuración de página automática, fondo transparente, texto claro, y alineación
+                const typstConfig = "#set page(width: auto, height: auto, margin: 4pt, fill: none)\\n#set text(fill: rgb(\\"E2E8F0\\"), size: 11pt)\\n";
+                const mainContent = typstConfig + ${JSON.stringify(content)};
+
                 window.$typst.svg({ mainContent }).then(function(svg) {
                   document.getElementById('content').innerHTML = svg;
                 }).catch(function(err) {
