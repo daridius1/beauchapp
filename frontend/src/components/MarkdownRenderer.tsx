@@ -138,7 +138,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
             try {
               const rawContent = document.getElementById('markdown-data').textContent;
               
-              let html = marked.parse(rawContent);
+              let html = marked.parse(rawContent.replace(/\\/g, '\\\\'));
               const contentDiv = document.getElementById('content');
               contentDiv.innerHTML = html;
 
@@ -207,7 +207,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
     <View style={{ height: calculatedHeight, overflow: 'hidden', backgroundColor: 'transparent' }}>
       <WebView
         originWhitelist={['*']}
-        source={{ html }}
+        source={{ html, baseUrl: 'about:blank' }}
         style={{ flex: 1, backgroundColor: 'transparent' }}
         scrollEnabled={false}
         domStorageEnabled={true}
