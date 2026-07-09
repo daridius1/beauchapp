@@ -49,6 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
   const menuItems = [
     { id: 'Home', label: 'Inicio' },
     { id: 'Directory', label: 'Perfiles' },
+    { id: 'ProblemsList', label: 'Problemas' },
     { id: 'Settings', label: 'Ajustes' },
   ];
 

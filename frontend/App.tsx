@@ -18,6 +18,9 @@ import { NotFoundScreen } from './src/screens/NotFoundScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { DirectoryScreen } from './src/screens/DirectoryScreen';
 import { RootStackParamList } from './src/types/navigation';
+import { ProblemsListScreen } from './src/screens/ProblemsListScreen';
+import { ProblemDetailScreen } from './src/screens/ProblemDetailScreen';
+import { ProblemEditorScreen } from './src/screens/ProblemEditorScreen';
 import Toast from 'react-native-toast-message';
 import * as Linking from 'expo-linking';
 
@@ -67,12 +70,15 @@ function AppContent() {
         const type = params?.type;
         return type === 'followers' ? 'Seguidores' : 'Siguiendo';
       }
+      case 'ProblemsList': return 'Problemas';
+      case 'ProblemDetail': return 'Detalle de Problema';
+      case 'ProblemEditor': return params?.type === 'problem' ? 'Subir Problema' : 'Subir Pauta';
       case 'NotFound': return 'No Encontrado';
       default: return 'Beauchapp';
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Settings', 'Directory'];
+  const rootScreens = ['Home', 'Profile', 'Settings', 'Directory', 'ProblemsList'];
   const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
 
   if (!isInitialized) {
@@ -102,6 +108,9 @@ function AppContent() {
               UserProfile: 'users/:userId',
               Students: 'students',
               FollowList: 'users/:userId/:type',
+              ProblemsList: 'problems',
+              ProblemDetail: 'problems/:problemId',
+              ProblemEditor: 'problems/editor/:type',
               Verification: 'verification',
               VerifyEmail: 'verify',
               ResetPassword: 'reset-password',
@@ -146,6 +155,9 @@ function AppContent() {
                   <Stack.Screen name="PostDetail" component={PostDetailScreen} />
                   <Stack.Screen name="UserProfile" component={ProfileScreen} />
                   <Stack.Screen name="FollowList" component={ProfilesListScreen} />
+                  <Stack.Screen name="ProblemsList" component={ProblemsListScreen} />
+                  <Stack.Screen name="ProblemDetail" component={ProblemDetailScreen} />
+                  <Stack.Screen name="ProblemEditor" component={ProblemEditorScreen} />
                   <Stack.Screen name="Settings" component={SettingsScreen} />
                   <Stack.Screen name="NotFound" component={NotFoundScreen} />
                 </Stack.Navigator>
