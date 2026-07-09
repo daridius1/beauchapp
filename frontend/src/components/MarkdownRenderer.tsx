@@ -11,9 +11,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
   const [calculatedHeight, setCalculatedHeight] = useState(height);
   const rendererId = React.useMemo(() => Math.random().toString(36).substring(7), []);
 
-  const safeContent = React.useMemo(() => {
-    return JSON.stringify(content).replace(/\\/g, '\\\\');
-  }, [content]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -118,6 +115,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
       </head>
       <body>
         <div id="content"></div>
+        <script id="markdown-data" type="text/plain">${content.replace(/<\/script>/g, '<\\/script>')}</script>
         <script>
           function notifyHeight() {
             setTimeout(function() {
@@ -138,7 +136,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
 
           window.onload = function() {
             try {
-              const rawContent = ${safeContent};
+              const rawContent = document.getElementById('markdown-data').textContent;
               
               let html = marked.parse(rawContent);
               const contentDiv = document.getElementById('content');
