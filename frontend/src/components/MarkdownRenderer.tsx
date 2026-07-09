@@ -11,6 +11,32 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
   const [calculatedHeight, setCalculatedHeight] = useState(height);
   const rendererId = React.useMemo(() => Math.random().toString(36).substring(7), []);
 
+  // Pre-process: extract LaTeX blocks in TypeScript (safe escaping)
+  // and replace them with placeholders so marked.js doesn't touch them
+  const { processed, blocks } = React.useMemo(() => {
+    const latexBlocks: string[] = [];
+    let text = content;
+
+    // Protect display math: \[...\]
+    text = text.replace(/\\\[[\s\S]*?\\\]/g, (match) => {
+      latexBlocks.push(match);
+      return `LATEXBLOCK${latexBlocks.length - 1}END`;
+    });
+
+    // Protect display math: $$...$$
+    text = text.replace(/\$\$[\s\S]*?\$\$/g, (match) => {
+      latexBlocks.push(match);
+      return `LATEXBLOCK${latexBlocks.length - 1}END`;
+    });
+
+    // Protect inline math: $...$  (no newlines inside)
+    text = text.replace(/\$[^\$\n]+\$/g, (match) => {
+      latexBlocks.push(match);
+      return `LATEXBLOCK${latexBlocks.length - 1}END`;
+    });
+
+    return { processed: text, blocks: latexBlocks };
+  }, [content]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -135,18 +161,25 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
 
           window.onload = function() {
             try {
-              const rawContent = ${JSON.stringify(content)};
-              
-              let html = marked.parse(rawContent.replace(/\\/g, '\\\\'));
-              const contentDiv = document.getElementById('content');
+              var processedContent = ${JSON.stringify(processed)};
+              var latexBlocks = ${JSON.stringify(blocks)};
+
+              var html = marked.parse(processedContent);
+
+              // Restore LaTeX blocks after marked has finished
+              for (var i = 0; i < latexBlocks.length; i++) {
+                html = html.split('LATEXBLOCK' + i + 'END').join(latexBlocks[i]);
+              }
+
+              var contentDiv = document.getElementById('content');
               contentDiv.innerHTML = html;
 
               if (window.mermaid) {
-                const mermaidBlocks = contentDiv.querySelectorAll('pre code.language-mermaid');
+                var mermaidBlocks = contentDiv.querySelectorAll('pre code.language-mermaid');
                 if (mermaidBlocks.length > 0) {
                   mermaidBlocks.forEach(function(block) {
-                    const pre = block.parentElement;
-                    const div = document.createElement('div');
+                    var pre = block.parentElement;
+                    var div = document.createElement('div');
                     div.className = 'mermaid';
                     div.textContent = block.textContent;
                     pre.replaceWith(div);
