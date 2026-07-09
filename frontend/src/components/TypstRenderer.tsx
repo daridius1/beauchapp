@@ -65,6 +65,13 @@ export const TypstRenderer: React.FC<TypstRendererProps> = ({ content, height = 
           window.onload = function() {
             function render() {
               try {
+                window.$typst.setCompilerInitOptions({
+                  getModule: () => 'https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-ts-web-compiler/pkg/typst_ts_web_compiler_bg.wasm',
+                });
+                window.$typst.setRendererInitOptions({
+                  getModule: () => 'https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-ts-renderer/pkg/typst_ts_renderer_bg.wasm',
+                });
+
                 const mainContent = ${JSON.stringify(content)};
                 window.$typst.svg({ mainContent }).then(function(svg) {
                   document.getElementById('content').innerHTML = svg;
