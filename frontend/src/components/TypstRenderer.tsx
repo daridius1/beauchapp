@@ -111,7 +111,9 @@ export const TypstRenderer: React.FC<TypstRendererProps> = ({ content, height = 
                   getModule: () => 'https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-ts-renderer/pkg/typst_ts_renderer_bg.wasm',
                 });
 
-                const typstConfig = "#set page(width: auto, height: auto, margin: 4pt, fill: none)\\n#set text(fill: rgb(\\"E2E8F0\\"), size: 17pt)\\n";
+                const viewportWidth = window.innerWidth || 360;
+                const typstWidthPt = Math.max(200, (viewportWidth - 10) * 0.72);
+                const typstConfig = "#set page(width: " + typstWidthPt + "pt, height: auto, margin: 4pt, fill: none)\\n#set text(fill: rgb(\\"E2E8F0\\"), size: 17pt)\\n";
                 const mainContent = typstConfig + ${JSON.stringify(content)};
 
                 window.$typst.svg({ mainContent }).then(function(svg) {
