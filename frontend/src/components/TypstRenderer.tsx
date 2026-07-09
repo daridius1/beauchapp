@@ -50,7 +50,7 @@ export const TypstRenderer: React.FC<TypstRendererProps> = ({ content, height = 
             margin: 0;
           }
           svg {
-            max-width: 100%;
+            width: 100% !important;
             height: auto;
             background: transparent !important;
             border-radius: 0;
@@ -112,7 +112,7 @@ export const TypstRenderer: React.FC<TypstRendererProps> = ({ content, height = 
                 });
 
                 const viewportWidth = window.innerWidth || 360;
-                const typstWidthPt = Math.max(200, (viewportWidth - 10) * 0.72);
+                const typstWidthPt = Math.max(200, viewportWidth * 0.75);
                 const typstConfig = "#set page(width: " + typstWidthPt + "pt, height: auto, margin: 4pt, fill: none)\\n#set text(fill: rgb(\\"E2E8F0\\"), size: 17pt)\\n";
                 const mainContent = typstConfig + ${JSON.stringify(content)};
 
