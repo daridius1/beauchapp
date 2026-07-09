@@ -16,7 +16,7 @@ import { pb } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
-import { TypstRenderer } from '../components/TypstRenderer';
+import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProblemEditor'>;
@@ -31,14 +31,15 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
   const [tagsInput, setTagsInput] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Algunos helpers para facilitar escribir Typst rápidamente
-  const typstHelpers = [
-    { label: 'Título', code: '\n= Título\n' },
-    { label: 'Fórmula', code: ' $ f(x) = x^2 $ ' },
-    { label: 'Negrita', code: ' *negrita* ' },
-    { label: 'Cursiva', code: ' _cursiva_ ' },
+  // Algunos helpers para facilitar escribir Markdown y LaTeX rápidamente
+  const editorHelpers = [
+    { label: 'Título', code: '\n# Título\n' },
+    { label: 'Fórmula', code: ' $x^2$ ' },
+    { label: 'Fracción', code: ' $\\frac{a}{b}$ ' },
+    { label: 'Raíz', code: ' $\\sqrt{x}$ ' },
+    { label: 'Negrita', code: ' **negrita** ' },
     { label: 'Lista', code: '\n- Elemento 1\n- Elemento 2\n' },
-    { label: 'Código', code: '\n\`\`\`rust\nfn main() {}\n\`\`\`\n' },
+    { label: 'Diagrama', code: '\n\`\`\`mermaid\ngraph TD\n  A --> B\n\`\`\`\n' },
   ];
 
   const handleInsertHelper = (code: string) => {
@@ -174,14 +175,14 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
 
           <View style={styles.inputGroup}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.xs }}>
-              <Text style={styles.inputLabel}>Cuerpo en Typst</Text>
-              <Text style={styles.editorTip}>Usa $ para fórmulas</Text>
+              <Text style={styles.inputLabel}>Cuerpo en Markdown / LaTeX</Text>
+              <Text style={styles.editorTip}>Usa $ para fórmulas, $$ para bloques</Text>
             </View>
             
             {/* Barra de Helpers */}
             <View style={styles.helpersBar}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {typstHelpers.map(helper => (
+                {editorHelpers.map(helper => (
                   <TouchableOpacity 
                     key={helper.label} 
                     style={styles.helperBtn}
@@ -195,7 +196,7 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
 
             <TextInput
               style={styles.textArea}
-              placeholder="Escribe el enunciado aquí en código Typst..."
+              placeholder="Escribe el enunciado aquí en Markdown y LaTeX..."
               placeholderTextColor={theme.colors.textMuted}
               multiline
               value={content}
@@ -225,7 +226,7 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
         <ScrollView style={styles.previewBody} contentContainerStyle={styles.previewContent}>
           {content.trim() ? (
             <View style={{ marginHorizontal: -theme.spacing.lg }}>
-              <TypstRenderer content={content} height={400} />
+              <MarkdownRenderer content={content} height={300} />
             </View>
           ) : (
             <Text style={styles.emptyPreviewText}>No hay contenido que previsualizar. Escribe algo en la pestaña Editar.</Text>

@@ -18,7 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
-import { TypstRenderer } from '../components/TypstRenderer';
+import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProblemDetail'>;
@@ -264,9 +264,9 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.divider} />
 
         {/* Renderizador de Typst */}
-        <Text style={styles.sectionHeader}>Enunciado (Typst)</Text>
+        <Text style={styles.sectionHeader}>Enunciado</Text>
         <View style={styles.rendererContainer}>
-          <TypstRenderer content={problem.content} height={350} />
+          <MarkdownRenderer content={problem.content} height={150} />
         </View>
 
         {/* Estadísticas Promedio de Calificación */}
@@ -359,7 +359,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   <Text style={styles.answerDate}>{formatDate(ans.created)}</Text>
                 </View>
                 <View style={styles.answerRenderer}>
-                  <TypstRenderer content={ans.content} height={250} />
+                  <MarkdownRenderer content={ans.content} height={100} />
                 </View>
               </View>
             );
