@@ -35,7 +35,7 @@ export const TypstRenderer: React.FC<TypstRendererProps> = ({ content, height = 
         <script type="module" src="https://cdn.jsdelivr.net/npm/@myriaddreamin/typst.ts/dist/esm/contrib/all-in-one-lite.bundle.js"></script>
         <style>
           html, body {
-            background-color: #1A1A1A;
+            background-color: transparent;
             color: #E2E8F0;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             margin: 0;
@@ -162,18 +162,18 @@ export const TypstRenderer: React.FC<TypstRendererProps> = ({ content, height = 
           border: 'none', 
           width: '100%', 
           height: `${calculatedHeight}px`, 
-          backgroundColor: '#1A1A1A',
+          backgroundColor: 'transparent',
         }}
       />
     );
   }
 
   return (
-    <View style={{ height: calculatedHeight, overflow: 'hidden', backgroundColor: '#1A1A1A' }}>
+    <View style={{ height: calculatedHeight, overflow: 'hidden', backgroundColor: 'transparent' }}>
       <WebView
         originWhitelist={['*']}
         source={{ html }}
-        style={{ flex: 1, backgroundColor: '#1A1A1A' }}
+        style={{ flex: 1, backgroundColor: 'transparent' }}
         scrollEnabled={false}
         domStorageEnabled={true}
         javaScriptEnabled={true}
