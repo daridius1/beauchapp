@@ -56,11 +56,11 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
       return;
     }
 
-    if (type === 'problem' && !title.trim()) {
+    if (!title.trim()) {
       Toast.show({
         type: 'error',
         text1: 'Título requerido',
-        text2: 'Por favor ingresa un título para el problema.',
+        text2: 'Por favor ingresa un título.',
       });
       return;
     }
@@ -89,24 +89,13 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
           tags: cleanTags,
           author: user.id
         });
-
-        Toast.show({
-          type: 'success',
-          text1: '¡Problema publicado!',
-          text2: 'Tu problema se ha subido correctamente.',
-        });
       } else {
-        // Crear respuesta
-        await pb.collection('problem_answers').create({
-          problem: problemId,
+        // Crear respuesta (como un problema con parent)
+        await pb.collection('problems').create({
+          parent: problemId,
+          title: title.trim(),
           content: content.trim(),
           author: user.id
-        });
-
-        Toast.show({
-          type: 'success',
-          text1: '¡Pauta publicada!',
-          text2: 'Tu pauta se ha subido correctamente.',
         });
       }
 
@@ -159,19 +148,17 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
           )}
 
-          {type === 'problem' && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Título del Problema</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Ej. Criterio de la integral para series"
-                placeholderTextColor={theme.colors.textMuted}
-                value={title}
-                onChangeText={setTitle}
-                maxLength={80}
-              />
-            </View>
-          )}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>{type === 'problem' ? 'Título del Problema' : 'Título de la Pauta / Solución'}</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder={type === 'problem' ? "Ej. Criterio de la integral para series" : "Ej. Resolución con Teorema de Tales"}
+              placeholderTextColor={theme.colors.textMuted}
+              value={title}
+              onChangeText={setTitle}
+              maxLength={80}
+            />
+          </View>
 
           <View style={styles.inputGroup}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.xs }}>
@@ -225,7 +212,7 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
       ) : (
         <ScrollView style={styles.previewBody} contentContainerStyle={styles.previewContent}>
           {content.trim() ? (
-            <View style={{ marginHorizontal: -theme.spacing.lg }}>
+            <View>
               <MarkdownRenderer content={content} height={300} />
             </View>
           ) : (

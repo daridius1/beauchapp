@@ -37,7 +37,7 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
       if (!hideLoading) setLoading(true);
 
       // 1. Obtener problemas
-      let filterConditions: string[] = [];
+      let filterConditions: string[] = ['parent = ""'];
       if (activeSearch) {
         const safeSearch = activeSearch.replace(/"/g, '\\"');
         filterConditions.push(`title ~ "${safeSearch}"`);

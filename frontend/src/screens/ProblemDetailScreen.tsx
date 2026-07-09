@@ -32,6 +32,9 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [myRating, setMyRating] = useState<{ rating: number, difficulty: number } | null>(null);
   const [avgRating, setAvgRating] = useState({ rating: 0, difficulty: 0, count: 0 });
   
+  const [answersAvgRatings, setAnswersAvgRatings] = useState<Record<string, { rating: number, count: number }>>({});
+  const [myAnswersRatings, setMyAnswersRatings] = useState<Record<string, number>>({});
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submittingRating, setSubmittingRating] = useState(false);
@@ -46,37 +49,64 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       });
       setProblem(probRes);
 
-      // 2. Obtener respuestas/pautas
-      const ansRes = await pb.collection('problem_answers').getList(1, 100, {
-        filter: `problem = "${problemId}"`,
+      // 2. Obtener respuestas/pautas (problems con parent = problemId)
+      const ansRes = await pb.collection('problems').getList(1, 100, {
+        filter: `parent = "${problemId}"`,
         sort: '-created',
         expand: 'author'
       });
       setAnswers(ansRes.items);
 
-      // 3. Obtener calificaciones y calcular promedios
+      // 3. Obtener calificaciones (del problema y de las respuestas)
       const ratingsRes = await pb.collection('problem_ratings').getFullList({
-        filter: `problem = "${problemId}"`
+        filter: `problem = "${problemId}" || problem.parent = "${problemId}"`
       });
 
       let sumRating = 0;
       let sumDifficulty = 0;
       let userRatingData = null;
+      let problemRatingsCount = 0;
+
+      const tempAnswersAvgRatings: Record<string, { sum: number, count: number }> = {};
+      const tempMyAnswersRatings: Record<string, number> = {};
 
       ratingsRes.forEach(r => {
-        sumRating += r.rating;
-        sumDifficulty += r.difficulty;
-        if (user && r.user === user.id) {
-          userRatingData = { rating: r.rating, difficulty: r.difficulty };
+        if (r.problem === problemId) {
+          sumRating += r.rating;
+          sumDifficulty += r.difficulty;
+          problemRatingsCount++;
+          if (user && r.user === user.id) {
+            userRatingData = { rating: r.rating, difficulty: r.difficulty };
+          }
+        } else {
+          if (!tempAnswersAvgRatings[r.problem]) {
+            tempAnswersAvgRatings[r.problem] = { sum: 0, count: 0 };
+          }
+          tempAnswersAvgRatings[r.problem].sum += r.rating;
+          tempAnswersAvgRatings[r.problem].count++;
+
+          if (user && r.user === user.id) {
+            tempMyAnswersRatings[r.problem] = r.rating;
+          }
         }
       });
 
       setMyRating(userRatingData);
       setAvgRating({
-        rating: ratingsRes.length > 0 ? parseFloat((sumRating / ratingsRes.length).toFixed(1)) : 0,
-        difficulty: ratingsRes.length > 0 ? parseFloat((sumDifficulty / ratingsRes.length).toFixed(1)) : 0,
-        count: ratingsRes.length
+        rating: problemRatingsCount > 0 ? parseFloat((sumRating / problemRatingsCount).toFixed(1)) : 0,
+        difficulty: problemRatingsCount > 0 ? parseFloat((sumDifficulty / problemRatingsCount).toFixed(1)) : 0,
+        count: problemRatingsCount
       });
+
+      const newAnswersAvgRatings: Record<string, { rating: number, count: number }> = {};
+      for (const [ansId, data] of Object.entries(tempAnswersAvgRatings)) {
+        newAnswersAvgRatings[ansId] = {
+          rating: parseFloat((data.sum / data.count).toFixed(1)),
+          count: data.count
+        };
+      }
+      setAnswersAvgRatings(newAnswersAvgRatings);
+      setMyAnswersRatings(tempMyAnswersRatings);
 
     } catch (err) {
       console.error('Error fetching problem details:', err);
@@ -107,7 +137,26 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       return;
     }
 
-    setSubmittingRating(true);
+    // --- Optimistic UI Update ---
+    const prevMyRating = myRating;
+    const prevAvgRating = avgRating;
+
+    setMyRating({ rating: selectedRating, difficulty: selectedDifficulty });
+    if (prevMyRating) {
+      setAvgRating({
+        rating: ((prevAvgRating.rating * prevAvgRating.count) - prevMyRating.rating + selectedRating) / prevAvgRating.count,
+        difficulty: ((prevAvgRating.difficulty * prevAvgRating.count) - prevMyRating.difficulty + selectedDifficulty) / prevAvgRating.count,
+        count: prevAvgRating.count
+      });
+    } else {
+      setAvgRating({
+        rating: ((prevAvgRating.rating * prevAvgRating.count) + selectedRating) / (prevAvgRating.count + 1),
+        difficulty: ((prevAvgRating.difficulty * prevAvgRating.count) + selectedDifficulty) / (prevAvgRating.count + 1),
+        count: prevAvgRating.count + 1
+      });
+    }
+    // ----------------------------
+
     try {
       // Comprobar si ya existe una calificación de este usuario
       const existing = await pb.collection('problem_ratings').getList(1, 1, {
@@ -130,22 +179,104 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         });
       }
 
-      Toast.show({
-        type: 'success',
-        text1: '¡Calificado!',
-        text2: 'Tu valoración se ha registrado correctamente.',
-      });
+      // No mostramos Toast de éxito para que sea completamente silencioso e instantáneo
+      // Toast.show({ ... });
 
+      // Actualizamos silenciosamente en background para sincronizar con la DB
       fetchDetail(true);
     } catch (err) {
       console.error('Error submitting rating:', err);
+      // Rollback Optimistic Update
+      setMyRating(prevMyRating);
+      setAvgRating(prevAvgRating);
+
       Toast.show({
         type: 'error',
         text1: 'Error al calificar',
         text2: 'Ocurrió un error al procesar tu calificación.',
       });
-    } finally {
-      setSubmittingRating(false);
+    }
+  };
+
+  const handleAnswerRatingSubmit = async (ansId: string, selectedRating: number) => {
+    if (!user) {
+      Toast.show({
+        type: 'error',
+        text1: 'Inicia sesión',
+        text2: 'Debes iniciar sesión para calificar esta pauta.',
+      });
+      return;
+    }
+
+    // --- Optimistic UI Update ---
+    const prevMyRating = myAnswersRatings[ansId];
+    const prevAvgRating = answersAvgRatings[ansId] || { rating: 0, count: 0 };
+
+    setMyAnswersRatings(prev => ({ ...prev, [ansId]: selectedRating }));
+    
+    if (prevMyRating) {
+      setAnswersAvgRatings(prev => ({
+        ...prev,
+        [ansId]: {
+          rating: ((prevAvgRating.rating * prevAvgRating.count) - prevMyRating + selectedRating) / prevAvgRating.count,
+          count: prevAvgRating.count
+        }
+      }));
+    } else {
+      setAnswersAvgRatings(prev => ({
+        ...prev,
+        [ansId]: {
+          rating: ((prevAvgRating.rating * prevAvgRating.count) + selectedRating) / (prevAvgRating.count + 1),
+          count: prevAvgRating.count + 1
+        }
+      }));
+    }
+    // ----------------------------
+
+    try {
+      // Comprobar si ya existe una calificación de este usuario
+      const existing = await pb.collection('problem_ratings').getList(1, 1, {
+        filter: `problem = "${ansId}" && user = "${user.id}"`
+      });
+
+      if (existing.items.length > 0) {
+        // Actualizar
+        await pb.collection('problem_ratings').update(existing.items[0].id, {
+          rating: selectedRating,
+          // Mantener difficulty si existe, o setear a 0. La BD lo requiere.
+          difficulty: existing.items[0].difficulty || 0
+        });
+      } else {
+        // Crear
+        await pb.collection('problem_ratings').create({
+          problem: ansId,
+          user: user.id,
+          rating: selectedRating,
+          difficulty: 0 // Default for answers
+        });
+      }
+
+      // Actualizamos silenciosamente en background
+      fetchDetail(true);
+    } catch (err) {
+      console.error('Error submitting answer rating:', err);
+      // Rollback Optimistic Update
+      setMyAnswersRatings(prev => {
+        const newRatings = { ...prev };
+        if (prevMyRating !== undefined) {
+          newRatings[ansId] = prevMyRating;
+        } else {
+          delete newRatings[ansId];
+        }
+        return newRatings;
+      });
+      setAnswersAvgRatings(prev => ({ ...prev, [ansId]: prevAvgRating }));
+
+      Toast.show({
+        type: 'error',
+        text1: 'Error al calificar',
+        text2: 'Ocurrió un error al procesar tu calificación.',
+      });
     }
   };
 
@@ -178,6 +309,32 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       );
     }
     return stars;
+  };
+
+  const renderSmallStarsSelector = (
+    currentValue: number, 
+    color: string, 
+    onSelect: (val: number) => void
+  ) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <TouchableOpacity 
+          key={i} 
+          onPress={() => onSelect(i)}
+          disabled={submittingRating}
+          style={{ padding: 2 }}
+        >
+          <Feather 
+            name="star" 
+            size={18} 
+            color={i <= currentValue ? color : theme.colors.border} 
+            fill={i <= currentValue ? color : 'transparent'}
+          />
+        </TouchableOpacity>
+      );
+    }
+    return <View style={{ flexDirection: 'row' }}>{stars}</View>;
   };
 
   const renderStars = (value: number, color: string) => {
@@ -358,8 +515,28 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   </View>
                   <Text style={styles.answerDate}>{formatDate(ans.created)}</Text>
                 </View>
+                {ans.title ? (
+                  <Text style={styles.answerTitle}>{ans.title}</Text>
+                ) : null}
                 <View style={styles.answerRenderer}>
                   <MarkdownRenderer content={ans.content} height={100} />
+                </View>
+
+                {/* Rating UI for Answer */}
+                <View style={styles.answerRatingContainer}>
+                  <View style={styles.answerRatingRow}>
+                    <Text style={styles.answerRatingLabel}>Nota solución:</Text>
+                    {renderSmallStarsSelector(
+                      myAnswersRatings[ans.id] || 0,
+                      theme.colors.primary,
+                      (val) => handleAnswerRatingSubmit(ans.id, val)
+                    )}
+                    <Text style={styles.answerRatingAvg}>
+                      {answersAvgRatings[ans.id]?.rating > 0 
+                        ? `${answersAvgRatings[ans.id].rating} (${answersAvgRatings[ans.id].count})` 
+                        : 'Sin notas'}
+                    </Text>
+                  </View>
                 </View>
               </View>
             );
@@ -444,7 +621,6 @@ const styles = StyleSheet.create({
   },
   rendererContainer: {
     marginBottom: theme.spacing.lg,
-    marginHorizontal: -theme.spacing.lg,
   },
   avgStatsContainer: {
     flexDirection: 'row',
@@ -591,7 +767,34 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 11,
   },
+  answerTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: theme.spacing.sm,
+  },
   answerRenderer: {
     marginTop: 4,
+  },
+  answerRatingContainer: {
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  answerRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  answerRatingLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    marginRight: 8,
+  },
+  answerRatingAvg: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    marginLeft: 8,
   },
 });
