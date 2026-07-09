@@ -224,7 +224,9 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
       ) : (
         <ScrollView style={styles.previewBody} contentContainerStyle={styles.previewContent}>
           {content.trim() ? (
-            <TypstRenderer content={content} height={400} />
+            <View style={{ marginHorizontal: -theme.spacing.lg }}>
+              <TypstRenderer content={content} height={400} />
+            </View>
           ) : (
             <Text style={styles.emptyPreviewText}>No hay contenido que previsualizar. Escribe algo en la pestaña Editar.</Text>
           )}

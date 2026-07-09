@@ -444,6 +444,7 @@ const styles = StyleSheet.create({
   },
   rendererContainer: {
     marginBottom: theme.spacing.lg,
+    marginHorizontal: -theme.spacing.lg,
   },
   avgStatsContainer: {
     flexDirection: 'row',
