@@ -376,12 +376,13 @@ const styles = StyleSheet.create({
   },
   previewContent: {
     padding: theme.spacing.lg,
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   emptyPreviewText: {
     color: theme.colors.textMuted,
     fontSize: 13,
     textAlign: 'center',
-    marginTop: 40,
     fontStyle: 'italic',
   },
   footer: {
