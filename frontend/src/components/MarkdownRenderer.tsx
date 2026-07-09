@@ -115,7 +115,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
       </head>
       <body>
         <div id="content"></div>
-        <script id="markdown-data" type="text/plain">${content.replace(/<\/script>/g, '<\\/script>')}</script>
         <script>
           function notifyHeight() {
             setTimeout(function() {
@@ -136,7 +135,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
 
           window.onload = function() {
             try {
-              const rawContent = document.getElementById('markdown-data').textContent;
+              const rawContent = ${JSON.stringify(content)};
               
               let html = marked.parse(rawContent.replace(/\\/g, '\\\\'));
               const contentDiv = document.getElementById('content');
