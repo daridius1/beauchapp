@@ -68,6 +68,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [showParentProblem, setShowParentProblem] = useState(false);
   const [linkedPostId, setLinkedPostId] = useState<string | null>(null);
   const [linkedPostCommentCount, setLinkedPostCommentCount] = useState(0);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
 
   const fetchDetail = async (hideLoading = false) => {
     try {
@@ -208,31 +209,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const handleDeleteProblem = () => {
-    const isSolution = !!problem.parent;
-    const message = isSolution 
-      ? '¿Estás seguro de que deseas eliminar esta pauta?' 
-      : '¿Estás seguro de que deseas eliminar este problema? También se ocultarán todas sus pautas y comentarios asociados.';
-
-    if (Platform.OS === 'web') {
-      const confirmDelete = window.confirm(message);
-      if (confirmDelete) {
-        performDeleteAction(isSolution);
-      }
-      return;
-    }
-
-    Alert.alert(
-      isSolution ? 'Eliminar pauta' : 'Eliminar problema',
-      message,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Eliminar', 
-          style: 'destructive',
-          onPress: () => performDeleteAction(isSolution)
-        }
-      ]
-    );
+    setShowDeleteConfirm(true);
   };
 
   const handleRatingSubmit = async (selectedRating: number, selectedDifficulty: number) => {
@@ -749,6 +726,42 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </>
         )}
       </ScrollView>
+
+      {/* Modal de confirmación de eliminación customizado */}
+      {showDeleteConfirm && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Feather name="alert-triangle" size={24} color={theme.colors.error} style={{ marginRight: 10 }} />
+              <Text style={styles.modalTitle}>
+                {!!problem.parent ? '¿Eliminar pauta?' : '¿Eliminar problema?'}
+              </Text>
+            </View>
+            <Text style={styles.modalBody}>
+              {!!problem.parent 
+                ? '¿Estás seguro de que deseas eliminar esta pauta?' 
+                : '¿Estás seguro de que deseas eliminar este problema? También se ocultarán todas sus pautas y comentarios asociados.'}
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnCancel]} 
+                onPress={() => setShowDeleteConfirm(false)}
+              >
+                <Text style={styles.modalBtnCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalBtnDelete]} 
+                onPress={() => {
+                  performDeleteAction(!!problem.parent);
+                  setShowDeleteConfirm(false);
+                }}
+              >
+                <Text style={styles.modalBtnDeleteText}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -1114,5 +1127,69 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10000,
+  },
+  modalCard: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  modalTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalBody: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: theme.spacing.lg,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: theme.spacing.sm,
+  },
+  modalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 95,
+  },
+  modalBtnCancel: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  modalBtnCancelText: {
+    color: theme.colors.textMuted,
+    fontWeight: '600',
+  },
+  modalBtnDelete: {
+    backgroundColor: theme.colors.error,
+  },
+  modalBtnDeleteText: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
 });
