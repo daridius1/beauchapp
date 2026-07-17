@@ -37,7 +37,7 @@ onRecordAfterCreateSuccess((e) => {
                     notif.set("user", targetUser.id);
                     notif.set("sender", authorId);
                     notif.set("type", "mention");
-                    notif.set("title", "Te mencionaron 🏷️");
+                    notif.set("title", "Te mencionaron");
                     notif.set("body", "@" + authorUsername + " te ha mencionado en una publicación.");
                     notif.set("read", false);
                     notif.set("relatedId", post.id);

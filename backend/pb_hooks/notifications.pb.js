@@ -20,7 +20,7 @@ onRecordAfterCreateSuccess((e) => {
         notifA.set("user", userAId);
         notifA.set("sender", userBId);
         notifA.set("type", "match");
-        notifA.set("title", "¡Nuevo Match! 💖");
+        notifA.set("title", "¡Nuevo Match!");
         notifA.set("body", "Te has conectado con " + nameB + ". ¡Ponte en contacto!");
         notifA.set("read", false);
         notifA.set("relatedId", match.id);
@@ -31,7 +31,7 @@ onRecordAfterCreateSuccess((e) => {
         notifB.set("user", userBId);
         notifB.set("sender", userAId);
         notifB.set("type", "match");
-        notifB.set("title", "¡Nuevo Match! 💖");
+        notifB.set("title", "¡Nuevo Match!");
         notifB.set("body", "Te has conectado con " + nameA + ". ¡Ponte en contacto!");
         notifB.set("read", false);
         notifB.set("relatedId", match.id);
