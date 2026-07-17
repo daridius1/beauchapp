@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: theme.spacing.lg,
-    width: '100%',
+    width: 280,
   },
   statBox: {
     flex: 1,
