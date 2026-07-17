@@ -34,6 +34,10 @@ export const PostCard: React.FC<PostCardProps> = ({
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loadingMention, setLoadingMention] = useState(false);
+  const isDeleted = post.deleted === true;
+  const author = isDeleted ? null : post.expand?.author;
+  const isLiked = currentUser && (post.likes || []).includes(currentUser.id);
+  const repliesCount = post.commentCount || 0;
   const [ratingData, setRatingData] = useState<{ rating: number, difficulty: number, count: number } | null>(null);
 
   useEffect(() => {
@@ -139,10 +143,7 @@ export const PostCard: React.FC<PostCardProps> = ({
     });
   };
 
-  const isDeleted = post.deleted === true;
-  const author = isDeleted ? null : post.expand?.author;
-  const isLiked = currentUser && (post.likes || []).includes(currentUser.id);
-  const repliesCount = post.commentCount || 0;
+
 
   const CardComponent = isFocused ? View : TouchableOpacity;
   const cardProps = isFocused ? {} : { 
