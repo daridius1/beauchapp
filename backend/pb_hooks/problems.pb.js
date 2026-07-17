@@ -225,3 +225,31 @@ onRecordAfterDeleteSuccess((e) => {
         console.log("[Entity Link] Cleanup for problem delete:", err.message || err);
     }
 }, "problems");
+
+// 14. Enlazado polimórfico: Sincronizar soft-delete desde posts hacia problems
+onRecordAfterUpdateSuccess((e) => {
+    try {
+        const post = e.record;
+        const original = e.record.original();
+
+        // Si se marca el post como deleted y antes no lo estaba
+        if (post.getBool("deleted") && !original.getBool("deleted")) {
+            // Verificar si está vinculado a un problema
+            if (post.getString("entityType") === "problems" && post.getString("entityId")) {
+                const problemId = post.getString("entityId");
+                try {
+                    const problem = $app.findRecordById("problems", problemId);
+                    if (problem && !problem.getBool("deleted")) {
+                        problem.set("deleted", true);
+                        $app.save(problem);
+                        console.log("[Entity Link] Soft-deleted linked problem", problemId, "for post", post.id);
+                    }
+                } catch (err) {
+                    console.log("[Entity Link] Error soft-deleting problem from post:", err.message || err);
+                }
+            }
+        }
+    } catch (err) {
+        console.log("[Entity Link] Error in post update hook:", err.message || err);
+    }
+}, "posts");
