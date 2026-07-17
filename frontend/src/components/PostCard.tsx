@@ -228,7 +228,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         </Text>
       ) : null}
 
-      {!(isDeleted && !!post.entityType) && (
+      {!(isDeleted && !!post.entityType) && (isDeleted || (post.content && post.content.trim() !== '')) && (
         <Text style={[
           styles.postContent, 
           isFocused && styles.mainPostContent,
