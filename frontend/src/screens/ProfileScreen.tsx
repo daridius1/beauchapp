@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { ImageViewer } from '../components/ImageViewer';
 import { Avatar } from '../components/Avatar';
 import { Feather } from '@expo/vector-icons';
+import { PostCard } from '../components/PostCard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile' | 'UserProfile'>;
 
@@ -269,108 +270,22 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
         {posts.length === 0 ? (
           <Text style={styles.noPostsText}>Este usuario aún no ha publicado nada.</Text>
         ) : (
-          posts.map(post => {
-            const isLiked = currentUser && (post.likes || []).includes(currentUser.id);
-            const author = post.expand?.author;
-            const repliesCount = post.commentCount || 0;
-            
-            return (
-              <TouchableOpacity 
-                key={post.id} 
-                style={styles.postCard} 
-                activeOpacity={0.7}
-                onPress={() => navigation.push('PostDetail', { postId: post.id })}
-              >
-                <View style={[styles.postHeaderRow, { justifyContent: 'space-between', alignItems: 'center', position: 'relative' }]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                    <TouchableOpacity 
-                      onPress={() => navigation.push('UserProfile', { userId: post.author })}
-                      activeOpacity={0.7}
-                    >
-                      <View style={{ marginRight: theme.spacing.sm }}>
-                        <Avatar user={author} size={40} />
-                      </View>
-                    </TouchableOpacity>
-                    <View style={styles.postMeta}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <TouchableOpacity 
-                          onPress={() => navigation.push('UserProfile', { userId: post.author })}
-                          activeOpacity={0.7}
-                          style={{ flexDirection: 'row', alignItems: 'center' }}
-                        >
-                          <Text style={styles.postAuthor}>{author?.name || 'Usuario'}</Text>
-                          {author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
-                        </TouchableOpacity>
-                      </View>
-                      <Text style={styles.postDate}>{formatDate(post.created)}</Text>
-                    </View>
-                  </View>
-
-                  {currentUser && post.author === currentUser.id && (
-                    <TouchableOpacity 
-                      style={{ padding: 8 }} 
-                      onPress={() => setActiveMenuPostId(activeMenuPostId === post.id ? null : post.id)}
-                    >
-                      <Feather name="more-horizontal" size={20} color={theme.colors.textMuted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                
-                {post.replyTo && post.expand?.replyTo?.expand?.author ? (
-                  <Text style={styles.replyContextText}>
-                    En respuesta a @{post.expand.replyTo.expand.author.username}
-                  </Text>
-                ) : null}
-                
-                <Text style={styles.postContent}>{post.content}</Text>
-                
-                {post.photo && (
-                  <TouchableOpacity 
-                    activeOpacity={0.9}
-                    onPress={() => {
-                      setViewerImageUrl(getFileUrl(post, post.photo));
-                      setViewerVisible(true);
-                    }}
-                  >
-                    <Image 
-                      source={{ uri: getFileUrl(post, post.photo) }} 
-                      style={styles.postImage}
-                    />
-                  </TouchableOpacity>
-                )}
-                
-                <View style={styles.postActions}>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => toggleLike(post)}>
-                    <Text style={[styles.actionIcon, isLiked && styles.actionIconActive]}>
-                      {isLiked ? '❤️' : '🤍'}
-                    </Text>
-                    <Text style={styles.actionCount}>
-                      {post.likes?.length || 0}
-                    </Text>
-                  </TouchableOpacity>
-                  <View style={styles.actionBtn}>
-                    <Text style={styles.actionIcon}>💬</Text>
-                    <Text style={styles.actionCount}>{repliesCount}</Text>
-                  </View>
-                </View>
-
-                {activeMenuPostId === post.id && (
-                  <View style={styles.dropdownMenu}>
-                    <TouchableOpacity 
-                      style={styles.dropdownItem} 
-                      onPress={() => {
-                        setActiveMenuPostId(null);
-                        setDeleteConfirmPostId(post.id);
-                      }}
-                    >
-                      <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
-                      <Text style={styles.dropdownItemText}>Eliminar</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })
+          posts.map(post => (
+            <PostCard
+              key={post.id}
+              post={post}
+              currentUser={currentUser}
+              onPress={() => navigation.push('PostDetail', { postId: post.id })}
+              onLikePress={() => toggleLike(post)}
+              onDeletePress={() => setDeleteConfirmPostId(post.id)}
+              onAuthorPress={() => navigation.push('UserProfile', { userId: post.author })}
+              onProblemPress={() => {
+                if (post.entityType === 'problems') {
+                  navigation.push('ProblemDetail', { problemId: post.entityId });
+                }
+              }}
+            />
+          ))
         )}
       </ScrollView>
 

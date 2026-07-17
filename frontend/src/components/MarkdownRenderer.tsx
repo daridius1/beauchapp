@@ -11,11 +11,18 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
   const [calculatedHeight, setCalculatedHeight] = useState(height);
   const rendererId = React.useMemo(() => Math.random().toString(36).substring(7), []);
 
-  // Pre-process: extract LaTeX blocks in TypeScript (safe escaping)
+  // Pre-process: extract LaTeX and SVG blocks in TypeScript (safe escaping)
   // and replace them with placeholders so marked.js doesn't touch them
-  const { processed, blocks } = React.useMemo(() => {
+  const { processed, blocks, svgBlocks } = React.useMemo(() => {
     const latexBlocks: string[] = [];
+    const svgList: string[] = [];
     let text = content;
+
+    // Protect SVG blocks: <svg ...> ... </svg>
+    text = text.replace(/<svg[\s\S]*?<\/svg>/gi, (match) => {
+      svgList.push(match);
+      return `SVGBLOCK${svgList.length - 1}END`;
+    });
 
     // Protect display math: \[...\]
     text = text.replace(/\\\[[\s\S]*?\\\]/g, (match) => {
@@ -35,7 +42,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
       return `LATEXBLOCK${latexBlocks.length - 1}END`;
     });
 
-    return { processed: text, blocks: latexBlocks };
+    return { processed: text, blocks: latexBlocks, svgBlocks: svgList };
   }, [content]);
 
   useEffect(() => {
@@ -131,6 +138,14 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
             border-radius: 0;
             font-size: 0.9em;
           }
+          img {
+            max-width: 500px;
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            display: block;
+            margin: 12px auto;
+          }
           .mermaid {
             background-color: transparent;
             display: flex;
@@ -171,11 +186,19 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
             try {
               var processedContent = ${JSON.stringify(processed)};
               var latexBlocks = ${JSON.stringify(blocks)};
+              var svgBlocks = ${JSON.stringify(svgBlocks)};
 
               var html = marked.parse(processedContent);
               
-              // Sanitizar el HTML del markdown con DOMPurify antes de inyectar LaTeX
-              var cleanHtml = DOMPurify.sanitize(html);
+              // Restore SVG blocks first so DOMPurify can clean them too
+              for (var i = 0; i < svgBlocks.length; i++) {
+                html = html.split('SVGBLOCK' + i + 'END').join(svgBlocks[i]);
+              }
+              
+              // Sanitizar el HTML del markdown con DOMPurify (incluyendo los SVGs) antes de inyectar LaTeX
+              var cleanHtml = DOMPurify.sanitize(html, {
+                ALLOW_UNKNOWN_PROTOCOLS: true
+              });
 
               // Restore LaTeX blocks after marked has finished, escaping them for safety
               for (var i = 0; i < latexBlocks.length; i++) {

@@ -30,6 +30,48 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const getFriendlyErrorMessage = (err: any, defaultMsg: string): string => {
+  if (!err) return defaultMsg;
+  
+  if (err instanceof Error && !('status' in err)) {
+    return err.message;
+  }
+
+  if (err.status === 0) {
+    return 'No se pudo conectar con el servidor. Por favor, verifica tu conexión a internet.';
+  }
+
+  const errData = err.response?.data || err.data;
+  if (errData && typeof errData === 'object') {
+    const errorDetails: string[] = [];
+    
+    for (const [key, value] of Object.entries(errData)) {
+      const fieldError = value as { code: string; message: string };
+      if (key === 'username') {
+        errorDetails.push('El nombre de usuario ya está en uso o es inválido.');
+      } else if (key === 'email') {
+        errorDetails.push('El correo electrónico ya está registrado.');
+      } else if (key === 'password') {
+        errorDetails.push('La contraseña es demasiado corta o no es válida.');
+      } else if (key === 'name') {
+        errorDetails.push('El nombre es requerido.');
+      } else {
+        errorDetails.push(`${key}: ${fieldError.message}`);
+      }
+    }
+
+    if (errorDetails.length > 0) {
+      return errorDetails.join('\n');
+    }
+  }
+
+  if (err.message && err.message.includes('Failed to authenticate')) {
+    return 'El usuario o la contraseña son incorrectos. Verifica tus credenciales.';
+  }
+
+  return err.message || defaultMsg;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -87,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(authData.record as unknown as User);
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err?.message || 'Error al iniciar sesión. Verifica tus credenciales.');
+      setError(getFriendlyErrorMessage(err, 'Error al iniciar sesión. Verifica tus credenciales.'));
       throw err;
     } finally {
       setLoading(false);
@@ -110,6 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password: password,
         passwordConfirm: password,
         name: name,
+        type: 'student',
       };
 
       // Crear el registro de usuario
@@ -121,7 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // No iniciamos sesión automáticamente para obligar a verificar el correo
     } catch (err: any) {
       console.error('Signup error:', err);
-      setError(err?.message || 'Error al registrar usuario.');
+      setError(getFriendlyErrorMessage(err, 'Error al registrar usuario.'));
       throw err;
     } finally {
       setLoading(false);
@@ -145,7 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await pb.collection('users').requestVerification(email);
     } catch (err: any) {
       console.error('requestVerification error:', err);
-      setError(err?.message || 'Error al solicitar verificación.');
+      setError(getFriendlyErrorMessage(err, 'Error al solicitar verificación.'));
       throw err;
     } finally {
       setLoading(false);
@@ -159,7 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await pb.collection('users').requestPasswordReset(email);
     } catch (err: any) {
       console.error('requestPasswordReset error:', err);
-      setError(err?.message || 'Error al solicitar reseteo de contraseña.');
+      setError(getFriendlyErrorMessage(err, 'Error al solicitar reseteo de contraseña.'));
       throw err;
     } finally {
       setLoading(false);
@@ -173,7 +216,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await pb.collection('users').confirmPasswordReset(token, password, passwordConfirm);
     } catch (err: any) {
       console.error('confirmPasswordReset error:', err);
-      setError(err?.message || 'Error al confirmar reseteo de contraseña.');
+      setError(getFriendlyErrorMessage(err, 'Error al confirmar reseteo de contraseña.'));
       throw err;
     } finally {
       setLoading(false);
@@ -187,7 +230,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await pb.collection('users').confirmVerification(token);
     } catch (err: any) {
       console.error('confirmVerification error:', err);
-      setError(err?.message || 'Error al confirmar verificación.');
+      setError(getFriendlyErrorMessage(err, 'Error al confirmar verificación.'));
       throw err;
     } finally {
       setLoading(false);

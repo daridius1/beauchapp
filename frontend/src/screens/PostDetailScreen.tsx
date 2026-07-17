@@ -10,6 +10,7 @@ import { ImagePicker } from '../components/ImagePicker';
 import { ImageViewer } from '../components/ImageViewer';
 import { Avatar } from '../components/Avatar';
 import { Feather } from '@expo/vector-icons';
+import { PostCard } from '../components/PostCard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PostDetail'>;
 
@@ -209,118 +210,22 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // Render a single post card
   const renderPost = (post: any, isFocused: boolean = false, isParent: boolean = false) => {
-    const isDeleted = post.deleted === true;
-    const author = isDeleted ? null : post.expand?.author;
-    const isLiked = user && (post.likes || []).includes(user.id);
-    const repliesCount = post.commentCount || 0;
-
-    const CardComponent = isFocused ? View : TouchableOpacity;
-    const cardProps = isFocused ? {} : { 
-      activeOpacity: 0.7, 
-      onPress: () => navigation.push('PostDetail', { postId: post.id }) 
-    };
-
     return (
-      <CardComponent {...cardProps} style={[styles.postCard, isFocused && styles.mainPostCard, isParent && styles.parentCard]}>
-        <View style={[styles.postHeader, { justifyContent: 'space-between', alignItems: 'center', position: 'relative' }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <TouchableOpacity 
-              onPress={isDeleted ? undefined : () => navigation.push('UserProfile', { userId: post.author })}
-              disabled={isDeleted}
-              activeOpacity={0.7}
-            >
-              <View style={{ marginRight: theme.spacing.sm }}>
-                <Avatar user={author} size={40} />
-              </View>
-            </TouchableOpacity>
-            <View style={styles.postMeta}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TouchableOpacity 
-                  onPress={isDeleted ? undefined : () => navigation.push('UserProfile', { userId: post.author })}
-                  disabled={isDeleted}
-                  activeOpacity={0.7}
-                  style={{ flexDirection: 'row', alignItems: 'center' }}
-                >
-                  <Text style={styles.postAuthor}>{isDeleted ? '[eliminado]' : (author?.name || 'Usuario')}</Text>
-                  {!isDeleted && author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.postDate}>{formatDate(post.created)}</Text>
-            </View>
-          </View>
-
-          {user && post.author === user.id && !isDeleted && (
-            <TouchableOpacity 
-              style={{ padding: 8 }} 
-              onPress={() => setActiveMenuPostId(activeMenuPostId === post.id ? null : post.id)}
-            >
-              <Feather name="more-horizontal" size={20} color={theme.colors.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
-        
-        <Text style={[
-          styles.postContent, 
-          isFocused && styles.mainPostContent,
-          isDeleted && { color: theme.colors.textMuted, fontStyle: 'italic' }
-        ]}>
-          {isDeleted ? '[Mensaje eliminado]' : post.content}
-        </Text>
-        {!isDeleted && !!post.photo && (
-          <TouchableOpacity 
-            activeOpacity={0.8} 
-            onPress={() => {
-              setViewerImageUrl(getFileUrl(post, post.photo));
-              setViewerVisible(true);
-            }}
-          >
-            <Image 
-              source={{ uri: getFileUrl(post, post.photo) }}
-              style={styles.postImage}
-            />
-          </TouchableOpacity>
-        )}
-        
-        {post.tags && post.tags.length > 0 && (
-          <View style={styles.tagsRow}>
-            {post.tags.map((t: string, i: number) => (
-              <View key={i} style={styles.tagChip}>
-                <Text style={styles.tagChipText}>#{t}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <View style={styles.postActions}>
-          {!isDeleted && (
-            <TouchableOpacity style={styles.actionBtn} onPress={() => toggleLike(post)}>
-              <Text style={styles.actionIcon}>{isLiked ? '❤️' : '🤍'}</Text>
-              <Text style={[styles.actionCount, isLiked && styles.actionIconActive]}>
-                {(post.likes || []).length}
-              </Text>
-            </TouchableOpacity>
-          )}
-          <View style={styles.actionBtn}>
-            <Text style={styles.actionIcon}>💬</Text>
-            <Text style={styles.actionCount}>{repliesCount}</Text>
-          </View>
-        </View>
-
-        {activeMenuPostId === post.id && (
-          <View style={styles.dropdownMenu}>
-            <TouchableOpacity 
-              style={styles.dropdownItem} 
-              onPress={() => {
-                setActiveMenuPostId(null);
-                setDeleteConfirmPostId(post.id);
-              }}
-            >
-              <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
-              <Text style={styles.dropdownItemText}>Eliminar</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </CardComponent>
+      <PostCard
+        post={post}
+        currentUser={user}
+        isFocused={isFocused}
+        isParent={isParent}
+        onPress={isFocused ? undefined : () => navigation.push('PostDetail', { postId: post.id })}
+        onLikePress={() => toggleLike(post)}
+        onDeletePress={() => setDeleteConfirmPostId(post.id)}
+        onAuthorPress={() => navigation.push('UserProfile', { userId: post.author })}
+        onProblemPress={() => {
+          if (post.entityType === 'problems') {
+            navigation.push('ProblemDetail', { problemId: post.entityId });
+          }
+        }}
+      />
     );
   };
 
@@ -752,5 +657,41 @@ const styles = StyleSheet.create({
   modalBtnDeleteText: {
     color: '#ffffff',
     fontWeight: '700',
+  },
+  entityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: theme.spacing.sm,
+  },
+  entityCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  entityCardBody: {
+    flex: 1,
+  },
+  entityCardSubtitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  entityCardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.text,
+    lineHeight: 19,
   },
 });

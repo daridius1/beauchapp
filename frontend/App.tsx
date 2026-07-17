@@ -21,7 +21,9 @@ import { RootStackParamList } from './src/types/navigation';
 import { ProblemsListScreen } from './src/screens/ProblemsListScreen';
 import { ProblemDetailScreen } from './src/screens/ProblemDetailScreen';
 import { ProblemEditorScreen } from './src/screens/ProblemEditorScreen';
-import Toast from 'react-native-toast-message';
+import { TinderScreen } from './src/screens/TinderScreen';
+import { NotificationsScreen } from './src/screens/NotificationsScreen';
+import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import * as Linking from 'expo-linking';
 
 if (Platform.OS === 'web') {
@@ -43,6 +45,53 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 // ----------------------------------------------------
 // COMPONENTE CONTENEDOR PRINCIPAL
 // ----------------------------------------------------
+const toastConfig = {
+  success: (props: any) => (
+    <BaseToast
+      {...props}
+      style={{ 
+        backgroundColor: '#0a0a0a',
+        borderLeftColor: '#6366F1',
+        borderWidth: 1,
+        borderColor: '#222222',
+        borderRadius: 8
+      }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        color: '#ffffff',
+        fontSize: 14,
+        fontWeight: '700'
+      }}
+      text2Style={{
+        color: '#888888',
+        fontSize: 12
+      }}
+    />
+  ),
+  error: (props: any) => (
+    <ErrorToast
+      {...props}
+      style={{ 
+        backgroundColor: '#0a0a0a',
+        borderLeftColor: '#ff4444',
+        borderWidth: 1,
+        borderColor: '#222222',
+        borderRadius: 8
+      }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        color: '#ffffff',
+        fontSize: 14,
+        fontWeight: '700'
+      }}
+      text2Style={{
+        color: '#888888',
+        fontSize: 12
+      }}
+    />
+  )
+};
+
 function AppContent() {
   const { user, isInitialized } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
@@ -71,14 +120,19 @@ function AppContent() {
         return type === 'followers' ? 'Seguidores' : 'Siguiendo';
       }
       case 'ProblemsList': return 'Problemas';
-      case 'ProblemDetail': return 'Detalle de Problema';
+      case 'ProblemDetail': {
+        const type = params?.type;
+        return type === 'solution' ? 'Solución' : 'Problema';
+      }
       case 'ProblemEditor': return params?.type === 'problem' ? 'Subir Problema' : 'Subir Pauta';
+      case 'Tinder': return 'Tinder Beauchef';
+      case 'Notifications': return 'Notificaciones';
       case 'NotFound': return 'No Encontrado';
       default: return 'Beauchapp';
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Settings', 'Directory', 'ProblemsList'];
+  const rootScreens = ['Home', 'Profile', 'Settings', 'Directory', 'ProblemsList', 'Notifications'];
   const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
 
   if (!isInitialized) {
@@ -114,6 +168,8 @@ function AppContent() {
               Verification: 'verification',
               VerifyEmail: 'verify',
               ResetPassword: 'reset-password',
+              Tinder: 'tinder',
+              Notifications: 'notifications',
             }
           }
         }}
@@ -158,6 +214,8 @@ function AppContent() {
                   <Stack.Screen name="ProblemsList" component={ProblemsListScreen} />
                   <Stack.Screen name="ProblemDetail" component={ProblemDetailScreen} />
                   <Stack.Screen name="ProblemEditor" component={ProblemEditorScreen} />
+                  <Stack.Screen name="Tinder" component={TinderScreen} />
+                  <Stack.Screen name="Notifications" component={NotificationsScreen} />
                   <Stack.Screen name="Settings" component={SettingsScreen} />
                   <Stack.Screen name="NotFound" component={NotFoundScreen} />
                 </Stack.Navigator>
@@ -182,7 +240,7 @@ function AppContent() {
           )}
         </View>
       </NavigationContainer>
-      <Toast />
+      <Toast config={toastConfig} />
     </SafeAreaView>
   );
 }

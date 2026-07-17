@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Animated, Dimensions, Pressable } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
@@ -18,7 +18,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
   const { user, logout } = useAuth();
   const slideAnim = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
-
   useEffect(() => {
     Animated.parallel([
       Animated.timing(slideAnim, {
@@ -50,8 +49,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
     { id: 'Home', label: 'Inicio' },
     { id: 'Directory', label: 'Perfiles' },
     { id: 'ProblemsList', label: 'Problemas' },
+    ...(user && user.type !== 'organization' ? [{ id: 'Tinder', label: 'Tinder Beauchef' }] : []),
+    ...(user ? [{ id: 'Notifications', label: 'Notificaciones' }] : []),
     { id: 'Settings', label: 'Ajustes' },
   ];
+
 
 
   return (
@@ -92,7 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
 
         {/* Enlaces de Navegación */}
         <View style={styles.navLinks}>
-          {menuItems.map((item) => (
+          {menuItems.map((item: any) => (
             <TouchableOpacity
               key={item.id}
               style={[
@@ -101,14 +103,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
               ]}
               onPress={() => handleLinkPress(item.id)}
             >
-              <Text 
-                style={[
-                  styles.navItemText,
-                  activeScreen === item.id && styles.navItemTextActive
-                ]}
-              >
-                {item.label}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <Text 
+                  style={[
+                    styles.navItemText,
+                    activeScreen === item.id && styles.navItemTextActive
+                  ]}
+                >
+                  {item.label}
+                </Text>
+                {!!item.badge && item.badge > 0 && (
+                  <View style={styles.badgeContainer}>
+                    <Text style={styles.badgeText}>{item.badge}</Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -247,5 +256,19 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontSize: 14,
     fontWeight: '600',
+  },
+  badgeContainer: {
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

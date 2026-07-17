@@ -8,7 +8,8 @@ import {
   ActivityIndicator, 
   RefreshControl,
   DeviceEventEmitter,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -16,12 +17,37 @@ import { RootStackParamList } from '../types/navigation';
 import { pb } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
-import { Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProblemDetail'>;
+
+const renderContentBlocks = (contentStr: string) => {
+  if (!contentStr) return null;
+  
+  let blocks: { type: 'markdown' | 'image', value: string }[] = [];
+  try {
+    if (contentStr.trim().startsWith('[')) {
+      blocks = JSON.parse(contentStr);
+    }
+  } catch (e) {}
+
+  if (blocks.length === 0) {
+    return <MarkdownRenderer content={contentStr} height={150} />;
+  }
+
+  const compiledMarkdown = blocks.map(b => {
+    if (b.type === 'markdown') {
+      return b.value;
+    } else {
+      return b.value ? `\n![imagen](${b.value})\n` : '';
+    }
+  }).join('\n\n');
+
+  return <MarkdownRenderer content={compiledMarkdown} height={150} />;
+};
 
 export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { problemId } = route.params;
@@ -30,14 +56,17 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [problem, setProblem] = useState<any>(null);
   const [answers, setAnswers] = useState<any[]>([]);
   const [myRating, setMyRating] = useState<{ rating: number, difficulty: number } | null>(null);
-  const [avgRating, setAvgRating] = useState({ rating: 0, difficulty: 0, count: 0 });
+  const [avgRating, setAvgRating] = useState({ rating: 0, ratingCount: 0, difficulty: 0, difficultyCount: 0 });
   
-  const [answersAvgRatings, setAnswersAvgRatings] = useState<Record<string, { rating: number, count: number }>>({});
+  const [answersAvgRatings, setAnswersAvgRatings] = useState<Record<string, { rating: number, ratingCount: number, difficulty: number, difficultyCount: number }>>({});
   const [myAnswersRatings, setMyAnswersRatings] = useState<Record<string, number>>({});
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [showParentProblem, setShowParentProblem] = useState(false);
+  const [linkedPostId, setLinkedPostId] = useState<string | null>(null);
+  const [linkedPostCommentCount, setLinkedPostCommentCount] = useState(0);
 
   const fetchDetail = async (hideLoading = false) => {
     try {
@@ -45,9 +74,22 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
       // 1. Obtener datos del problema
       const probRes = await pb.collection('problems').getOne(problemId, {
-        expand: 'author'
+        expand: 'author,parent'
       });
       setProblem(probRes);
+
+      // 1b. Find the linked community post
+      try {
+        const linkedPost = await pb.collection('posts').getFirstListItem(
+          `entityType = "problems" && entityId = "${problemId}"`
+        );
+        setLinkedPostId(linkedPost.id);
+        setLinkedPostCommentCount(linkedPost.commentCount || 0);
+      } catch (_) {
+        // No linked post found — that's OK for legacy problems
+        setLinkedPostId(null);
+        setLinkedPostCommentCount(0);
+      }
 
       // 2. Obtener respuestas/pautas (problems con parent = problemId)
       const ansRes = await pb.collection('problems').getList(1, 100, {
@@ -63,27 +105,42 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       });
 
       let sumRating = 0;
+      let ratingCount = 0;
       let sumDifficulty = 0;
+      let difficultyCount = 0;
       let userRatingData = null;
-      let problemRatingsCount = 0;
 
-      const tempAnswersAvgRatings: Record<string, { sum: number, count: number }> = {};
+      const tempAnswersAvgRatings: Record<string, { sumRating: number, ratingCount: number, sumDifficulty: number, difficultyCount: number }> = {};
       const tempMyAnswersRatings: Record<string, number> = {};
 
       ratingsRes.forEach(r => {
         if (r.problem === problemId) {
-          sumRating += r.rating;
-          sumDifficulty += r.difficulty;
-          problemRatingsCount++;
+          if (r.rating > 0) {
+            sumRating += r.rating;
+            ratingCount++;
+          }
+          if (r.difficulty > 0) {
+            sumDifficulty += r.difficulty;
+            difficultyCount++;
+          }
           if (user && r.user === user.id) {
             userRatingData = { rating: r.rating, difficulty: r.difficulty };
           }
         } else {
           if (!tempAnswersAvgRatings[r.problem]) {
-            tempAnswersAvgRatings[r.problem] = { sum: 0, count: 0 };
+            tempAnswersAvgRatings[r.problem] = { 
+              sumRating: 0, ratingCount: 0,
+              sumDifficulty: 0, difficultyCount: 0
+            };
           }
-          tempAnswersAvgRatings[r.problem].sum += r.rating;
-          tempAnswersAvgRatings[r.problem].count++;
+          if (r.rating > 0) {
+            tempAnswersAvgRatings[r.problem].sumRating += r.rating;
+            tempAnswersAvgRatings[r.problem].ratingCount++;
+          }
+          if (r.difficulty > 0) {
+            tempAnswersAvgRatings[r.problem].sumDifficulty += r.difficulty;
+            tempAnswersAvgRatings[r.problem].difficultyCount++;
+          }
 
           if (user && r.user === user.id) {
             tempMyAnswersRatings[r.problem] = r.rating;
@@ -93,16 +150,19 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
       setMyRating(userRatingData);
       setAvgRating({
-        rating: problemRatingsCount > 0 ? parseFloat((sumRating / problemRatingsCount).toFixed(1)) : 0,
-        difficulty: problemRatingsCount > 0 ? parseFloat((sumDifficulty / problemRatingsCount).toFixed(1)) : 0,
-        count: problemRatingsCount
+        rating: ratingCount > 0 ? parseFloat((sumRating / ratingCount).toFixed(1)) : 0,
+        ratingCount: ratingCount,
+        difficulty: difficultyCount > 0 ? parseFloat((sumDifficulty / difficultyCount).toFixed(1)) : 0,
+        difficultyCount: difficultyCount
       });
 
-      const newAnswersAvgRatings: Record<string, { rating: number, count: number }> = {};
+      const newAnswersAvgRatings: Record<string, { rating: number, ratingCount: number, difficulty: number, difficultyCount: number }> = {};
       for (const [ansId, data] of Object.entries(tempAnswersAvgRatings)) {
         newAnswersAvgRatings[ansId] = {
-          rating: parseFloat((data.sum / data.count).toFixed(1)),
-          count: data.count
+          rating: data.ratingCount > 0 ? parseFloat((data.sumRating / data.ratingCount).toFixed(1)) : 0,
+          ratingCount: data.ratingCount,
+          difficulty: data.difficultyCount > 0 ? parseFloat((data.sumDifficulty / data.difficultyCount).toFixed(1)) : 0,
+          difficultyCount: data.difficultyCount
         };
       }
       setAnswersAvgRatings(newAnswersAvgRatings);
@@ -127,6 +187,41 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     await fetchDetail(true);
   };
 
+  const handleDeleteProblem = () => {
+    const isSolution = !!problem.parent;
+    Alert.alert(
+      isSolution ? 'Eliminar pauta' : 'Eliminar problema',
+      isSolution 
+        ? '¿Estás seguro de que deseas eliminar esta pauta?' 
+        : '¿Estás seguro de que deseas eliminar este problema? También se ocultarán todas sus pautas y comentarios asociados.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Eliminar', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await pb.collection('problems').update(problemId, { deleted: true });
+              Toast.show({
+                type: 'success',
+                text1: 'Eliminado',
+                text2: isSolution ? 'La pauta ha sido eliminada.' : 'El problema ha sido eliminado.',
+              });
+              navigation.goBack();
+            } catch (err) {
+              console.error('Error deleting problem:', err);
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'No se pudo completar la eliminación.',
+              });
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const handleRatingSubmit = async (selectedRating: number, selectedDifficulty: number) => {
     if (!user) {
       Toast.show({
@@ -142,19 +237,51 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     const prevAvgRating = avgRating;
 
     setMyRating({ rating: selectedRating, difficulty: selectedDifficulty });
-    if (prevMyRating) {
-      setAvgRating({
-        rating: ((prevAvgRating.rating * prevAvgRating.count) - prevMyRating.rating + selectedRating) / prevAvgRating.count,
-        difficulty: ((prevAvgRating.difficulty * prevAvgRating.count) - prevMyRating.difficulty + selectedDifficulty) / prevAvgRating.count,
-        count: prevAvgRating.count
-      });
-    } else {
-      setAvgRating({
-        rating: ((prevAvgRating.rating * prevAvgRating.count) + selectedRating) / (prevAvgRating.count + 1),
-        difficulty: ((prevAvgRating.difficulty * prevAvgRating.count) + selectedDifficulty) / (prevAvgRating.count + 1),
-        count: prevAvgRating.count + 1
-      });
+
+    let nextRating = prevAvgRating.rating;
+    let nextRatingCount = prevAvgRating.ratingCount;
+    
+    // Rating adjustment
+    const prevRatingVal = prevMyRating?.rating || 0;
+    if (selectedRating !== prevRatingVal) {
+      if (prevRatingVal > 0 && selectedRating > 0) {
+        nextRating = ((prevAvgRating.rating * prevAvgRating.ratingCount) - prevRatingVal + selectedRating) / prevAvgRating.ratingCount;
+      } else if (prevRatingVal > 0 && selectedRating === 0) {
+        nextRatingCount = prevAvgRating.ratingCount - 1;
+        nextRating = nextRatingCount > 0 
+          ? ((prevAvgRating.rating * prevAvgRating.ratingCount) - prevRatingVal) / nextRatingCount
+          : 0;
+      } else if (prevRatingVal === 0 && selectedRating > 0) {
+        nextRatingCount = prevAvgRating.ratingCount + 1;
+        nextRating = ((prevAvgRating.rating * prevAvgRating.ratingCount) + selectedRating) / nextRatingCount;
+      }
     }
+
+    let nextDiff = prevAvgRating.difficulty;
+    let nextDiffCount = prevAvgRating.difficultyCount;
+
+    // Difficulty adjustment
+    const prevDiffVal = prevMyRating?.difficulty || 0;
+    if (selectedDifficulty !== prevDiffVal) {
+      if (prevDiffVal > 0 && selectedDifficulty > 0) {
+        nextDiff = ((prevAvgRating.difficulty * prevAvgRating.difficultyCount) - prevDiffVal + selectedDifficulty) / prevAvgRating.difficultyCount;
+      } else if (prevDiffVal > 0 && selectedDifficulty === 0) {
+        nextDiffCount = prevAvgRating.difficultyCount - 1;
+        nextDiff = nextDiffCount > 0
+          ? ((prevAvgRating.difficulty * prevAvgRating.difficultyCount) - prevDiffVal) / nextDiffCount
+          : 0;
+      } else if (prevDiffVal === 0 && selectedDifficulty > 0) {
+        nextDiffCount = prevAvgRating.difficultyCount + 1;
+        nextDiff = ((prevAvgRating.difficulty * prevAvgRating.difficultyCount) + selectedDifficulty) / nextDiffCount;
+      }
+    }
+
+    setAvgRating({
+      rating: parseFloat(nextRating.toFixed(1)),
+      ratingCount: nextRatingCount,
+      difficulty: parseFloat(nextDiff.toFixed(1)),
+      difficultyCount: nextDiffCount
+    });
     // ----------------------------
 
     try {
@@ -163,20 +290,26 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         filter: `problem = "${problemId}" && user = "${user.id}"`
       });
 
-      if (existing.items.length > 0) {
-        // Actualizar
-        await pb.collection('problem_ratings').update(existing.items[0].id, {
-          rating: selectedRating,
-          difficulty: selectedDifficulty
-        });
+      if (selectedRating === 0 && selectedDifficulty === 0) {
+        if (existing.items.length > 0) {
+          await pb.collection('problem_ratings').delete(existing.items[0].id);
+        }
       } else {
-        // Crear
-        await pb.collection('problem_ratings').create({
-          problem: problemId,
-          user: user.id,
-          rating: selectedRating,
-          difficulty: selectedDifficulty
-        });
+        if (existing.items.length > 0) {
+          // Actualizar
+          await pb.collection('problem_ratings').update(existing.items[0].id, {
+            rating: selectedRating,
+            difficulty: selectedDifficulty
+          });
+        } else {
+          // Crear
+          await pb.collection('problem_ratings').create({
+            problem: problemId,
+            user: user.id,
+            rating: selectedRating,
+            difficulty: selectedDifficulty
+          });
+        }
       }
 
       // No mostramos Toast de éxito para que sea completamente silencioso e instantáneo
@@ -198,87 +331,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
-  const handleAnswerRatingSubmit = async (ansId: string, selectedRating: number) => {
-    if (!user) {
-      Toast.show({
-        type: 'error',
-        text1: 'Inicia sesión',
-        text2: 'Debes iniciar sesión para calificar esta pauta.',
-      });
-      return;
-    }
 
-    // --- Optimistic UI Update ---
-    const prevMyRating = myAnswersRatings[ansId];
-    const prevAvgRating = answersAvgRatings[ansId] || { rating: 0, count: 0 };
-
-    setMyAnswersRatings(prev => ({ ...prev, [ansId]: selectedRating }));
-    
-    if (prevMyRating) {
-      setAnswersAvgRatings(prev => ({
-        ...prev,
-        [ansId]: {
-          rating: ((prevAvgRating.rating * prevAvgRating.count) - prevMyRating + selectedRating) / prevAvgRating.count,
-          count: prevAvgRating.count
-        }
-      }));
-    } else {
-      setAnswersAvgRatings(prev => ({
-        ...prev,
-        [ansId]: {
-          rating: ((prevAvgRating.rating * prevAvgRating.count) + selectedRating) / (prevAvgRating.count + 1),
-          count: prevAvgRating.count + 1
-        }
-      }));
-    }
-    // ----------------------------
-
-    try {
-      // Comprobar si ya existe una calificación de este usuario
-      const existing = await pb.collection('problem_ratings').getList(1, 1, {
-        filter: `problem = "${ansId}" && user = "${user.id}"`
-      });
-
-      if (existing.items.length > 0) {
-        // Actualizar
-        await pb.collection('problem_ratings').update(existing.items[0].id, {
-          rating: selectedRating,
-          // Mantener difficulty si existe, o setear a 1. La BD lo requiere (0 es rechazado por ser requerido).
-          difficulty: existing.items[0].difficulty || 1
-        });
-      } else {
-        // Crear
-        await pb.collection('problem_ratings').create({
-          problem: ansId,
-          user: user.id,
-          rating: selectedRating,
-          difficulty: 1 // Default for answers (cannot be 0 as required fields reject 0)
-        });
-      }
-
-      // Actualizamos silenciosamente en background
-      fetchDetail(true);
-    } catch (err) {
-      console.error('Error submitting answer rating:', err);
-      // Rollback Optimistic Update
-      setMyAnswersRatings(prev => {
-        const newRatings = { ...prev };
-        if (prevMyRating !== undefined) {
-          newRatings[ansId] = prevMyRating;
-        } else {
-          delete newRatings[ansId];
-        }
-        return newRatings;
-      });
-      setAnswersAvgRatings(prev => ({ ...prev, [ansId]: prevAvgRating }));
-
-      Toast.show({
-        type: 'error',
-        text1: 'Error al calificar',
-        text2: 'Ocurrió un error al procesar tu calificación.',
-      });
-    }
-  };
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr.replace(' ', 'T'));
@@ -298,12 +351,11 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           onPress={() => onSelect(i)}
           disabled={submittingRating}
         >
-          <Feather 
+          <FontAwesome 
             name="star" 
             size={22} 
-            color={i <= currentValue ? color : theme.colors.textMuted} 
+            color={i <= currentValue ? color : '#262626'} 
             style={{ marginRight: 6 }}
-            fill={i <= currentValue ? color : 'transparent'}
           />
         </TouchableOpacity>
       );
@@ -311,46 +363,42 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     return stars;
   };
 
-  const renderSmallStarsSelector = (
-    currentValue: number, 
-    color: string, 
-    onSelect: (val: number) => void
-  ) => {
-    const stars = [];
-    for (let i = 1; i <= 5; i++) {
-      stars.push(
-        <TouchableOpacity 
-          key={i} 
-          onPress={() => onSelect(i)}
-          disabled={submittingRating}
-          style={{ padding: 2 }}
-        >
-          <Feather 
-            name="star" 
-            size={18} 
-            color={i <= currentValue ? color : theme.colors.border} 
-            fill={i <= currentValue ? color : 'transparent'}
-          />
-        </TouchableOpacity>
-      );
-    }
-    return <View style={{ flexDirection: 'row' }}>{stars}</View>;
-  };
+
 
   const renderStars = (value: number, color: string) => {
     const stars = [];
-    const roundedValue = Math.round(value);
     for (let i = 1; i <= 5; i++) {
-      stars.push(
-        <Feather 
-          key={i} 
-          name="star" 
-          size={14} 
-          color={i <= roundedValue ? color : theme.colors.textMuted} 
-          style={{ marginRight: 2 }}
-          fill={i <= roundedValue ? color : 'transparent'}
-        />
-      );
+      if (value >= i) {
+        stars.push(
+          <FontAwesome
+            key={i}
+            name="star"
+            size={14}
+            color={color}
+            style={{ marginRight: 2 }}
+          />
+        );
+      } else if (value >= i - 0.75) {
+        stars.push(
+          <FontAwesome
+            key={i}
+            name="star-half-o"
+            size={14}
+            color={color}
+            style={{ marginRight: 2 }}
+          />
+        );
+      } else {
+        stars.push(
+          <FontAwesome
+            key={i}
+            name="star"
+            size={14}
+            color="#262626"
+            style={{ marginRight: 2 }}
+          />
+        );
+      }
     }
     return stars;
   };
@@ -386,25 +434,111 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           />
         }
       >
-        {/* Autor e Info */}
-        <View style={styles.authorRow}>
-          <TouchableOpacity 
-            activeOpacity={0.7}
-            onPress={() => navigation.push('UserProfile', { userId: problem.author })}
+        {problem.deleted && (
+          <View style={styles.deletedBanner}>
+            <Text style={styles.deletedBannerText}>Esta publicación ha sido desvinculada de su autor y es anónima.</Text>
+          </View>
+        )}
+
+        {!!problem.parent && (
+          <TouchableOpacity
+            style={styles.parentBanner}
+            onPress={() => navigation.push('ProblemDetail', { problemId: problem.parent, type: 'problem' })}
+            activeOpacity={0.8}
           >
-            <Avatar user={problemAuthor} size={44} />
+            <Text style={styles.parentBannerText} numberOfLines={1}>
+              Problema original
+            </Text>
           </TouchableOpacity>
-          <View style={styles.authorMeta}>
+        )}
+
+        {!!problem.parent && !!problem.expand?.parent && (
+          <View style={styles.parentProblemContainer}>
+            <TouchableOpacity
+              style={styles.parentProblemHeader}
+              onPress={() => setShowParentProblem(!showParentProblem)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.parentProblemHeaderText}>
+                {showParentProblem ? 'Ocultar enunciado' : 'Mostrar enunciado'}
+              </Text>
+              <Feather 
+                name={showParentProblem ? "chevron-up" : "chevron-down"} 
+                size={16} 
+                color={theme.colors.primary} 
+              />
+            </TouchableOpacity>
+            
+            {showParentProblem && (
+              <View style={styles.parentProblemContent}>
+                {problem.expand.parent.tags && problem.expand.parent.tags.length > 0 && (
+                  <View style={styles.parentProblemTagsRow}>
+                    {problem.expand.parent.tags.map((tag: string) => (
+                      <Text key={tag} style={styles.parentProblemTagBadge}>#{tag}</Text>
+                    ))}
+                  </View>
+                )}
+                <View style={styles.rendererContainer}>
+                  {renderContentBlocks(problem.expand.parent.content)}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Autor e Info */}
+        <View style={[styles.authorRow, { justifyContent: 'space-between', alignItems: 'center' }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity 
               activeOpacity={0.7}
-              onPress={() => navigation.push('UserProfile', { userId: problem.author })}
+              onPress={problem.author ? () => navigation.push('UserProfile', { userId: problem.author }) : undefined}
+              disabled={!problem.author}
             >
-              <Text style={styles.authorName}>{problemAuthor?.name || 'Usuario'}</Text>
-              {problemAuthor?.username && <Text style={styles.authorHandle}>@{problemAuthor.username}</Text>}
+              <Avatar user={problemAuthor} size={44} />
             </TouchableOpacity>
-            <Text style={styles.dateText}>{formatDate(problem.created)}</Text>
+            <View style={styles.authorMeta}>
+              <TouchableOpacity 
+                activeOpacity={0.7}
+                onPress={problem.author ? () => navigation.push('UserProfile', { userId: problem.author }) : undefined}
+                disabled={!problem.author}
+              >
+                <Text style={styles.authorName}>{problemAuthor?.name || 'Usuario'}</Text>
+                {!!problemAuthor?.username && <Text style={styles.authorHandle}>@{problemAuthor.username}</Text>}
+              </TouchableOpacity>
+              <Text style={styles.dateText}>{formatDate(problem.created)}</Text>
+            </View>
           </View>
+
+          {user && problem.author === user.id && !problem.deleted && (
+            <TouchableOpacity 
+              style={{ padding: 8 }} 
+              onPress={handleDeleteProblem}
+            >
+              <Feather name="trash-2" size={20} color={theme.colors.error} />
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Academic Metadata Badges */}
+        {!!(problem.ramo || problem.semestre || problem.instancia) && (
+          <View style={styles.academicBadgesRow}>
+            {!!problem.ramo && (
+              <View style={[styles.academicBadge, { backgroundColor: 'rgba(56, 189, 248, 0.1)', borderColor: 'rgba(56, 189, 248, 0.3)' }]}>
+                <Text style={[styles.academicBadgeText, { color: '#38BDF8' }]}>{problem.ramo}</Text>
+              </View>
+            )}
+            {!!problem.semestre && (
+              <View style={[styles.academicBadge, { backgroundColor: 'rgba(52, 211, 153, 0.1)', borderColor: 'rgba(52, 211, 153, 0.3)' }]}>
+                <Text style={[styles.academicBadgeText, { color: '#34D399' }]}>{problem.semestre}</Text>
+              </View>
+            )}
+            {!!problem.instancia && (
+              <View style={[styles.academicBadge, { backgroundColor: 'rgba(248, 113, 113, 0.1)', borderColor: 'rgba(248, 113, 113, 0.3)' }]}>
+                <Text style={[styles.academicBadgeText, { color: '#F87171' }]}>{problem.instancia}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Título y Enunciado */}
         <Text style={styles.problemTitle}>{problem.title}</Text>
@@ -418,129 +552,188 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         )}
 
-        <View style={styles.divider} />
-
-        {/* Renderizador de Typst */}
-        <Text style={styles.sectionHeader}>Enunciado</Text>
         <View style={styles.rendererContainer}>
-          <MarkdownRenderer content={problem.content} height={150} />
+          {renderContentBlocks(problem.content)}
         </View>
+
+        <View style={styles.divider} />
 
         {/* Estadísticas Promedio de Calificación */}
         <View style={styles.avgStatsContainer}>
           <View style={styles.avgStatBox}>
-            <Text style={styles.avgStatLabel}>Nota Promedio</Text>
+            <Text style={styles.avgStatLabel}>{problem.parent ? 'Solución' : 'Enunciado'}</Text>
             <View style={styles.starsWrapper}>
               {renderStars(avgRating.rating, '#F59E0B')}
             </View>
-            <Text style={styles.avgStatValue}>{avgRating.rating} / 5.0</Text>
+            <Text style={styles.avgStatValue}>{avgRating.rating} / 5 ({avgRating.ratingCount})</Text>
           </View>
           <View style={styles.avgStatBox}>
-            <Text style={styles.avgStatLabel}>Dificultad Promedio</Text>
+            <Text style={styles.avgStatLabel}>{problem.parent ? 'Explicación' : 'Dificultad'}</Text>
             <View style={styles.starsWrapper}>
               {renderStars(avgRating.difficulty, '#EF4444')}
             </View>
-            <Text style={styles.avgStatValue}>{avgRating.difficulty} / 5.0</Text>
+            <Text style={styles.avgStatValue}>{avgRating.difficulty} / 5 ({avgRating.difficultyCount})</Text>
           </View>
-          <Text style={styles.ratingsCountTotal}>Basado en {avgRating.count} calificaciones</Text>
         </View>
 
-        {/* Calificar Problema */}
+        {/* Calificar Problema / Solución */}
         {user && user.type !== 'organization' && (
-          <View style={styles.ratingForm}>
-            <Text style={styles.ratingFormTitle}>Califica este problema</Text>
+          <>
+            <View style={styles.divider} />
+            <View style={styles.ratingForm}>
+            <Text style={styles.ratingFormTitle}>
+              {problem.parent ? 'Califica esta solución' : 'Califica este problema'}
+            </Text>
             
             <View style={styles.selectorRow}>
-              <Text style={styles.selectorLabel}>Tu Calificación:</Text>
-              <View style={styles.starsSelectorWrapper}>
+              <Text style={styles.selectorLabel}>
+                {problem.parent ? 'Solución' : 'Enunciado'}
+              </Text>
+              <Text style={styles.selectorSeparator}>|</Text>
+              <View style={[styles.starsSelectorWrapper, { alignItems: 'center' }]}>
                 {renderStarsSelector(
                   myRating?.rating || 0, 
                   '#F59E0B', 
-                  (val) => handleRatingSubmit(val, myRating?.difficulty || 3)
+                  (val) => handleRatingSubmit(val, myRating?.difficulty || 0)
+                )}
+                {!!myRating?.rating && myRating.rating > 0 && (
+                  <TouchableOpacity
+                    onPress={() => handleRatingSubmit(0, myRating?.difficulty || 0)}
+                    style={styles.clearRatingBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="x" size={16} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
                 )}
               </View>
             </View>
 
             <View style={styles.selectorRow}>
-              <Text style={styles.selectorLabel}>Dificultad:</Text>
-              <View style={styles.starsSelectorWrapper}>
+              <Text style={styles.selectorLabel}>
+                {problem.parent ? 'Explicación' : 'Dificultad'}
+              </Text>
+              <Text style={styles.selectorSeparator}>|</Text>
+              <View style={[styles.starsSelectorWrapper, { alignItems: 'center' }]}>
                 {renderStarsSelector(
                   myRating?.difficulty || 0, 
                   '#EF4444', 
-                  (val) => handleRatingSubmit(myRating?.rating || 4, val)
+                  (val) => handleRatingSubmit(myRating?.rating || 0, val)
+                )}
+                {!!myRating?.difficulty && myRating.difficulty > 0 && (
+                  <TouchableOpacity
+                    onPress={() => handleRatingSubmit(myRating?.rating || 0, 0)}
+                    style={styles.clearRatingBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="x" size={16} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
                 )}
               </View>
             </View>
           </View>
+          </>
         )}
 
-        <View style={styles.divider} />
+        {!problem.parent && (
+          <>
+            <View style={styles.divider} />
 
-        {/* Respuestas / Pautas */}
-        <View style={styles.answersHeaderRow}>
-          <Text style={styles.sectionTitle}>Pautas y Resoluciones</Text>
-          {user && user.type !== 'organization' && (
-            <TouchableOpacity 
-              style={styles.addAnswerBtn}
-              onPress={() => navigation.push('ProblemEditor', { 
-                type: 'answer', 
-                problemId: problemId,
-                problemTitle: problem.title 
-              })}
-            >
-              <Feather name="plus" size={16} color="#000000" style={{ marginRight: 4 }} />
-              <Text style={styles.addAnswerBtnText}>Subir Pauta</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+            {/* Respuestas / Pautas */}
+            <View style={styles.answersHeaderRow}>
+              <Text style={styles.sectionTitle}>Pautas</Text>
+              {user && user.type !== 'organization' && (
+                <TouchableOpacity 
+                  style={styles.addAnswerBtn}
+                  onPress={() => navigation.push('ProblemEditor', { 
+                    type: 'answer', 
+                    problemId: problemId,
+                    problemTitle: problem.title 
+                  })}
+                >
+                  <Feather name="plus" size={16} color="#000000" style={{ marginRight: 4 }} />
+                  <Text style={styles.addAnswerBtnText}>Subir Pauta</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
-        {answers.length === 0 ? (
-          <View style={styles.emptyAnswers}>
-            <Feather name="message-square" size={32} color={theme.colors.textMuted} style={{ marginBottom: 8 }} />
-            <Text style={styles.emptyAnswersText}>Aún no hay pautas subidas para este problema.</Text>
-            {user && user.type !== 'organization' && (
-              <Text style={styles.emptyAnswersSub}>¿Resolviste el problema? ¡Comparte tu solución en Typst!</Text>
-            )}
-          </View>
-        ) : (
-          answers.map(ans => {
-            const ansAuthor = ans.expand?.author;
-            return (
-              <View key={ans.id} style={styles.answerCard}>
-                <View style={styles.answerHeader}>
-                  <Avatar user={ansAuthor} size={30} />
-                  <View style={styles.answerMeta}>
-                    <Text style={styles.answerAuthorName}>{ansAuthor?.name || 'Usuario'}</Text>
-                    {ansAuthor?.username && <Text style={styles.answerAuthorHandle}>@{ansAuthor.username}</Text>}
-                  </View>
-                  <Text style={styles.answerDate}>{formatDate(ans.created)}</Text>
-                </View>
-                {ans.title ? (
-                  <Text style={styles.answerTitle}>{ans.title}</Text>
-                ) : null}
-                <View style={styles.answerRenderer}>
-                  <MarkdownRenderer content={ans.content} height={100} />
-                </View>
-
-                {/* Rating UI for Answer */}
-                <View style={styles.answerRatingContainer}>
-                  <View style={styles.answerRatingRow}>
-                    <Text style={styles.answerRatingLabel}>Nota solución:</Text>
-                    {renderSmallStarsSelector(
-                      myAnswersRatings[ans.id] || 0,
-                      theme.colors.primary,
-                      (val) => handleAnswerRatingSubmit(ans.id, val)
-                    )}
-                    <Text style={styles.answerRatingAvg}>
-                      {answersAvgRatings[ans.id]?.rating > 0 
-                        ? `${answersAvgRatings[ans.id].rating} (${answersAvgRatings[ans.id].count})` 
-                        : 'Sin notas'}
-                    </Text>
-                  </View>
-                </View>
+            {answers.length === 0 ? (
+              <View style={styles.emptyAnswers}>
+                <Feather name="message-square" size={32} color={theme.colors.textMuted} style={{ marginBottom: 8 }} />
+                <Text style={styles.emptyAnswersText}>Aún no hay pautas subidas para este problema.</Text>
+                {user && user.type !== 'organization' && (
+                  <Text style={styles.emptyAnswersSub}>¿Resolviste el problema? ¡Comparte tu solución!</Text>
+                )}
               </View>
-            );
-          })
+            ) : (
+              answers.map(ans => {
+                const ansAuthor = ans.expand?.author;
+                return (
+                  <TouchableOpacity 
+                    key={ans.id} 
+                    style={styles.answerCard}
+                    activeOpacity={0.8}
+                    onPress={() => navigation.push('ProblemDetail', { problemId: ans.id, type: 'solution' })}
+                  >
+                    <View style={styles.answerHeader}>
+                      <Avatar user={ansAuthor} size={30} />
+                      <View style={styles.answerMeta}>
+                        <Text style={styles.answerAuthorName}>{ansAuthor?.name || 'Usuario'}</Text>
+                        {!!ansAuthor?.username && <Text style={styles.answerAuthorHandle}>@{ansAuthor.username}</Text>}
+                      </View>
+                      <Text style={styles.answerDate}>{formatDate(ans.created)}</Text>
+                    </View>
+                    {ans.title ? (
+                      <Text style={styles.answerTitle}>{ans.title}</Text>
+                    ) : null}
+
+                    {/* Rating UI for Answer */}
+                    <View style={styles.answerRatingContainer}>
+                      <View style={styles.answerRatingRow}>
+                        <Text style={[styles.answerRatingLabel, { width: 75 }]}>Solución:</Text>
+                        <View style={{ flexDirection: 'row', marginRight: 4 }}>
+                          {renderStars(answersAvgRatings[ans.id]?.rating || 0, '#F59E0B')}
+                        </View>
+                        <Text style={styles.answerRatingAvg}>
+                          {answersAvgRatings[ans.id]?.rating > 0 
+                            ? `${answersAvgRatings[ans.id].rating} (${answersAvgRatings[ans.id].ratingCount})` 
+                            : 'Sin notas'}
+                        </Text>
+                      </View>
+                      <View style={[styles.answerRatingRow, { marginTop: 4 }]}>
+                        <Text style={[styles.answerRatingLabel, { width: 75 }]}>Explicación:</Text>
+                        <View style={{ flexDirection: 'row', marginRight: 4 }}>
+                          {renderStars(answersAvgRatings[ans.id]?.difficulty || 0, '#EF4444')}
+                        </View>
+                        <Text style={styles.answerRatingAvg}>
+                          {answersAvgRatings[ans.id]?.difficulty > 0 
+                            ? `${answersAvgRatings[ans.id].difficulty} (${answersAvgRatings[ans.id].difficultyCount})` 
+                            : 'Sin notas'}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </>
+        )}
+
+        {/* Ver comentarios button */}
+        {!!linkedPostId && (
+          <>
+            {(!answers || answers.length === 0) && <View style={styles.divider} />}
+            <TouchableOpacity
+              style={styles.commentsBtn}
+              activeOpacity={0.7}
+              onPress={() => navigation.push('PostDetail', { postId: linkedPostId })}
+            >
+              <Feather name="message-circle" size={18} color={theme.colors.text} style={{ marginRight: 8 }} />
+              <Text style={styles.commentsBtnText}>
+                Ver comentarios{linkedPostCommentCount > 0 ? ` (${linkedPostCommentCount})` : ''}
+              </Text>
+              <Feather name="chevron-right" size={16} color={theme.colors.textMuted} style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
+          </>
         )}
       </ScrollView>
     </View>
@@ -620,19 +813,14 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   rendererContainer: {
-    marginBottom: theme.spacing.lg,
+    marginTop: theme.spacing.md,
   },
   avgStatsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 16,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
     justifyContent: 'space-around',
     alignItems: 'center',
-    marginBottom: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
   },
   avgStatBox: {
     alignItems: 'center',
@@ -648,6 +836,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 4,
   },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  ratingSeparator: {
+    color: theme.colors.textMuted,
+    marginHorizontal: 8,
+    fontSize: 12,
+  },
   avgStatValue: {
     color: theme.colors.text,
     fontSize: 16,
@@ -659,16 +857,9 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 11,
     marginTop: theme.spacing.sm,
-    borderTopWidth: 0.5,
-    borderTopColor: theme.colors.border,
-    paddingTop: theme.spacing.xs,
   },
   ratingForm: {
-    backgroundColor: 'rgba(255, 255, 255, 0.01)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
   },
   ratingFormTitle: {
     color: theme.colors.text,
@@ -679,13 +870,19 @@ const styles = StyleSheet.create({
   selectorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     marginBottom: theme.spacing.sm,
   },
   selectorLabel: {
     color: theme.colors.textMuted,
     fontSize: 13,
     fontWeight: '600',
+    width: 90,
+  },
+  selectorSeparator: {
+    color: theme.colors.border,
+    marginHorizontal: 12,
+    fontSize: 14,
   },
   starsSelectorWrapper: {
     flexDirection: 'row',
@@ -718,10 +915,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 30,
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
     paddingHorizontal: theme.spacing.md,
   },
   emptyAnswersText: {
@@ -738,12 +931,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   answerCard: {
-    backgroundColor: theme.colors.cardBg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 16,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   answerHeader: {
     flexDirection: 'row',
@@ -777,10 +967,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   answerRatingContainer: {
-    marginTop: theme.spacing.md,
-    paddingTop: theme.spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
+    marginTop: theme.spacing.xs,
   },
   answerRatingRow: {
     flexDirection: 'row',
@@ -796,5 +983,123 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 12,
     marginLeft: 8,
+  },
+  parentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: theme.spacing.md,
+    backgroundColor: 'transparent',
+  },
+  parentBannerText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  parentProblemContainer: {
+    backgroundColor: '#111111',
+    marginHorizontal: -theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  parentProblemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  parentProblemHeaderText: {
+    color: theme.colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  parentProblemContent: {
+    marginTop: theme.spacing.md,
+  },
+  parentProblemContentTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: theme.spacing.xs,
+  },
+  parentProblemTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: theme.spacing.sm,
+  },
+  parentProblemTagBadge: {
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  academicBadgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+  },
+  academicBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 0.5,
+  },
+  academicBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  detailImageContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
+  },
+  detailImage: {
+    width: '100%',
+    height: 280,
+    borderRadius: 8,
+    backgroundColor: '#050505',
+  },
+  clearRatingBtn: {
+    padding: 4,
+    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  commentsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    borderRadius: 10,
+    padding: 14,
+    marginTop: theme.spacing.sm,
+  },
+  commentsBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  deletedBanner: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: theme.spacing.md,
+  },
+  deletedBannerText: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

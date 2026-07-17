@@ -10,6 +10,7 @@ import { ImageViewer } from '../components/ImageViewer';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { Avatar } from '../components/Avatar';
+import { PostCard } from '../components/PostCard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -155,7 +156,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       const hashMatch = text.match(/#(\w+)\s/);
       if (hashMatch) {
         if (filterTags.length < 1) {
-          setFilterTags([hashMatch[1].toLowerCase()]);
+          setFilterTags([hashMatch[1]]);
         }
         setSearchQuery(text.replace(/#\w+\s/, '').trim());
         return;
@@ -169,7 +170,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     const hashMatch = q.match(/#(\w+)/);
     if (hashMatch) {
       if (filterTags.length < 1) {
-        setFilterTags([hashMatch[1].toLowerCase()]);
+        setFilterTags([hashMatch[1]]);
       }
       q = q.replace(/#\w+/, '').trim();
       setSearchQuery(q);
@@ -183,7 +184,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const activateTagFilter = (tag: string) => {
-    const cleanTag = tag.toLowerCase();
+    const cleanTag = tag;
     setFilterTags([cleanTag]);
     setTags([cleanTag]);
     setSearchQuery('');
@@ -195,8 +196,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const addTag = (text: string) => {
-    const clean = text.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-    if (clean && tags.length < 4 && clean.length <= 15 && !tags.includes(clean)) {
+    const clean = text.replace(/[^a-zA-Z0-9]/g, '');
+    if (clean && tags.length < 10 && clean.length <= 15 && !tags.some(t => t.toLowerCase() === clean.toLowerCase())) {
       setTags([...tags, clean]);
     }
     setTagInput('');
@@ -219,8 +220,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     setPosting(true);
     try {
       let finalTags = [...tags];
-      const pendingTag = tagInput.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-      if (pendingTag && finalTags.length < 4 && pendingTag.length <= 15 && !finalTags.includes(pendingTag)) {
+      const pendingTag = tagInput.replace(/[^a-zA-Z0-9]/g, '');
+      if (pendingTag && finalTags.length < 10 && pendingTag.length <= 15 && !finalTags.some(t => t.toLowerCase() === pendingTag.toLowerCase())) {
         finalTags.push(pendingTag);
       }
 
@@ -326,7 +327,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                 value={tempTag}
                 onChangeText={setTempTag}
                 onSubmitEditing={() => {
-                  const clean = tempTag.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                  const clean = tempTag.replace(/[^a-zA-Z0-9]/g, '');
                   if (clean) activateTagFilter(clean);
                   setTempTag('');
                   setIsAddingTag(false);
@@ -338,7 +339,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               {tempTag.trim().length > 0 ? (
                 <TouchableOpacity 
                   onPress={() => {
-                    const clean = tempTag.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                    const clean = tempTag.replace(/[^a-zA-Z0-9]/g, '');
                     if (clean) activateTagFilter(clean);
                     setTempTag('');
                     setIsAddingTag(false);
@@ -446,8 +447,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={styles.tagsInputContainer}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <TextInput
-                    style={[styles.tagsInput, tags.length >= 4 && { opacity: 0.5 }]}
-                    placeholder={tags.length >= 4 ? "Límite de tags alcanzado" : "Añadir tag..."}
+                    style={[styles.tagsInput, tags.length >= 10 && { opacity: 0.5 }]}
+                    placeholder={tags.length >= 10 ? "Límite de tags alcanzado" : "Añadir tag..."}
                     placeholderTextColor={theme.colors.textMuted}
                     value={tagInput}
                     onChangeText={handleTagInputChange}
@@ -455,9 +456,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                     maxLength={16}
                     autoCapitalize="none"
                     autoCorrect={false}
-                    editable={tags.length < 4}
+                    editable={tags.length < 10}
                   />
-                  {tags.length < 4 && (
+                  {tags.length < 10 && (
                     <TouchableOpacity 
                       onPress={() => addTag(tagInput)} 
                       style={[styles.addTagBtn, tagInput.trim().length === 0 && styles.addTagBtnDisabled]}
@@ -508,121 +509,23 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
             <Text style={styles.noPostsText}>No hay publicaciones en el muro.</Text>
           )
         ) : (
-          posts.map(post => {
-            const isLiked = user && (post.likes || []).includes(user.id);
-            const author = post.expand?.author;
-            const repliesCount = post.commentCount || 0;
-            return (
-              <TouchableOpacity 
-                key={post.id} 
-                style={styles.postCard} 
-                activeOpacity={0.7}
-                onPress={() => navigation.push('PostDetail', { postId: post.id })}
-              >
-                <View style={[styles.postHeader, { justifyContent: 'space-between', alignItems: 'center', position: 'relative' }]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                    <TouchableOpacity 
-                      onPress={() => navigation.push('UserProfile', { userId: post.author })}
-                      activeOpacity={0.7}
-                    >
-                      <View style={{ marginRight: theme.spacing.sm }}>
-                        <Avatar user={author} size={40} />
-                      </View>
-                    </TouchableOpacity>
-                    <View style={styles.postMeta}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <TouchableOpacity 
-                          onPress={() => navigation.push('UserProfile', { userId: post.author })}
-                          activeOpacity={0.7}
-                          style={{ flexDirection: 'row', alignItems: 'center' }}
-                        >
-                          <Text style={styles.postAuthor}>{author?.name || 'Usuario'}</Text>
-                          {author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
-                        </TouchableOpacity>
-                      </View>
-                      <Text style={styles.postDate}>{formatDate(post.created)}</Text>
-                    </View>
-                  </View>
-                  
-                  {user && post.author === user.id && (
-                    <TouchableOpacity 
-                      style={{ padding: 8 }} 
-                      onPress={() => setActiveMenuPostId(activeMenuPostId === post.id ? null : post.id)}
-                    >
-                      <Feather name="more-horizontal" size={20} color={theme.colors.textMuted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                {post.replyTo && post.expand?.replyTo?.expand?.author ? (
-                  <Text style={styles.replyContextText}>
-                    En respuesta a @{post.expand.replyTo.expand.author.username}
-                  </Text>
-                ) : null}
-                <Text style={styles.postContent}>{post.content}</Text>
-                {!!post.photo && (
-                  <TouchableOpacity 
-                    activeOpacity={0.8} 
-                    onPress={() => {
-                      setViewerImageUrl(getFileUrl(post, post.photo));
-                      setViewerVisible(true);
-                    }}
-                  >
-                    <Image 
-                      source={{ uri: getFileUrl(post, post.photo) }}
-                      style={styles.postImage}
-                      // @ts-ignore - loading lazy works on web
-                      loading="lazy"
-                    />
-                  </TouchableOpacity>
-                )}
-                
-                {post.tags && post.tags.length > 0 && (
-                  <View style={styles.tagsRow}>
-                    {post.tags.map((t: string, i: number) => (
-                      <TouchableOpacity 
-                        key={i} 
-                        style={styles.tagChip}
-                        onPress={() => activateTagFilter(t)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.tagChipText}>#{t}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-
-                <View style={styles.postActions}>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => toggleLike(post)}>
-                    <Text style={styles.actionIcon}>
-                      {isLiked ? '❤️' : '🤍'}
-                    </Text>
-                    <Text style={[styles.actionCount, isLiked && styles.actionIconActive]}>
-                      {(post.likes || []).length}
-                    </Text>
-                  </TouchableOpacity>
-                  <View style={styles.actionBtn}>
-                    <Text style={styles.actionIcon}>💬</Text>
-                    <Text style={styles.actionCount}>{repliesCount}</Text>
-                  </View>
-                </View>
-
-                {activeMenuPostId === post.id && (
-                  <View style={styles.dropdownMenu}>
-                    <TouchableOpacity 
-                      style={styles.dropdownItem} 
-                      onPress={() => {
-                        setActiveMenuPostId(null);
-                        setDeleteConfirmPostId(post.id);
-                      }}
-                    >
-                      <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
-                      <Text style={styles.dropdownItemText}>Eliminar</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })
+          posts.map(post => (
+            <PostCard
+              key={post.id}
+              post={post}
+              currentUser={user}
+              onPress={() => navigation.push('PostDetail', { postId: post.id })}
+              onLikePress={() => toggleLike(post)}
+              onDeletePress={() => setDeleteConfirmPostId(post.id)}
+              onAuthorPress={() => navigation.push('UserProfile', { userId: post.author })}
+              onProblemPress={() => {
+                if (post.entityType === 'problems') {
+                  navigation.push('ProblemDetail', { problemId: post.entityId });
+                }
+              }}
+              onTagPress={(t) => activateTagFilter(t)}
+            />
+          ))
         )}
         {loadingMore && <ActivityIndicator size="small" color={theme.colors.text} style={{ padding: 20 }} />}
       </ScrollView>
@@ -1166,5 +1069,41 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontStyle: 'italic',
     fontSize: 14,
+  },
+  entityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: theme.spacing.sm,
+  },
+  entityCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  entityCardBody: {
+    flex: 1,
+  },
+  entityCardSubtitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  entityCardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.text,
+    lineHeight: 19,
   },
 });

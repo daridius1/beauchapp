@@ -16,6 +16,9 @@ export type RootStackParamList = {
   Students: undefined;
   FollowList: { userId: string; type: 'followers' | 'following'; username?: string };
   ProblemsList: undefined;
-  ProblemDetail: { problemId: string };
+  ProblemDetail: { problemId: string; type?: 'problem' | 'solution' };
   ProblemEditor: { problemId?: string; answerId?: string; type: 'problem' | 'answer'; initialContent?: string; problemTitle?: string };
+  Tinder: { initialTab?: 'discover' | 'matches' | 'profile' } | undefined;
+  Notifications: undefined;
 };
+

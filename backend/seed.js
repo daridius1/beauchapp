@@ -117,17 +117,42 @@ async function main() {
       {
         title: 'Criterio de la Integral para Series',
         content: 'Demuestre que la serie $\\sum_{n=1}^{\\infty} \\frac{1}{n^p}$ converge si $p > 1$ y diverge si $p \\le 1$ utilizando el criterio de la integral. \n\nRecuerde verificar las hipótesis de continuidad, decrecimiento y positividad de la función asociada.',
-        tags: ['cálculo', 'series', 'integral']
+        tags: ['cálculo', 'series', 'integral'],
+        ramo: 'MA1002',
+        semestre: '2024-1',
+        instancia: 'C2'
       },
       {
         title: 'Teorema de la Divergencia de Gauss',
         content: 'Calcule el flujo del campo vectorial $\\vec{F}(x,y,z) = (x^3, y^3, z^3)$ a través de la esfera unitaria $x^2 + y^2 + z^2 = 1$ orientada hacia afuera. \n\n$$\\iint_{S} \\vec{F} \\cdot d\\vec{S}$$',
-        tags: ['cálculo', 'vectorial', 'gauss']
+        tags: ['cálculo', 'vectorial', 'gauss'],
+        ramo: 'MA2007',
+        semestre: '2024-2',
+        instancia: 'C3'
       },
       {
         title: 'Diagonalización de Matrices Simétricas',
         content: 'Dada la matriz simétrica:\n\n$$A = \\begin{pmatrix} 2 & -1 \\\\ -1 & 2 \\end{pmatrix}$$\n\nEncuentre una matriz ortogonal $P$ tal que $P^T A P$ sea diagonal. Grafique la forma cuadrática asociada.',
-        tags: ['algebra', 'matrices', 'diagonalizacion']
+        tags: ['algebra', 'matrices', 'diagonalizacion'],
+        ramo: 'MA1001',
+        semestre: '2023-2',
+        instancia: 'EX'
+      },
+      {
+        title: 'Introducción a la Programación en Python',
+        content: 'Escriba una función recursiva `es_palindromo(s)` que reciba un string `s` y retorne `True` si es un palíndromo y `False` en caso contrario. No utilice tajos de lista (`s[::-1]`).',
+        tags: ['computación', 'recursión', 'python'],
+        ramo: 'CC1002',
+        semestre: '2024-1',
+        instancia: 'C1'
+      },
+      {
+        title: 'Leyes de Newton en el Plano Inclinado',
+        content: 'Un bloque de masa $m = 5\\text{ kg}$ se desliza por un plano inclinado con ángulo $\\theta = 30^\\circ$ respecto a la horizontal. Si el coeficiente de roce dinámico es $\\mu_k = 0.1$, determine la aceleración del bloque.',
+        tags: ['física', 'mecánica', 'newton'],
+        ramo: 'FI1001',
+        semestre: '2024-2',
+        instancia: 'C2'
       }
     ];
 
@@ -138,7 +163,16 @@ async function main() {
       let record;
       if (existing.items && existing.items.length > 0) {
         record = existing.items[0];
-        console.log(`Problema "${prob.title}" ya existe.`);
+        console.log(`Problema "${prob.title}" ya existe. Actualizando campos académicos...`);
+        record = await request(`/api/collections/problems/records/${record.id}`, {
+          method: 'PATCH',
+          headers: authHeader,
+          body: JSON.stringify({
+            ramo: prob.ramo,
+            semestre: prob.semestre,
+            instancia: prob.instancia
+          })
+        });
       } else {
         const author = getRandomUser();
         record = await request('/api/collections/problems/records', {
@@ -148,6 +182,9 @@ async function main() {
             title: prob.title,
             content: prob.content,
             tags: prob.tags,
+            ramo: prob.ramo,
+            semestre: prob.semestre,
+            instancia: prob.instancia,
             author: author.id,
             parent: ''
           })
