@@ -528,7 +528,9 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* Título y Enunciado */}
         <Text style={[styles.problemTitle, problem.deleted && { color: theme.colors.textMuted, fontStyle: 'italic' }]}>
-          {problem.deleted ? '[Mensaje eliminado]' : problem.title}
+          {problem.deleted 
+            ? (problem.parent ? 'Pauta eliminada' : 'Problema eliminado') 
+            : problem.title}
         </Text>
         
         {/* Etiquetas */}
@@ -540,15 +542,11 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         )}
 
-        <View style={styles.rendererContainer}>
-          {problem.deleted ? (
-            <Text style={{ color: theme.colors.textMuted, fontStyle: 'italic', marginVertical: theme.spacing.md }}>
-              [Mensaje eliminado]
-            </Text>
-          ) : (
-            renderContentBlocks(problem.content)
-          )}
-        </View>
+        {!problem.deleted && (
+          <View style={styles.rendererContainer}>
+            {renderContentBlocks(problem.content)}
+          </View>
+        )}
 
         {!problem.deleted && (
           <>
