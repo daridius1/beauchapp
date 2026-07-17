@@ -228,13 +228,15 @@ export const PostCard: React.FC<PostCardProps> = ({
         </Text>
       ) : null}
 
-      <Text style={[
-        styles.postContent, 
-        isFocused && styles.mainPostContent,
-        isDeleted && { color: theme.colors.textMuted, fontStyle: 'italic' }
-      ]}>
-        {isDeleted ? '[Mensaje eliminado]' : renderContent(post.content)}
-      </Text>
+      {!(isDeleted && !!post.entityType) && (
+        <Text style={[
+          styles.postContent, 
+          isFocused && styles.mainPostContent,
+          isDeleted && { color: theme.colors.textMuted, fontStyle: 'italic' }
+        ]}>
+          {isDeleted ? '[Mensaje eliminado]' : renderContent(post.content)}
+        </Text>
+      )}
 
       {/* Polymorphic Problem/Pauta Link card */}
       {!!post.entityType && !!post.entityMeta && (
@@ -253,7 +255,11 @@ export const PostCard: React.FC<PostCardProps> = ({
           </View>
           <View style={styles.entityCardBody}>
             <Text style={styles.entityCardSubtitle}>{post.entityMeta.subtitle}{post.entityMeta.ramo ? ` · ${post.entityMeta.ramo}` : ''}</Text>
-            <Text style={styles.entityCardTitle} numberOfLines={2}>{post.entityMeta.title}</Text>
+            <Text style={[styles.entityCardTitle, isDeleted && { color: theme.colors.textMuted, fontStyle: 'italic' }]} numberOfLines={2}>
+              {isDeleted 
+                ? (post.entityMeta.subtitle === 'Pauta' ? 'Pauta eliminada' : 'Problema eliminado') 
+                : post.entityMeta.title}
+            </Text>
             {ratingData && ratingData.count > 0 && (
               <View style={styles.entityRatingsRow}>
                 <View style={styles.entityRatingCol}>
