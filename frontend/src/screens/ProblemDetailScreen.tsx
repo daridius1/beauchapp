@@ -9,7 +9,8 @@ import {
   RefreshControl,
   DeviceEventEmitter,
   Alert,
-  Image
+  Image,
+  Platform
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -187,36 +188,48 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     await fetchDetail(true);
   };
 
+  const performDeleteAction = async (isSolution: boolean) => {
+    try {
+      await pb.collection('problems').update(problemId, { deleted: true });
+      Toast.show({
+        type: 'success',
+        text1: 'Eliminado',
+        text2: isSolution ? 'La pauta ha sido eliminada.' : 'El problema ha sido eliminado.',
+      });
+      navigation.goBack();
+    } catch (err) {
+      console.error('Error deleting problem:', err);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'No se pudo completar la eliminación.',
+      });
+    }
+  };
+
   const handleDeleteProblem = () => {
     const isSolution = !!problem.parent;
+    const message = isSolution 
+      ? '¿Estás seguro de que deseas eliminar esta pauta?' 
+      : '¿Estás seguro de que deseas eliminar este problema? También se ocultarán todas sus pautas y comentarios asociados.';
+
+    if (Platform.OS === 'web') {
+      const confirmDelete = window.confirm(message);
+      if (confirmDelete) {
+        performDeleteAction(isSolution);
+      }
+      return;
+    }
+
     Alert.alert(
       isSolution ? 'Eliminar pauta' : 'Eliminar problema',
-      isSolution 
-        ? '¿Estás seguro de que deseas eliminar esta pauta?' 
-        : '¿Estás seguro de que deseas eliminar este problema? También se ocultarán todas sus pautas y comentarios asociados.',
+      message,
       [
         { text: 'Cancelar', style: 'cancel' },
         { 
           text: 'Eliminar', 
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await pb.collection('problems').update(problemId, { deleted: true });
-              Toast.show({
-                type: 'success',
-                text1: 'Eliminado',
-                text2: isSolution ? 'La pauta ha sido eliminada.' : 'El problema ha sido eliminado.',
-              });
-              navigation.goBack();
-            } catch (err) {
-              console.error('Error deleting problem:', err);
-              Toast.show({
-                type: 'error',
-                text1: 'Error',
-                text2: 'No se pudo completar la eliminación.',
-              });
-            }
-          }
+          onPress: () => performDeleteAction(isSolution)
         }
       ]
     );
