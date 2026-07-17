@@ -10,7 +10,7 @@ onRecordAfterCreateSuccess((e) => {
 
         let isAnswer = !!parentId;
         let subtitle = isAnswer ? "Pauta" : "Enunciado";
-        let contentText = "";
+        let contentText = " ";
 
         // Build entityMeta
         const meta = {
@@ -126,7 +126,7 @@ onRecordAfterUpdateSuccess((e) => {
         let isAnswer = !!parentId;
         let subtitle = isAnswer ? "Pauta" : "Enunciado";
         const title = problem.getString("title");
-        let contentText = "";
+        let contentText = " ";
 
         const meta = {
             title: title,
