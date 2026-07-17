@@ -424,11 +424,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           />
         }
       >
-        {problem.deleted && (
-          <View style={styles.deletedBanner}>
-            <Text style={styles.deletedBannerText}>Esta publicación ha sido desvinculada de su autor y es anónima.</Text>
-          </View>
-        )}
+
 
         {!!problem.parent && (
           <TouchableOpacity
