@@ -409,7 +409,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     );
   }
 
-  const problemAuthor = problem.deleted ? null : problem.expand?.author;
+  const problemAuthor = problem.expand?.author;
 
   return (
     <View style={styles.container}>
@@ -492,7 +492,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 onPress={problem.author ? () => navigation.push('UserProfile', { userId: problem.author }) : undefined}
                 disabled={!problem.author}
               >
-                <Text style={styles.authorName}>{problemAuthor?.name || (problem.deleted ? 'Usuario Anónimo' : 'Usuario')}</Text>
+                <Text style={styles.authorName}>{problemAuthor?.name || 'Usuario'}</Text>
                 {!!problemAuthor?.username && <Text style={styles.authorHandle}>@{problemAuthor.username}</Text>}
               </TouchableOpacity>
               <Text style={styles.dateText}>{formatDate(problem.created)}</Text>
@@ -531,10 +531,12 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         )}
 
         {/* Título y Enunciado */}
-        <Text style={styles.problemTitle}>{problem.title}</Text>
+        <Text style={[styles.problemTitle, problem.deleted && { color: theme.colors.textMuted, fontStyle: 'italic' }]}>
+          {problem.deleted ? '[Mensaje eliminado]' : problem.title}
+        </Text>
         
         {/* Etiquetas */}
-        {problem.tags && problem.tags.length > 0 && (
+        {!problem.deleted && problem.tags && problem.tags.length > 0 && (
           <View style={styles.tagsRow}>
             {problem.tags.map((tag: string) => (
               <Text key={tag} style={styles.tagBadge}>#{tag}</Text>
@@ -543,7 +545,13 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         )}
 
         <View style={styles.rendererContainer}>
-          {renderContentBlocks(problem.content)}
+          {problem.deleted ? (
+            <Text style={{ color: theme.colors.textMuted, fontStyle: 'italic', marginVertical: theme.spacing.md }}>
+              [Mensaje eliminado]
+            </Text>
+          ) : (
+            renderContentBlocks(problem.content)
+          )}
         </View>
 
         <View style={styles.divider} />

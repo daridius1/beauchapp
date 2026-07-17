@@ -225,18 +225,3 @@ onRecordAfterDeleteSuccess((e) => {
         console.log("[Entity Link] Cleanup for problem delete:", err.message || err);
     }
 }, "problems");
-
-// 13.5. Anonimizar problemas soft-deleted ocultando el autor
-onRecordEnrich((e) => {
-    try {
-        if (e.record.getBool("deleted")) {
-            const isAdmin = e.requestInfo && e.requestInfo.admin;
-            if (!isAdmin) {
-                e.record.hide("author");
-            }
-        }
-    } catch (err) {
-        console.log("[Problems Security] Error enriching problem:", err);
-    }
-    return e.next();
-}, "problems");
