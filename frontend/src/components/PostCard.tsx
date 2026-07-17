@@ -237,10 +237,10 @@ export const PostCard: React.FC<PostCardProps> = ({
       </Text>
 
       {/* Polymorphic Problem/Pauta Link card */}
-      {!isDeleted && !!post.entityType && !!post.entityMeta && (
+      {!!post.entityType && !!post.entityMeta && (
         <TouchableOpacity
           activeOpacity={0.7}
-          style={styles.entityCard}
+          style={[styles.entityCard, isDeleted && { opacity: 0.6 }]}
           onPress={(e) => {
             e.stopPropagation();
             if (onProblemPress) {

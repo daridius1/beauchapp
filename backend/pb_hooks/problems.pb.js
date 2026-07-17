@@ -10,9 +10,7 @@ onRecordAfterCreateSuccess((e) => {
 
         let isAnswer = !!parentId;
         let subtitle = isAnswer ? "Pauta" : "Enunciado";
-        let contentText = isAnswer
-            ? "Ha publicado una nueva pauta: " + title
-            : "Ha publicado un nuevo enunciado: " + title;
+        let contentText = "";
 
         // Build entityMeta
         const meta = {
@@ -128,9 +126,7 @@ onRecordAfterUpdateSuccess((e) => {
         let isAnswer = !!parentId;
         let subtitle = isAnswer ? "Pauta" : "Enunciado";
         const title = problem.getString("title");
-        let contentText = isAnswer
-            ? "Ha publicado una nueva pauta: " + title
-            : "Ha publicado un nuevo enunciado: " + title;
+        let contentText = "";
 
         const meta = {
             title: title,
