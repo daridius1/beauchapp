@@ -554,25 +554,29 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           )}
         </View>
 
-        <View style={styles.divider} />
+        {!problem.deleted && (
+          <>
+            <View style={styles.divider} />
 
-        {/* Estadísticas Promedio de Calificación */}
-        <View style={styles.avgStatsContainer}>
-          <View style={styles.avgStatBox}>
-            <Text style={styles.avgStatLabel}>{problem.parent ? 'Solución' : 'Enunciado'}</Text>
-            <View style={styles.starsWrapper}>
-              {renderStars(avgRating.rating, '#F59E0B')}
+            {/* Estadísticas Promedio de Calificación */}
+            <View style={styles.avgStatsContainer}>
+              <View style={styles.avgStatBox}>
+                <Text style={styles.avgStatLabel}>{problem.parent ? 'Solución' : 'Enunciado'}</Text>
+                <View style={styles.starsWrapper}>
+                  {renderStars(avgRating.rating, '#F59E0B')}
+                </View>
+                <Text style={styles.avgStatValue}>{avgRating.rating} / 5 ({avgRating.ratingCount})</Text>
+              </View>
+              <View style={styles.avgStatBox}>
+                <Text style={styles.avgStatLabel}>{problem.parent ? 'Explicación' : 'Dificultad'}</Text>
+                <View style={styles.starsWrapper}>
+                  {renderStars(avgRating.difficulty, '#EF4444')}
+                </View>
+                <Text style={styles.avgStatValue}>{avgRating.difficulty} / 5 ({avgRating.difficultyCount})</Text>
+              </View>
             </View>
-            <Text style={styles.avgStatValue}>{avgRating.rating} / 5 ({avgRating.ratingCount})</Text>
-          </View>
-          <View style={styles.avgStatBox}>
-            <Text style={styles.avgStatLabel}>{problem.parent ? 'Explicación' : 'Dificultad'}</Text>
-            <View style={styles.starsWrapper}>
-              {renderStars(avgRating.difficulty, '#EF4444')}
-            </View>
-            <Text style={styles.avgStatValue}>{avgRating.difficulty} / 5 ({avgRating.difficultyCount})</Text>
-          </View>
-        </View>
+          </>
+        )}
 
         {/* Calificar Problema / Solución */}
         {user && user.type !== 'organization' && !problem.deleted && (
