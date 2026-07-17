@@ -383,9 +383,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: theme.spacing.lg,
-    gap: 24,
+    width: '100%',
   },
   statBox: {
+    flex: 1,
     alignItems: 'center',
   },
   statCount: {
