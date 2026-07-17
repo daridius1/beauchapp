@@ -409,7 +409,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     );
   }
 
-  const problemAuthor = problem.expand?.author;
+  const problemAuthor = problem.deleted ? null : problem.expand?.author;
 
   return (
     <View style={styles.container}>
@@ -492,7 +492,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 onPress={problem.author ? () => navigation.push('UserProfile', { userId: problem.author }) : undefined}
                 disabled={!problem.author}
               >
-                <Text style={styles.authorName}>{problemAuthor?.name || 'Usuario'}</Text>
+                <Text style={styles.authorName}>{problemAuthor?.name || (problem.deleted ? 'Usuario Anónimo' : 'Usuario')}</Text>
                 {!!problemAuthor?.username && <Text style={styles.authorHandle}>@{problemAuthor.username}</Text>}
               </TouchableOpacity>
               <Text style={styles.dateText}>{formatDate(problem.created)}</Text>
@@ -567,7 +567,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Calificar Problema / Solución */}
-        {user && user.type !== 'organization' && (
+        {user && user.type !== 'organization' && !problem.deleted && (
           <>
             <View style={styles.divider} />
             <View style={styles.ratingForm}>

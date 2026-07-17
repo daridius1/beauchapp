@@ -418,7 +418,7 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ) : (
           problems.map(prob => {
-            const author = prob.expand?.author;
+            const author = prob.deleted ? null : prob.expand?.author;
             const ratingData = ratingsMap[prob.id] || { rating: 0, difficulty: 0, count: 0 };
             
             return (
@@ -431,7 +431,7 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={styles.cardHeader}>
                   <Avatar user={author} size={30} />
                   <View style={styles.authorMeta}>
-                    <Text style={styles.authorName} numberOfLines={1}>{author?.name || 'Usuario'}</Text>
+                    <Text style={styles.authorName} numberOfLines={1}>{author?.name || (prob.deleted ? 'Usuario Anónimo' : 'Usuario')}</Text>
                     {!!author?.username && <Text style={styles.authorHandle}>@{author.username}</Text>}
                   </View>
                 </View>
