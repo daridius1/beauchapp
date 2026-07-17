@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Avatar } from './Avatar';
@@ -34,6 +34,66 @@ export const PostCard: React.FC<PostCardProps> = ({
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loadingMention, setLoadingMention] = useState(false);
+  const [ratingData, setRatingData] = useState<{ rating: number, difficulty: number, count: number } | null>(null);
+
+  useEffect(() => {
+    if (isDeleted || post.entityType !== 'problems' || !post.entityId) {
+      return;
+    }
+    
+    let isMounted = true;
+    const fetchRatings = async () => {
+      try {
+        const ratingsRes = await pb.collection('problem_ratings').getFullList({
+          filter: `problem = "${post.entityId}"`
+        });
+        
+        if (!isMounted) return;
+        
+        if (ratingsRes.length === 0) {
+          setRatingData({ rating: 0, difficulty: 0, count: 0 });
+          return;
+        }
+        
+        let sumRating = 0;
+        let sumDifficulty = 0;
+        ratingsRes.forEach(r => {
+          sumRating += r.rating;
+          sumDifficulty += r.difficulty;
+        });
+        
+        setRatingData({
+          rating: parseFloat((sumRating / ratingsRes.length).toFixed(1)),
+          difficulty: parseFloat((sumDifficulty / ratingsRes.length).toFixed(1)),
+          count: ratingsRes.length
+        });
+      } catch (err) {
+        console.error('Error fetching entity ratings for post:', err);
+      }
+    };
+    
+    fetchRatings();
+    return () => {
+      isMounted = false;
+    };
+  }, [post.entityType, post.entityId, isDeleted]);
+
+  const renderStars = (rating: number, color: string) => {
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 >= 0.5;
+    
+    for (let i = 1; i <= 5; i++) {
+      if (i <= fullStars) {
+        stars.push(<FontAwesome key={i} name="star" size={10} color={color} style={{ marginRight: 1 }} />);
+      } else if (i === fullStars + 1 && hasHalfStar) {
+        stars.push(<FontAwesome key={i} name="star-half-o" size={10} color={color} style={{ marginRight: 1 }} />);
+      } else {
+        stars.push(<FontAwesome key={i} name="star-o" size={10} color={color} style={{ marginRight: 1 }} />);
+      }
+    }
+    return stars;
+  };
   const navigation = useNavigation<any>();
 
   const handleMentionPress = async (username: string) => {
@@ -193,6 +253,24 @@ export const PostCard: React.FC<PostCardProps> = ({
           <View style={styles.entityCardBody}>
             <Text style={styles.entityCardSubtitle}>{post.entityMeta.subtitle}{post.entityMeta.ramo ? ` · ${post.entityMeta.ramo}` : ''}</Text>
             <Text style={styles.entityCardTitle} numberOfLines={2}>{post.entityMeta.title}</Text>
+            {ratingData && ratingData.count > 0 && (
+              <View style={styles.entityRatingsRow}>
+                <View style={styles.entityRatingCol}>
+                  <Text style={styles.entityRatingLabel}>Nota: </Text>
+                  <View style={styles.starsWrapper}>
+                    {renderStars(ratingData.rating, '#F59E0B')}
+                  </View>
+                  <Text style={styles.entityRatingText}>{ratingData.rating}</Text>
+                </View>
+                <View style={styles.entityRatingCol}>
+                  <Text style={styles.entityRatingLabel}>Dificultad: </Text>
+                  <View style={styles.starsWrapper}>
+                    {renderStars(ratingData.difficulty, '#EF4444')}
+                  </View>
+                  <Text style={styles.entityRatingText}>{ratingData.difficulty}</Text>
+                </View>
+              </View>
+            )}
           </View>
           <Feather name="chevron-right" size={18} color={theme.colors.textMuted} />
         </TouchableOpacity>
@@ -433,5 +511,30 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     color: theme.colors.text,
     fontSize: 14,
+  },
+  entityRatingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 12,
+  },
+  entityRatingCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  entityRatingLabel: {
+    fontSize: 10,
+    color: theme.colors.textMuted,
+    marginRight: 2,
+  },
+  starsWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  entityRatingText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.text,
   },
 });
