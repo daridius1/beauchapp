@@ -63,7 +63,7 @@ export const PostCard: React.FC<PostCardProps> = ({
     if (!content) return null;
     const parts = content.split(/(?<=^|\s)(@[a-zA-Z0-9_-]{3,20}\b)/g);
     return parts.map((part, index) => {
-      if (part.startsWith('@')) {
+      if (part.startsWith('@') && /^@[a-zA-Z0-9_-]{3,20}$/.test(part)) {
         const username = part.substring(1);
         return (
           <Text
