@@ -117,3 +117,39 @@ onRecordAfterCreateSuccess((e) => {
     }
 }, "tinder_likes");
 
+// 17. Tinder Beauchef: Limpieza de likes al deshacer un match (eliminar likes de ambos lados)
+onRecordAfterDeleteSuccess((e) => {
+    try {
+        const userA = e.record.getString("userA");
+        const userB = e.record.getString("userB");
+
+        // 1. Eliminar like de userA a userB
+        try {
+            const likeAB = $app.findFirstRecordByFilter(
+                "tinder_likes",
+                "user = {:userA} && likedUser = {:userB}",
+                { userA: userA, userB: userB }
+            );
+            if (likeAB) {
+                $app.delete(likeAB);
+                console.log("[Tinder Match] Deleted like from", userA, "to", userB);
+            }
+        } catch (err) {}
+
+        // 2. Eliminar like de userB a userA
+        try {
+            const likeBA = $app.findFirstRecordByFilter(
+                "tinder_likes",
+                "user = {:userB} && likedUser = {:userA}",
+                { userA: userA, userB: userB }
+            );
+            if (likeBA) {
+                $app.delete(likeBA);
+                console.log("[Tinder Match] Deleted like from", userB, "to", userA);
+            }
+        } catch (err) {}
+    } catch (err) {
+        console.log("[Tinder Match] Error cleaning up likes after match delete:", err.message || err);
+    }
+}, "tinder_matches");
+
