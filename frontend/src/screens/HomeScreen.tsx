@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
 import { pb, getFileUrl } from '../services/pocketbase';
 import { ImagePicker } from '../components/ImagePicker';
-import { ImageViewer } from '../components/ImageViewer';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { Avatar } from '../components/Avatar';
@@ -32,8 +31,6 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [activeMenuPostId, setActiveMenuPostId] = useState<string | null>(null);
   const [deleteConfirmPostId, setDeleteConfirmPostId] = useState<string | null>(null);
   const [tempTag, setTempTag] = useState('');
-  const [viewerVisible, setViewerVisible] = useState(false);
-  const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
   const hasScrolledRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
@@ -522,6 +519,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                 if (post.entityType === 'problems') {
                   navigation.push('ProblemDetail', { problemId: post.entityId });
                 }
+              }}
               onTagPress={(t) => activateTagFilter(t)}
             />
           ))

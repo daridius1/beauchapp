@@ -7,7 +7,6 @@ import { RootStackParamList } from '../types/navigation';
 import { pb, getFileUrl } from '../services/pocketbase';
 import { theme } from '../theme/theme';
 import { ImagePicker } from '../components/ImagePicker';
-import { ImageViewer } from '../components/ImageViewer';
 import { Avatar } from '../components/Avatar';
 import { Feather } from '@expo/vector-icons';
 import { PostCard } from '../components/PostCard';
@@ -32,8 +31,6 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [posting, setPosting] = useState(false);
   const [activeMenuPostId, setActiveMenuPostId] = useState<string | null>(null);
   const [deleteConfirmPostId, setDeleteConfirmPostId] = useState<string | null>(null);
-  const [viewerVisible, setViewerVisible] = useState(false);
-  const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
 
   const isFirstLoad = useRef(true);
   const scrollViewRef = useRef<ScrollView>(null);

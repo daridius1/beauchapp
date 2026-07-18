@@ -6,7 +6,6 @@ import { RootStackParamList } from '../types/navigation';
 import { pb, getFileUrl } from '../services/pocketbase';
 import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
-import { ImageViewer } from '../components/ImageViewer';
 import { Avatar } from '../components/Avatar';
 import { Feather } from '@expo/vector-icons';
 import { PostCard } from '../components/PostCard';
@@ -23,8 +22,6 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   const [profileUser, setProfileUser] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewerVisible, setViewerVisible] = useState(false);
-  const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
   const [activeMenuPostId, setActiveMenuPostId] = useState<string | null>(null);
   const [deleteConfirmPostId, setDeleteConfirmPostId] = useState<string | null>(null);
   const [followersCount, setFollowersCount] = useState(0);
