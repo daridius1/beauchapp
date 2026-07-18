@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { StyleSheet, View, SafeAreaView, StatusBar, Text, ScrollView, Platform, ActivityIndicator, DeviceEventEmitter } from 'react-native';
+import { StyleSheet, View, SafeAreaView, StatusBar, Text, ScrollView, Platform, ActivityIndicator, DeviceEventEmitter, useWindowDimensions } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -30,11 +30,18 @@ if (Platform.OS === 'web') {
   const style = document.createElement('style');
   style.textContent = `
     body {
-      background-color: #1A1A1A;
+      background-color: #0a0a0a;
       overflow-x: hidden;
+      overscroll-behavior-y: contain;
+      overscroll-behavior-x: none;
+      -webkit-tap-highlight-color: transparent;
     }
     #root {
       height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
   `;
   document.head.appendChild(style);
@@ -94,6 +101,8 @@ const toastConfig = {
 
 function AppContent() {
   const { user, isInitialized } = useAuth();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 800;
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [currentRouteName, setCurrentRouteName] = useState<string>('Home');
   const [currentRouteParams, setCurrentRouteParams] = useState<any>({});
@@ -133,7 +142,26 @@ function AppContent() {
   };
 
   const rootScreens = ['Home', 'Profile', 'Settings', 'Directory', 'ProblemsList', 'Notifications'];
-  const canGoBack = !rootScreens.includes(currentRouteName) && navigationRef.isReady() && navigationRef.canGoBack();
+  const showBackButton = !rootScreens.includes(currentRouteName);
+
+  const handleBack = () => {
+    if (navigationRef.isReady()) {
+      if (navigationRef.canGoBack()) {
+        navigationRef.goBack();
+      } else {
+        // Fallback for deep-linking
+        if (currentRouteName === 'ProblemDetail' || currentRouteName === 'ProblemEditor') {
+          navigationRef.navigate('ProblemsList' as never);
+        } else if (currentRouteName === 'PostDetail') {
+          navigationRef.navigate('Home' as never);
+        } else if (['Students', 'Communities', 'Centers', 'Teams', 'FollowList', 'UserProfile'].includes(currentRouteName)) {
+          navigationRef.navigate('Directory' as never);
+        } else {
+          navigationRef.navigate('Home' as never);
+        }
+      }
+    }
+  };
 
   if (!isInitialized) {
     return (
@@ -188,48 +216,64 @@ function AppContent() {
           }
         }}
       >
-        <View style={styles.appContainer}>
+        <View style={[styles.appContainer, isDesktop && styles.appContainerDesktop]}>
           {user ? (
-            <>
-              <Header 
-                title={getScreenTitle(currentRouteName, currentRouteParams)} 
-                onToggleSidebar={() => setIsSidebarOpen(true)} 
-                onBack={canGoBack ? () => navigationRef.goBack() : undefined}
-                onTitlePress={() => {
-                  DeviceEventEmitter.emit('onGlobalRefresh');
-                }}
-              />
-              <View style={styles.body}>
-                <Stack.Navigator screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="Home" component={HomeScreen} />
-                  <Stack.Screen name="Profile" component={ProfileScreen} />
-                  <Stack.Screen name="Directory" component={DirectoryScreen} />
-                  <Stack.Screen name="Students" component={ProfilesListScreen} />
-                  <Stack.Screen name="Communities" component={ProfilesListScreen} />
-                  <Stack.Screen name="Centers" component={ProfilesListScreen} />
-                  <Stack.Screen name="Teams" component={ProfilesListScreen} />
-                  <Stack.Screen name="PostDetail" component={PostDetailScreen} />
-                  <Stack.Screen name="UserProfile" component={ProfileScreen} />
-                  <Stack.Screen name="FollowList" component={ProfilesListScreen} />
-                  <Stack.Screen name="ProblemsList" component={ProblemsListScreen} />
-                  <Stack.Screen name="ProblemDetail" component={ProblemDetailScreen} />
-                  <Stack.Screen name="ProblemEditor" component={ProblemEditorScreen} />
-                  <Stack.Screen name="Tinder" component={TinderScreen} />
-                  <Stack.Screen name="Notifications" component={NotificationsScreen} />
-                  <Stack.Screen name="Settings" component={SettingsScreen} />
-                  <Stack.Screen name="NotFound" component={NotFoundScreen} />
-                </Stack.Navigator>
+            <View style={{ flexDirection: 'row', flex: 1, width: '100%' }}>
+              {isDesktop && (
+                <Sidebar 
+                  activeScreen={currentRouteName}
+                  onNavigate={(screen) => {
+                    navigationRef.navigate(screen as never);
+                  }}
+                  isDocked={true}
+                />
+              )}
+              
+              <View style={{ flex: 1, flexDirection: 'column' }}>
+                <Header 
+                  title={getScreenTitle(currentRouteName, currentRouteParams)} 
+                  onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
+                  onBack={showBackButton ? handleBack : undefined}
+                  onRefresh={['Home', 'ProblemsList', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Students', 'FollowList'].includes(currentRouteName) ? () => {
+                    DeviceEventEmitter.emit('onGlobalRefresh');
+                  } : undefined}
+                />
+                <View style={styles.body}>
+                  <Stack.Navigator screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="Home" component={HomeScreen} />
+                    <Stack.Screen name="Profile" component={ProfileScreen} />
+                    <Stack.Screen name="Directory" component={DirectoryScreen} />
+                    <Stack.Screen name="Students" component={ProfilesListScreen} />
+                    <Stack.Screen name="Communities" component={ProfilesListScreen} />
+                    <Stack.Screen name="Centers" component={ProfilesListScreen} />
+                    <Stack.Screen name="Teams" component={ProfilesListScreen} />
+                    <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+                    <Stack.Screen name="UserProfile" component={ProfileScreen} />
+                    <Stack.Screen name="FollowList" component={ProfilesListScreen} />
+                    <Stack.Screen name="ProblemsList" component={ProblemsListScreen} />
+                    <Stack.Screen name="ProblemDetail" component={ProblemDetailScreen} />
+                    <Stack.Screen name="ProblemEditor" component={ProblemEditorScreen} />
+                    <Stack.Screen name="Tinder" component={TinderScreen} />
+                    <Stack.Screen name="Notifications" component={NotificationsScreen} />
+                    <Stack.Screen name="Settings" component={SettingsScreen} />
+                    <Stack.Screen name="NotFound" component={NotFoundScreen} />
+                  </Stack.Navigator>
+                </View>
               </View>
-              <Sidebar 
-                isOpen={isSidebarOpen} 
-                onClose={() => setIsSidebarOpen(false)} 
-                activeScreen={currentRouteName}
-                onNavigate={(screen) => {
-                  navigationRef.navigate(screen as never);
-                  setIsSidebarOpen(false);
-                }}
-              />
-            </>
+
+              {!isDesktop && (
+                <Sidebar 
+                  isOpen={isSidebarOpen} 
+                  onClose={() => setIsSidebarOpen(false)} 
+                  activeScreen={currentRouteName}
+                  onNavigate={(screen) => {
+                    navigationRef.navigate(screen as never);
+                    setIsSidebarOpen(false);
+                  }}
+                  isDocked={false}
+                />
+              )}
+            </View>
           ) : (
             <Stack.Navigator screenOptions={{ headerShown: false }}>
               <Stack.Screen name="Login" component={LoginScreen} />
@@ -274,6 +318,13 @@ const styles = StyleSheet.create({
         borderLeftWidth: 1,
         borderRightWidth: 1,
         borderColor: theme.colors.border,
+      }
+    })
+  },
+  appContainerDesktop: {
+    ...Platform.select({
+      web: {
+        maxWidth: 1050,
       }
     })
   },

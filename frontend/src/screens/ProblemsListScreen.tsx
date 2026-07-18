@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { withMinimumDelay } from '../utils/refresh';
 import { RootStackParamList } from '../types/navigation';
 import { pb } from '../services/pocketbase';
 import { theme } from '../theme/theme';
@@ -156,7 +157,7 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchProblems(true);
+    await withMinimumDelay(() => fetchProblems(true));
   };
 
   const handleSearch = () => {

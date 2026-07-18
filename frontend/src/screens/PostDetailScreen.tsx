@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, DeviceEventEmitter, Alert, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, DeviceEventEmitter, Alert, Platform, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,7 @@ import { ImagePicker } from '../components/ImagePicker';
 import { Avatar } from '../components/Avatar';
 import { Feather } from '@expo/vector-icons';
 import { PostCard } from '../components/PostCard';
+import { withMinimumDelay } from '../utils/refresh';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PostDetail'>;
 
@@ -31,6 +32,13 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [posting, setPosting] = useState(false);
   const [activeMenuPostId, setActiveMenuPostId] = useState<string | null>(null);
   const [deleteConfirmPostId, setDeleteConfirmPostId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await withMinimumDelay(() => fetchData(true));
+    setRefreshing(false);
+  }, [postId]);
 
   const isFirstLoad = useRef(true);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -103,10 +111,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
       setLoading(true);
-      await Promise.all([
-        fetchData(true),
-        new Promise(resolve => setTimeout(resolve, 900))
-      ]);
+      await withMinimumDelay(() => fetchData(true));
       setLoading(false);
     });
     return () => sub.remove();
@@ -233,6 +238,14 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         ref={scrollViewRef}
         style={styles.listContainer} 
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
       >
         
         {/* Render Thread Path (Ancestors) */}

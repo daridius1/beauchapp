@@ -41,3 +41,20 @@ Esta guía define las reglas de diseño para Beauchapp con el fin de evitar el "
 *   ❌ Fondos con gradientes de colores.
 *   ❌ Esquinas muy redondeadas (ej. `borderRadius: 20` o superior en tarjetas).
 *   ❌ Iconos gigantescos o decoraciones innecesarias.
+
+---
+
+## 6. Directrices Técnicas de PWA y Layout Responsivo
+*   **Scroll Defensivo**: 
+    *   Forzar `100dvh` (Dynamic Viewport Height) en el contenedor raíz `#root` para evitar cortes por las barras de navegación en móviles.
+    *   Bloquear comportamientos elásticos del navegador (`overscroll-behavior-y: contain` y `overscroll-behavior-x: none`).
+*   **Diseño Responsivo (Desktop Docking)**:
+    *   Si la pantalla es $\ge 800\text{px}$ (PC/Tablet), el menú `Sidebar` se ancla a la izquierda permanentemente (`isDocked={true}`) y se oculta el botón ☰ de la cabecera. El ancho del contenedor se expande a `1050px` para no reducir el feed.
+    *   Si la pantalla es $< 800\text{px}$ (Móvil), el menú es un cajón flotante que se despliega desde la izquierda.
+*   **Navegación Defensiva (Deep Links)**:
+    *   Al retroceder (`handleBack`), si `navigation.canGoBack()` es falso, redirigir siempre a la sección contenedora lógica (`ProblemsList`, `Home` o `Directory`) para evitar bloqueos del flujo.
+*   **Estandarización de Tiempos de Carga**:
+    *   Utilizar el helper `withMinimumDelay(asyncFn, 400)` para todas las acciones de refresco, asegurando que la animación del spinner sea identificable sin añadir retraso innecesario en conexiones lentas.
+*   **Visualizador Markdown + LaTeX**:
+    *   Siempre acoplar un `ResizeObserver` en el HTML interno y listeners `load`/`error` en imágenes (`<img>`) para recalcular el alto dinámico del iframe/webview automáticamente una vez se descarguen los recursos visuales asíncronos.
+

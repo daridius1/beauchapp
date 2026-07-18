@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, DeviceEventEmitter, TextInput } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, DeviceEventEmitter, TextInput, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
@@ -7,6 +7,7 @@ import { pb } from '../services/pocketbase';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
+import { withMinimumDelay } from '../utils/refresh';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Communities' | 'Centers' | 'Teams' | 'Students' | 'FollowList'>;
 
@@ -83,10 +84,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
       setLoading(true);
-      await Promise.all([
-        fetchProfiles(true),
-        new Promise(resolve => setTimeout(resolve, 900))
-      ]);
+      await withMinimumDelay(() => fetchProfiles(true));
       setLoading(false);
     });
     return () => sub.remove();
@@ -101,10 +99,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([
-      fetchProfiles(true),
-      new Promise(resolve => setTimeout(resolve, 900))
-    ]);
+    await withMinimumDelay(() => fetchProfiles(true));
     setRefreshing(false);
   };
 
@@ -140,7 +135,17 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
       </View>
       
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
+      >
         {loading && !refreshing ? (
           <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 50 }} />
         ) : (

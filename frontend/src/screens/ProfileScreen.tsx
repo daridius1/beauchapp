@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, DeviceEventEmitter, Alert, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, DeviceEventEmitter, Alert, Platform, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { Feather } from '@expo/vector-icons';
 import { PostCard } from '../components/PostCard';
+import { withMinimumDelay } from '../utils/refresh';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile' | 'UserProfile'>;
 
@@ -28,6 +29,13 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await withMinimumDelay(() => fetchProfileAndPosts(true));
+    setRefreshing(false);
+  }, [targetUserId]);
 
   const isFirstLoad = useRef(true);
 
@@ -184,7 +192,18 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.feedList} contentContainerStyle={styles.feedContent}>
+      <ScrollView 
+        style={styles.feedList} 
+        contentContainerStyle={styles.feedContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
+      >
         
         {/* Profile Header */}
         <View style={styles.profileHeader}>

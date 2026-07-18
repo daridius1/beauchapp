@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -6,13 +6,15 @@ import {
   FlatList, 
   TouchableOpacity, 
   ActivityIndicator, 
-  RefreshControl 
+  RefreshControl,
+  DeviceEventEmitter
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { notificationService } from '../services/notifications';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
 import { Avatar } from '../components/Avatar';
+import { withMinimumDelay } from '../utils/refresh';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
@@ -50,6 +52,19 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       fetchNotifications();
     }, [fetchNotifications])
   );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await withMinimumDelay(() => fetchNotifications(true));
+    setRefreshing(false);
+  }, [fetchNotifications]);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
+      onRefresh();
+    });
+    return () => sub.remove();
+  }, [onRefresh]);
 
   const handleDeleteNotification = async (notifId: string) => {
     try {
@@ -160,7 +175,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
           refreshControl={
             <RefreshControl 
               refreshing={refreshing} 
-              onRefresh={() => fetchNotifications(true)} 
+              onRefresh={onRefresh} 
               tintColor={theme.colors.primary}
               colors={[theme.colors.primary]}
             />

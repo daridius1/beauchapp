@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, View, Image, StyleSheet, TouchableOpacity, Dimensions, Platform, Linking } from 'react-native';
+import { Modal, View, Image, StyleSheet, TouchableOpacity, Platform, Linking } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 
@@ -35,8 +35,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ visible, imageUrl, onC
     }
   };
 
-  const { width, height } = Dimensions.get('window');
-
   return (
     <Modal
       visible={visible}
@@ -45,12 +43,21 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ visible, imageUrl, onC
       onRequestClose={onClose}
     >
       <View style={styles.container}>
-        <View style={styles.scrollContent}>
-          <Image 
-            source={{ uri: imageUrl }}
-            style={[styles.image, { width, height }]}
-            resizeMode="contain"
-          />
+        {/* Backdrop táctil para cerrar la imagen al tocar fuera */}
+        <TouchableOpacity 
+          style={StyleSheet.absoluteFillObject} 
+          activeOpacity={1} 
+          onPress={onClose} 
+        />
+
+        <View style={styles.scrollContent} pointerEvents="box-none">
+          <TouchableOpacity activeOpacity={1} style={styles.imageWrapper}>
+            <Image 
+              source={{ uri: imageUrl }}
+              style={styles.image}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.downloadButton} onPress={handleDownload}>
@@ -71,12 +78,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.95)',
   },
   scrollContent: {
-    flexGrow: 1,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    height: '100%',
+  },
+  imageWrapper: {
+    width: '100%',
+    height: '100%',
+    maxHeight: '85%',
+    maxWidth: '95%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   image: {
-    // dynamic styles applied in render
+    width: '100%',
+    height: '100%',
   },
   closeButton: {
     position: 'absolute',

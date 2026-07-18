@@ -18,6 +18,7 @@ import { RootStackParamList } from '../types/navigation';
 import { pb } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
+import { withMinimumDelay } from '../utils/refresh';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
@@ -186,7 +187,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchDetail(true);
+    await withMinimumDelay(() => fetchDetail(true));
   };
 
   const performDeleteAction = async (isSolution: boolean) => {
@@ -427,18 +428,6 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
 
         {!!problem.parent && (
-          <TouchableOpacity
-            style={styles.parentBanner}
-            onPress={() => navigation.push('ProblemDetail', { problemId: problem.parent, type: 'problem' })}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.parentBannerText} numberOfLines={1}>
-              Problema original
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {!!problem.parent && !!problem.expand?.parent && (
           <View style={styles.parentProblemContainer}>
             <TouchableOpacity
               style={styles.parentProblemHeader}
@@ -457,16 +446,28 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             
             {showParentProblem && (
               <View style={styles.parentProblemContent}>
-                {problem.expand.parent.tags && problem.expand.parent.tags.length > 0 && (
+                {problem.expand?.parent?.tags && problem.expand.parent.tags.length > 0 && (
                   <View style={styles.parentProblemTagsRow}>
                     {problem.expand.parent.tags.map((tag: string) => (
                       <Text key={tag} style={styles.parentProblemTagBadge}>#{tag}</Text>
                     ))}
                   </View>
                 )}
-                <View style={styles.rendererContainer}>
-                  {renderContentBlocks(problem.expand.parent.content)}
-                </View>
+                {problem.expand?.parent?.content && (
+                  <View style={styles.rendererContainer}>
+                    {renderContentBlocks(problem.expand.parent.content)}
+                  </View>
+                )}
+                
+                <TouchableOpacity
+                  style={[styles.parentBanner, { marginTop: theme.spacing.md, marginBottom: 0 }]}
+                  onPress={() => navigation.push('ProblemDetail', { problemId: problem.parent, type: 'problem' })}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.parentBannerText}>
+                    Ver problema original
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>

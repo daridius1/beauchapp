@@ -10,6 +10,7 @@ import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
+import { withMinimumDelay } from '../utils/refresh';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -127,10 +128,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const onRefresh = useCallback(async () => {
     setLoading(true);
     setRefreshing(true);
-    await Promise.all([
-      fetchPosts(1, false, true),
-      new Promise(resolve => setTimeout(resolve, 900))
-    ]);
+    await withMinimumDelay(() => fetchPosts(1, false, true));
     setRefreshing(false);
     setLoading(false);
   }, [activeSearch, filterTags.join(','), feedTab, user]);

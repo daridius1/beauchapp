@@ -8,20 +8,22 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const SIDEBAR_WIDTH = Math.min(SCREEN_WIDTH * 0.75, 300);
 
 interface SidebarProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
   activeScreen: string;
   onNavigate: (screen: string) => void;
+  isDocked?: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen, onNavigate }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activeScreen, onNavigate, isDocked = false }) => {
   const { user, logout } = useAuth();
-  const slideAnim = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
+  const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
+    if (isDocked) return;
     Animated.parallel([
       Animated.timing(slideAnim, {
-        toValue: isOpen ? 0 : SIDEBAR_WIDTH,
+        toValue: isOpen ? 0 : -SIDEBAR_WIDTH,
         duration: 250,
         useNativeDriver: false,
       }),
@@ -31,17 +33,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
         useNativeDriver: false,
       }),
     ]).start();
-  }, [isOpen]);
+  }, [isOpen, isDocked]);
 
   const handleLinkPress = (screen: string) => {
     onNavigate(screen);
-    onClose();
+    if (onClose) onClose();
   };
 
   const handleLogout = () => {
     logout();
     onNavigate('Home');
-    onClose();
+    if (onClose) onClose();
   };
 
 
@@ -54,7 +56,86 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
     { id: 'Settings', label: 'Ajustes' },
   ];
 
+  const renderSidebarContent = () => (
+    <>
+      {/* Encabezado del Perfil */}
+      <View style={styles.header}>
+        {user ? (
+          <TouchableOpacity 
+            activeOpacity={0.7}
+            onPress={() => handleLinkPress('Profile')}
+          >
+            <View style={{ marginBottom: theme.spacing.sm }}>
+              <Avatar user={user} size={60} />
+            </View>
+            <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
+            {!!user.username && <Text style={styles.userUsername} numberOfLines={1}>@{user.username}</Text>}
+          </TouchableOpacity>
+        ) : (
+          <View>
+            <Text style={styles.welcomeTitle}>Invitado</Text>
+            <Text style={styles.welcomeSubtitle}>Inicia sesión para ver las novedades de la comunidad.</Text>
+            <TouchableOpacity 
+              style={styles.loginBtn}
+              onPress={() => handleLinkPress('Login')}
+            >
+              <Text style={styles.loginBtnText}>Iniciar Sesión</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
 
+      {/* Enlaces de Navegación */}
+      <View style={styles.navLinks}>
+        {menuItems.map((item: any) => (
+          <TouchableOpacity
+            key={item.id}
+            style={[
+              styles.navItem,
+              activeScreen === item.id && styles.navItemActive
+            ]}
+            onPress={() => handleLinkPress(item.id)}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <Text 
+                style={[
+                  styles.navItemText,
+                  activeScreen === item.id && styles.navItemTextActive
+                ]}
+              >
+                {item.label}
+              </Text>
+              {!!item.badge && item.badge > 0 && (
+                <View style={styles.badgeContainer}>
+                  <Text style={styles.badgeText}>{item.badge}</Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Botón de Salida (Cerrar Sesión) */}
+      {user && (
+        <View style={styles.footer}>
+          <TouchableOpacity 
+            style={styles.logoutBtn} 
+            onPress={handleLogout}
+          >
+            <Text style={styles.logoutText}>Cerrar Sesión</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </>
+  );
+
+  if (isDocked) {
+    return (
+      <View style={styles.sidebarDocked}>
+        {renderSidebarContent()}
+      </View>
+    );
+  }
 
   return (
     <View style={[StyleSheet.absoluteFillObject, { pointerEvents: isOpen ? 'auto' : 'none' }]}>
@@ -65,74 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activeScreen,
 
       {/* Menú deslizante */}
       <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
-        {/* Encabezado del Perfil */}
-        <View style={styles.header}>
-          {user ? (
-            <TouchableOpacity 
-              activeOpacity={0.7}
-              onPress={() => handleLinkPress('Profile')}
-            >
-              <View style={{ marginBottom: theme.spacing.sm }}>
-                <Avatar user={user} size={60} />
-              </View>
-              <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
-              {!!user.username && <Text style={styles.userUsername} numberOfLines={1}>@{user.username}</Text>}
-            </TouchableOpacity>
-          ) : (
-            <View>
-              <Text style={styles.welcomeTitle}>Invitado</Text>
-              <Text style={styles.welcomeSubtitle}>Inicia sesión para ver las novedades de la comunidad.</Text>
-              <TouchableOpacity 
-                style={styles.loginBtn}
-                onPress={() => handleLinkPress('Login')}
-              >
-                <Text style={styles.loginBtnText}>Iniciar Sesión</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* Enlaces de Navegación */}
-        <View style={styles.navLinks}>
-          {menuItems.map((item: any) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[
-                styles.navItem,
-                activeScreen === item.id && styles.navItemActive
-              ]}
-              onPress={() => handleLinkPress(item.id)}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <Text 
-                  style={[
-                    styles.navItemText,
-                    activeScreen === item.id && styles.navItemTextActive
-                  ]}
-                >
-                  {item.label}
-                </Text>
-                {!!item.badge && item.badge > 0 && (
-                  <View style={styles.badgeContainer}>
-                    <Text style={styles.badgeText}>{item.badge}</Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Botón de Salida (Cerrar Sesión) */}
-        {user && (
-          <View style={styles.footer}>
-            <TouchableOpacity 
-              style={styles.logoutBtn} 
-              onPress={handleLogout}
-            >
-              <Text style={styles.logoutText}>Cerrar Sesión</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        {renderSidebarContent()}
       </Animated.View>
     </View>
   );
@@ -148,16 +162,26 @@ const styles = StyleSheet.create({
   },
   sidebar: {
     position: 'absolute',
-    right: 0,
+    left: 0,
     top: 0,
     bottom: 0,
     width: SIDEBAR_WIDTH,
     backgroundColor: theme.colors.cardBg,
-    borderLeftWidth: 1,
-    borderLeftColor: theme.colors.border,
+    borderRightWidth: 1,
+    borderRightColor: theme.colors.border,
     paddingTop: 50,
     flexDirection: 'column',
     justifyContent: 'space-between',
+  },
+  sidebarDocked: {
+    width: 250,
+    backgroundColor: theme.colors.cardBg,
+    borderRightWidth: 1,
+    borderRightColor: theme.colors.border,
+    paddingTop: 50,
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    height: '100%',
   },
   header: {
     paddingHorizontal: theme.spacing.lg,

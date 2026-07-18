@@ -8,10 +8,11 @@ interface HeaderProps {
   onToggleSidebar?: () => void;
   onBack?: () => void;
   onTitlePress?: () => void;
+  onRefresh?: () => void;
   rightComponent?: React.ReactNode;
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, onTitlePress, rightComponent }) => {
+export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, onTitlePress, onRefresh, rightComponent }) => {
   const titleOpacity = useRef(new Animated.Value(1)).current;
   const titleTranslateY = useRef(new Animated.Value(0)).current;
 
@@ -71,6 +72,18 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
           <TouchableOpacity style={styles.iconButton} onPress={onBack} activeOpacity={0.7}>
             <Feather name="arrow-left" size={24} color={theme.colors.text} />
           </TouchableOpacity>
+        ) : onToggleSidebar ? (
+          <TouchableOpacity 
+            style={styles.iconButton} 
+            onPress={onToggleSidebar}
+            activeOpacity={0.7}
+          >
+            <View style={styles.hamburger}>
+              <View style={styles.hamburgerLine} />
+              <View style={[styles.hamburgerLine, { marginVertical: 4 }]} />
+              <View style={styles.hamburgerLine} />
+            </View>
+          </TouchableOpacity>
         ) : (
           <View style={styles.iconPlaceholder} />
         )}
@@ -101,18 +114,14 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
       
       <View style={[styles.sideContainer, { justifyContent: 'flex-end' }]}>
         {rightComponent}
-
-        <TouchableOpacity 
-          style={styles.iconButton} 
-          onPress={onToggleSidebar}
-          activeOpacity={0.7}
-        >
-          <View style={styles.hamburger}>
-            <View style={styles.hamburgerLine} />
-            <View style={[styles.hamburgerLine, { marginVertical: 4 }]} />
-            <View style={styles.hamburgerLine} />
-          </View>
-        </TouchableOpacity>
+        
+        {onRefresh && (
+          <TouchableOpacity style={styles.iconButton} onPress={onRefresh} activeOpacity={0.7}>
+            <Feather name="refresh-cw" size={20} color={theme.colors.text} />
+          </TouchableOpacity>
+        )}
+        
+        {!rightComponent && !onRefresh && <View style={styles.iconPlaceholder} />}
       </View>
     </View>
   );

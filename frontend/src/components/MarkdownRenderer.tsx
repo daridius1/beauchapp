@@ -158,21 +158,23 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
       <body>
         <div id="content"></div>
         <script>
+          var notifyTimeout;
           function notifyHeight() {
-            setTimeout(function() {
-              const body = document.body;
-              const html = document.documentElement;
-              const height = Math.max(
-                body.scrollHeight, body.offsetHeight,
-                html.clientHeight, html.scrollHeight, html.offsetHeight
-              );
+            if (notifyTimeout) clearTimeout(notifyTimeout);
+            notifyTimeout = setTimeout(function() {
+              const contentDiv = document.getElementById('content');
+              if (!contentDiv) return;
+              
+              // Medir el alto del contenido real
+              const height = Math.ceil(contentDiv.getBoundingClientRect().height);
+              
               if (window.parent) {
                 window.parent.postMessage({ type: 'markdown-height', id: '${rendererId}', height: height }, '*');
               }
               if (window.ReactNativeWebView) {
                 window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'markdown-height', id: '${rendererId}', height: height }));
               }
-            }, 150);
+            }, 100);
           }
 
           function escapeHTML(str) {
@@ -188,7 +190,10 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
               var latexBlocks = ${JSON.stringify(blocks)};
               var svgBlocks = ${JSON.stringify(svgBlocks)};
 
-              var html = marked.parse(processedContent);
+              var html = marked.parse(processedContent, {
+                mangle: false,
+                headerIds: false
+              });
               
               // Restore SVG blocks first so DOMPurify can clean them too
               for (var i = 0; i < svgBlocks.length; i++) {
@@ -234,6 +239,20 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
                   throwOnError: false
                 });
               }
+
+              // Registrar ResizeObserver para reaccionar a cualquier cambio de tamaño dinámico
+              if (window.ResizeObserver) {
+                const resizeObserver = new ResizeObserver(function() {
+                  notifyHeight();
+                });
+                resizeObserver.observe(contentDiv);
+              }
+
+              // Escuchar la carga de imágenes asíncronas para actualizar la altura al completarse
+              contentDiv.querySelectorAll('img').forEach(function(img) {
+                img.addEventListener('load', notifyHeight);
+                img.addEventListener('error', notifyHeight);
+              });
 
               notifyHeight();
             } catch (e) {
