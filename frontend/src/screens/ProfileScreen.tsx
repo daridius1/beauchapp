@@ -284,6 +284,10 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                   navigation.push('ProblemDetail', { problemId: post.entityId });
                 }
               }}
+              onImagePress={(imageUrl) => {
+                setViewerImageUrl(imageUrl);
+                setViewerVisible(true);
+              }}
             />
           ))
         )}

@@ -16,6 +16,7 @@ export interface PostCardProps {
   onAuthorPress?: () => void;
   onProblemPress?: () => void;
   onTagPress?: (tag: string) => void;
+  onImagePress?: (imageUrl: string) => void;
   isFocused?: boolean;
   isParent?: boolean;
 }
@@ -29,6 +30,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onAuthorPress,
   onProblemPress,
   onTagPress,
+  onImagePress,
   isFocused = false,
   isParent = false,
 }) => {
@@ -285,10 +287,16 @@ export const PostCard: React.FC<PostCardProps> = ({
 
       {/* Post photo attachment */}
       {!isDeleted && !!post.photo && (
-        <Image 
-          source={{ uri: getFileUrl(post, post.photo) }}
-          style={styles.postImage}
-        />
+        <TouchableOpacity
+          activeOpacity={0.8}
+          disabled={!onImagePress}
+          onPress={() => onImagePress && onImagePress(getFileUrl(post, post.photo))}
+        >
+          <Image 
+            source={{ uri: getFileUrl(post, post.photo) }}
+            style={styles.postImage}
+          />
+        </TouchableOpacity>
       )}
 
       {/* Tags row */}

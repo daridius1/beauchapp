@@ -524,6 +524,10 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                 }
               }}
               onTagPress={(t) => activateTagFilter(t)}
+              onImagePress={(imageUrl) => {
+                setViewerImageUrl(imageUrl);
+                setViewerVisible(true);
+              }}
             />
           ))
         )}
