@@ -20,8 +20,25 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [hasSentResetEmail, setHasSentResetEmail] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [inputWidth, setInputWidth] = useState(80);
   const emailInputRef = useRef<TextInput>(null);
+
+  const handleEmailChange = (text: string) => {
+    let clean = text.trim().replace(/\s/g, '');
+    if (clean.includes('@')) {
+      const [prefix, domain] = clean.split('@');
+      if (domain && domain.toLowerCase() !== 'ing.uchile.cl') {
+        setLocalError('Debes usar tu cuenta de la escuela (@ing.uchile.cl)');
+      } else {
+        setLocalError(null);
+      }
+      if (domain && domain.toLowerCase() === 'ing.uchile.cl') {
+        clean = prefix;
+      }
+    } else {
+      setLocalError(null);
+    }
+    setEmail(clean);
+  };
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -52,6 +69,14 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         return;
       }
     } else if (isSignUp) {
+      if (email.includes('@')) {
+        const parts = email.split('@');
+        const domain = parts[parts.length - 1].toLowerCase();
+        if (domain !== 'ing.uchile.cl') {
+          setLocalError('Debes usar tu correo @ing.uchile.cl');
+          return;
+        }
+      }
       if (identity.includes('@')) {
          identity = identity.split('@')[0];
       }
@@ -240,29 +265,18 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Correo institucional</Text>
             <View style={styles.emailContainer}>
-              <Text 
-                style={{ fontSize: 16, position: 'absolute', opacity: 0, left: -9999 }}
-                onLayout={(e) => setInputWidth(e.nativeEvent.layout.width)}
-              >
-                {email || 'tu.usuario'}
-              </Text>
-              <Pressable 
-                style={{ flexDirection: 'row', alignItems: 'center', flex: 1, overflow: 'hidden' }}
-                onPress={() => emailInputRef.current?.focus()}
-              >
-                <TextInput
-                  ref={emailInputRef}
-                  style={[styles.input, styles.emailPrefixInput, { width: Math.max(inputWidth + 30, 10), marginRight: -30, flexShrink: 1 }]}
-                  placeholder="tu.usuario"
-                  placeholderTextColor={theme.colors.textMuted}
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <Text style={styles.inlineEmailSuffix}>@ing.uchile.cl</Text>
-              </Pressable>
+              <TextInput
+                ref={emailInputRef}
+                style={styles.emailPrefixInput}
+                placeholder="tu.usuario"
+                placeholderTextColor={theme.colors.textMuted}
+                value={email}
+                onChangeText={handleEmailChange}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Text style={styles.inlineEmailSuffix}>@ing.uchile.cl</Text>
             </View>
             <Text style={styles.helperText}>
               {isForgotPassword 
@@ -437,18 +451,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    paddingVertical: 4,
   },
   emailPrefixInput: {
+    flex: 1,
     borderBottomWidth: 0,
-    textAlign: 'left',
     fontSize: 16,
-    paddingVertical: 0,
-    paddingHorizontal: 0,
+    color: theme.colors.text,
+    paddingVertical: 8,
   },
   inlineEmailSuffix: {
     fontSize: 16,
-    color: theme.colors.text,
-    fontWeight: '700',
+    color: theme.colors.textMuted,
+    fontWeight: '600',
+    paddingLeft: 8,
   },
   helperText: {
     fontSize: 11,
