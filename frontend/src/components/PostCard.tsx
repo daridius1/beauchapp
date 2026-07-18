@@ -6,6 +6,7 @@ import { theme } from '../theme/theme';
 import { pb, getFileUrl } from '../services/pocketbase';
 import { useNavigation } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
+import { ImageViewer } from './ImageViewer';
 
 export interface PostCardProps {
   post: any;
@@ -16,7 +17,6 @@ export interface PostCardProps {
   onAuthorPress?: () => void;
   onProblemPress?: () => void;
   onTagPress?: (tag: string) => void;
-  onImagePress?: (imageUrl: string) => void;
   isFocused?: boolean;
   isParent?: boolean;
 }
@@ -30,12 +30,12 @@ export const PostCard: React.FC<PostCardProps> = ({
   onAuthorPress,
   onProblemPress,
   onTagPress,
-  onImagePress,
   isFocused = false,
   isParent = false,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loadingMention, setLoadingMention] = useState(false);
+  const [viewerVisible, setViewerVisible] = useState(false);
   const isDeleted = post.deleted === true;
   const author = isDeleted ? null : post.expand?.author;
   const isLiked = currentUser && (post.likes || []).includes(currentUser.id);
@@ -179,14 +179,15 @@ export const PostCard: React.FC<PostCardProps> = ({
   };
 
   return (
-    <CardComponent 
-      {...cardProps} 
-      style={[
-        styles.postCard, 
-        isFocused && styles.mainPostCard, 
-        isParent && styles.parentCard
-      ]}
-    >
+    <>
+      <CardComponent 
+        {...cardProps} 
+        style={[
+          styles.postCard, 
+          isFocused && styles.mainPostCard, 
+          isParent && styles.parentCard
+        ]}
+      >
       <View style={[styles.postHeader, { justifyContent: 'space-between', alignItems: 'center', position: 'relative' }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <TouchableOpacity 
@@ -289,8 +290,7 @@ export const PostCard: React.FC<PostCardProps> = ({
       {!isDeleted && !!post.photo && (
         <TouchableOpacity
           activeOpacity={0.8}
-          disabled={!onImagePress}
-          onPress={() => onImagePress && onImagePress(getFileUrl(post, post.photo))}
+          onPress={() => setViewerVisible(true)}
         >
           <Image 
             source={{ uri: getFileUrl(post, post.photo) }}
@@ -358,7 +358,15 @@ export const PostCard: React.FC<PostCardProps> = ({
         </View>
       )}
     </CardComponent>
-  );
+    {post.photo && (
+      <ImageViewer 
+        visible={viewerVisible}
+        imageUrl={getFileUrl(post, post.photo)}
+        onClose={() => setViewerVisible(false)}
+      />
+    )}
+  </>
+);
 };
 
 const styles = StyleSheet.create({

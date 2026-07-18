@@ -522,23 +522,12 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                 if (post.entityType === 'problems') {
                   navigation.push('ProblemDetail', { problemId: post.entityId });
                 }
-              }}
               onTagPress={(t) => activateTagFilter(t)}
-              onImagePress={(imageUrl) => {
-                setViewerImageUrl(imageUrl);
-                setViewerVisible(true);
-              }}
             />
           ))
         )}
         {loadingMore && <ActivityIndicator size="small" color={theme.colors.text} style={{ padding: 20 }} />}
       </ScrollView>
-
-      <ImageViewer 
-        visible={viewerVisible}
-        imageUrl={viewerImageUrl}
-        onClose={() => setViewerVisible(false)}
-      />
 
       {/* Modal de confirmación de eliminación customizado */}
       {deleteConfirmPostId !== null && (

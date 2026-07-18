@@ -225,10 +225,6 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             navigation.push('ProblemDetail', { problemId: post.entityId });
           }
         }}
-        onImagePress={(imageUrl) => {
-          setViewerImageUrl(imageUrl);
-          setViewerVisible(true);
-        }}
       />
     );
   };
@@ -327,12 +323,6 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
         </View>
       </ScrollView>
-
-      <ImageViewer 
-        visible={viewerVisible}
-        imageUrl={viewerImageUrl}
-        onClose={() => setViewerVisible(false)}
-      />
 
       {/* Modal de confirmación de eliminación customizado */}
       {deleteConfirmPostId !== null && (

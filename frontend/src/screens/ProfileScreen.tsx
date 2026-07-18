@@ -284,25 +284,10 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                   navigation.push('ProblemDetail', { problemId: post.entityId });
                 }
               }}
-              onImagePress={(imageUrl) => {
-                setViewerImageUrl(imageUrl);
-                setViewerVisible(true);
-              }}
             />
           ))
         )}
       </ScrollView>
-
-      {viewerImageUrl && (
-        <ImageViewer 
-          visible={viewerVisible} 
-          imageUrl={viewerImageUrl} 
-          onClose={() => {
-            setViewerVisible(false);
-            setViewerImageUrl(null);
-          }} 
-        />
-      )}
 
       {/* Modal de confirmación de eliminación customizado */}
       {deleteConfirmPostId !== null && (
