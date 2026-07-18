@@ -132,7 +132,13 @@ onRecordEnrich((e) => {
         if (!isAdmin) {
             e.record.set("content", "[post/comentario eliminado]");
             e.record.set("photo", "");
-            e.record.hide("author");
+            e.record.set("author", "");
+            try {
+                const expand = e.record.expand();
+                if (expand && expand["author"]) {
+                    delete expand["author"];
+                }
+            } catch (err) {}
         }
     }
     return e.next();
