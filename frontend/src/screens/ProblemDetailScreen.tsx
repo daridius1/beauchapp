@@ -477,16 +477,16 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity 
               activeOpacity={0.7}
-              onPress={problem.author ? () => navigation.push('UserProfile', { userId: problem.author }) : undefined}
-              disabled={!problem.author}
+              onPress={(problem.author && !problem.deleted) ? () => navigation.push('UserProfile', { userId: problem.author }) : undefined}
+              disabled={!problem.author || problem.deleted}
             >
               <Avatar user={problemAuthor} size={44} />
             </TouchableOpacity>
             <View style={styles.authorMeta}>
               <TouchableOpacity 
                 activeOpacity={0.7}
-                onPress={problem.author ? () => navigation.push('UserProfile', { userId: problem.author }) : undefined}
-                disabled={!problem.author}
+                onPress={(problem.author && !problem.deleted) ? () => navigation.push('UserProfile', { userId: problem.author }) : undefined}
+                disabled={!problem.author || problem.deleted}
               >
                 <Text style={styles.authorName}>{problemAuthor?.name || (problem.deleted ? 'Usuario Anónimo' : 'Usuario')}</Text>
                 {!!problemAuthor?.username && <Text style={styles.authorHandle}>@{problemAuthor.username}</Text>}

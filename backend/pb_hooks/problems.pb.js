@@ -249,3 +249,33 @@ onRecordAfterUpdateSuccess((e) => {
         console.log("[Entity Link] Error in post update hook:", err.message || err);
     }
 }, "posts");
+
+// 15. Seguridad: Redactar información de autoría en posts eliminados para que no viaje al cliente
+onRecordEnrich((e) => {
+    try {
+        if (e.record.getBool("deleted")) {
+            e.record.set("author", "");
+            const expand = e.record.expand();
+            if (expand && expand["author"]) {
+                delete expand["author"];
+            }
+        }
+    } catch (err) {
+        console.log("[Security Link] Error onRecordEnrich posts:", err.message || err);
+    }
+}, "posts");
+
+// 16. Seguridad: Redactar información de autoría en problemas eliminados para que no viaje al cliente
+onRecordEnrich((e) => {
+    try {
+        if (e.record.getBool("deleted")) {
+            e.record.set("author", "");
+            const expand = e.record.expand();
+            if (expand && expand["author"]) {
+                delete expand["author"];
+            }
+        }
+    } catch (err) {
+        console.log("[Security Link] Error onRecordEnrich problems:", err.message || err);
+    }
+}, "problems");

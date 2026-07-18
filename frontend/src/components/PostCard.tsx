@@ -222,9 +222,9 @@ export const PostCard: React.FC<PostCardProps> = ({
         )}
       </View>
       
-      {post.replyTo && post.expand?.replyTo?.expand?.author ? (
+      {post.replyTo && (post.expand?.replyTo?.expand?.author || post.expand?.replyTo?.deleted) ? (
         <Text style={styles.replyContextText}>
-          En respuesta a @{post.expand.replyTo.expand.author.username}
+          En respuesta a @{post.expand.replyTo.deleted ? '[eliminado]' : (post.expand.replyTo.expand?.author?.username || 'Usuario')}
         </Text>
       ) : null}
 
