@@ -125,7 +125,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     setPosting(true);
     try {
       const postData: any = {
-        content: content.trim(),
+        content: content.trim() || " ",
         author: user.id,
         replyTo: mainPost.id
       };

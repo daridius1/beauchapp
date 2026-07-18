@@ -223,7 +223,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       }
 
       const postData: any = {
-        content: content.trim(),
+        content: content.trim() || " ",
         tags: finalTags,
         author: user.id
       };
