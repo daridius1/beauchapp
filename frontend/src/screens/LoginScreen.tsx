@@ -234,10 +234,10 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
         {!isForgotPassword && isSignUp && (
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nombre a mostrar</Text>
+            <Text style={styles.label}>Nombre</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ej: Juan Pérez ⚽️"
+              placeholder="Juan Pérez"
               placeholderTextColor={theme.colors.textMuted}
               value={name}
               onChangeText={setName}
@@ -248,10 +248,10 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
         {!isForgotPassword && isSignUp && (
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nombre de usuario</Text>
+            <Text style={styles.label}>Usuario</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ej: jperez99"
+              placeholder="jperez99"
               placeholderTextColor={theme.colors.textMuted}
               value={username}
               onChangeText={setUsername}
@@ -286,10 +286,10 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ) : (
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Correo o Nombre de usuario</Text>
+            <Text style={styles.label}>Correo o Usuario</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ej: jperez99 o juan@ing.uchile.cl"
+              placeholder="jperez99 o juan@ing.uchile.cl"
               placeholderTextColor={theme.colors.textMuted}
               value={email}
               onChangeText={setEmail}
