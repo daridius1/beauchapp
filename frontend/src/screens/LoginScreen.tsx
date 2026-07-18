@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Linking, Pressable } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Linking, Pressable, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
@@ -367,6 +367,13 @@ const styles = StyleSheet.create({
   },
   formCard: {
     paddingVertical: theme.spacing.lg,
+    width: '100%',
+    ...Platform.select({
+      web: {
+        maxWidth: 450,
+        alignSelf: 'center',
+      }
+    })
   },
   title: {
     fontSize: 28,

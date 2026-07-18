@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
@@ -119,7 +119,16 @@ export const ResetPasswordScreen: React.FC<Props> = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
   contentContainer: { padding: theme.spacing.md, justifyContent: 'center', minHeight: '80%' },
-  formCard: { paddingVertical: theme.spacing.lg },
+  formCard: { 
+    paddingVertical: theme.spacing.lg,
+    width: '100%',
+    ...Platform.select({
+      web: {
+        maxWidth: 450,
+        alignSelf: 'center',
+      }
+    })
+  },
   title: { fontSize: 28, fontWeight: '600', color: theme.colors.text, marginBottom: theme.spacing.lg, textAlign: 'center' },
   message: { fontSize: 16, color: theme.colors.textMuted, lineHeight: 24, textAlign: 'center', marginBottom: theme.spacing.lg },
   errorBox: { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: theme.borderRadius.md, padding: theme.spacing.md, marginBottom: theme.spacing.md, borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)' },

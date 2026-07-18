@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
@@ -73,7 +73,17 @@ export const VerifyEmailScreen: React.FC<Props> = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
   contentContainer: { padding: theme.spacing.md, justifyContent: 'center', minHeight: '80%' },
-  card: { paddingVertical: theme.spacing.lg, alignItems: 'center' },
+  card: { 
+    paddingVertical: theme.spacing.lg, 
+    alignItems: 'center',
+    width: '100%',
+    ...Platform.select({
+      web: {
+        maxWidth: 450,
+        alignSelf: 'center',
+      }
+    })
+  },
 
   title: { fontSize: 28, fontWeight: '600', color: theme.colors.text, marginBottom: theme.spacing.md, textAlign: 'center' },
   message: { fontSize: 16, color: theme.colors.textMuted, lineHeight: 24, textAlign: 'center', marginBottom: theme.spacing.lg },

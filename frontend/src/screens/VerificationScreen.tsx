@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Linking } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Linking, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { theme } from '../theme/theme';
 import { RootStackParamList } from '../types/navigation';
@@ -54,7 +54,17 @@ export const VerificationScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
   contentContainer: { padding: theme.spacing.md, justifyContent: 'center', minHeight: '80%' },
-  card: { paddingVertical: theme.spacing.lg, alignItems: 'center' },
+  card: { 
+    paddingVertical: theme.spacing.lg, 
+    alignItems: 'center',
+    width: '100%',
+    ...Platform.select({
+      web: {
+        maxWidth: 450,
+        alignSelf: 'center',
+      }
+    })
+  },
   emoji: { fontSize: 64, marginBottom: theme.spacing.lg },
   title: { fontSize: 28, fontWeight: '600', color: theme.colors.text, marginBottom: theme.spacing.md, textAlign: 'center' },
   message: { fontSize: 16, color: theme.colors.textMuted, lineHeight: 24, textAlign: 'center', marginBottom: theme.spacing.lg },
