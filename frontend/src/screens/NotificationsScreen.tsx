@@ -49,7 +49,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchNotifications();
+      withMinimumDelay(() => fetchNotifications());
     }, [fetchNotifications])
   );
 
@@ -163,7 +163,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {loading && notifications.length === 0 ? (
+      {loading ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
