@@ -597,9 +597,9 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
             suggestions={tagSuggestions.filter(t => !tags.some(tg => tg.toLowerCase() === t.toLowerCase()))}
             allowCustom={tags.length + ((ramo ? 1 : 0) + (semestre ? 1 : 0) + (instancia ? 1 : 0)) < 10}
             onSelect={(val) => {
-              const clean = val.trim();
+              const clean = val.trim().toLowerCase();
               const specialCount = (ramo ? 1 : 0) + (semestre ? 1 : 0) + (instancia ? 1 : 0);
-              if (clean && tags.length + specialCount < 10 && !tags.some(t => t.toLowerCase() === clean.toLowerCase())) {
+              if (clean && tags.length + specialCount < 10 && !tags.includes(clean)) {
                 setTags([...tags, clean]);
               }
             }}

@@ -83,7 +83,7 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
         filterConditions.push(`title ~ "${safeSearch}"`);
       }
       activeTags.forEach(tag => {
-        const safeTag = tag.replace(/"/g, '\\"');
+        const safeTag = tag.replace(/"/g, '\\"').toLowerCase();
         filterConditions.push(`tags = "${safeTag}"`);
       });
       if (activeRamo) {

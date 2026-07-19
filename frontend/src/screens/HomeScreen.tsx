@@ -95,7 +95,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       
       if (filterTags.length > 0) {
         filterTags.forEach(t => {
-          const safeTag = t.replace(/"/g, '\\"');
+          const safeTag = t.replace(/"/g, '\\"').toLowerCase();
           // Hereda los tags del post raíz
           filterConditions.push(`(tags = "${safeTag}" || root.tags = "${safeTag}")`);
         });
@@ -191,8 +191,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const addTag = (text: string) => {
-    const clean = text.replace(/[^a-zA-Z0-9]/g, '');
-    if (clean && tags.length < 10 && clean.length <= 15 && !tags.some(t => t.toLowerCase() === clean.toLowerCase())) {
+    const clean = text.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    if (clean && tags.length < 10 && clean.length <= 15 && !tags.includes(clean)) {
       setTags([...tags, clean]);
     }
     setTagInput('');
@@ -215,8 +215,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     setPosting(true);
     try {
       let finalTags = [...tags];
-      const pendingTag = tagInput.replace(/[^a-zA-Z0-9]/g, '');
-      if (pendingTag && finalTags.length < 10 && pendingTag.length <= 15 && !finalTags.some(t => t.toLowerCase() === pendingTag.toLowerCase())) {
+      const pendingTag = tagInput.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      if (pendingTag && finalTags.length < 10 && pendingTag.length <= 15 && !finalTags.includes(pendingTag)) {
         finalTags.push(pendingTag);
       }
 
