@@ -120,10 +120,7 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
       setLoading(true);
-      await Promise.all([
-        fetchProfileAndPosts(true),
-        new Promise(resolve => setTimeout(resolve, 900))
-      ]);
+      await withMinimumDelay(() => fetchProfileAndPosts(true));
       setLoading(false);
     });
     return () => sub.remove();

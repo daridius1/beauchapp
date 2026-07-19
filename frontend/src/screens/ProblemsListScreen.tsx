@@ -149,8 +149,10 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   useEffect(() => {
-    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
-      onRefresh();
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await withMinimumDelay(() => fetchProblems(true));
+      setLoading(false);
     });
     return () => sub.remove();
   }, [activeSearch, activeTags, activeRamo, activeSemestre, activeInstancia]);

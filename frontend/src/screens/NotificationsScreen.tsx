@@ -60,11 +60,13 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
   }, [fetchNotifications]);
 
   useEffect(() => {
-    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
-      onRefresh();
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await withMinimumDelay(() => fetchNotifications(true));
+      setLoading(false);
     });
     return () => sub.remove();
-  }, [onRefresh]);
+  }, [fetchNotifications]);
 
   const handleDeleteNotification = async (notifId: string) => {
     try {
