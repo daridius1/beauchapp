@@ -97,7 +97,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         filterTags.forEach(t => {
           const safeTag = t.replace(/"/g, '\\"');
           // Hereda los tags del post raíz
-          filterConditions.push(`(tags ~ "${safeTag}" || root.tags ~ "${safeTag}")`);
+          filterConditions.push(`(tags = "${safeTag}" || root.tags = "${safeTag}")`);
         });
       }
 
