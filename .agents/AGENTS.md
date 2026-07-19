@@ -36,6 +36,7 @@
 7. **Estándar de Tiempos de Carga (Refresco):**
 - Evitar el parpadeo de interfaces y asegurar que los indicadores de carga (spinners) sean claramente identificables por el usuario usando la utilidad `withMinimumDelay(asyncFn, minDurationMs = 400)`.
 - Si el servidor responde rápido, la promesa esperará el tiempo remanente para completar los 400ms mínimos. Si la red es lenta y supera dicho umbral, no se añadirá ningún retraso artificial en producción.
+- **Doble Comportamiento de Feedback:** El refresco por arrastre táctil (pull-to-refresh) solo debe usar el spinner superior nativo. El refresco por botón superior en el Header o cargas iniciales/programáticas debe activar el indicador de carga central (`ActivityIndicator` sobre pantalla en blanco) para dar feedback claro y evitar la falta de visibilidad del spinner.
 
 8. **Alto Dinámico en Renderizadores de Markdown y KaTeX:**
 - Para visualizadores embebidos (WebViews/iframes) de Markdown + LaTeX:

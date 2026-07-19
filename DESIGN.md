@@ -53,8 +53,11 @@ Esta guía define las reglas de diseño para Beauchapp con el fin de evitar el "
     *   Si la pantalla es $< 800\text{px}$ (Móvil), el menú es un cajón flotante que se despliega desde la izquierda.
 *   **Navegación Defensiva (Deep Links)**:
     *   Al retroceder (`handleBack`), si `navigation.canGoBack()` es falso, redirigir siempre a la sección contenedora lógica (`ProblemsList`, `Home` o `Directory`) para evitar bloqueos del flujo.
-*   **Estandarización de Tiempos de Carga**:
-    *   Utilizar el helper `withMinimumDelay(asyncFn, 400)` para todas las acciones de refresco, asegurando que la animación del spinner sea identificable sin añadir retraso innecesario en conexiones lentas.
+*   **Estandarización de Tiempos de Carga y Feedback Visual**:
+    *   **Retardo Mínimo:** Utilizar siempre el helper `withMinimumDelay(asyncFn, 400)` en todas las llamadas de refresco para asegurar que los spinners duren al menos 400ms (evitando parpadeos rápidos) sin agregar lentitud en redes con latencia real.
+    *   **Doble Comportamiento de Refresco:**
+        *   *Pull-to-refresh (Arrastre táctil):* Solo debe activar el indicador superior nativo (`refreshControl={...}`) para mantener los elementos actuales visibles mientras se actualiza el feed en segundo plano.
+        *   *Header Refresh (Botón de cabecera) o Carga programática:* Debe activar la pantalla de carga principal (`setLoading(true)`) mostrando el gran spinner central (`ActivityIndicator`) para dar feedback visual claro e inmediato al usuario, evitando cambios de pantalla abruptos u ocultos.
 *   **Visualizador Markdown + LaTeX**:
     *   Siempre acoplar un `ResizeObserver` en el HTML interno y listeners `load`/`error` en imágenes (`<img>`) para recalcular el alto dinámico del iframe/webview automáticamente una vez se descarguen los recursos visuales asíncronos.
 
