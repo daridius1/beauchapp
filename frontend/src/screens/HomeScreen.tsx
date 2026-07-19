@@ -191,7 +191,16 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const addTag = (text: string) => {
-    const clean = text.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    const clean = text
+      .toLowerCase()
+      .replace(/[áäâà]/g, 'a')
+      .replace(/[éëêè]/g, 'e')
+      .replace(/[íïîì]/g, 'i')
+      .replace(/[óöôò]/g, 'o')
+      .replace(/[úüûù]/g, 'u')
+      .replace(/[ñ]/g, 'n')
+      .replace(/[^a-z0-9]/g, '')
+      .trim();
     if (clean && tags.length < 10 && clean.length <= 15 && !tags.includes(clean)) {
       setTags([...tags, clean]);
     }
@@ -215,7 +224,16 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     setPosting(true);
     try {
       let finalTags = [...tags];
-      const pendingTag = tagInput.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      const pendingTag = tagInput
+        .toLowerCase()
+        .replace(/[áäâà]/g, 'a')
+        .replace(/[éëêè]/g, 'e')
+        .replace(/[íïîì]/g, 'i')
+        .replace(/[óöôò]/g, 'o')
+        .replace(/[úüûù]/g, 'u')
+        .replace(/[ñ]/g, 'n')
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
       if (pendingTag && finalTags.length < 10 && pendingTag.length <= 15 && !finalTags.includes(pendingTag)) {
         finalTags.push(pendingTag);
       }

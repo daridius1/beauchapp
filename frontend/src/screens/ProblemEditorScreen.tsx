@@ -597,7 +597,16 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
             suggestions={tagSuggestions.filter(t => !tags.some(tg => tg.toLowerCase() === t.toLowerCase()))}
             allowCustom={tags.length + ((ramo ? 1 : 0) + (semestre ? 1 : 0) + (instancia ? 1 : 0)) < 10}
             onSelect={(val) => {
-              const clean = val.trim().toLowerCase();
+              const clean = val
+                .trim()
+                .toLowerCase()
+                .replace(/[áäâà]/g, 'a')
+                .replace(/[éëêè]/g, 'e')
+                .replace(/[íïîì]/g, 'i')
+                .replace(/[óöôò]/g, 'o')
+                .replace(/[úüûù]/g, 'u')
+                .replace(/[ñ]/g, 'n')
+                .replace(/[^a-z0-9]/g, '');
               const specialCount = (ramo ? 1 : 0) + (semestre ? 1 : 0) + (instancia ? 1 : 0);
               if (clean && tags.length + specialCount < 10 && !tags.includes(clean)) {
                 setTags([...tags, clean]);
