@@ -1,10 +1,11 @@
-// Hook para normalizar etiquetas (tags) a minúsculas en posts y problems
+// Hook para normalizar etiquetas (tags) a minúsculas en posts y problems de forma segura
 onRecordCreate((e) => {
-    const rawTags = e.record.get("tags");
-    if (rawTags) {
+    const rawStr = e.record.getString("tags");
+    if (rawStr && rawStr !== "null" && rawStr !== "") {
         try {
-            if (rawTags && typeof rawTags.map === 'function') {
-                const lowerTags = rawTags.map(t => typeof t === 'string' ? t.toLowerCase().trim() : String(t).toLowerCase().trim());
+            const tags = JSON.parse(rawStr);
+            if (Array.isArray(tags)) {
+                const lowerTags = tags.map(t => typeof t === 'string' ? t.toLowerCase().trim() : String(t).toLowerCase().trim());
                 e.record.set("tags", lowerTags);
             }
         } catch (err) {
@@ -15,11 +16,12 @@ onRecordCreate((e) => {
 }, "posts", "problems");
 
 onRecordUpdate((e) => {
-    const rawTags = e.record.get("tags");
-    if (rawTags) {
+    const rawStr = e.record.getString("tags");
+    if (rawStr && rawStr !== "null" && rawStr !== "") {
         try {
-            if (rawTags && typeof rawTags.map === 'function') {
-                const lowerTags = rawTags.map(t => typeof t === 'string' ? t.toLowerCase().trim() : String(t).toLowerCase().trim());
+            const tags = JSON.parse(rawStr);
+            if (Array.isArray(tags)) {
+                const lowerTags = tags.map(t => typeof t === 'string' ? t.toLowerCase().trim() : String(t).toLowerCase().trim());
                 e.record.set("tags", lowerTags);
             }
         } catch (err) {
