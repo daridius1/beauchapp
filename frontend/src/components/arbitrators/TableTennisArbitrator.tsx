@@ -36,13 +36,16 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
   const [scoreBlue, setScoreBlue] = useState<number>(0);
   const [pointHistory, setPointHistory] = useState<('red' | 'blue')[]>([]);
 
+  // Servidor Inicial (Sorteo al azar) y Rotación Oficial ITTF
+  const [initialServer, setInitialServer] = useState<'red' | 'blue'>('red');
+
   // Buscador de Jugadores
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<StudentUser[]>([]);
   const [searching, setSearching] = useState<boolean>(false);
   const [activeSlot, setActiveSlot] = useState<{ team: 'red' | 'blue'; index: number } | null>(null);
 
-  // Regla de victoria en Tenis de Mesa: Llegar a 11 puntos con al menos 2 puntos de ventaja
+  // Regla Oficial ITTF de Victoria: Mínimo 11 puntos y diferencia de al menos 2 puntos (Alargue)
   const checkIsTerminal = (red: number, blue: number): { isTerminal: boolean; winner?: 'red' | 'blue' } => {
     if (red >= 11 && red - blue >= 2) return { isTerminal: true, winner: 'red' };
     if (blue >= 11 && blue - red >= 2) return { isTerminal: true, winner: 'blue' };
@@ -51,6 +54,23 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
 
   const terminalState = checkIsTerminal(scoreRed, scoreBlue);
   const isTerminal = terminalState.isTerminal;
+
+  // Detectar si la partida está en Alargue / Deuce (10 - 10 o superior)
+  const isDeuce = scoreRed >= 10 && scoreBlue >= 10;
+
+  // Calcular quién saca según las Reglas Oficiales ITTF
+  const totalPoints = scoreRed + scoreBlue;
+  let currentServer: 'red' | 'blue';
+
+  if (!isDeuce) {
+    // Modo normal: El saque cambia cada 2 puntos
+    const serviceTurnIndex = Math.floor(totalPoints / 2);
+    currentServer = serviceTurnIndex % 2 === 0 ? initialServer : initialServer === 'red' ? 'blue' : 'red';
+  } else {
+    // Modo Alargue (Deuce 10-10+): El saque cambia en CADA 1 PUNTO
+    const deucePoints = totalPoints - 20; // Puntos desde el 10-10
+    currentServer = deucePoints % 2 === 0 ? initialServer : initialServer === 'red' ? 'blue' : 'red';
+  }
 
   // Buscar estudiantes en PocketBase
   useEffect(() => {
@@ -115,7 +135,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     }
   };
 
-  // Pasar de Paso 1 (Setup) a Paso 2 (Marcador en Vivo)
+  // Pasar de Paso 1 (Setup) a Paso 2 (Marcador en Vivo) con Sorteo de Saque al Azar
   const handleStartMatch = () => {
     if (playerRed.length < 1 || playerBlue.length < 1) {
       Toast.show({
@@ -133,10 +153,21 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
       });
       return;
     }
+
+    // Sorteo al Azar del Jugador que saca primero
+    const firstServer = Math.random() < 0.5 ? 'red' : 'blue';
+    setInitialServer(firstServer);
+
+    Toast.show({
+      type: 'info',
+      text1: '🎲 Sorteo Realizado',
+      text2: `Comienza sacando: Lado ${firstServer === 'red' ? 'Rojo 🔴' : 'Azul 🔵'}.`,
+    });
+
     setStep('live');
   };
 
-  // Sumar punto (Solo si NO estamos en estado terminal)
+  // Sumar punto
   const handlePoint = (team: 'red' | 'blue') => {
     if (isTerminal) return;
 
@@ -149,7 +180,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     }
   };
 
-  // Deshacer último punto (Siempre permitido para corregir errores)
+  // Deshacer último punto
   const handleUndoPoint = () => {
     if (pointHistory.length === 0) return;
     const lastPoint = pointHistory[pointHistory.length - 1];
@@ -203,26 +234,26 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* CABECERA GENERAL DE PASOS */}
+      {/* CABECERA GENERAL */}
       <View style={styles.sportHeader}>
         <View style={styles.sportBadge}>
-          <Text style={styles.sportBadgeText}>TENIS DE MESA 1V1 (A 11 PUNTOS)</Text>
+          <Text style={styles.sportBadgeText}>TENIS DE MESA 1V1 (OFICIAL ITTF)</Text>
         </View>
-        <Text style={styles.headerTitle}>Arbitraje de Tenis de Mesa</Text>
+        <Text style={styles.headerTitle}>Arbitraje Oficial de Tenis de Mesa</Text>
         <Text style={styles.headerSubtitle}>
           {step === 'setup'
-            ? 'Paso 1: Asigna a los dos competidores antes de iniciar el partido.'
-            : 'Paso 2: Registra los puntos en vivo. Los jugadores quedan bloqueados durante la partida.'}
+            ? 'Paso 1: Asigna a los competidores. Se realizará un sorteo al azar para el primer saque.'
+            : 'Paso 2: Rotación de saque oficial (cada 2 puntos / cada 1 punto en alargue).'}
         </Text>
       </View>
 
       {/* ========================================================================= */}
-      {/* PASO 1: SELECCIÓN DE JUGADORES (BLOQUEABLE TRAS INICIAR) */}
+      {/* PASO 1: SELECCIÓN DE JUGADORES */}
       {/* ========================================================================= */}
       {step === 'setup' ? (
         <View style={styles.setupSection}>
           <Text style={styles.stepTitleText}>Paso 1: Asignar Jugadores (1 vs 1)</Text>
-          
+
           <View style={styles.playersSection}>
             {/* Jugador Lado Rojo */}
             <View style={styles.teamContainerRed}>
@@ -331,7 +362,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
             </View>
           )}
 
-          {/* BOTÓN CONTINUAR A MARCADOR EN VIVO */}
+          {/* BOTÓN CONTINUAR CON SORTEO DE SAQUE */}
           <TouchableOpacity
             style={[
               styles.startMatchBtn,
@@ -341,19 +372,37 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
             disabled={!playerRed[0] || !playerBlue[0]}
             onPress={handleStartMatch}
           >
-            <Feather name="play-circle" color="#000000" size={20} style={{ marginRight: 8 }} />
-            <Text style={styles.startMatchBtnText}>Iniciar Partido y Abrir Marcador 🚀</Text>
+            <Feather name="shuffle" color="#000000" size={18} style={{ marginRight: 8 }} />
+            <Text style={styles.startMatchBtnText}>Sorteo de Saque e Iniciar Partido 🎲</Text>
           </TouchableOpacity>
         </View>
       ) : (
         /* ========================================================================= */
-        /* PASO 2: MARCADOR EN VIVO (JUGADORES BLOQUEADOS E INMUTABLES) */
+        /* PASO 2: MARCADOR EN VIVO CON SAQUE Y REGLAS OFICIALES ITTF */
         /* ========================================================================= */
         <View style={styles.liveSection}>
-          {/* HEADER JUGADORES BLOQUEADOS */}
+          {/* BANNER DE ALARGUE / DEUCE SI CORRESPONDE */}
+          {isDeuce && !isTerminal && (
+            <View style={styles.deuceBanner}>
+              <Text style={styles.deuceBannerTitle}>🔥 ALARGUE / DEUCE (10-10+)</Text>
+              <Text style={styles.deuceBannerText}>
+                Se requiere ventaja de 2 puntos para ganar. El saque rota CADA 1 PUNTO.
+              </Text>
+            </View>
+          )}
+
+          {/* HEADER JUGADORES BLOQUEADOS Y BADGE DE SAQUE 🏓 */}
           <View style={styles.lockedPlayersRow}>
-            <View style={styles.lockedPlayerRed}>
-              <Text style={styles.lockedTeamTagRed}>🔴 LADO ROJO</Text>
+            {/* Lado Rojo */}
+            <View style={[styles.lockedPlayerRed, currentServer === 'red' && styles.servingPlayerBoxRed]}>
+              <View style={styles.teamTagRow}>
+                <Text style={styles.lockedTeamTagRed}>🔴 LADO ROJO</Text>
+                {currentServer === 'red' && (
+                  <View style={styles.serveBadgeRed}>
+                    <Text style={styles.serveBadgeText}>SACA 🏓</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.lockedPlayerName} numberOfLines={1}>
                 {playerRed[0]?.name}
               </Text>
@@ -363,15 +412,23 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
               <Text style={styles.versusText}>VS</Text>
             </View>
 
-            <View style={styles.lockedPlayerBlue}>
-              <Text style={styles.lockedTeamTagBlue}>🔵 LADO AZUL</Text>
+            {/* Lado Azul */}
+            <View style={[styles.lockedPlayerBlue, currentServer === 'blue' && styles.servingPlayerBoxBlue]}>
+              <View style={styles.teamTagRow}>
+                <Text style={styles.lockedTeamTagBlue}>🔵 LADO AZUL</Text>
+                {currentServer === 'blue' && (
+                  <View style={styles.serveBadgeBlue}>
+                    <Text style={styles.serveBadgeText}>SACA 🏓</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.lockedPlayerName} numberOfLines={1}>
                 {playerBlue[0]?.name}
               </Text>
             </View>
           </View>
 
-          {/* MARCADOR DIGITAL GIGANTE DIRECTO A 11 PUNTOS */}
+          {/* MARCADOR DIGITAL GIGANTE DIRECTO */}
           <View style={styles.scoreboardContainer}>
             {/* Lado Rojo */}
             <View style={[styles.scoreBoardRed, isTerminal && terminalState.winner === 'red' && styles.scoreBoardWinner]}>
@@ -402,6 +459,17 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
             </View>
           </View>
 
+          {/* INDICADOR INFORMACIÓN DE SAQUE Y ROTACIÓN */}
+          <View style={styles.serviceInfoRow}>
+            <Text style={styles.serviceInfoText}>
+              Saque actual:{' '}
+              <Text style={{ color: currentServer === 'red' ? '#ff4444' : '#38bdf8', fontWeight: '800' }}>
+                Lado {currentServer === 'red' ? 'Rojo 🔴' : 'Azul 🔵'}
+              </Text>{' '}
+              ({isDeuce ? 'Alargue: cambia cada 1 punto' : `Cambia cada 2 puntos: ${totalPoints % 2}/2`})
+            </Text>
+          </View>
+
           {/* LÍNEA DE TIEMPO Y BOTÓN DESHACER */}
           <View style={styles.timelineRow}>
             <TouchableOpacity
@@ -427,7 +495,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
             <View style={styles.inProgressNoticeBox}>
               <Feather name="info" color="#eab308" size={16} style={{ marginRight: 6 }} />
               <Text style={styles.inProgressNoticeText}>
-                Partido en juego. Para finalizar, un jugador debe alcanzar al menos 11 puntos con ventaja de 2.
+                Partida en curso. {isDeuce ? 'Alargue activo (diferencia de 2 puntos).' : 'Alcanza 11 puntos con ventaja de 2.'}
               </Text>
             </View>
           ) : (
@@ -676,6 +744,26 @@ const styles = StyleSheet.create({
   liveSection: {
     flex: 1,
   },
+  deuceBanner: {
+    backgroundColor: '#2a1a08',
+    borderRadius: 8,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: '#eab308',
+    alignItems: 'center',
+  },
+  deuceBannerTitle: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#eab308',
+    marginBottom: 2,
+  },
+  deuceBannerText: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+  },
   lockedPlayersRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -690,22 +778,57 @@ const styles = StyleSheet.create({
   lockedPlayerRed: {
     flex: 1,
     alignItems: 'flex-start',
+    padding: theme.spacing.xs,
+    borderRadius: 6,
   },
   lockedPlayerBlue: {
     flex: 1,
     alignItems: 'flex-end',
+    padding: theme.spacing.xs,
+    borderRadius: 6,
+  },
+  servingPlayerBoxRed: {
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: '#ff4444',
+  },
+  servingPlayerBoxBlue: {
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderWidth: 1,
+    borderColor: '#38bdf8',
+  },
+  teamTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
   },
   lockedTeamTagRed: {
     fontSize: 10,
     fontWeight: '900',
     color: '#ff4444',
-    marginBottom: 2,
   },
   lockedTeamTagBlue: {
     fontSize: 10,
     fontWeight: '900',
     color: '#38bdf8',
-    marginBottom: 2,
+  },
+  serveBadgeRed: {
+    backgroundColor: '#ff4444',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  serveBadgeBlue: {
+    backgroundColor: '#38bdf8',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  serveBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#000000',
   },
   lockedPlayerName: {
     fontSize: 14,
@@ -729,7 +852,7 @@ const styles = StyleSheet.create({
   scoreboardContainer: {
     flexDirection: 'row',
     gap: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.xs,
   },
   scoreBoardRed: {
     flex: 1,
@@ -792,6 +915,15 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 13,
     fontWeight: '900',
+  },
+  serviceInfoRow: {
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+    marginTop: 4,
+  },
+  serviceInfoText: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
   },
   timelineRow: {
     flexDirection: 'row',
