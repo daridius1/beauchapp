@@ -24,8 +24,10 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
   const { user: currentUser } = useAuth();
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // Estado del Partido 1v1 Tenis de Mesa (Sin sets, al primero que llega a 11 puntos)
-  const mode = '1v1';
+  // Paso 1: 'setup' (Asignar Jugadores) -> Paso 2: 'live' (Marcador en Vivo)
+  const [step, setStep] = useState<'setup' | 'live'>('setup');
+
+  // Estado de Jugadores (Modalidad Fija 1v1)
   const [playerRed, setPlayerRed] = useState<StudentUser[]>([]);
   const [playerBlue, setPlayerBlue] = useState<StudentUser[]>([]);
 
@@ -39,6 +41,16 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
   const [searchResults, setSearchResults] = useState<StudentUser[]>([]);
   const [searching, setSearching] = useState<boolean>(false);
   const [activeSlot, setActiveSlot] = useState<{ team: 'red' | 'blue'; index: number } | null>(null);
+
+  // Regla de victoria en Tenis de Mesa: Llegar a 11 puntos con al menos 2 puntos de ventaja
+  const checkIsTerminal = (red: number, blue: number): { isTerminal: boolean; winner?: 'red' | 'blue' } => {
+    if (red >= 11 && red - blue >= 2) return { isTerminal: true, winner: 'red' };
+    if (blue >= 11 && blue - red >= 2) return { isTerminal: true, winner: 'blue' };
+    return { isTerminal: false };
+  };
+
+  const terminalState = checkIsTerminal(scoreRed, scoreBlue);
+  const isTerminal = terminalState.isTerminal;
 
   // Buscar estudiantes en PocketBase
   useEffect(() => {
@@ -103,8 +115,31 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     }
   };
 
-  // Sumar punto
+  // Pasar de Paso 1 (Setup) a Paso 2 (Marcador en Vivo)
+  const handleStartMatch = () => {
+    if (playerRed.length < 1 || playerBlue.length < 1) {
+      Toast.show({
+        type: 'error',
+        text1: 'Faltan Jugadores',
+        text2: 'Debes asignar al jugador del Lado Rojo y del Lado Azul para iniciar.',
+      });
+      return;
+    }
+    if (playerRed[0].id === playerBlue[0].id) {
+      Toast.show({
+        type: 'error',
+        text1: 'Jugadores Duplicados',
+        text2: 'El mismo estudiante no puede jugar contra sí mismo.',
+      });
+      return;
+    }
+    setStep('live');
+  };
+
+  // Sumar punto (Solo si NO estamos en estado terminal)
   const handlePoint = (team: 'red' | 'blue') => {
+    if (isTerminal) return;
+
     if (team === 'red') {
       setScoreRed((prev) => prev + 1);
       setPointHistory((prev) => [...prev, 'red']);
@@ -114,7 +149,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     }
   };
 
-  // Deshacer último punto
+  // Deshacer último punto (Siempre permitido para corregir errores)
   const handleUndoPoint = () => {
     if (pointHistory.length === 0) return;
     const lastPoint = pointHistory[pointHistory.length - 1];
@@ -127,20 +162,11 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
   };
 
   const handleSubmitMatch = async () => {
-    if (playerRed.length < 1 || playerBlue.length < 1) {
+    if (!isTerminal) {
       Toast.show({
         type: 'error',
-        text1: 'Faltan Jugadores',
-        text2: 'Debes seleccionar al jugador del Lado Rojo y del Lado Azul.',
-      });
-      return;
-    }
-
-    if (scoreRed === 0 && scoreBlue === 0) {
-      Toast.show({
-        type: 'error',
-        text1: 'Marcador Vacío',
-        text2: 'Debes registrar al menos un punto antes de finalizar la partida.',
+        text1: 'Partido En Curso',
+        text2: 'La partida no ha alcanzado la puntuación de término (11 puntos con ventaja de 2).',
       });
       return;
     }
@@ -159,8 +185,8 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
 
       Toast.show({
         type: 'success',
-        text1: '¡Partido Registrado!',
-        text2: `Resultado: Rojo ${scoreRed} - ${scoreBlue} Azul. Se enviaron las notificaciones.`,
+        text1: '¡Partido de Tenis de Mesa Finalizado!',
+        text2: `Resultado final: Rojo ${scoreRed} - ${scoreBlue} Azul. Se notificó a los jugadores.`,
       });
 
       navigation.navigate('LadderDetail', { slug: ladder.slug });
@@ -177,187 +203,254 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Cabecera Tenis de Mesa 1v1 */}
+      {/* CABECERA GENERAL DE PASOS */}
       <View style={styles.sportHeader}>
         <View style={styles.sportBadge}>
           <Text style={styles.sportBadgeText}>TENIS DE MESA 1V1 (A 11 PUNTOS)</Text>
         </View>
-        <Text style={styles.headerTitle}>Arbitraje de Tenis de Mesa (1v1)</Text>
+        <Text style={styles.headerTitle}>Arbitraje de Tenis de Mesa</Text>
         <Text style={styles.headerSubtitle}>
-          Sin sets. El primer jugador en alcanzar 11 puntos (o más) gana la partida.
+          {step === 'setup'
+            ? 'Paso 1: Asigna a los dos competidores antes de iniciar el partido.'
+            : 'Paso 2: Registra los puntos en vivo. Los jugadores quedan bloqueados durante la partida.'}
         </Text>
       </View>
 
-      {/* SELECCIÓN DE JUGADORES (1v1) */}
-      <View style={styles.playersSection}>
-        {/* Jugador Lado Rojo */}
-        <View style={styles.teamContainerRed}>
-          <Text style={styles.teamHeaderRed}>JUGADOR ROJO 🏓</Text>
-          {playerRed[0] ? (
-            <View style={styles.playerSlotActive}>
-              <Text style={styles.slotPlayerName} numberOfLines={1}>
-                {playerRed[0].name}
-              </Text>
-              <TouchableOpacity onPress={() => handleRemovePlayer('red')}>
-                <Feather name="x" color="#ff4444" size={18} />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.slotRowActions}>
-              <TouchableOpacity
-                style={styles.addPlayerBtnRed}
-                onPress={() => setActiveSlot({ team: 'red', index: 0 })}
-              >
-                <Feather name="user-plus" color="#ff4444" size={14} style={{ marginRight: 4 }} />
-                <Text style={styles.addPlayerBtnTextRed}>Buscar</Text>
-              </TouchableOpacity>
-              {currentUser && (
-                <TouchableOpacity
-                  style={styles.selfAddBtn}
-                  onPress={() => handleAddMyself('red')}
-                >
-                  <Text style={styles.selfAddBtnText}>+ Yo</Text>
-                </TouchableOpacity>
+      {/* ========================================================================= */}
+      {/* PASO 1: SELECCIÓN DE JUGADORES (BLOQUEABLE TRAS INICIAR) */}
+      {/* ========================================================================= */}
+      {step === 'setup' ? (
+        <View style={styles.setupSection}>
+          <Text style={styles.stepTitleText}>Paso 1: Asignar Jugadores (1 vs 1)</Text>
+          
+          <View style={styles.playersSection}>
+            {/* Jugador Lado Rojo */}
+            <View style={styles.teamContainerRed}>
+              <Text style={styles.teamHeaderRed}>JUGADOR ROJO 🏓</Text>
+              {playerRed[0] ? (
+                <View style={styles.playerSlotActive}>
+                  <Text style={styles.slotPlayerName} numberOfLines={1}>
+                    {playerRed[0].name}
+                  </Text>
+                  <TouchableOpacity onPress={() => handleRemovePlayer('red')}>
+                    <Feather name="x" color="#ff4444" size={18} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.slotRowActions}>
+                  <TouchableOpacity
+                    style={styles.addPlayerBtnRed}
+                    onPress={() => setActiveSlot({ team: 'red', index: 0 })}
+                  >
+                    <Feather name="user-plus" color="#ff4444" size={14} style={{ marginRight: 4 }} />
+                    <Text style={styles.addPlayerBtnTextRed}>Buscar</Text>
+                  </TouchableOpacity>
+                  {currentUser && (
+                    <TouchableOpacity
+                      style={styles.selfAddBtn}
+                      onPress={() => handleAddMyself('red')}
+                    >
+                      <Text style={styles.selfAddBtnText}>+ Yo</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               )}
             </View>
-          )}
-        </View>
 
-        {/* Jugador Lado Azul */}
-        <View style={styles.teamContainerBlue}>
-          <Text style={styles.teamHeaderBlue}>JUGADOR AZUL 🏓</Text>
-          {playerBlue[0] ? (
-            <View style={styles.playerSlotActive}>
-              <Text style={styles.slotPlayerName} numberOfLines={1}>
-                {playerBlue[0].name}
-              </Text>
-              <TouchableOpacity onPress={() => handleRemovePlayer('blue')}>
-                <Feather name="x" color="#38bdf8" size={18} />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.slotRowActions}>
-              <TouchableOpacity
-                style={styles.addPlayerBtnBlue}
-                onPress={() => setActiveSlot({ team: 'blue', index: 0 })}
-              >
-                <Feather name="user-plus" color="#38bdf8" size={14} style={{ marginRight: 4 }} />
-                <Text style={styles.addPlayerBtnTextBlue}>Buscar</Text>
-              </TouchableOpacity>
-              {currentUser && (
-                <TouchableOpacity
-                  style={styles.selfAddBtn}
-                  onPress={() => handleAddMyself('blue')}
-                >
-                  <Text style={styles.selfAddBtnText}>+ Yo</Text>
-                </TouchableOpacity>
+            {/* Jugador Lado Azul */}
+            <View style={styles.teamContainerBlue}>
+              <Text style={styles.teamHeaderBlue}>JUGADOR AZUL 🏓</Text>
+              {playerBlue[0] ? (
+                <View style={styles.playerSlotActive}>
+                  <Text style={styles.slotPlayerName} numberOfLines={1}>
+                    {playerBlue[0].name}
+                  </Text>
+                  <TouchableOpacity onPress={() => handleRemovePlayer('blue')}>
+                    <Feather name="x" color="#38bdf8" size={18} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.slotRowActions}>
+                  <TouchableOpacity
+                    style={styles.addPlayerBtnBlue}
+                    onPress={() => setActiveSlot({ team: 'blue', index: 0 })}
+                  >
+                    <Feather name="user-plus" color="#38bdf8" size={14} style={{ marginRight: 4 }} />
+                    <Text style={styles.addPlayerBtnTextBlue}>Buscar</Text>
+                  </TouchableOpacity>
+                  {currentUser && (
+                    <TouchableOpacity
+                      style={styles.selfAddBtn}
+                      onPress={() => handleAddMyself('blue')}
+                    >
+                      <Text style={styles.selfAddBtnText}>+ Yo</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               )}
             </View>
-          )}
-        </View>
-      </View>
-
-      {/* MODAL / BUSCADOR DE JUGADORES */}
-      {activeSlot && (
-        <View style={styles.searchModalBox}>
-          <View style={styles.searchHeader}>
-            <Text style={styles.searchTitle}>
-              Asignar Jugador ({activeSlot.team === 'red' ? 'Lado Rojo' : 'Lado Azul'})
-            </Text>
-            <TouchableOpacity onPress={() => setActiveSlot(null)}>
-              <Feather name="x" color="#ffffff" size={20} />
-            </TouchableOpacity>
           </View>
-          <View style={styles.searchInputRow}>
-            <Feather name="search" color="#888888" size={16} style={{ marginRight: 8 }} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar estudiante..."
-              placeholderTextColor="#666666"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoFocus
-            />
-          </View>
-          {searching ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
-          ) : (
-            searchResults.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.searchResultItem}
-                onPress={() => handleSelectPlayer(item)}
-              >
-                <Feather name="user" color="#888888" size={16} style={{ marginRight: 8 }} />
-                <Text style={styles.searchResultText}>{item.name}</Text>
-                {!!item.username && <Text style={styles.searchResultSub}>@{item.username}</Text>}
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-      )}
 
-      {/* MARCADOR DIGITAL GIGANTE DIRECTO A 11 PUNTOS */}
-      <View style={styles.scoreboardContainer}>
-        <View style={styles.scoreBoardRed}>
-          <Text style={styles.scoreNumberRed}>{scoreRed}</Text>
-          <TouchableOpacity
-            style={styles.goalButtonRed}
-            activeOpacity={0.7}
-            onPress={() => handlePoint('red')}
-          >
-            <Text style={styles.goalButtonText}>+1 PUNTO ROJO</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.scoreBoardBlue}>
-          <Text style={styles.scoreNumberBlue}>{scoreBlue}</Text>
-          <TouchableOpacity
-            style={styles.goalButtonBlue}
-            activeOpacity={0.7}
-            onPress={() => handlePoint('blue')}
-          >
-            <Text style={styles.goalButtonText}>+1 PUNTO AZUL</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* BOTÓN DESHACER Y LÍNEA DE TIEMPO DE PUNTOS */}
-      {pointHistory.length > 0 && (
-        <View style={styles.timelineRow}>
-          <TouchableOpacity style={styles.undoBtn} onPress={handleUndoPoint}>
-            <Feather name="rotate-ccw" color="#ffffff" size={14} style={{ marginRight: 4 }} />
-            <Text style={styles.undoBtnText}>Deshacer Punto</Text>
-          </TouchableOpacity>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyChipsScroll}>
-            {pointHistory.map((p, index) => (
-              <View key={index} style={[styles.historyChip, p === 'red' ? styles.chipRed : styles.chipBlue]}>
-                <Text style={styles.chipText}>{index + 1}º {p === 'red' ? '🔴' : '🔵'}</Text>
+          {/* BUSCADOR MODAL */}
+          {activeSlot && (
+            <View style={styles.searchModalBox}>
+              <View style={styles.searchHeader}>
+                <Text style={styles.searchTitle}>
+                  Asignar Jugador ({activeSlot.team === 'red' ? 'Lado Rojo' : 'Lado Azul'})
+                </Text>
+                <TouchableOpacity onPress={() => setActiveSlot(null)}>
+                  <Feather name="x" color="#ffffff" size={20} />
+                </TouchableOpacity>
               </View>
-            ))}
-          </ScrollView>
+              <View style={styles.searchInputRow}>
+                <Feather name="search" color="#888888" size={16} style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Buscar por nombre o @username..."
+                  placeholderTextColor="#666666"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoFocus
+                />
+              </View>
+              {searching ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
+              ) : (
+                searchResults.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.searchResultItem}
+                    onPress={() => handleSelectPlayer(item)}
+                  >
+                    <Feather name="user" color="#888888" size={16} style={{ marginRight: 8 }} />
+                    <Text style={styles.searchResultText}>{item.name}</Text>
+                    {!!item.username && <Text style={styles.searchResultSub}>@{item.username}</Text>}
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          )}
+
+          {/* BOTÓN CONTINUAR A MARCADOR EN VIVO */}
+          <TouchableOpacity
+            style={[
+              styles.startMatchBtn,
+              (!playerRed[0] || !playerBlue[0]) && styles.startMatchBtnDisabled,
+            ]}
+            activeOpacity={0.8}
+            disabled={!playerRed[0] || !playerBlue[0]}
+            onPress={handleStartMatch}
+          >
+            <Feather name="play-circle" color="#000000" size={20} style={{ marginRight: 8 }} />
+            <Text style={styles.startMatchBtnText}>Iniciar Partido y Abrir Marcador 🚀</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        /* ========================================================================= */
+        /* PASO 2: MARCADOR EN VIVO (JUGADORES BLOQUEADOS E INMUTABLES) */
+        /* ========================================================================= */
+        <View style={styles.liveSection}>
+          {/* HEADER JUGADORES BLOQUEADOS */}
+          <View style={styles.lockedPlayersRow}>
+            <View style={styles.lockedPlayerRed}>
+              <Text style={styles.lockedTeamTagRed}>🔴 LADO ROJO</Text>
+              <Text style={styles.lockedPlayerName} numberOfLines={1}>
+                {playerRed[0]?.name}
+              </Text>
+            </View>
+
+            <View style={styles.versusBadge}>
+              <Text style={styles.versusText}>VS</Text>
+            </View>
+
+            <View style={styles.lockedPlayerBlue}>
+              <Text style={styles.lockedTeamTagBlue}>🔵 LADO AZUL</Text>
+              <Text style={styles.lockedPlayerName} numberOfLines={1}>
+                {playerBlue[0]?.name}
+              </Text>
+            </View>
+          </View>
+
+          {/* MARCADOR DIGITAL GIGANTE DIRECTO A 11 PUNTOS */}
+          <View style={styles.scoreboardContainer}>
+            {/* Lado Rojo */}
+            <View style={[styles.scoreBoardRed, isTerminal && terminalState.winner === 'red' && styles.scoreBoardWinner]}>
+              {terminalState.winner === 'red' && <Text style={styles.winnerText}>🏆 GANADOR</Text>}
+              <Text style={styles.scoreNumberRed}>{scoreRed}</Text>
+              <TouchableOpacity
+                style={[styles.goalButtonRed, isTerminal && styles.goalButtonDisabled]}
+                activeOpacity={0.7}
+                disabled={isTerminal}
+                onPress={() => handlePoint('red')}
+              >
+                <Text style={styles.goalButtonText}>+1 PUNTO ROJO</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Lado Azul */}
+            <View style={[styles.scoreBoardBlue, isTerminal && terminalState.winner === 'blue' && styles.scoreBoardWinner]}>
+              {terminalState.winner === 'blue' && <Text style={styles.winnerText}>🏆 GANADOR</Text>}
+              <Text style={styles.scoreNumberBlue}>{scoreBlue}</Text>
+              <TouchableOpacity
+                style={[styles.goalButtonBlue, isTerminal && styles.goalButtonDisabled]}
+                activeOpacity={0.7}
+                disabled={isTerminal}
+                onPress={() => handlePoint('blue')}
+              >
+                <Text style={styles.goalButtonText}>+1 PUNTO AZUL</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* LÍNEA DE TIEMPO Y BOTÓN DESHACER */}
+          <View style={styles.timelineRow}>
+            <TouchableOpacity
+              style={styles.undoBtn}
+              onPress={handleUndoPoint}
+              disabled={pointHistory.length === 0}
+            >
+              <Feather name="rotate-ccw" color="#ffffff" size={14} style={{ marginRight: 4 }} />
+              <Text style={styles.undoBtnText}>Deshacer Punto</Text>
+            </TouchableOpacity>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyChipsScroll}>
+              {pointHistory.map((p, index) => (
+                <View key={index} style={[styles.historyChip, p === 'red' ? styles.chipRed : styles.chipBlue]}>
+                  <Text style={styles.chipText}>{index + 1}º {p === 'red' ? '🔴' : '🔵'}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* AVISO DE ESTADO O BOTÓN CERRAR PARTIDO */}
+          {!isTerminal ? (
+            <View style={styles.inProgressNoticeBox}>
+              <Feather name="info" color="#eab308" size={16} style={{ marginRight: 6 }} />
+              <Text style={styles.inProgressNoticeText}>
+                Partido en juego. Para finalizar, un jugador debe alcanzar al menos 11 puntos con ventaja de 2.
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.finishMatchBtn}
+              activeOpacity={0.8}
+              disabled={submitting}
+              onPress={handleSubmitMatch}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#000000" />
+              ) : (
+                <>
+                  <Feather name="check-circle" color="#000000" size={20} style={{ marginRight: 8 }} />
+                  <Text style={styles.finishMatchBtnText}>
+                    Finalizar y Registrar Partido ({scoreRed} - {scoreBlue}) 🏆
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       )}
-
-      {/* BOTÓN FINALIZAR Y CERRAR PARTIDO */}
-      <TouchableOpacity
-        style={styles.finishMatchBtn}
-        activeOpacity={0.8}
-        disabled={submitting}
-        onPress={handleSubmitMatch}
-      >
-        {submitting ? (
-          <ActivityIndicator color="#000000" />
-        ) : (
-          <>
-            <Feather name="check-circle" color="#000000" size={20} style={{ marginRight: 8 }} />
-            <Text style={styles.finishMatchBtnText}>
-              Cerrar Partido ({scoreRed} - {scoreBlue})
-            </Text>
-          </>
-        )}
-      </TouchableOpacity>
     </ScrollView>
   );
 };
@@ -397,6 +490,19 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     lineHeight: 18,
   },
+  setupSection: {
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: 8,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  stepTitleText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.md,
+  },
   playersSection: {
     flexDirection: 'row',
     gap: theme.spacing.md,
@@ -404,7 +510,7 @@ const styles = StyleSheet.create({
   },
   teamContainerRed: {
     flex: 1,
-    backgroundColor: theme.colors.cardBg,
+    backgroundColor: '#121212',
     borderRadius: 8,
     padding: theme.spacing.md,
     borderWidth: 1,
@@ -412,20 +518,20 @@ const styles = StyleSheet.create({
   },
   teamContainerBlue: {
     flex: 1,
-    backgroundColor: theme.colors.cardBg,
+    backgroundColor: '#121212',
     borderRadius: 8,
     padding: theme.spacing.md,
     borderWidth: 1,
     borderColor: '#38bdf8',
   },
   teamHeaderRed: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#ff4444',
     marginBottom: theme.spacing.sm,
   },
   teamHeaderBlue: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#38bdf8',
     marginBottom: theme.spacing.sm,
@@ -436,7 +542,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   playerSlotActive: {
-    backgroundColor: '#121212',
+    backgroundColor: '#1a1a1a',
     borderRadius: 4,
     padding: 8,
     borderWidth: 1,
@@ -550,6 +656,76 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.colors.textMuted,
   },
+  startMatchBtn: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: theme.spacing.sm,
+  },
+  startMatchBtnDisabled: {
+    opacity: 0.4,
+  },
+  startMatchBtnText: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  liveSection: {
+    flex: 1,
+  },
+  lockedPlayersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: 8,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  lockedPlayerRed: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  lockedPlayerBlue: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  lockedTeamTagRed: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#ff4444',
+    marginBottom: 2,
+  },
+  lockedTeamTagBlue: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#38bdf8',
+    marginBottom: 2,
+  },
+  lockedPlayerName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.colors.text,
+  },
+  versusBadge: {
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginHorizontal: theme.spacing.xs,
+  },
+  versusText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: theme.colors.textMuted,
+  },
   scoreboardContainer: {
     flexDirection: 'row',
     gap: theme.spacing.md,
@@ -572,6 +748,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#38bdf8',
+  },
+  scoreBoardWinner: {
+    borderColor: '#eab308',
+    backgroundColor: '#1a180d',
+  },
+  winnerText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#eab308',
+    marginBottom: 2,
   },
   scoreNumberRed: {
     fontSize: 56,
@@ -598,6 +784,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 6,
     alignItems: 'center',
+  },
+  goalButtonDisabled: {
+    opacity: 0.3,
   },
   goalButtonText: {
     color: '#000000',
@@ -647,6 +836,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  inProgressNoticeBox: {
+    backgroundColor: '#121212',
+    borderRadius: 8,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: '#333333',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inProgressNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    lineHeight: 16,
   },
   finishMatchBtn: {
     backgroundColor: '#ffffff',

@@ -24,6 +24,9 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const { user: currentUser } = useAuth();
   const [submitting, setSubmitting] = useState<boolean>(false);
 
+  // Paso 1: 'setup' (Asignar Jugadores) -> Paso 2: 'live' (Marcador en Vivo)
+  const [step, setStep] = useState<'setup' | 'live'>('setup');
+
   // Estado del Partido 2v2 Taca Taca
   const [mode, setMode] = useState<'1v1' | '2v2'>('2v2');
   const [teamRed, setTeamRed] = useState<StudentUser[]>([]);
@@ -37,6 +40,18 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const [searchResults, setSearchResults] = useState<StudentUser[]>([]);
   const [searching, setSearching] = useState<boolean>(false);
   const [activeSlot, setActiveSlot] = useState<{ team: 'red' | 'blue'; index: number } | null>(null);
+
+  const targetScore = ladder.max_score || 5;
+
+  // Regla de victoria en Taca Taca: Llegar a max_score (ej. 5 goles)
+  const checkIsTerminal = (red: number, blue: number): { isTerminal: boolean; winner?: 'red' | 'blue' } => {
+    if (red >= targetScore) return { isTerminal: true, winner: 'red' };
+    if (blue >= targetScore) return { isTerminal: true, winner: 'blue' };
+    return { isTerminal: false };
+  };
+
+  const terminalState = checkIsTerminal(scoreRed, scoreBlue);
+  const isTerminal = terminalState.isTerminal;
 
   useEffect(() => {
     if (ladder.allowed_modes && ladder.allowed_modes.length === 1) {
@@ -119,7 +134,23 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
     }
   };
 
+  // Pasar de Paso 1 (Setup) a Paso 2 (Marcador en Vivo)
+  const handleStartMatch = () => {
+    const requiredPerTeam = mode === '1v1' ? 1 : 2;
+    if (teamRed.length < requiredPerTeam || teamBlue.length < requiredPerTeam) {
+      Toast.show({
+        type: 'error',
+        text1: 'Faltan Jugadores',
+        text2: `Debes asignar ${requiredPerTeam} jugador(es) por equipo para Taca Taca (${mode}).`,
+      });
+      return;
+    }
+    setStep('live');
+  };
+
   const handleGoal = (team: 'red' | 'blue') => {
+    if (isTerminal) return;
+
     if (team === 'red') {
       setScoreRed((prev) => prev + 1);
       setGoalHistory((prev) => [...prev, 'red']);
@@ -141,21 +172,11 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   };
 
   const handleSubmitMatch = async () => {
-    const requiredPerTeam = mode === '1v1' ? 1 : 2;
-    if (teamRed.length < requiredPerTeam || teamBlue.length < requiredPerTeam) {
+    if (!isTerminal) {
       Toast.show({
         type: 'error',
-        text1: 'Faltan Jugadores',
-        text2: `Debes asignar ${requiredPerTeam} jugador(es) por equipo para Taca Taca (${mode}).`,
-      });
-      return;
-    }
-
-    if (scoreRed === 0 && scoreBlue === 0) {
-      Toast.show({
-        type: 'error',
-        text1: 'Marcador Vacío',
-        text2: 'Debes registrar al menos un gol antes de finalizar el partido.',
+        text1: 'Partido En Curso',
+        text2: `La partida de Taca Taca finaliza cuando un equipo alcance ${targetScore} goles.`,
       });
       return;
     }
@@ -175,7 +196,7 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
       Toast.show({
         type: 'success',
         text1: '¡Partido de Taca Taca Registrado!',
-        text2: 'Se han enviado las notificaciones de confirmación a los jugadores.',
+        text2: `Resultado final: Rojo ${scoreRed} - ${scoreBlue} Azul. Se notificó a los jugadores.`,
       });
 
       navigation.navigate('LadderDetail', { slug: ladder.slug });
@@ -194,199 +215,272 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Cabecera Específica de Taca Taca */}
+      {/* CABECERA GENERAL */}
       <View style={styles.sportHeader}>
         <View style={styles.sportBadge}>
-          <Text style={styles.sportBadgeText}>TACA TACA BEAUCHEF</Text>
+          <Text style={styles.sportBadgeText}>TACA TACA BEAUCHEF (2V2)</Text>
         </View>
-        <Text style={styles.headerTitle}>Arbitraje de Taca Taca (2v2)</Text>
+        <Text style={styles.headerTitle}>Arbitraje de Taca Taca</Text>
         <Text style={styles.headerSubtitle}>
-          Registra el marcador gol a gol desde el teléfono. Al finalizar, los 4 jugadores recibirán una notificación de confirmación.
+          {step === 'setup'
+            ? 'Paso 1: Asigna a las parejas competidoras antes de iniciar la partida.'
+            : `Paso 2: Registra los goles en vivo. La partida finaliza al alcanzar los ${targetScore} goles.`}
         </Text>
       </View>
 
-      {/* SELECCIÓN DE JUGADORES */}
-      <View style={styles.playersSection}>
-        {/* Equipo Rojo */}
-        <View style={styles.teamContainerRed}>
-          <Text style={styles.teamHeaderRed}>EQUIPO ROJO 🔴</Text>
-          {Array.from({ length: maxSlots }).map((_, idx) => {
-            const player = teamRed[idx];
-            return (
-              <View key={`red-${idx}`} style={styles.slotRow}>
-                {player ? (
-                  <View style={styles.playerSlotActive}>
-                    <Text style={styles.slotPlayerName} numberOfLines={1}>
-                      {player.name}
-                    </Text>
-                    <TouchableOpacity onPress={() => handleRemovePlayer('red', idx)}>
-                      <Feather name="x" color="#ff4444" size={18} />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View style={styles.slotRowActions}>
-                    <TouchableOpacity
-                      style={styles.addPlayerBtnRed}
-                      onPress={() => setActiveSlot({ team: 'red', index: idx })}
-                    >
-                      <Feather name="user-plus" color="#ff4444" size={14} style={{ marginRight: 4 }} />
-                      <Text style={styles.addPlayerBtnTextRed}>Buscar</Text>
-                    </TouchableOpacity>
-                    {currentUser && (
-                      <TouchableOpacity
-                        style={styles.selfAddBtn}
-                        onPress={() => handleAddMyself('red', idx)}
-                      >
-                        <Text style={styles.selfAddBtnText}>+ Yo</Text>
-                      </TouchableOpacity>
+      {/* ========================================================================= */}
+      {/* PASO 1: SELECCIÓN DE JUGADORES (SETUP) */}
+      {/* ========================================================================= */}
+      {step === 'setup' ? (
+        <View style={styles.setupSection}>
+          <Text style={styles.stepTitleText}>Paso 1: Asignar Equipos (2 vs 2)</Text>
+
+          <View style={styles.playersSection}>
+            {/* Equipo Rojo */}
+            <View style={styles.teamContainerRed}>
+              <Text style={styles.teamHeaderRed}>EQUIPO ROJO 🔴</Text>
+              {Array.from({ length: maxSlots }).map((_, idx) => {
+                const player = teamRed[idx];
+                return (
+                  <View key={`red-${idx}`} style={styles.slotRow}>
+                    {player ? (
+                      <View style={styles.playerSlotActive}>
+                        <Text style={styles.slotPlayerName} numberOfLines={1}>
+                          {player.name}
+                        </Text>
+                        <TouchableOpacity onPress={() => handleRemovePlayer('red', idx)}>
+                          <Feather name="x" color="#ff4444" size={18} />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={styles.slotRowActions}>
+                        <TouchableOpacity
+                          style={styles.addPlayerBtnRed}
+                          onPress={() => setActiveSlot({ team: 'red', index: idx })}
+                        >
+                          <Feather name="user-plus" color="#ff4444" size={14} style={{ marginRight: 4 }} />
+                          <Text style={styles.addPlayerBtnTextRed}>Buscar</Text>
+                        </TouchableOpacity>
+                        {currentUser && (
+                          <TouchableOpacity
+                            style={styles.selfAddBtn}
+                            onPress={() => handleAddMyself('red', idx)}
+                          >
+                            <Text style={styles.selfAddBtnText}>+ Yo</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     )}
                   </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
+                );
+              })}
+            </View>
 
-        {/* Equipo Azul */}
-        <View style={styles.teamContainerBlue}>
-          <Text style={styles.teamHeaderBlue}>EQUIPO AZUL 🔵</Text>
-          {Array.from({ length: maxSlots }).map((_, idx) => {
-            const player = teamBlue[idx];
-            return (
-              <View key={`blue-${idx}`} style={styles.slotRow}>
-                {player ? (
-                  <View style={styles.playerSlotActive}>
-                    <Text style={styles.slotPlayerName} numberOfLines={1}>
-                      {player.name}
-                    </Text>
-                    <TouchableOpacity onPress={() => handleRemovePlayer('blue', idx)}>
-                      <Feather name="x" color="#38bdf8" size={18} />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View style={styles.slotRowActions}>
-                    <TouchableOpacity
-                      style={styles.addPlayerBtnBlue}
-                      onPress={() => setActiveSlot({ team: 'blue', index: idx })}
-                    >
-                      <Feather name="user-plus" color="#38bdf8" size={14} style={{ marginRight: 4 }} />
-                      <Text style={styles.addPlayerBtnTextBlue}>Buscar</Text>
-                    </TouchableOpacity>
-                    {currentUser && (
-                      <TouchableOpacity
-                        style={styles.selfAddBtn}
-                        onPress={() => handleAddMyself('blue', idx)}
-                      >
-                        <Text style={styles.selfAddBtnText}>+ Yo</Text>
-                      </TouchableOpacity>
+            {/* Equipo Azul */}
+            <View style={styles.teamContainerBlue}>
+              <Text style={styles.teamHeaderBlue}>EQUIPO AZUL 🔵</Text>
+              {Array.from({ length: maxSlots }).map((_, idx) => {
+                const player = teamBlue[idx];
+                return (
+                  <View key={`blue-${idx}`} style={styles.slotRow}>
+                    {player ? (
+                      <View style={styles.playerSlotActive}>
+                        <Text style={styles.slotPlayerName} numberOfLines={1}>
+                          {player.name}
+                        </Text>
+                        <TouchableOpacity onPress={() => handleRemovePlayer('blue', idx)}>
+                          <Feather name="x" color="#38bdf8" size={18} />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={styles.slotRowActions}>
+                        <TouchableOpacity
+                          style={styles.addPlayerBtnBlue}
+                          onPress={() => setActiveSlot({ team: 'blue', index: idx })}
+                        >
+                          <Feather name="user-plus" color="#38bdf8" size={14} style={{ marginRight: 4 }} />
+                          <Text style={styles.addPlayerBtnTextBlue}>Buscar</Text>
+                        </TouchableOpacity>
+                        {currentUser && (
+                          <TouchableOpacity
+                            style={styles.selfAddBtn}
+                            onPress={() => handleAddMyself('blue', idx)}
+                          >
+                            <Text style={styles.selfAddBtnText}>+ Yo</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     )}
                   </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
-      </View>
+                );
+              })}
+            </View>
+          </View>
 
-      {/* MODAL / BUSCADOR DE JUGADORES */}
-      {activeSlot && (
-        <View style={styles.searchModalBox}>
-          <View style={styles.searchHeader}>
-            <Text style={styles.searchTitle}>
-              Asignar Jugador ({activeSlot.team === 'red' ? 'Equipo Rojo' : 'Equipo Azul'})
-            </Text>
-            <TouchableOpacity onPress={() => setActiveSlot(null)}>
-              <Feather name="x" color="#ffffff" size={20} />
-            </TouchableOpacity>
+          {/* BUSCADOR MODAL */}
+          {activeSlot && (
+            <View style={styles.searchModalBox}>
+              <View style={styles.searchHeader}>
+                <Text style={styles.searchTitle}>
+                  Asignar Jugador ({activeSlot.team === 'red' ? 'Equipo Rojo' : 'Equipo Azul'})
+                </Text>
+                <TouchableOpacity onPress={() => setActiveSlot(null)}>
+                  <Feather name="x" color="#ffffff" size={20} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.searchInputRow}>
+                <Feather name="search" color="#888888" size={16} style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Buscar estudiante..."
+                  placeholderTextColor="#666666"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoFocus
+                />
+              </View>
+              {searching ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
+              ) : (
+                searchResults.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.searchResultItem}
+                    onPress={() => handleSelectPlayer(item)}
+                  >
+                    <Feather name="user" color="#888888" size={16} style={{ marginRight: 8 }} />
+                    <Text style={styles.searchResultText}>{item.name}</Text>
+                    {!!item.username && <Text style={styles.searchResultSub}>@{item.username}</Text>}
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          )}
+
+          {/* BOTÓN INICIAR PARTIDO */}
+          <TouchableOpacity
+            style={[
+              styles.startMatchBtn,
+              (teamRed.length < maxSlots || teamBlue.length < maxSlots) && styles.startMatchBtnDisabled,
+            ]}
+            activeOpacity={0.8}
+            disabled={teamRed.length < maxSlots || teamBlue.length < maxSlots}
+            onPress={handleStartMatch}
+          >
+            <Feather name="play-circle" color="#000000" size={20} style={{ marginRight: 8 }} />
+            <Text style={styles.startMatchBtnText}>Iniciar Partido y Abrir Marcador 🚀</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        /* ========================================================================= */
+        /* PASO 2: MARCADOR EN VIVO (JUGADORES BLOQUEADOS) */
+        /* ========================================================================= */
+        <View style={styles.liveSection}>
+          {/* JUGADORES BLOQUEADOS */}
+          <View style={styles.lockedPlayersRow}>
+            <View style={styles.lockedPlayerRed}>
+              <Text style={styles.lockedTeamTagRed}>🔴 EQUIPO ROJO</Text>
+              {teamRed.map((p) => (
+                <Text key={p.id} style={styles.lockedPlayerName} numberOfLines={1}>
+                  {p.name}
+                </Text>
+              ))}
+            </View>
+
+            <View style={styles.versusBadge}>
+              <Text style={styles.versusText}>VS</Text>
+            </View>
+
+            <View style={styles.lockedPlayerBlue}>
+              <Text style={styles.lockedTeamTagBlue}>🔵 EQUIPO AZUL</Text>
+              {teamBlue.map((p) => (
+                <Text key={p.id} style={styles.lockedPlayerName} numberOfLines={1}>
+                  {p.name}
+                </Text>
+              ))}
+            </View>
           </View>
-          <View style={styles.searchInputRow}>
-            <Feather name="search" color="#888888" size={16} style={{ marginRight: 8 }} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar por nombre o @username..."
-              placeholderTextColor="#666666"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoFocus
-            />
-          </View>
-          {searching ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
-          ) : (
-            searchResults.map((item) => (
+
+          {/* MARCADOR DIGITAL GIGANTE */}
+          <View style={styles.scoreboardContainer}>
+            {/* Lado Rojo */}
+            <View style={[styles.scoreBoardRed, isTerminal && terminalState.winner === 'red' && styles.scoreBoardWinner]}>
+              {terminalState.winner === 'red' && <Text style={styles.winnerText}>🏆 GANADOR</Text>}
+              <Text style={styles.scoreNumberRed}>{scoreRed}</Text>
               <TouchableOpacity
-                key={item.id}
-                style={styles.searchResultItem}
-                onPress={() => handleSelectPlayer(item)}
+                style={[styles.goalButtonRed, isTerminal && styles.goalButtonDisabled]}
+                activeOpacity={0.7}
+                disabled={isTerminal}
+                onPress={() => handleGoal('red')}
               >
-                <Feather name="user" color="#888888" size={16} style={{ marginRight: 8 }} />
-                <Text style={styles.searchResultText}>{item.name}</Text>
-                {!!item.username && <Text style={styles.searchResultSub}>@{item.username}</Text>}
+                <Text style={styles.goalButtonText}>+1 GOL ROJO</Text>
               </TouchableOpacity>
-            ))
+            </View>
+
+            {/* Lado Azul */}
+            <View style={[styles.scoreBoardBlue, isTerminal && terminalState.winner === 'blue' && styles.scoreBoardWinner]}>
+              {terminalState.winner === 'blue' && <Text style={styles.winnerText}>🏆 GANADOR</Text>}
+              <Text style={styles.scoreNumberBlue}>{scoreBlue}</Text>
+              <TouchableOpacity
+                style={[styles.goalButtonBlue, isTerminal && styles.goalButtonDisabled]}
+                activeOpacity={0.7}
+                disabled={isTerminal}
+                onPress={() => handleGoal('blue')}
+              >
+                <Text style={styles.goalButtonText}>+1 GOL AZUL</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* LÍNEA DE TIEMPO Y DESHACER */}
+          <View style={styles.timelineRow}>
+            <TouchableOpacity
+              style={styles.undoBtn}
+              onPress={handleUndoGoal}
+              disabled={goalHistory.length === 0}
+            >
+              <Feather name="rotate-ccw" color="#ffffff" size={14} style={{ marginRight: 4 }} />
+              <Text style={styles.undoBtnText}>Deshacer Gol</Text>
+            </TouchableOpacity>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyChipsScroll}>
+              {goalHistory.map((g, index) => (
+                <View key={index} style={[styles.historyChip, g === 'red' ? styles.chipRed : styles.chipBlue]}>
+                  <Text style={styles.chipText}>{index + 1}º {g === 'red' ? '🔴' : '🔵'}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* AVISO DE ESTADO O BOTÓN CERRAR PARTIDO */}
+          {!isTerminal ? (
+            <View style={styles.inProgressNoticeBox}>
+              <Feather name="info" color="#eab308" size={16} style={{ marginRight: 6 }} />
+              <Text style={styles.inProgressNoticeText}>
+                Partido en juego. Para finalizar, un equipo debe alcanzar {targetScore} goles.
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.finishMatchBtn}
+              activeOpacity={0.8}
+              disabled={submitting}
+              onPress={handleSubmitMatch}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#000000" />
+              ) : (
+                <>
+                  <Feather name="check-circle" color="#000000" size={20} style={{ marginRight: 8 }} />
+                  <Text style={styles.finishMatchBtnText}>
+                    Finalizar y Registrar Partido ({scoreRed} - {scoreBlue}) 🏆
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
           )}
         </View>
       )}
-
-      {/* MARCADOR DIGITAL GIGANTE TACA TACA */}
-      <View style={styles.scoreboardContainer}>
-        <View style={styles.scoreBoardRed}>
-          <Text style={styles.scoreNumberRed}>{scoreRed}</Text>
-          <TouchableOpacity
-            style={styles.goalButtonRed}
-            activeOpacity={0.7}
-            onPress={() => handleGoal('red')}
-          >
-            <Text style={styles.goalButtonText}>+1 GOL ROJO</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.scoreBoardBlue}>
-          <Text style={styles.scoreNumberBlue}>{scoreBlue}</Text>
-          <TouchableOpacity
-            style={styles.goalButtonBlue}
-            activeOpacity={0.7}
-            onPress={() => handleGoal('blue')}
-          >
-            <Text style={styles.goalButtonText}>+1 GOL AZUL</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* BOTÓN DESHACER LÍNEA DE TIEMPO */}
-      {goalHistory.length > 0 && (
-        <View style={styles.timelineRow}>
-          <TouchableOpacity style={styles.undoBtn} onPress={handleUndoGoal}>
-            <Feather name="rotate-ccw" color="#ffffff" size={14} style={{ marginRight: 4 }} />
-            <Text style={styles.undoBtnText}>Deshacer Gol</Text>
-          </TouchableOpacity>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyChipsScroll}>
-            {goalHistory.map((g, index) => (
-              <View key={index} style={[styles.historyChip, g === 'red' ? styles.chipRed : styles.chipBlue]}>
-                <Text style={styles.chipText}>{index + 1}º {g === 'red' ? '🔴' : '🔵'}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* BOTÓN FINALIZAR Y CERRAR PARTIDO */}
-      <TouchableOpacity
-        style={styles.finishMatchBtn}
-        activeOpacity={0.8}
-        disabled={submitting}
-        onPress={handleSubmitMatch}
-      >
-        {submitting ? (
-          <ActivityIndicator color="#000000" />
-        ) : (
-          <>
-            <Feather name="check-circle" color="#000000" size={20} style={{ marginRight: 8 }} />
-            <Text style={styles.finishMatchBtnText}>Cerrar Partido de Taca Taca</Text>
-          </>
-        )}
-      </TouchableOpacity>
     </ScrollView>
   );
 };
@@ -426,6 +520,19 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     lineHeight: 18,
   },
+  setupSection: {
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: 8,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  stepTitleText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.md,
+  },
   playersSection: {
     flexDirection: 'row',
     gap: theme.spacing.md,
@@ -433,7 +540,7 @@ const styles = StyleSheet.create({
   },
   teamContainerRed: {
     flex: 1,
-    backgroundColor: theme.colors.cardBg,
+    backgroundColor: '#121212',
     borderRadius: 8,
     padding: theme.spacing.md,
     borderWidth: 1,
@@ -441,20 +548,20 @@ const styles = StyleSheet.create({
   },
   teamContainerBlue: {
     flex: 1,
-    backgroundColor: theme.colors.cardBg,
+    backgroundColor: '#121212',
     borderRadius: 8,
     padding: theme.spacing.md,
     borderWidth: 1,
     borderColor: '#38bdf8',
   },
   teamHeaderRed: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#ff4444',
     marginBottom: theme.spacing.sm,
   },
   teamHeaderBlue: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#38bdf8',
     marginBottom: theme.spacing.sm,
@@ -468,7 +575,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   playerSlotActive: {
-    backgroundColor: '#121212',
+    backgroundColor: '#1a1a1a',
     borderRadius: 4,
     padding: 8,
     borderWidth: 1,
@@ -582,6 +689,76 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.colors.textMuted,
   },
+  startMatchBtn: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: theme.spacing.sm,
+  },
+  startMatchBtnDisabled: {
+    opacity: 0.4,
+  },
+  startMatchBtnText: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  liveSection: {
+    flex: 1,
+  },
+  lockedPlayersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: 8,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  lockedPlayerRed: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  lockedPlayerBlue: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  lockedTeamTagRed: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#ff4444',
+    marginBottom: 2,
+  },
+  lockedTeamTagBlue: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#38bdf8',
+    marginBottom: 2,
+  },
+  lockedPlayerName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.colors.text,
+  },
+  versusBadge: {
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginHorizontal: theme.spacing.xs,
+  },
+  versusText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: theme.colors.textMuted,
+  },
   scoreboardContainer: {
     flexDirection: 'row',
     gap: theme.spacing.md,
@@ -604,6 +781,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#38bdf8',
+  },
+  scoreBoardWinner: {
+    borderColor: '#eab308',
+    backgroundColor: '#1a180d',
+  },
+  winnerText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#eab308',
+    marginBottom: 2,
   },
   scoreNumberRed: {
     fontSize: 56,
@@ -630,6 +817,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 6,
     alignItems: 'center',
+  },
+  goalButtonDisabled: {
+    opacity: 0.3,
   },
   goalButtonText: {
     color: '#000000',
@@ -679,6 +869,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  inProgressNoticeBox: {
+    backgroundColor: '#121212',
+    borderRadius: 8,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: '#333333',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inProgressNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    lineHeight: 16,
   },
   finishMatchBtn: {
     backgroundColor: '#ffffff',
