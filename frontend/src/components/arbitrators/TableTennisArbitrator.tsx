@@ -24,30 +24,21 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
   const { user: currentUser } = useAuth();
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // Estado del Partido (Modalidad Fija según la configuración del Ladder)
-  const initialMode = (ladder.allowed_modes && ladder.allowed_modes.length > 0 ? ladder.allowed_modes[0] : '1v1') as '1v1' | '2v2';
-  const [mode, setMode] = useState<'1v1' | '2v2'>(initialMode);
+  // Estado del Partido 1v1 Tenis de Mesa (Sin sets, al primero que llega a 11 puntos)
+  const mode = '1v1';
   const [playerRed, setPlayerRed] = useState<StudentUser[]>([]);
   const [playerBlue, setPlayerBlue] = useState<StudentUser[]>([]);
 
-  // Contador de Sets y Puntos (Tenis de Mesa)
-  const [setsRed, setSetsRed] = useState<number>(0);
-  const [setsBlue, setSetsBlue] = useState<number>(0);
-  const [pointsRed, setPointsRed] = useState<number>(0);
-  const [pointsBlue, setPointsBlue] = useState<number>(0);
-  const [pointHistory, setPointHistory] = useState<string[]>([]);
+  // Contador de Puntos Directos (0 a 11+)
+  const [scoreRed, setScoreRed] = useState<number>(0);
+  const [scoreBlue, setScoreBlue] = useState<number>(0);
+  const [pointHistory, setPointHistory] = useState<('red' | 'blue')[]>([]);
 
   // Buscador de Jugadores
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<StudentUser[]>([]);
   const [searching, setSearching] = useState<boolean>(false);
   const [activeSlot, setActiveSlot] = useState<{ team: 'red' | 'blue'; index: number } | null>(null);
-
-  useEffect(() => {
-    if (ladder.allowed_modes && ladder.allowed_modes.length > 0) {
-      setMode(ladder.allowed_modes[0] as '1v1' | '2v2');
-    }
-  }, [ladder]);
 
   // Buscar estudiantes en PocketBase
   useEffect(() => {
@@ -78,13 +69,9 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     if (!activeSlot) return;
 
     if (activeSlot.team === 'red') {
-      const updated = [...playerRed];
-      updated[activeSlot.index] = student;
-      setPlayerRed(updated);
+      setPlayerRed([student]);
     } else {
-      const updated = [...playerBlue];
-      updated[activeSlot.index] = student;
-      setPlayerBlue(updated);
+      setPlayerBlue([student]);
     }
 
     setActiveSlot(null);
@@ -92,7 +79,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     setSearchResults([]);
   };
 
-  const handleAddMyself = (team: 'red' | 'blue', index: number) => {
+  const handleAddMyself = (team: 'red' | 'blue') => {
     if (!currentUser) return;
     const student: StudentUser = {
       id: currentUser.id,
@@ -102,95 +89,78 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     };
 
     if (team === 'red') {
-      const updated = [...playerRed];
-      updated[index] = student;
-      setPlayerRed(updated);
+      setPlayerRed([student]);
     } else {
-      const updated = [...playerBlue];
-      updated[index] = student;
-      setPlayerBlue(updated);
+      setPlayerBlue([student]);
     }
   };
 
-  const handleRemovePlayer = (team: 'red' | 'blue', index: number) => {
+  const handleRemovePlayer = (team: 'red' | 'blue') => {
     if (team === 'red') {
-      const updated = [...playerRed];
-      updated.splice(index, 1);
-      setPlayerRed(updated);
+      setPlayerRed([]);
     } else {
-      const updated = [...playerBlue];
-      updated.splice(index, 1);
-      setPlayerBlue(updated);
+      setPlayerBlue([]);
     }
   };
 
-  // Punto anotado
+  // Sumar punto
   const handlePoint = (team: 'red' | 'blue') => {
     if (team === 'red') {
-      const nextPts = pointsRed + 1;
-      setPointsRed(nextPts);
-      setPointHistory((prev) => [...prev, `Punto Rojo (${nextPts}-${pointsBlue})`]);
+      setScoreRed((prev) => prev + 1);
+      setPointHistory((prev) => [...prev, 'red']);
     } else {
-      const nextPts = pointsBlue + 1;
-      setPointsBlue(nextPts);
-      setPointHistory((prev) => [...prev, `Punto Azul (${pointsRed}-${nextPts})`]);
+      setScoreBlue((prev) => prev + 1);
+      setPointHistory((prev) => [...prev, 'blue']);
     }
   };
 
-  // Ganar Set actual
-  const handleWinSet = (team: 'red' | 'blue') => {
-    if (team === 'red') {
-      setSetsRed((prev) => prev + 1);
-      setPointHistory((prev) => [...prev, `Set Rojo (${pointsRed}-${pointsBlue})`]);
-      setPointsRed(0);
-      setPointsBlue(0);
+  // Deshacer último punto
+  const handleUndoPoint = () => {
+    if (pointHistory.length === 0) return;
+    const lastPoint = pointHistory[pointHistory.length - 1];
+    setPointHistory((prev) => prev.slice(0, -1));
+    if (lastPoint === 'red') {
+      setScoreRed((prev) => Math.max(0, prev - 1));
     } else {
-      setSetsBlue((prev) => prev + 1);
-      setPointHistory((prev) => [...prev, `Set Azul (${pointsRed}-${pointsBlue})`]);
-      setPointsRed(0);
-      setPointsBlue(0);
+      setScoreBlue((prev) => Math.max(0, prev - 1));
     }
   };
 
   const handleSubmitMatch = async () => {
-    const requiredPerTeam = mode === '1v1' ? 1 : 2;
-    if (playerRed.length < requiredPerTeam || playerBlue.length < requiredPerTeam) {
+    if (playerRed.length < 1 || playerBlue.length < 1) {
       Toast.show({
         type: 'error',
         text1: 'Faltan Jugadores',
-        text2: `Debes asignar ${requiredPerTeam} jugador(es) por lado para la modalidad ${mode}.`,
+        text2: 'Debes seleccionar al jugador del Lado Rojo y del Lado Azul.',
       });
       return;
     }
 
-    if (setsRed === 0 && setsBlue === 0 && pointsRed === 0 && pointsBlue === 0) {
+    if (scoreRed === 0 && scoreBlue === 0) {
       Toast.show({
         type: 'error',
         text1: 'Marcador Vacío',
-        text2: 'Debes registrar al menos sets o puntos en la partida de Tenis de Mesa.',
+        text2: 'Debes registrar al menos un punto antes de finalizar la partida.',
       });
       return;
     }
 
     setSubmitting(true);
     try {
-      const finalScoreRed = setsRed > 0 || setsBlue > 0 ? setsRed : pointsRed;
-      const finalScoreBlue = setsRed > 0 || setsBlue > 0 ? setsBlue : pointsBlue;
-
       await ladderService.submitArbitratedMatch({
         ladderId: ladder.id,
-        mode,
+        mode: '1v1',
         teamRed: playerRed.map((p) => p.id),
         teamBlue: playerBlue.map((p) => p.id),
-        scoreRed: finalScoreRed,
-        scoreBlue: finalScoreBlue,
+        scoreRed,
+        scoreBlue,
         goalHistory: pointHistory as any,
       });
 
       Toast.show({
         type: 'success',
-        text1: '¡Partido de Tenis de Mesa Registrado!',
-        text2: 'Se han enviado las notificaciones de confirmación a los jugadores.',
+        text1: '¡Partido Registrado!',
+        text2: `Resultado: Rojo ${scoreRed} - ${scoreBlue} Azul. Se enviaron las notificaciones.`,
       });
 
       navigation.navigate('LadderDetail', { slug: ladder.slug });
@@ -205,101 +175,85 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     }
   };
 
-  const maxSlots = mode === '1v1' ? 1 : 2;
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Cabecera Específica de Tenis de Mesa */}
+      {/* Cabecera Tenis de Mesa 1v1 */}
       <View style={styles.sportHeader}>
         <View style={styles.sportBadge}>
-          <Text style={styles.sportBadgeText}>{ladder.name.toUpperCase()}</Text>
+          <Text style={styles.sportBadgeText}>TENIS DE MESA 1V1 (A 11 PUNTOS)</Text>
         </View>
-        <Text style={styles.headerTitle}>Arbitraje de {ladder.name}</Text>
+        <Text style={styles.headerTitle}>Arbitraje de Tenis de Mesa (1v1)</Text>
         <Text style={styles.headerSubtitle}>
-          Lleva el conteo de puntos y sets en tiempo real. Al finalizar la partida se notificará a los jugadores ({mode}).
+          Sin sets. El primer jugador en alcanzar 11 puntos (o más) gana la partida.
         </Text>
       </View>
 
-      {/* SELECCIÓN DE JUGADORES */}
+      {/* SELECCIÓN DE JUGADORES (1v1) */}
       <View style={styles.playersSection}>
-        {/* Jugador(es) Lado Rojo */}
+        {/* Jugador Lado Rojo */}
         <View style={styles.teamContainerRed}>
-          <Text style={styles.teamHeaderRed}>LADO ROJO 🏓</Text>
-          {Array.from({ length: maxSlots }).map((_, idx) => {
-            const player = playerRed[idx];
-            return (
-              <View key={`red-${idx}`} style={styles.slotRow}>
-                {player ? (
-                  <View style={styles.playerSlotActive}>
-                    <Text style={styles.slotPlayerName} numberOfLines={1}>
-                      {player.name}
-                    </Text>
-                    <TouchableOpacity onPress={() => handleRemovePlayer('red', idx)}>
-                      <Feather name="x" color="#ff4444" size={18} />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View style={styles.slotRowActions}>
-                    <TouchableOpacity
-                      style={styles.addPlayerBtnRed}
-                      onPress={() => setActiveSlot({ team: 'red', index: idx })}
-                    >
-                      <Feather name="user-plus" color="#ff4444" size={14} style={{ marginRight: 4 }} />
-                      <Text style={styles.addPlayerBtnTextRed}>Buscar</Text>
-                    </TouchableOpacity>
-                    {currentUser && (
-                      <TouchableOpacity
-                        style={styles.selfAddBtn}
-                        onPress={() => handleAddMyself('red', idx)}
-                      >
-                        <Text style={styles.selfAddBtnText}>+ Yo</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                )}
-              </View>
-            );
-          })}
+          <Text style={styles.teamHeaderRed}>JUGADOR ROJO 🏓</Text>
+          {playerRed[0] ? (
+            <View style={styles.playerSlotActive}>
+              <Text style={styles.slotPlayerName} numberOfLines={1}>
+                {playerRed[0].name}
+              </Text>
+              <TouchableOpacity onPress={() => handleRemovePlayer('red')}>
+                <Feather name="x" color="#ff4444" size={18} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.slotRowActions}>
+              <TouchableOpacity
+                style={styles.addPlayerBtnRed}
+                onPress={() => setActiveSlot({ team: 'red', index: 0 })}
+              >
+                <Feather name="user-plus" color="#ff4444" size={14} style={{ marginRight: 4 }} />
+                <Text style={styles.addPlayerBtnTextRed}>Buscar</Text>
+              </TouchableOpacity>
+              {currentUser && (
+                <TouchableOpacity
+                  style={styles.selfAddBtn}
+                  onPress={() => handleAddMyself('red')}
+                >
+                  <Text style={styles.selfAddBtnText}>+ Yo</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
 
-        {/* Jugador(es) Lado Azul */}
+        {/* Jugador Lado Azul */}
         <View style={styles.teamContainerBlue}>
-          <Text style={styles.teamHeaderBlue}>LADO AZUL 🏓</Text>
-          {Array.from({ length: maxSlots }).map((_, idx) => {
-            const player = playerBlue[idx];
-            return (
-              <View key={`blue-${idx}`} style={styles.slotRow}>
-                {player ? (
-                  <View style={styles.playerSlotActive}>
-                    <Text style={styles.slotPlayerName} numberOfLines={1}>
-                      {player.name}
-                    </Text>
-                    <TouchableOpacity onPress={() => handleRemovePlayer('blue', idx)}>
-                      <Feather name="x" color="#38bdf8" size={18} />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View style={styles.slotRowActions}>
-                    <TouchableOpacity
-                      style={styles.addPlayerBtnBlue}
-                      onPress={() => setActiveSlot({ team: 'blue', index: idx })}
-                    >
-                      <Feather name="user-plus" color="#38bdf8" size={14} style={{ marginRight: 4 }} />
-                      <Text style={styles.addPlayerBtnTextBlue}>Buscar</Text>
-                    </TouchableOpacity>
-                    {currentUser && (
-                      <TouchableOpacity
-                        style={styles.selfAddBtn}
-                        onPress={() => handleAddMyself('blue', idx)}
-                      >
-                        <Text style={styles.selfAddBtnText}>+ Yo</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                )}
-              </View>
-            );
-          })}
+          <Text style={styles.teamHeaderBlue}>JUGADOR AZUL 🏓</Text>
+          {playerBlue[0] ? (
+            <View style={styles.playerSlotActive}>
+              <Text style={styles.slotPlayerName} numberOfLines={1}>
+                {playerBlue[0].name}
+              </Text>
+              <TouchableOpacity onPress={() => handleRemovePlayer('blue')}>
+                <Feather name="x" color="#38bdf8" size={18} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.slotRowActions}>
+              <TouchableOpacity
+                style={styles.addPlayerBtnBlue}
+                onPress={() => setActiveSlot({ team: 'blue', index: 0 })}
+              >
+                <Feather name="user-plus" color="#38bdf8" size={14} style={{ marginRight: 4 }} />
+                <Text style={styles.addPlayerBtnTextBlue}>Buscar</Text>
+              </TouchableOpacity>
+              {currentUser && (
+                <TouchableOpacity
+                  style={styles.selfAddBtn}
+                  onPress={() => handleAddMyself('blue')}
+                >
+                  <Text style={styles.selfAddBtnText}>+ Yo</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
       </View>
 
@@ -343,47 +297,48 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
         </View>
       )}
 
-      {/* MARCADOR DE SETS & PUNTOS TENIS DE MESA */}
-      <View style={styles.setsBox}>
-        <Text style={styles.setsTitle}>SETS GANADOS</Text>
-        <View style={styles.setsScoreRow}>
-          <Text style={styles.setsRedText}>{setsRed}</Text>
-          <Text style={styles.setsDividerText}>SETS</Text>
-          <Text style={styles.setsBlueText}>{setsBlue}</Text>
-        </View>
-      </View>
-
+      {/* MARCADOR DIGITAL GIGANTE DIRECTO A 11 PUNTOS */}
       <View style={styles.scoreboardContainer}>
-        {/* Lado Rojo Puntos */}
         <View style={styles.scoreBoardRed}>
-          <Text style={styles.scoreLabel}>Puntos Set Actual</Text>
-          <Text style={styles.scoreNumberRed}>{pointsRed}</Text>
-          
-          <View style={styles.pointsActionRow}>
-            <TouchableOpacity style={styles.pointBtnRed} onPress={() => handlePoint('red')}>
-              <Text style={styles.pointBtnText}>+1 Punto</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.winSetBtnRed} onPress={() => handleWinSet('red')}>
-              <Text style={styles.winSetBtnText}>Ganó Set 🏆</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.scoreNumberRed}>{scoreRed}</Text>
+          <TouchableOpacity
+            style={styles.goalButtonRed}
+            activeOpacity={0.7}
+            onPress={() => handlePoint('red')}
+          >
+            <Text style={styles.goalButtonText}>+1 PUNTO ROJO</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Lado Azul Puntos */}
         <View style={styles.scoreBoardBlue}>
-          <Text style={styles.scoreLabel}>Puntos Set Actual</Text>
-          <Text style={styles.scoreNumberBlue}>{pointsBlue}</Text>
-
-          <View style={styles.pointsActionRow}>
-            <TouchableOpacity style={styles.pointBtnBlue} onPress={() => handlePoint('blue')}>
-              <Text style={styles.pointBtnText}>+1 Punto</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.winSetBtnBlue} onPress={() => handleWinSet('blue')}>
-              <Text style={styles.winSetBtnText}>Ganó Set 🏆</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.scoreNumberBlue}>{scoreBlue}</Text>
+          <TouchableOpacity
+            style={styles.goalButtonBlue}
+            activeOpacity={0.7}
+            onPress={() => handlePoint('blue')}
+          >
+            <Text style={styles.goalButtonText}>+1 PUNTO AZUL</Text>
+          </TouchableOpacity>
         </View>
       </View>
+
+      {/* BOTÓN DESHACER Y LÍNEA DE TIEMPO DE PUNTOS */}
+      {pointHistory.length > 0 && (
+        <View style={styles.timelineRow}>
+          <TouchableOpacity style={styles.undoBtn} onPress={handleUndoPoint}>
+            <Feather name="rotate-ccw" color="#ffffff" size={14} style={{ marginRight: 4 }} />
+            <Text style={styles.undoBtnText}>Deshacer Punto</Text>
+          </TouchableOpacity>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyChipsScroll}>
+            {pointHistory.map((p, index) => (
+              <View key={index} style={[styles.historyChip, p === 'red' ? styles.chipRed : styles.chipBlue]}>
+                <Text style={styles.chipText}>{index + 1}º {p === 'red' ? '🔴' : '🔵'}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* BOTÓN FINALIZAR Y CERRAR PARTIDO */}
       <TouchableOpacity
@@ -397,7 +352,9 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
         ) : (
           <>
             <Feather name="check-circle" color="#000000" size={20} style={{ marginRight: 8 }} />
-            <Text style={styles.finishMatchBtnText}>Cerrar Partido de Tenis de Mesa</Text>
+            <Text style={styles.finishMatchBtnText}>
+              Cerrar Partido ({scoreRed} - {scoreBlue})
+            </Text>
           </>
         )}
       </TouchableOpacity>
@@ -472,9 +429,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#38bdf8',
     marginBottom: theme.spacing.sm,
-  },
-  slotRow: {
-    marginBottom: theme.spacing.xs,
   },
   slotRowActions: {
     flexDirection: 'row',
@@ -596,41 +550,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.colors.textMuted,
   },
-  setsBox: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 8,
-    padding: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  setsTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: theme.colors.textMuted,
-    marginBottom: 2,
-  },
-  setsScoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  setsRedText: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#ff4444',
-  },
-  setsDividerText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: theme.colors.textMuted,
-    marginHorizontal: 12,
-  },
-  setsBlueText: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#38bdf8',
-  },
   scoreboardContainer: {
     flexDirection: 'row',
     gap: theme.spacing.md,
@@ -654,65 +573,80 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#38bdf8',
   },
-  scoreLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-  },
   scoreNumberRed: {
-    fontSize: 48,
+    fontSize: 56,
     fontWeight: '900',
     color: '#ff4444',
-    marginVertical: 4,
+    marginVertical: theme.spacing.xs,
   },
   scoreNumberBlue: {
-    fontSize: 48,
+    fontSize: 56,
     fontWeight: '900',
     color: '#38bdf8',
-    marginVertical: 4,
+    marginVertical: theme.spacing.xs,
   },
-  pointsActionRow: {
-    width: '100%',
-    gap: 6,
-  },
-  pointBtnRed: {
+  goalButtonRed: {
     backgroundColor: '#ff4444',
-    paddingVertical: 10,
-    borderRadius: 4,
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 6,
     alignItems: 'center',
   },
-  winSetBtnRed: {
-    backgroundColor: '#1a1212',
+  goalButtonBlue: {
+    backgroundColor: '#38bdf8',
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  goalButtonText: {
+    color: '#000000',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  undoBtn: {
+    backgroundColor: '#222222',
+    paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 4,
+    flexDirection: 'row',
     alignItems: 'center',
+    marginRight: theme.spacing.sm,
     borderWidth: 1,
-    borderColor: '#ff4444',
+    borderColor: '#444444',
   },
-  winSetBtnText: {
+  undoBtnText: {
     color: '#ffffff',
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
   },
-  pointBtnBlue: {
-    backgroundColor: '#38bdf8',
-    paddingVertical: 10,
-    borderRadius: 4,
-    alignItems: 'center',
+  historyChipsScroll: {
+    flex: 1,
   },
-  winSetBtnBlue: {
-    backgroundColor: '#12171a',
-    paddingVertical: 8,
+  historyChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 4,
-    alignItems: 'center',
+    marginRight: 4,
     borderWidth: 1,
+  },
+  chipRed: {
+    backgroundColor: 'rgba(255, 68, 68, 0.15)',
+    borderColor: '#ff4444',
+  },
+  chipBlue: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
     borderColor: '#38bdf8',
   },
-  pointBtnText: {
-    color: '#000000',
-    fontSize: 12,
-    fontWeight: '900',
+  chipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   finishMatchBtn: {
     backgroundColor: '#ffffff',
