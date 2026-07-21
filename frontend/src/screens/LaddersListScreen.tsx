@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, DeviceEventEmitter } from 'react-native';
 import { theme } from '../theme/theme';
 import { ladderService } from '../services/ladderService';
 import { Ladder } from '../types/ladder';
@@ -7,6 +7,7 @@ import { withMinimumDelay } from '../utils/refresh';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { Feather } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
 type LaddersListScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LaddersList'>;
 
@@ -34,8 +35,17 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchLadders(ladders.length > 0);
+    }, [ladders.length])
+  );
+
   useEffect(() => {
-    fetchLadders();
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
+      handleRefresh();
+    });
+    return () => sub.remove();
   }, []);
 
   const handleRefresh = () => {
@@ -70,7 +80,7 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
         </View>
         <Text style={styles.title}>Ladders & Competencias</Text>
         <Text style={styles.subtitle}>
-          Rankings oficiales de la FCFM. Compite, registra tus marcadores en vivo y sube en la tabla de posiciones.
+          Rankings oficiales de la FCFM. Compite en Taca Taca, Tenis de Mesa y más. Registra marcadores en vivo y sube en la tabla de posiciones.
         </Text>
       </View>
 

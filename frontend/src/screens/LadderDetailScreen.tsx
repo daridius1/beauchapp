@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, DeviceEventEmitter } from 'react-native';
 import { theme } from '../theme/theme';
 import { ladderService } from '../services/ladderService';
 import { Ladder, LadderRank, LadderMatch } from '../types/ladder';
@@ -11,6 +11,7 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import Toast from 'react-native-toast-message';
 import { Feather } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
 type LadderDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LadderDetail'>;
 type LadderDetailScreenRouteProp = RouteProp<RootStackParamList, 'LadderDetail'>;
@@ -55,8 +56,17 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchLadderData(!!ladder);
+    }, [slug, !!ladder])
+  );
+
   useEffect(() => {
-    fetchLadderData();
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
+      handleRefresh();
+    });
+    return () => sub.remove();
   }, [slug]);
 
   const handleRefresh = () => {
