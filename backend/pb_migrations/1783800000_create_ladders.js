@@ -45,6 +45,20 @@ migrate((app) => {
                 name: "is_active",
                 type: "bool",
                 required: false
+            },
+            {
+                id: "lad_crea_01",
+                name: "created",
+                type: "autodate",
+                onCreate: true,
+                onUpdate: false
+            },
+            {
+                id: "lad_upd_01",
+                name: "updated",
+                type: "autodate",
+                onCreate: true,
+                onUpdate: true
             }
         ]
     });
@@ -114,6 +128,20 @@ migrate((app) => {
                 name: "draws",
                 type: "number",
                 required: false
+            },
+            {
+                id: "lrk_crea_01",
+                name: "created",
+                type: "autodate",
+                onCreate: true,
+                onUpdate: false
+            },
+            {
+                id: "lrk_upd_01",
+                name: "updated",
+                type: "autodate",
+                onCreate: true,
+                onUpdate: true
             }
         ]
     });
@@ -195,6 +223,20 @@ migrate((app) => {
                 name: "openskill_changes",
                 type: "json",
                 required: false
+            },
+            {
+                id: "lmt_crea_01",
+                name: "created",
+                type: "autodate",
+                onCreate: true,
+                onUpdate: false
+            },
+            {
+                id: "lmt_upd_01",
+                name: "updated",
+                type: "autodate",
+                onCreate: true,
+                onUpdate: true
             }
         ]
     });
