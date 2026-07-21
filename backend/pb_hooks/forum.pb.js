@@ -38,6 +38,7 @@ onRecordCreateRequest((e) => {
 }, "posts");
 
 onRecordAfterCreateSuccess((e) => {
+    console.log("[DEBUG] forum.pb.js onRecordAfterCreateSuccess triggered for post ID:", e.record.id);
     const rootId = e.record.getString("root");
     if (rootId) {
         try {
