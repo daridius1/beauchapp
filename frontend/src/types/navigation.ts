@@ -20,5 +20,7 @@ export type RootStackParamList = {
   ProblemEditor: { problemId?: string; answerId?: string; type: 'problem' | 'answer'; initialContent?: string; problemTitle?: string };
   Tinder: { initialTab?: 'discover' | 'matches' | 'profile' } | undefined;
   Notifications: undefined;
+  LaddersList: undefined;
+  LadderDetail: { slug: string };
+  LadderMatchArbitrator: { slug: string };
 };
-

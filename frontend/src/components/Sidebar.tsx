@@ -51,6 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
     { id: 'Home', label: 'Inicio' },
     { id: 'Directory', label: 'Perfiles' },
     { id: 'ProblemsList', label: 'Problemas' },
+    { id: 'LaddersList', label: 'Ladders' },
     ...(user && user.type !== 'organization' ? [{ id: 'Tinder', label: 'Tinder Beauchef' }] : []),
     ...(user ? [{ id: 'Notifications', label: 'Notificaciones' }] : []),
     { id: 'Settings', label: 'Ajustes' },

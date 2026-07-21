@@ -23,6 +23,9 @@ import { ProblemDetailScreen } from './src/screens/ProblemDetailScreen';
 import { ProblemEditorScreen } from './src/screens/ProblemEditorScreen';
 import { TinderScreen } from './src/screens/TinderScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
+import { LaddersListScreen } from './src/screens/LaddersListScreen';
+import { LadderDetailScreen } from './src/screens/LadderDetailScreen';
+import { LadderMatchArbitratorScreen } from './src/screens/LadderMatchArbitratorScreen';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import * as Linking from 'expo-linking';
 
@@ -108,8 +111,6 @@ function AppContent() {
   const [currentRouteParams, setCurrentRouteParams] = useState<any>({});
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
 
-
-
   // Mapeo de títulos de pantalla
   const getScreenTitle = (screen: string, params: any) => {
     switch (screen) {
@@ -136,12 +137,15 @@ function AppContent() {
       case 'ProblemEditor': return params?.type === 'problem' ? 'Subir Problema' : 'Subir Pauta';
       case 'Tinder': return 'Tinder Beauchef';
       case 'Notifications': return 'Notificaciones';
+      case 'LaddersList': return 'Ladders & Competencias';
+      case 'LadderDetail': return 'Tabla de Posiciones';
+      case 'LadderMatchArbitrator': return 'Arbitraje en Vivo';
       case 'NotFound': return 'No Encontrado';
       default: return 'Beauchapp';
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Settings', 'Directory', 'ProblemsList', 'Notifications'];
+  const rootScreens = ['Home', 'Profile', 'Settings', 'Directory', 'ProblemsList', 'Notifications', 'LaddersList'];
   const showBackButton = !rootScreens.includes(currentRouteName);
 
   const handleBack = () => {
@@ -152,6 +156,8 @@ function AppContent() {
         // Fallback for deep-linking
         if (currentRouteName === 'ProblemDetail' || currentRouteName === 'ProblemEditor') {
           navigationRef.navigate('ProblemsList' as never);
+        } else if (currentRouteName === 'LadderDetail' || currentRouteName === 'LadderMatchArbitrator') {
+          navigationRef.navigate('LaddersList' as never);
         } else if (currentRouteName === 'PostDetail') {
           navigationRef.navigate('Home' as never);
         } else if (['Students', 'Communities', 'Centers', 'Teams', 'FollowList', 'UserProfile'].includes(currentRouteName)) {
@@ -198,6 +204,9 @@ function AppContent() {
               ResetPassword: 'reset-password',
               Tinder: 'tinder',
               Notifications: 'notifications',
+              LaddersList: 'ladders',
+              LadderDetail: 'ladders/:slug',
+              LadderMatchArbitrator: 'ladders/:slug/arbitrate',
             }
           }
         }}
@@ -218,10 +227,10 @@ function AppContent() {
       >
         <View style={[styles.appContainer, isDesktop && styles.appContainerDesktop]}>
           {user ? (
-            <View style={{ flexDirection: 'row', flex: 1, width: '100%' }}>
+            <View style={{ flex: 1, flexDirection: 'row' }}>
               {isDesktop && (
                 <Sidebar 
-                  activeScreen={currentRouteName}
+                  activeScreen={currentRouteName} 
                   onNavigate={(screen) => {
                     navigationRef.navigate(screen as never);
                   }}
@@ -234,7 +243,7 @@ function AppContent() {
                   title={getScreenTitle(currentRouteName, currentRouteParams)} 
                   onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                   onBack={showBackButton ? handleBack : undefined}
-                  onRefresh={['Home', 'ProblemsList', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Students', 'FollowList'].includes(currentRouteName) ? () => {
+                  onRefresh={['Home', 'ProblemsList', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Students', 'FollowList', 'LaddersList', 'LadderDetail'].includes(currentRouteName) ? () => {
                     DeviceEventEmitter.emit('onGlobalRefresh');
                   } : undefined}
                 />
@@ -255,6 +264,9 @@ function AppContent() {
                     <Stack.Screen name="ProblemEditor" component={ProblemEditorScreen} />
                     <Stack.Screen name="Tinder" component={TinderScreen} />
                     <Stack.Screen name="Notifications" component={NotificationsScreen} />
+                    <Stack.Screen name="LaddersList" component={LaddersListScreen} />
+                    <Stack.Screen name="LadderDetail" component={LadderDetailScreen} />
+                    <Stack.Screen name="LadderMatchArbitrator" component={LadderMatchArbitratorScreen} />
                     <Stack.Screen name="Settings" component={SettingsScreen} />
                     <Stack.Screen name="NotFound" component={NotFoundScreen} />
                   </Stack.Navigator>
@@ -318,14 +330,10 @@ const styles = StyleSheet.create({
         borderLeftWidth: 1,
         borderRightWidth: 1,
         borderColor: theme.colors.border,
-      }
-    })
+      },
+    }),
   },
   appContainerDesktop: {
-    ...Platform.select({
-      web: {
-        maxWidth: 1050,
-      }
-    })
+    maxWidth: 1050,
   },
 });
