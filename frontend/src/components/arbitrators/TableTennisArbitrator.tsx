@@ -24,8 +24,9 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
   const { user: currentUser } = useAuth();
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // Estado del Partido (1v1 o 2v2)
-  const [mode, setMode] = useState<'1v1' | '2v2'>('1v1');
+  // Estado del Partido (Modalidad Fija según la configuración del Ladder)
+  const initialMode = (ladder.allowed_modes && ladder.allowed_modes.length > 0 ? ladder.allowed_modes[0] : '1v1') as '1v1' | '2v2';
+  const [mode, setMode] = useState<'1v1' | '2v2'>(initialMode);
   const [playerRed, setPlayerRed] = useState<StudentUser[]>([]);
   const [playerBlue, setPlayerBlue] = useState<StudentUser[]>([]);
 
@@ -41,6 +42,12 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
   const [searchResults, setSearchResults] = useState<StudentUser[]>([]);
   const [searching, setSearching] = useState<boolean>(false);
   const [activeSlot, setActiveSlot] = useState<{ team: 'red' | 'blue'; index: number } | null>(null);
+
+  useEffect(() => {
+    if (ladder.allowed_modes && ladder.allowed_modes.length > 0) {
+      setMode(ladder.allowed_modes[0] as '1v1' | '2v2');
+    }
+  }, [ladder]);
 
   // Buscar estudiantes en PocketBase
   useEffect(() => {
@@ -151,7 +158,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
       Toast.show({
         type: 'error',
         text1: 'Faltan Jugadores',
-        text2: `Debes asignar ${requiredPerTeam} jugador(es) por lado.`,
+        text2: `Debes asignar ${requiredPerTeam} jugador(es) por lado para la modalidad ${mode}.`,
       });
       return;
     }
@@ -167,7 +174,6 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
 
     setSubmitting(true);
     try {
-      // El marcador del partido en Tenis de Mesa reporta Sets Ganados o Puntos
       const finalScoreRed = setsRed > 0 || setsBlue > 0 ? setsRed : pointsRed;
       const finalScoreBlue = setsRed > 0 || setsBlue > 0 ? setsBlue : pointsBlue;
 
@@ -206,28 +212,12 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
       {/* Cabecera Específica de Tenis de Mesa */}
       <View style={styles.sportHeader}>
         <View style={styles.sportBadge}>
-          <Text style={styles.sportBadgeText}>TENIS DE MESA BEAUCHEF</Text>
+          <Text style={styles.sportBadgeText}>{ladder.name.toUpperCase()}</Text>
         </View>
-        <Text style={styles.headerTitle}>Arbitraje de Tenis de Mesa (Ping Pong)</Text>
+        <Text style={styles.headerTitle}>Arbitraje de {ladder.name}</Text>
         <Text style={styles.headerSubtitle}>
-          Lleva el conteo de puntos y sets en tiempo real. Al finalizar la partida se notificará a los jugadores.
+          Lleva el conteo de puntos y sets en tiempo real. Al finalizar la partida se notificará a los jugadores ({mode}).
         </Text>
-      </View>
-
-      {/* MODALIDAD SWITCHER (1v1 / 2v2) */}
-      <View style={styles.modeSwitchRow}>
-        <TouchableOpacity
-          style={[styles.modeSwitchBtn, mode === '1v1' && styles.modeSwitchBtnActive]}
-          onPress={() => setMode('1v1')}
-        >
-          <Text style={[styles.modeSwitchText, mode === '1v1' && styles.modeSwitchTextActive]}>1 vs 1 (Individuales)</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.modeSwitchBtn, mode === '2v2' && styles.modeSwitchBtnActive]}
-          onPress={() => setMode('2v2')}
-        >
-          <Text style={[styles.modeSwitchText, mode === '2v2' && styles.modeSwitchTextActive]}>2 vs 2 (Dobles)</Text>
-        </TouchableOpacity>
       </View>
 
       {/* SELECCIÓN DE JUGADORES */}
@@ -449,35 +439,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.textMuted,
     lineHeight: 18,
-  },
-  modeSwitchRow: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 6,
-    padding: 4,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  modeSwitchBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 4,
-  },
-  modeSwitchBtnActive: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  modeSwitchText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.colors.textMuted,
-  },
-  modeSwitchTextActive: {
-    color: theme.colors.text,
-    fontWeight: '800',
   },
   playersSection: {
     flexDirection: 'row',
