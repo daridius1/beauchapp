@@ -247,7 +247,12 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   m.confirmations?.[currentUserId] === undefined;
 
                 return (
-                  <View key={m.id} style={styles.matchCard}>
+                  <TouchableOpacity
+                    key={m.id}
+                    style={styles.matchCard}
+                    activeOpacity={0.8}
+                    onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id })}
+                  >
                     {/* Header del Partido */}
                     <View style={styles.matchCardHeader}>
                       <Text style={styles.matchModeText}>Partida {m.mode}</Text>
@@ -297,6 +302,10 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                       <Text style={styles.arbiterText}>
                         Arbitrado por: @{m.expand?.arbiter?.username || m.expand?.arbiter?.name || 'Árbitro'}
                       </Text>
+                      <View style={styles.detailLinkBox}>
+                        <Text style={styles.detailLinkText}>Ver Detalle y Replay</Text>
+                        <Feather name="chevron-right" size={14} color={theme.colors.textMuted} />
+                      </View>
                     </View>
 
                     {/* Botones de Acción si el jugador debe confirmar */}
@@ -326,7 +335,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                         )}
                       </View>
                     )}
-                  </View>
+                  </TouchableOpacity>
                 );
               })
             )}
@@ -611,10 +620,23 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.xs,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   arbiterText: {
     fontSize: 11,
     color: theme.colors.textMuted,
+  },
+  detailLinkBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailLinkText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.textMuted,
+    marginRight: 2,
   },
   confirmActionBox: {
     marginTop: theme.spacing.md,

@@ -5,7 +5,7 @@ export interface Ladder {
   icon?: string;
   description?: string;
   max_score?: number;
-  allowed_modes?: string[]; // e.g. ["2v2"] or ["1v1", "2v2"]
+  allowed_modes?: ('1v1' | '2v2')[];
   is_active?: boolean;
   created: string;
   updated: string;
@@ -31,6 +31,7 @@ export interface LadderRank {
       username?: string;
       avatar?: string;
     };
+    ladder?: Ladder;
   };
 }
 
@@ -43,10 +44,13 @@ export interface LadderMatch {
   team_blue: string[];
   score_red: number;
   score_blue: number;
-  goal_history?: ('red' | 'blue')[];
+  goal_history?: ('red' | 'blue' | string)[];
   status: 'pending_confirmation' | 'confirmed' | 'disputed';
   confirmations?: Record<string, 'accepted' | 'rejected'>;
-  openskill_changes?: any;
+  openskill_changes?: {
+    red: { userId: string; mu: number; sigma: number; ordinal_rating: number; delta: number }[];
+    blue: { userId: string; mu: number; sigma: number; ordinal_rating: number; delta: number }[];
+  };
   created: string;
   updated: string;
   expand?: {
@@ -67,5 +71,6 @@ export interface LadderMatch {
       username?: string;
       avatar?: string;
     }[];
+    ladder?: Ladder;
   };
 }

@@ -23,6 +23,19 @@ export const ladderService = {
     };
   },
 
+  // Obtener un partido por su ID con relaciones expandidas
+  getMatchById: async (matchId: string): Promise<LadderMatch> => {
+    const record = await pb.collection('ladder_matches').getOne<LadderMatch>(matchId, {
+      expand: 'arbiter,team_red,team_blue,ladder',
+    });
+    return {
+      ...record,
+      goal_history: typeof record.goal_history === 'string' ? JSON.parse(record.goal_history as any) : (record.goal_history || []),
+      confirmations: typeof record.confirmations === 'string' ? JSON.parse(record.confirmations as any) : (record.confirmations || {}),
+      openskill_changes: typeof record.openskill_changes === 'string' ? JSON.parse(record.openskill_changes as any) : record.openskill_changes,
+    };
+  },
+
   // Obtener la tabla de posiciones (Leaderboard) de un ladder
   getLadderLeaderboard: async (ladderId: string): Promise<LadderRank[]> => {
     const records = await pb.collection('ladder_ranks').getFullList<LadderRank>({

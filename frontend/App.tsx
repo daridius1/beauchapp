@@ -1,102 +1,93 @@
-import React, { useState, useRef } from 'react';
-import { StyleSheet, View, SafeAreaView, StatusBar, Text, ScrollView, Platform, ActivityIndicator, DeviceEventEmitter, useWindowDimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, SafeAreaView, Platform, StatusBar, useWindowDimensions, DeviceEventEmitter } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { Header } from './src/components/Header';
-import { Sidebar } from './src/components/Sidebar';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
-import { theme } from './src/theme/theme';
 import { LoginScreen } from './src/screens/LoginScreen';
-import { ProfilesListScreen } from './src/screens/ProfilesListScreen';
 import { PostDetailScreen } from './src/screens/PostDetailScreen';
-import { VerificationScreen } from './src/screens/VerificationScreen';
-import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
-import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
-import { NotFoundScreen } from './src/screens/NotFoundScreen';
-import { SettingsScreen } from './src/screens/SettingsScreen';
 import { DirectoryScreen } from './src/screens/DirectoryScreen';
+import { ProfilesListScreen } from './src/screens/ProfilesListScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
+import { Header } from './src/components/Header';
+import { Sidebar } from './src/components/Sidebar';
+import { theme } from './src/theme/theme';
 import { RootStackParamList } from './src/types/navigation';
 import { ProblemsListScreen } from './src/screens/ProblemsListScreen';
 import { ProblemDetailScreen } from './src/screens/ProblemDetailScreen';
 import { ProblemEditorScreen } from './src/screens/ProblemEditorScreen';
+import { VerificationScreen } from './src/screens/VerificationScreen';
+import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
+import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import { TinderScreen } from './src/screens/TinderScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { LaddersListScreen } from './src/screens/LaddersListScreen';
 import { LadderDetailScreen } from './src/screens/LadderDetailScreen';
 import { LadderMatchArbitratorScreen } from './src/screens/LadderMatchArbitratorScreen';
+import { LadderMatchDetailScreen } from './src/screens/LadderMatchDetailScreen';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
-import * as Linking from 'expo-linking';
-
-if (Platform.OS === 'web') {
-  const style = document.createElement('style');
-  style.textContent = `
-    body {
-      background-color: #0a0a0a;
-      overflow-x: hidden;
-      overscroll-behavior-y: contain;
-      overscroll-behavior-x: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    #root {
-      height: 100vh;
-      height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-  `;
-  document.head.appendChild(style);
-}
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-// ----------------------------------------------------
-// COMPONENTE CONTENEDOR PRINCIPAL
-// ----------------------------------------------------
+const NotFoundScreen = ({ navigation, route }: any) => (
+  <View style={{ flex: 1, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ padding: theme.spacing.lg }}>
+      <HomeScreen navigation={navigation} route={route} />
+    </View>
+  </View>
+);
+
 const toastConfig = {
   success: (props: any) => (
     <BaseToast
       {...props}
-      style={{ 
+      style={{
         backgroundColor: '#0a0a0a',
-        borderLeftColor: '#6366F1',
+        borderLeftColor: theme.colors.primary,
         borderWidth: 1,
-        borderColor: '#222222',
-        borderRadius: 8
+        borderColor: theme.colors.border,
+        borderRadius: 8,
+        height: 'auto',
+        minHeight: 60,
+        paddingVertical: 8,
       }}
       contentContainerStyle={{ paddingHorizontal: 15 }}
       text1Style={{
-        color: '#ffffff',
         fontSize: 14,
-        fontWeight: '700'
+        fontWeight: 'bold',
+        color: '#ffffff',
       }}
       text2Style={{
-        color: '#888888',
-        fontSize: 12
+        fontSize: 12,
+        color: '#aaaaaa',
+        numberOfLines: 3,
       }}
     />
   ),
   error: (props: any) => (
     <ErrorToast
       {...props}
-      style={{ 
+      style={{
         backgroundColor: '#0a0a0a',
-        borderLeftColor: '#ff4444',
+        borderLeftColor: '#ef4444',
         borderWidth: 1,
-        borderColor: '#222222',
-        borderRadius: 8
+        borderColor: theme.colors.border,
+        borderRadius: 8,
+        height: 'auto',
+        minHeight: 60,
+        paddingVertical: 8,
       }}
       contentContainerStyle={{ paddingHorizontal: 15 }}
       text1Style={{
-        color: '#ffffff',
         fontSize: 14,
-        fontWeight: '700'
+        fontWeight: 'bold',
+        color: '#ffffff',
       }}
       text2Style={{
-        color: '#888888',
-        fontSize: 12
+        fontSize: 12,
+        color: '#aaaaaa',
+        numberOfLines: 3,
       }}
     />
   )
@@ -140,52 +131,39 @@ function AppContent() {
       case 'LaddersList': return 'Ladders & Competencias';
       case 'LadderDetail': return 'Tabla de Posiciones';
       case 'LadderMatchArbitrator': return 'Arbitraje en Vivo';
-      case 'NotFound': return 'No Encontrado';
+      case 'LadderMatchDetail': return 'Detalle de Partido';
       default: return 'Beauchapp';
     }
   };
 
-  const rootScreens = ['Home', 'Profile', 'Settings', 'Directory', 'ProblemsList', 'Notifications', 'LaddersList'];
-  const showBackButton = !rootScreens.includes(currentRouteName);
+  const showBackButton = currentRouteName !== 'Home' && currentRouteName !== 'Directory';
 
   const handleBack = () => {
-    if (navigationRef.isReady()) {
-      if (navigationRef.canGoBack()) {
-        navigationRef.goBack();
+    if (navigationRef.canGoBack()) {
+      navigationRef.goBack();
+    } else {
+      if (['ProblemDetail', 'ProblemEditor'].includes(currentRouteName)) {
+        navigationRef.navigate('ProblemsList');
+      } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'FollowList'].includes(currentRouteName)) {
+        navigationRef.navigate('Directory');
+      } else if (['LadderDetail', 'LadderMatchArbitrator', 'LadderMatchDetail'].includes(currentRouteName)) {
+        navigationRef.navigate('LaddersList');
       } else {
-        // Fallback for deep-linking
-        if (currentRouteName === 'ProblemDetail' || currentRouteName === 'ProblemEditor') {
-          navigationRef.navigate('ProblemsList' as never);
-        } else if (currentRouteName === 'LadderDetail' || currentRouteName === 'LadderMatchArbitrator') {
-          navigationRef.navigate('LaddersList' as never);
-        } else if (currentRouteName === 'PostDetail') {
-          navigationRef.navigate('Home' as never);
-        } else if (['Students', 'Communities', 'Centers', 'Teams', 'FollowList', 'UserProfile'].includes(currentRouteName)) {
-          navigationRef.navigate('Directory' as never);
-        } else {
-          navigationRef.navigate('Home' as never);
-        }
+        navigationRef.navigate('Home');
       }
     }
   };
 
   if (!isInitialized) {
-    return (
-      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
-        <StatusBar barStyle="light-content" backgroundColor={theme.colors.cardBg} />
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </SafeAreaView>
-    );
+    return null;
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.colors.cardBg} />
-      
-      <NavigationContainer 
+      <NavigationContainer
         ref={navigationRef}
         linking={{
-          prefixes: [Linking.createURL('/'), 'http://localhost:8081'],
+          prefixes: ['https://beauchapp.cl', 'beauchapp://'],
           config: {
             screens: {
               Profile: 'profile',
@@ -207,6 +185,7 @@ function AppContent() {
               LaddersList: 'ladders',
               LadderDetail: 'ladders/:slug',
               LadderMatchArbitrator: 'ladders/:slug/arbitrate',
+              LadderMatchDetail: 'ladders/matches/:matchId',
             }
           }
         }}
@@ -243,7 +222,7 @@ function AppContent() {
                   title={getScreenTitle(currentRouteName, currentRouteParams)} 
                   onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                   onBack={showBackButton ? handleBack : undefined}
-                  onRefresh={['Home', 'ProblemsList', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Students', 'FollowList', 'LaddersList', 'LadderDetail'].includes(currentRouteName) ? () => {
+                  onRefresh={['Home', 'ProblemsList', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail'].includes(currentRouteName) ? () => {
                     DeviceEventEmitter.emit('onGlobalRefresh');
                   } : undefined}
                 />
@@ -267,6 +246,7 @@ function AppContent() {
                     <Stack.Screen name="LaddersList" component={LaddersListScreen} />
                     <Stack.Screen name="LadderDetail" component={LadderDetailScreen} />
                     <Stack.Screen name="LadderMatchArbitrator" component={LadderMatchArbitratorScreen} />
+                    <Stack.Screen name="LadderMatchDetail" component={LadderMatchDetailScreen} />
                     <Stack.Screen name="Settings" component={SettingsScreen} />
                     <Stack.Screen name="NotFound" component={NotFoundScreen} />
                   </Stack.Navigator>
@@ -323,17 +303,10 @@ const styles = StyleSheet.create({
   appContainer: {
     flex: 1,
     width: '100%',
-    ...Platform.select({
-      web: {
-        maxWidth: 800,
-        alignSelf: 'center',
-        borderLeftWidth: 1,
-        borderRightWidth: 1,
-        borderColor: theme.colors.border,
-      },
-    }),
+    backgroundColor: theme.colors.background,
   },
   appContainerDesktop: {
     maxWidth: 1050,
+    alignSelf: 'center',
   },
 });

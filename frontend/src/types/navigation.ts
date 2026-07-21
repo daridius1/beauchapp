@@ -23,4 +23,5 @@ export type RootStackParamList = {
   LaddersList: undefined;
   LadderDetail: { slug: string };
   LadderMatchArbitrator: { slug: string };
+  LadderMatchDetail: { matchId: string };
 };
