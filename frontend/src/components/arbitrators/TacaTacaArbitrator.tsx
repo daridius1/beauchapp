@@ -145,45 +145,63 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
     }
   };
 
-  const shuffleAnim = React.useRef(new Animated.Value(1)).current;
+  const [isShuffling, setIsShuffling] = useState<boolean>(false);
+  const shuffleOpacity = React.useRef(new Animated.Value(1)).current;
+  const shuffleScale = React.useRef(new Animated.Value(1)).current;
 
   const handleShuffleTeams = () => {
     if (teamRed.length === 0 && teamBlue.length === 0) return;
+    if (isShuffling) return;
 
-    Animated.sequence([
-      Animated.timing(shuffleAnim, {
-        toValue: 0.2,
-        duration: 150,
+    setIsShuffling(true);
+
+    // 1. Ocultar los nombres suavemente con escala (350ms)
+    Animated.parallel([
+      Animated.timing(shuffleOpacity, {
+        toValue: 0,
+        duration: 350,
         useNativeDriver: true,
       }),
-      Animated.timing(shuffleAnim, {
-        toValue: 1,
-        duration: 200,
+      Animated.timing(shuffleScale, {
+        toValue: 0.92,
+        duration: 350,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]).start(() => {
+      // 2. Realizar sorteo 50/50 mientras están invisibles
+      const shouldSwap = Math.random() < 0.5;
+      if (shouldSwap) {
+        const tempRed = [...teamRed];
+        const tempBlue = [...teamBlue];
+        setTeamRed(tempBlue);
+        setTeamBlue(tempRed);
+      }
 
-    // Sorteo real al 50/50
-    const shouldSwap = Math.random() < 0.5;
-
-    if (shouldSwap) {
-      const tempRed = [...teamRed];
-      const tempBlue = [...teamBlue];
-      setTeamRed(tempBlue);
-      setTeamBlue(tempRed);
-
-      Toast.show({
-        type: 'info',
-        text1: '🔀 Sorteo Realizado (50/50)',
-        text2: '¡El azar hizo que los equipos cambiaran de lado!',
-      });
-    } else {
-      Toast.show({
-        type: 'info',
-        text1: '🔀 Sorteo Realizado (50/50)',
-        text2: 'El azar mantuvo a los equipos en su posición actual.',
-      });
-    }
+      // 3. Tiempo de suspenso (400ms) y reaparición gradual (450ms)
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(shuffleOpacity, {
+            toValue: 1,
+            duration: 450,
+            useNativeDriver: true,
+          }),
+          Animated.timing(shuffleScale, {
+            toValue: 1,
+            duration: 450,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setIsShuffling(false);
+          Toast.show({
+            type: 'info',
+            text1: '🔀 Sorteo Realizado (50/50)',
+            text2: shouldSwap
+              ? '¡El azar hizo que los equipos cambiaran de lado!'
+              : 'El azar mantuvo a los equipos en su posición actual.',
+          });
+        });
+      }, 400);
+    });
   };
 
   const handleRemovePlayer = (team: 'red' | 'blue', index: number) => {
@@ -300,7 +318,7 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         <View style={styles.setupSection}>
           <Text style={styles.stepTitleText}>Paso 1: Asignar Equipos (2 vs 2)</Text>
 
-          <Animated.View style={{ opacity: shuffleAnim }}>
+          <Animated.View style={{ opacity: shuffleOpacity, transform: [{ scale: shuffleScale }] }}>
             <View style={styles.playersSection}>
               {/* Equipo Rojo */}
               <View style={styles.teamContainerRed}>

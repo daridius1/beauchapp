@@ -151,46 +151,62 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   };
 
   const [isShuffling, setIsShuffling] = useState<boolean>(false);
-  const shuffleAnim = React.useRef(new Animated.Value(1)).current;
+  const shuffleOpacity = React.useRef(new Animated.Value(1)).current;
+  const shuffleScale = React.useRef(new Animated.Value(1)).current;
 
   const handleShuffleTeams = () => {
     if (playerRed.length === 0 && playerBlue.length === 0) return;
+    if (isShuffling) return;
 
-    // Animación visual de desvanecimiento/destello al sortear (siempre se ejecuta)
-    Animated.sequence([
-      Animated.timing(shuffleAnim, {
-        toValue: 0.2,
-        duration: 150,
+    setIsShuffling(true);
+
+    // 1. Ocultar los nombres suavemente con escala (350ms)
+    Animated.parallel([
+      Animated.timing(shuffleOpacity, {
+        toValue: 0,
+        duration: 350,
         useNativeDriver: true,
       }),
-      Animated.timing(shuffleAnim, {
-        toValue: 1,
-        duration: 200,
+      Animated.timing(shuffleScale, {
+        toValue: 0.92,
+        duration: 350,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]).start(() => {
+      // 2. Realizar sorteo 50/50 mientras están invisibles
+      const shouldSwap = Math.random() < 0.5;
+      if (shouldSwap) {
+        const tempRed = [...playerRed];
+        const tempBlue = [...playerBlue];
+        setPlayerRed(tempBlue);
+        setPlayerBlue(tempRed);
+      }
 
-    // Sorteo real al 50/50
-    const shouldSwap = Math.random() < 0.5;
-
-    if (shouldSwap) {
-      const tempRed = [...playerRed];
-      const tempBlue = [...playerBlue];
-      setPlayerRed(tempBlue);
-      setPlayerBlue(tempRed);
-
-      Toast.show({
-        type: 'info',
-        text1: '🔀 Sorteo Realizado (50/50)',
-        text2: '¡El azar hizo que los jugadores cambiaran de lado!',
-      });
-    } else {
-      Toast.show({
-        type: 'info',
-        text1: '🔀 Sorteo Realizado (50/50)',
-        text2: 'El azar mantuvo a los jugadores en su posición actual.',
-      });
-    }
+      // 3. Tiempo de suspenso (400ms) y reaparición gradual (450ms)
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(shuffleOpacity, {
+            toValue: 1,
+            duration: 450,
+            useNativeDriver: true,
+          }),
+          Animated.timing(shuffleScale, {
+            toValue: 1,
+            duration: 450,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setIsShuffling(false);
+          Toast.show({
+            type: 'info',
+            text1: '🔀 Sorteo Realizado (50/50)',
+            text2: shouldSwap
+              ? '¡El azar hizo que los jugadores cambiaran de lado!'
+              : 'El azar mantuvo a los jugadores en su posición actual.',
+          });
+        });
+      }, 400);
+    });
   };
 
   const handleRemovePlayer = (team: 'red' | 'blue') => {
@@ -356,7 +372,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         <View style={styles.setupSection}>
           <Text style={styles.stepTitleText}>Paso 1: Asignar Jugadores (1 vs 1)</Text>
 
-          <Animated.View style={{ opacity: shuffleAnim }}>
+          <Animated.View style={{ opacity: shuffleOpacity, transform: [{ scale: shuffleScale }] }}>
             <View style={styles.playersSection}>
               {/* Jugador Lado Rojo */}
               <View style={styles.teamContainerRed}>
