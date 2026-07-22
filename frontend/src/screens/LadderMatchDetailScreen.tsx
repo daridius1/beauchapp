@@ -90,11 +90,10 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
   }
 
   const createdDate = new Date(match.created);
-  const formattedDate = createdDate.toLocaleDateString('es-CL', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  const day = String(createdDate.getDate()).padStart(2, '0');
+  const month = String(createdDate.getMonth() + 1).padStart(2, '0');
+  const year = String(createdDate.getFullYear()).slice(-2);
+  const formattedDate = `${day}/${month}/${year}`;
   const formattedTime = createdDate.toLocaleTimeString('es-CL', {
     hour: '2-digit',
     minute: '2-digit',
