@@ -26,7 +26,8 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   const [step, setStep] = useState<'setup' | 'live'>('setup');
-  const [mode, setMode] = useState<'1v1' | '2v2'>('2v2');
+  const initialMode = (ladder.allowed_modes && ladder.allowed_modes.includes('1v1')) || ladder.slug.includes('1v1') ? '1v1' : '2v2';
+  const [mode, setMode] = useState<'1v1' | '2v2'>(initialMode);
 
   const [teamRed, setTeamRed] = useState<StudentUser[]>([]);
   const [teamBlue, setTeamBlue] = useState<StudentUser[]>([]);

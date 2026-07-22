@@ -54,15 +54,15 @@ export const LadderMatchArbitratorScreen: React.FC<Props> = ({ navigation, route
   }
 
   // Router dinámico de árbitros según la disciplina deportiva
-  if (ladder.slug === 'taca-taca') {
+  if (ladder.slug.startsWith('taca-taca')) {
     return <TacaTacaArbitrator ladder={ladder} navigation={navigation} />;
   }
 
-  if (ladder.slug === 'tenis-de-mesa') {
+  if (ladder.slug.startsWith('tenis-de-mesa')) {
     return <TableTennisArbitrator ladder={ladder} navigation={navigation} />;
   }
 
-  if (ladder.slug === 'tiptap') {
+  if (ladder.slug.startsWith('tiptap')) {
     return <TipTapArbitrator ladder={ladder} navigation={navigation} />;
   }
 

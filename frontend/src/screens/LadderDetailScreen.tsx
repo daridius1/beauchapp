@@ -148,7 +148,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           onPress={() => navigation.navigate('LadderMatchArbitrator', { slug: activeCategory.slug, name: sportGroupInfo.group.groupName })}
         >
           <Feather name="play-circle" color={theme.colors.text} size={15} style={{ marginRight: 6 }} />
-          <Text style={styles.arbitrateButtonText}>Arbitrar Partido en Vivo</Text>
+          <Text style={styles.arbitrateButtonText}>Arbitrar</Text>
         </TouchableOpacity>
       </View>
 
