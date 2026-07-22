@@ -94,6 +94,20 @@ export const ladderService = {
     const user = pb.authStore.model;
     if (!user) throw new Error('Debes estar autenticado para registrar un partido.');
 
+    // Resolver el ladder de destino dinámicamente según la modalidad seleccionada (1v1 vs 2v2)
+    let targetLadderId = data.ladderId;
+    try {
+      const currentLadder = await pb.collection('ladders').getOne(data.ladderId);
+      const sportGroup = currentLadder.slug.replace(/-(1v1|2v2)$/, '');
+      const targetSlug = `${sportGroup}-${data.mode}`;
+      const matchingLadder = await pb.collection('ladders').getFirstListItem(`slug = "${targetSlug}"`);
+      if (matchingLadder) {
+        targetLadderId = matchingLadder.id;
+      }
+    } catch (err) {
+      console.warn('No se pudo resolver sub-ladder específico por modo, usando por defecto:', err);
+    }
+
     // Inicializar confirmación automática del árbitro si está en uno de los equipos
     const confirmations: Record<string, string> = {};
     if (data.teamRed.includes(user.id) || data.teamBlue.includes(user.id)) {
@@ -101,7 +115,7 @@ export const ladderService = {
     }
 
     const payload = {
-      ladder: data.ladderId,
+      ladder: targetLadderId,
       arbiter: user.id,
       mode: data.mode,
       team_red: data.teamRed,
@@ -197,7 +211,8 @@ async function updateRanksForMatch(match: LadderMatch) {
       const deltaElo = isWinner ? 16 : -10;
 
       if (rankRecord) {
-        const currentElo = rankRecord.ordinal_rating || 1200;
+        const rawElo = rankRecord.ordinal_rating;
+        const currentElo = typeof rawElo === 'number' && rawElo > 100 ? rawElo : 1200;
         await pb.collection('ladder_ranks').update(rankRecord.id, {
           matches_played: (rankRecord.matches_played || 0) + 1,
           wins: (rankRecord.wins || 0) + (isWinner ? 1 : 0),

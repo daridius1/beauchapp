@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, TextInput, ActivityIndicator, Animated } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, TextInput, ActivityIndicator, Animated, Platform } from 'react-native';
 import { theme } from '../../theme/theme';
 import { pb } from '../../services/pocketbase';
 import { useAuth } from '../../context/AuthContext';
@@ -124,12 +124,12 @@ export const MatchSetupStep: React.FC<Props> = ({
       Animated.timing(shuffleOpacity, {
         toValue: 0,
         duration: 350,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(shuffleScale, {
         toValue: 0.92,
         duration: 350,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start(() => {
       const shouldSwap = Math.random() < 0.5;
@@ -145,12 +145,12 @@ export const MatchSetupStep: React.FC<Props> = ({
           Animated.timing(shuffleOpacity, {
             toValue: 1,
             duration: 450,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
           }),
           Animated.timing(shuffleScale, {
             toValue: 1,
             duration: 450,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
           }),
         ]).start(() => {
           setIsShuffling(false);
