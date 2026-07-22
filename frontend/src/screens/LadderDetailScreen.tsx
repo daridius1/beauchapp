@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, DeviceEventEmitter } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, DeviceEventEmitter, Platform } from 'react-native';
 import { theme } from '../theme/theme';
 import { ladderService } from '../services/ladderService';
 import { Ladder, LadderRank, LadderMatch } from '../types/ladder';
@@ -394,14 +394,23 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    overflow: 'hidden',
   },
-  matchCardRedWon: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#ff4444',
+  matchCardRedWon: Platform.OS === 'web' ? ({
+    backgroundImage: 'linear-gradient(to top, rgba(255, 68, 68, 0.22) 0%, rgba(255, 68, 68, 0.04) 60%, transparent 100%)',
+    borderBottomWidth: 3,
+    borderBottomColor: '#ff4444',
+  } as any) : {
+    borderBottomWidth: 3,
+    borderBottomColor: '#ff4444',
   },
-  matchCardBlueWon: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#38bdf8',
+  matchCardBlueWon: Platform.OS === 'web' ? ({
+    backgroundImage: 'linear-gradient(to top, rgba(56, 189, 248, 0.22) 0%, rgba(56, 189, 248, 0.04) 60%, transparent 100%)',
+    borderBottomWidth: 3,
+    borderBottomColor: '#38bdf8',
+  } as any) : {
+    borderBottomWidth: 3,
+    borderBottomColor: '#38bdf8',
   },
   matchDateHeader: {
     alignItems: 'center',
