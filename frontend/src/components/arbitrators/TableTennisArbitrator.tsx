@@ -301,7 +301,11 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
         text2: `Resultado final: Rojo ${scoreRed} - ${scoreBlue} Azul. Se notificó a los jugadores.`,
       });
 
-      navigation.navigate('LadderDetail', { slug: ladder.slug });
+      if (navigation.replace) {
+        navigation.replace('LadderDetail', { slug: ladder.slug });
+      } else {
+        navigation.navigate('LadderDetail', { slug: ladder.slug });
+      }
     } catch (err: any) {
       Toast.show({
         type: 'error',

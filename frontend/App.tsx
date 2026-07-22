@@ -139,6 +139,31 @@ function AppContent() {
   const showBackButton = currentRouteName !== 'Home' && currentRouteName !== 'Directory';
 
   const handleBack = () => {
+    // Navegación defensiva anti-bucles para Ladders y Partidos
+    if (['LadderMatchArbitrator', 'LadderMatchDetail'].includes(currentRouteName)) {
+      const state = navigationRef.getRootState();
+      const routes = state?.routes || [];
+      const prevRoute = routes.length > 1 ? routes[routes.length - 2] : null;
+      if (prevRoute && prevRoute.name === 'LadderDetail') {
+        navigationRef.goBack();
+      } else if (currentRouteParams?.slug) {
+        navigationRef.navigate('LadderDetail', { slug: currentRouteParams.slug });
+      } else {
+        navigationRef.navigate('LaddersList');
+      }
+      return;
+    }
+
+    if (currentRouteName === 'LadderDetail') {
+      navigationRef.navigate('LaddersList');
+      return;
+    }
+
+    if (currentRouteName === 'LaddersList') {
+      navigationRef.navigate('Home');
+      return;
+    }
+
     if (navigationRef.canGoBack()) {
       navigationRef.goBack();
     } else {
@@ -146,8 +171,6 @@ function AppContent() {
         navigationRef.navigate('ProblemsList');
       } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'FollowList'].includes(currentRouteName)) {
         navigationRef.navigate('Directory');
-      } else if (['LadderDetail', 'LadderMatchArbitrator', 'LadderMatchDetail'].includes(currentRouteName)) {
-        navigationRef.navigate('LaddersList');
       } else {
         navigationRef.navigate('Home');
       }
