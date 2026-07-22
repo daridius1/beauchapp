@@ -114,6 +114,24 @@ export const ladderService = {
     };
 
     const record = await pb.collection('ladder_matches').create<LadderMatch>(payload);
+
+    // Notificar a todos los jugadores involucrados (excepto al árbitro que lo creó)
+    const allPlayers = [...new Set([...data.teamRed, ...data.teamBlue])].filter((id) => id !== user.id);
+    for (const recipientId of allPlayers) {
+      try {
+        await pb.collection('notifications').create({
+          user: recipientId,
+          sender: user.id,
+          type: 'ladder_match',
+          title: 'Resultado de partido propuesto',
+          body: `Se propuso un resultado (${data.scoreRed} - ${data.scoreBlue}). Toca para revisar y responder.`,
+          relatedId: record.id,
+        });
+      } catch (err) {
+        console.error('Error creating match notification:', err);
+      }
+    }
+
     return record;
   },
 
@@ -130,10 +148,82 @@ export const ladderService = {
 
     currentConfirmations[user.id] = decision;
 
-    const updated = await pb.collection('ladder_matches').update<LadderMatch>(matchId, {
-      confirmations: JSON.stringify(currentConfirmations),
-    });
+    if (decision === 'rejected') {
+      const updated = await pb.collection('ladder_matches').update<LadderMatch>(matchId, {
+        status: 'rejected',
+        confirmations: JSON.stringify(currentConfirmations),
+      });
+      return updated;
+    }
 
-    return updated;
+    // Verificar si todos los integrantes requeridos han aceptado
+    const allParticipants = [...new Set([...match.team_red, ...match.team_blue])];
+    const allAccepted = allParticipants.every((pid) => currentConfirmations[pid] === 'accepted');
+
+    const updatePayload: any = {
+      confirmations: JSON.stringify(currentConfirmations),
+    };
+
+    if (allAccepted) {
+      updatePayload.status = 'confirmed';
+    }
+
+    const updatedMatch = await pb.collection('ladder_matches').update<LadderMatch>(matchId, updatePayload);
+
+    // Si el partido se confirmó totalmente, actualizar rankings ELO
+    if (allAccepted) {
+      await updateRanksForMatch(updatedMatch);
+    }
+
+    return updatedMatch;
   },
 };
+
+async function updateRanksForMatch(match: LadderMatch) {
+  const ladderId = match.ladder;
+  const redWon = match.score_red > match.score_blue;
+  const blueWon = match.score_blue > match.score_red;
+
+  const redPlayers = match.team_red || [];
+  const bluePlayers = match.team_blue || [];
+
+  const updatePlayerRank = async (userId: string, isWinner: boolean) => {
+    try {
+      const records = await pb.collection('ladder_ranks').getList(1, 1, {
+        filter: `ladder = "${ladderId}" && user = "${userId}"`,
+      });
+
+      let rankRecord = records.items[0];
+      const deltaElo = isWinner ? 16 : -10;
+
+      if (rankRecord) {
+        const currentElo = rankRecord.ordinal_rating || 1200;
+        await pb.collection('ladder_ranks').update(rankRecord.id, {
+          matches_played: (rankRecord.matches_played || 0) + 1,
+          wins: (rankRecord.wins || 0) + (isWinner ? 1 : 0),
+          losses: (rankRecord.losses || 0) + (isWinner ? 0 : 1),
+          ordinal_rating: Math.max(100, currentElo + deltaElo),
+        });
+      } else {
+        await pb.collection('ladder_ranks').create({
+          ladder: ladderId,
+          user: userId,
+          matches_played: 1,
+          wins: isWinner ? 1 : 0,
+          losses: isWinner ? 0 : 1,
+          ordinal_rating: Math.max(100, 1200 + deltaElo),
+        });
+      }
+    } catch (err) {
+      console.error('Error updating player rank for match:', userId, err);
+    }
+  };
+
+  for (const pid of redPlayers) {
+    await updatePlayerRank(pid, redWon);
+  }
+
+  for (const pid of bluePlayers) {
+    await updatePlayerRank(pid, blueWon);
+  }
+}

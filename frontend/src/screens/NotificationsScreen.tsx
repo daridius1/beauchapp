@@ -87,6 +87,8 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       navigation.navigate('Tinder', { initialTab: 'matches' });
     } else if (item.type === 'mention' && item.relatedId) {
       navigation.navigate('PostDetail', { postId: item.relatedId });
+    } else if (item.type === 'ladder_match' && item.relatedId) {
+      navigation.navigate('LadderMatchDetail', { matchId: item.relatedId });
     }
   };
 

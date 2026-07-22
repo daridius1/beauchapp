@@ -129,7 +129,7 @@ function AppContent() {
       case 'ProblemEditor': return params?.type === 'problem' ? 'Subir Problema' : 'Subir Pauta';
       case 'Tinder': return 'Tinder Beauchef';
       case 'Notifications': return 'Notificaciones';
-      case 'LaddersList': return 'Ladders & Competencias';
+      case 'LaddersList': return 'Ladders';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
       case 'LadderMatchDetail':

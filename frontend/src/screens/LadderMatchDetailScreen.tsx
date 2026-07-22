@@ -225,24 +225,40 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
         </View>
       </View>
 
-      {/* Acción Pendiente */}
-      {match.status === 'pending_confirmation' && currentUser && (match.team_red.includes(currentUser.id) || match.team_blue.includes(currentUser.id)) && match.confirmations?.[currentUser.id] === undefined && (
-        <View style={styles.confirmBox}>
-          <Text style={styles.confirmTitle}>¿Participaste en este partido?</Text>
-          {actionLoading ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-          ) : (
-            <View style={styles.confirmBtns}>
-              <TouchableOpacity style={styles.acceptBtn} onPress={() => handleRespondMatch('accepted')}>
-                <Text style={styles.btnText}>Confirmar Resultado</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.rejectBtn} onPress={() => handleRespondMatch('rejected')}>
-                <Text style={styles.btnText}>Objetar</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+      {/* Insignia / Banner de Estado Pendiente */}
+      {(match.status === 'pending_confirmation' || match.status === 'disputed') && (
+        <View style={styles.statusBannerPending}>
+          <View style={styles.statusChipPending}>
+            <Text style={styles.statusChipPendingText}>Pendiente</Text>
+          </View>
+          <Text style={styles.statusBannerText}>
+            Resultado propuesto pendiente de confirmación por los jugadores.
+          </Text>
         </View>
       )}
+
+      {/* Acción de Confirmación para el usuario actual */}
+      {(match.status === 'pending_confirmation' || match.status === 'disputed') &&
+        currentUser &&
+        (match.team_red.includes(currentUser.id) || match.team_blue.includes(currentUser.id)) &&
+        match.confirmations?.[currentUser.id] !== 'accepted' &&
+        match.confirmations?.[currentUser.id] !== 'rejected' && (
+          <View style={styles.confirmBox}>
+            <Text style={styles.confirmTitle}>¿Participaste en este partido y aceptas el resultado?</Text>
+            {actionLoading ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : (
+              <View style={styles.confirmBtns}>
+                <TouchableOpacity style={styles.acceptBtn} activeOpacity={0.8} onPress={() => handleRespondMatch('accepted')}>
+                  <Text style={styles.acceptBtnText}>Aceptar Resultado</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.rejectBtn} activeOpacity={0.8} onPress={() => handleRespondMatch('rejected')}>
+                  <Text style={styles.rejectBtnText}>Rechazar Resultado</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
 
       {/* Secuencia Dinámica de Puntos con Gradiente Direccional */}
       {timelineEvents.length > 0 && (
@@ -419,42 +435,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: theme.colors.text,
   },
-  confirmBox: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 8,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
-    alignItems: 'center',
-  },
-  confirmTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.colors.text,
-    marginBottom: 8,
-  },
-  confirmBtns: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  acceptBtn: {
-    backgroundColor: '#22c55e',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  rejectBtn: {
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  btnText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
   timelineSection: {
     gap: 6,
   },
@@ -617,5 +597,78 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: 3,
+  },
+  statusBannerPending: {
+    backgroundColor: 'rgba(255, 170, 0, 0.08)',
+    borderRadius: 8,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 170, 0, 0.3)',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  statusChipPending: {
+    backgroundColor: 'rgba(255, 170, 0, 0.2)',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 6,
+  },
+  statusChipPendingText: {
+    color: '#ffaa00',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  statusBannerText: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  confirmBox: {
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: 8,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  confirmTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  confirmBtns: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  acceptBtn: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 6,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  acceptBtnText: {
+    color: '#000000',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  rejectBtn: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    borderRadius: 6,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ff4444',
+  },
+  rejectBtnText: {
+    color: '#ff4444',
+    fontSize: 12,
+    fontWeight: '800',
   },
 });
