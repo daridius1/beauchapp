@@ -89,10 +89,6 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
     );
   }
 
-  const isConfirmed = match.status === 'confirmed';
-  const isDisputed = match.status === 'disputed';
-  const isPending = match.status === 'pending_confirmation';
-
   const createdDate = new Date(match.created);
   const formattedDate = createdDate.toLocaleDateString('es-CL', {
     day: '2-digit',
@@ -101,8 +97,6 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
     hour: '2-digit',
     minute: '2-digit',
   });
-
-  const isTipTap = match.expand?.ladder?.slug === 'tiptap';
 
   let runningRed = 0;
   let runningBlue = 0;
@@ -150,7 +144,6 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-
       {/* Marcador Plano con Nombres Coloreados */}
       <View
         style={[
@@ -221,24 +214,54 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
         </View>
       )}
 
-      {/* Timeline de Secuencia con Nombres Coloreados */}
-      <View style={styles.timelineSection}>
-        <Text style={styles.timelineTitle}>Secuencia de Juego ({timelineEvents.length})</Text>
+      {/* Secuencia Dinámica de Puntos con Gradiente Direccional */}
+      {timelineEvents.length > 0 && (
+        <View style={styles.timelineSection}>
+          <Text style={styles.timelineTitle}>Secuencia de Juego ({timelineEvents.length})</Text>
 
-        {timelineEvents.map((ev) => (
-          <View key={ev.index} style={styles.timelineRow}>
-            <Text style={styles.timelineIndex}>#{ev.index}</Text>
-            <Text style={styles.timelineText}>
-              Peloteo #{ev.index}:{' '}
-              <Text style={{ color: ev.team === 'red' ? '#ff4444' : '#38bdf8', fontWeight: '700' }}>
-                {ev.winnerName}
-              </Text>
-              {ev.points > 1 ? ` cobra +${ev.points} pts` : ' suma 1 pt'}
-            </Text>
-            <Text style={styles.timelineScore}>({ev.scoreRedAfter} - {ev.scoreBlueAfter})</Text>
-          </View>
-        ))}
-      </View>
+          {timelineEvents.map((ev) => {
+            const isRed = ev.team === 'red';
+            return (
+              <View
+                key={ev.index}
+                style={[
+                  styles.eventRowCard,
+                  isRed ? styles.eventRowRed : styles.eventRowBlue,
+                ]}
+              >
+                {/* Lado Izquierdo (Info de Lado Rojo) */}
+                <View style={styles.eventSideLeft}>
+                  {isRed && (
+                    <View style={styles.eventMetaLeft}>
+                      <Text style={styles.eventIndexRed}>#{ev.index}</Text>
+                      <Text style={styles.eventPlayerRed} numberOfLines={1}>{ev.winnerName}</Text>
+                      {ev.points > 1 && <Text style={styles.eventPointsBadgeRed}>+{ev.points}</Text>}
+                    </View>
+                  )}
+                </View>
+
+                {/* Marcador al centro siempre actualizándose */}
+                <View style={styles.eventCenterScore}>
+                  <Text style={styles.eventScoreText}>
+                    <Text style={{ color: '#ff4444' }}>{ev.scoreRedAfter}</Text> - <Text style={{ color: '#38bdf8' }}>{ev.scoreBlueAfter}</Text>
+                  </Text>
+                </View>
+
+                {/* Lado Derecho (Info de Lado Azul) */}
+                <View style={styles.eventSideRight}>
+                  {!isRed && (
+                    <View style={styles.eventMetaRight}>
+                      {ev.points > 1 && <Text style={styles.eventPointsBadgeBlue}>+{ev.points}</Text>}
+                      <Text style={styles.eventPlayerBlue} numberOfLines={1}>{ev.winnerName}</Text>
+                      <Text style={styles.eventIndexBlue}>#{ev.index}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
     </ScrollView>
   );
 };
@@ -380,40 +403,112 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   timelineSection: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 8,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    gap: 6,
   },
   timelineTitle: {
     fontSize: 13,
     fontWeight: '700',
     color: theme.colors.text,
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
   },
-  timelineRow: {
+  eventRowCard: {
+    backgroundColor: '#121212',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    overflow: 'hidden',
   },
-  timelineIndex: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: theme.colors.textMuted,
-    width: 28,
+  eventRowRed: Platform.OS === 'web' ? ({
+    backgroundImage: 'linear-gradient(to right, rgba(255, 68, 68, 0.22) 0%, rgba(255, 68, 68, 0.03) 55%, transparent 100%)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#ff4444',
+  } as any) : {
+    borderLeftWidth: 3,
+    borderLeftColor: '#ff4444',
+    backgroundColor: 'rgba(255, 68, 68, 0.06)',
   },
-  timelineText: {
+  eventRowBlue: Platform.OS === 'web' ? ({
+    backgroundImage: 'linear-gradient(to left, rgba(56, 189, 248, 0.22) 0%, rgba(56, 189, 248, 0.03) 55%, transparent 100%)',
+    borderRightWidth: 3,
+    borderRightColor: '#38bdf8',
+  } as any) : {
+    borderRightWidth: 3,
+    borderRightColor: '#38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.06)',
+  },
+  eventSideLeft: {
     flex: 1,
-    fontSize: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  eventSideRight: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  eventCenterScore: {
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  eventScoreText: {
+    fontSize: 13,
+    fontWeight: '800',
     color: theme.colors.text,
   },
-  timelineScore: {
-    fontSize: 11,
+  eventMetaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  eventMetaRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  eventIndexRed: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#ff4444',
+    opacity: 0.7,
+  },
+  eventIndexBlue: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#38bdf8',
+    opacity: 0.7,
+  },
+  eventPlayerRed: {
+    fontSize: 12,
     fontWeight: '700',
-    color: theme.colors.textMuted,
-    marginLeft: 8,
+    color: '#ff4444',
+  },
+  eventPlayerBlue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#38bdf8',
+  },
+  eventPointsBadgeRed: {
+    backgroundColor: 'rgba(255, 68, 68, 0.18)',
+    color: '#ff4444',
+    fontSize: 10,
+    fontWeight: '800',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  eventPointsBadgeBlue: {
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    color: '#38bdf8',
+    fontSize: 10,
+    fontWeight: '800',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 3,
   },
 });
