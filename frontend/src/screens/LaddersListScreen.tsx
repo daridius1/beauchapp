@@ -84,12 +84,9 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
       }
     >
       <View style={styles.headerBox}>
-        <View style={styles.headerIconContainer}>
-          <Feather name="award" color="#ffffff" size={28} />
-        </View>
-        <Text style={styles.title}>Ladders & Competencias</Text>
+        <Text style={styles.title}>Rankings FCFM</Text>
         <Text style={styles.subtitle}>
-          Rankings oficiales de la FCFM. Compite en Taca Taca, Tenis de Mesa y más. Registra marcadores en vivo y sube en la tabla de posiciones.
+          Competencias deportivas de Beauchef. Selecciona una disciplina para ver posiciones y arbitrar.
         </Text>
       </View>
 
@@ -105,30 +102,24 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
             activeOpacity={0.7}
             onPress={() => navigation.navigate('LadderDetail', { slug: ladder.slug })}
           >
-            <View style={styles.cardHeader}>
-              <View style={styles.cardIconBox}>
-                <Feather name="activity" color="#ffffff" size={20} />
-              </View>
-              <View style={styles.cardTitleBox}>
+            <View style={styles.cardMain}>
+              <View style={styles.cardHeaderRow}>
                 <Text style={styles.ladderName}>{ladder.name}</Text>
                 <View style={styles.modeBadge}>
                   <Text style={styles.modeBadgeText}>
-                    {ladder.allowed_modes?.join(' / ') || '2v2'}
+                    {ladder.allowed_modes?.join(' / ') || '1v1'}
                   </Text>
                 </View>
               </View>
+
+              {!!ladder.description && (
+                <Text style={styles.description} numberOfLines={2}>
+                  {ladder.description}
+                </Text>
+              )}
             </View>
 
-            {!!ladder.description && (
-              <Text style={styles.description} numberOfLines={2}>
-                {ladder.description}
-              </Text>
-            )}
-
-            <View style={styles.cardFooter}>
-              <Text style={styles.actionText}>Ver Tabla de Posiciones</Text>
-              <Feather name="arrow-right" color="#ffffff" size={16} />
-            </View>
+            <Feather name="chevron-right" color={theme.colors.textMuted} size={18} />
           </TouchableOpacity>
         ))
       )}
@@ -151,39 +142,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerBox: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 8,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  headerIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 6,
-    backgroundColor: theme.colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: theme.colors.textMuted,
-    lineHeight: 20,
+    lineHeight: 18,
   },
   emptyContainer: {
     padding: theme.spacing.xl,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   emptyText: {
     color: theme.colors.textMuted,
@@ -193,68 +167,44 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.cardBg,
     borderRadius: 8,
     padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: theme.spacing.sm,
-  },
-  cardIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 4,
-    backgroundColor: theme.colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: theme.spacing.sm,
     borderWidth: 1,
     borderColor: theme.colors.border,
-  },
-  cardTitleBox: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  cardMain: {
+    flex: 1,
+    marginRight: theme.spacing.sm,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
   },
   ladderName: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '700',
     color: theme.colors.text,
-    flex: 1,
   },
   modeBadge: {
-    backgroundColor: '#1a1a1a',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#333333',
+    borderColor: theme.colors.border,
   },
   modeBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#aaaaaa',
+    color: theme.colors.textMuted,
   },
   description: {
-    fontSize: 13,
+    fontSize: 12,
     color: theme.colors.textMuted,
-    marginBottom: theme.spacing.md,
-    lineHeight: 18,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: theme.spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-  actionText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.colors.text,
+    lineHeight: 16,
   },
 });

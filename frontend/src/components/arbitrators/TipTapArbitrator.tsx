@@ -37,24 +37,19 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const { user: currentUser } = useAuth();
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // Paso 1: 'setup' (Asignar Jugadores) -> Paso 2: 'live' (Marcador en Vivo)
   const [step, setStep] = useState<'setup' | 'live'>('setup');
 
-  // Estado de Jugadores (1v1 TipTap)
   const [playerRed, setPlayerRed] = useState<StudentUser[]>([]);
   const [playerBlue, setPlayerBlue] = useState<StudentUser[]>([]);
 
-  // Estado del Juego TipTap
   const [scoreRed, setScoreRed] = useState<number>(0);
   const [scoreBlue, setScoreBlue] = useState<number>(0);
   const [accumulator, setAccumulator] = useState<number>(1);
   const [activeTurn, setActiveTurn] = useState<'red' | 'blue'>('red');
   const [rallies, setRallies] = useState<RallyRecord[]>([]);
 
-  // Pila de Deshacer (Undo Stack)
   const [undoStack, setUndoStack] = useState<HistorySnap[]>([]);
 
-  // Buscador de Jugadores
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<StudentUser[]>([]);
   const [searching, setSearching] = useState<boolean>(false);
@@ -62,7 +57,6 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
   const targetScore = 30;
 
-  // Regla de victoria en TipTap: Llegar a 30 puntos
   const checkIsTerminal = (red: number, blue: number): { isTerminal: boolean; winner?: 'red' | 'blue' } => {
     if (red >= targetScore) return { isTerminal: true, winner: 'red' };
     if (blue >= targetScore) return { isTerminal: true, winner: 'blue' };
@@ -72,12 +66,10 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const terminalState = checkIsTerminal(scoreRed, scoreBlue);
   const isTerminal = terminalState.isTerminal;
 
-  // Comprobar si un jugador ya está asignado en cualquier lado
   const isPlayerAlreadySelected = (userId: string): boolean => {
     return playerRed.some((p) => p?.id === userId) || playerBlue.some((p) => p?.id === userId);
   };
 
-  // Buscar estudiantes en PocketBase
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -109,7 +101,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
       Toast.show({
         type: 'error',
         text1: 'Jugador ya seleccionado',
-        text2: `${student.name} ya está asignado a uno de los lados.`,
+        text2: `${student.name} ya está asignado.`,
       });
       return;
     }
@@ -131,7 +123,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
       Toast.show({
         type: 'error',
         text1: 'Ya estás en la lista',
-        text2: 'Ya has sido asignado a esta partida.',
+        text2: 'Ya has sido asignado.',
       });
       return;
     }
@@ -160,7 +152,6 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
     setIsShuffling(true);
 
-    // 1. Ocultar los nombres suavemente con escala (350ms)
     Animated.parallel([
       Animated.timing(shuffleOpacity, {
         toValue: 0,
@@ -173,7 +164,6 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // 2. Realizar sorteo 50/50 mientras están invisibles
       const shouldSwap = Math.random() < 0.5;
       if (shouldSwap) {
         const tempRed = [...playerRed];
@@ -182,7 +172,6 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         setPlayerBlue(tempRed);
       }
 
-      // 3. Tiempo de suspenso (400ms) y reaparición gradual (450ms)
       setTimeout(() => {
         Animated.parallel([
           Animated.timing(shuffleOpacity, {
@@ -199,10 +188,10 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
           setIsShuffling(false);
           Toast.show({
             type: 'info',
-            text1: '🔀 Sorteo Realizado (50/50)',
+            text1: '🔀 Sorteo Realizado',
             text2: shouldSwap
-              ? '¡El azar hizo que los jugadores cambiaran de lado!'
-              : 'El azar mantuvo a los jugadores en su posición actual.',
+              ? '¡Los jugadores cambiaron de lado!'
+              : 'Los jugadores se mantuvieron en su lado.',
           });
         });
       }, 400);
@@ -217,7 +206,6 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
     }
   };
 
-  // Guardar Snapshot para Deshacer
   const saveSnap = () => {
     setUndoStack((prev) => [
       ...prev,
@@ -231,38 +219,19 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
     ]);
   };
 
-  // Paso 1 -> Paso 2 (Iniciar Partido)
   const handleStartMatch = () => {
     if (playerRed.length < 1 || playerBlue.length < 1) {
       Toast.show({
         type: 'error',
         text1: 'Faltan Jugadores',
-        text2: 'Debes asignar al jugador del Lado Rojo y del Lado Azul para iniciar.',
+        text2: 'Asigna a ambos jugadores para iniciar.',
       });
       return;
     }
-    if (playerRed[0].id === playerBlue[0].id) {
-      Toast.show({
-        type: 'error',
-        text1: 'Jugadores Duplicados',
-        text2: 'El mismo estudiante no puede jugar contra sí mismo.',
-      });
-      return;
-    }
-
-    // Comienza siempre con Lado Rojo como iniciador
     setActiveTurn('red');
-
-    Toast.show({
-      type: 'info',
-      text1: '🎲 Partido de TipTap Iniciado',
-      text2: 'Inicia jugando: Lado Rojo 🔴.',
-    });
-
     setStep('live');
   };
 
-  // BOTÓN "SIGUE" (+1 al pozo y cambio de turno sin saturar el historial)
   const handleSigue = () => {
     if (isTerminal) return;
     saveSnap();
@@ -271,7 +240,6 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
     setActiveTurn(nextTurn);
   };
 
-  // BOTÓN "PIERDE" (Finaliza un Peloteo / Rally estructurado {"team": "blue", "points": 9})
   const handlePierde = () => {
     if (isTerminal) return;
     saveSnap();
@@ -285,17 +253,11 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
       setScoreRed((prev) => prev + pozo);
     }
 
-    const newRally: RallyRecord = {
-      team: winner,
-      points: pozo,
-    };
-
-    setRallies((prev) => [...prev, newRally]);
+    setRallies((prev) => [...prev, { team: winner, points: pozo }]);
     setAccumulator(1);
-    setActiveTurn(winner); // El ganador del peloteo saca/inicia el siguiente
+    setActiveTurn(winner);
   };
 
-  // Deshacer Acción
   const handleUndo = () => {
     if (undoStack.length === 0) return;
     const lastSnap = undoStack[undoStack.length - 1];
@@ -309,14 +271,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   };
 
   const handleSubmitMatch = async () => {
-    if (!isTerminal) {
-      Toast.show({
-        type: 'error',
-        text1: 'Partido En Curso',
-        text2: `La partida de TipTap finaliza cuando un jugador alcanza ${targetScore} puntos.`,
-      });
-      return;
-    }
+    if (!isTerminal) return;
 
     setSubmitting(true);
     try {
@@ -327,13 +282,13 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         teamBlue: playerBlue.map((p) => p.id),
         scoreRed,
         scoreBlue,
-        goalHistory: rallies as any, // Guarda la estructura limpia [{"team":"blue","points":9}, ...]
+        goalHistory: rallies as any,
       });
 
       Toast.show({
         type: 'success',
-        text1: '¡Partido de TipTap Finalizado!',
-        text2: `Resultado final: Rojo ${scoreRed} - ${scoreBlue} Azul. Se notificó a los jugadores.`,
+        text1: '¡Partido Guardado!',
+        text2: `Resultado final: ${scoreRed} - ${scoreBlue}.`,
       });
 
       if (navigation.replace) {
@@ -345,7 +300,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: err.message || 'No se pudo guardar el partido de TipTap.',
+        text2: err.message || 'No se pudo guardar el partido.',
       });
     } finally {
       setSubmitting(false);
@@ -356,110 +311,67 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* CABECERA GENERAL */}
-      <View style={styles.sportHeader}>
-        <View style={styles.sportBadge}>
-          <Text style={styles.sportBadgeText}>TIPTAP (A {targetScore} PUNTOS)</Text>
-        </View>
-        <Text style={styles.headerTitle}>Arbitraje de TipTap 1v1</Text>
-        <Text style={styles.headerSubtitle}>
-          {step === 'setup'
-            ? 'Paso 1: Asigna a los competidores antes de iniciar la partida.'
-            : `Paso 2: Peloteos acumulativos. SIGUE aumenta el pozo (+1), PIERDE entrega los puntos al rival.`}
+      <View style={styles.headerBox}>
+        <Text style={styles.title}>TipTap ({targetScore} Puntos)</Text>
+        <Text style={styles.subtitle}>
+          {step === 'setup' ? 'Asigna a los competidores' : 'Registra peloteos acumulativos en vivo'}
         </Text>
       </View>
 
-      {/* ========================================================================= */}
-      {/* PASO 1: SELECCIÓN DE JUGADORES */}
-      {/* ========================================================================= */}
       {step === 'setup' ? (
-        <View style={styles.setupSection}>
-          <Text style={styles.stepTitleText}>Paso 1: Asignar Jugadores (1 vs 1)</Text>
-
+        <View style={styles.card}>
           <Animated.View style={{ opacity: shuffleOpacity, transform: [{ scale: shuffleScale }] }}>
-            <View style={styles.playersSection}>
-              {/* Jugador Lado Rojo */}
-              <View style={styles.teamContainerRed}>
-                <Text style={styles.teamHeaderRed}>JUGADOR ROJO 🔴</Text>
+            <View style={styles.playersGrid}>
+              {/* Lado Rojo */}
+              <View style={styles.playerBox}>
+                <Text style={styles.redLabel}>🔴 LADO ROJO</Text>
                 {playerRed[0] ? (
-                  <View style={styles.playerSlotActive}>
-                    <Text style={styles.slotPlayerName} numberOfLines={1}>
-                      {playerRed[0].name}
-                    </Text>
+                  <View style={styles.playerChip}>
+                    <Text style={styles.chipName} numberOfLines={1}>{playerRed[0].name}</Text>
                     <TouchableOpacity onPress={() => handleRemovePlayer('red')}>
-                      <Feather name="x" color="#ff4444" size={18} />
+                      <Feather name="x" color="#ef4444" size={16} />
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <View style={styles.slotRowActions}>
-                    <TouchableOpacity
-                      style={styles.addPlayerBtnRed}
-                      onPress={() => setActiveSlot({ team: 'red', index: 0 })}
-                    >
-                      <Feather name="user-plus" color="#ff4444" size={14} style={{ marginRight: 4 }} />
-                      <Text style={styles.addPlayerBtnTextRed}>Buscar</Text>
+                  <View style={styles.addBtnsRow}>
+                    <TouchableOpacity style={styles.btnSmall} onPress={() => setActiveSlot({ team: 'red', index: 0 })}>
+                      <Text style={styles.btnSmallText}>+ Buscar</Text>
                     </TouchableOpacity>
                     {currentUser && (
                       <TouchableOpacity
-                        style={[
-                          styles.selfAddBtn,
-                          isCurrentUserInMatch && styles.selfAddBtnDisabled,
-                        ]}
+                        style={[styles.btnSmall, isCurrentUserInMatch && styles.disabled]}
                         disabled={isCurrentUserInMatch}
                         onPress={() => handleAddMyself('red')}
                       >
-                        <Text
-                          style={[
-                            styles.selfAddBtnText,
-                            isCurrentUserInMatch && styles.selfAddBtnTextDisabled,
-                          ]}
-                        >
-                          + Yo
-                        </Text>
+                        <Text style={styles.btnSmallText}>+ Yo</Text>
                       </TouchableOpacity>
                     )}
                   </View>
                 )}
               </View>
 
-              {/* Jugador Lado Azul */}
-              <View style={styles.teamContainerBlue}>
-                <Text style={styles.teamHeaderBlue}>JUGADOR AZUL 🔵</Text>
+              {/* Lado Azul */}
+              <View style={styles.playerBox}>
+                <Text style={styles.blueLabel}>🔵 LADO AZUL</Text>
                 {playerBlue[0] ? (
-                  <View style={styles.playerSlotActive}>
-                    <Text style={styles.slotPlayerName} numberOfLines={1}>
-                      {playerBlue[0].name}
-                    </Text>
+                  <View style={styles.playerChip}>
+                    <Text style={styles.chipName} numberOfLines={1}>{playerBlue[0].name}</Text>
                     <TouchableOpacity onPress={() => handleRemovePlayer('blue')}>
-                      <Feather name="x" color="#38bdf8" size={18} />
+                      <Feather name="x" color="#38bdf8" size={16} />
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <View style={styles.slotRowActions}>
-                    <TouchableOpacity
-                      style={styles.addPlayerBtnBlue}
-                      onPress={() => setActiveSlot({ team: 'blue', index: 0 })}
-                    >
-                      <Feather name="user-plus" color="#38bdf8" size={14} style={{ marginRight: 4 }} />
-                      <Text style={styles.addPlayerBtnTextBlue}>Buscar</Text>
+                  <View style={styles.addBtnsRow}>
+                    <TouchableOpacity style={styles.btnSmall} onPress={() => setActiveSlot({ team: 'blue', index: 0 })}>
+                      <Text style={styles.btnSmallText}>+ Buscar</Text>
                     </TouchableOpacity>
                     {currentUser && (
                       <TouchableOpacity
-                        style={[
-                          styles.selfAddBtn,
-                          isCurrentUserInMatch && styles.selfAddBtnDisabled,
-                        ]}
+                        style={[styles.btnSmall, isCurrentUserInMatch && styles.disabled]}
                         disabled={isCurrentUserInMatch}
                         onPress={() => handleAddMyself('blue')}
                       >
-                        <Text
-                          style={[
-                            styles.selfAddBtnText,
-                            isCurrentUserInMatch && styles.selfAddBtnTextDisabled,
-                          ]}
-                        >
-                          + Yo
-                        </Text>
+                        <Text style={styles.btnSmallText}>+ Yo</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -468,207 +380,118 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             </View>
           </Animated.View>
 
-          {/* BOTÓN SORTEAR LADOS */}
           <TouchableOpacity
-            style={[
-              styles.shuffleBtn,
-              (playerRed.length === 0 && playerBlue.length === 0) && styles.shuffleBtnDisabled,
-            ]}
-            disabled={playerRed.length === 0 && playerBlue.length === 0}
-            activeOpacity={0.7}
+            style={[styles.shuffleBtn, (!playerRed[0] && !playerBlue[0]) && styles.disabled]}
+            disabled={!playerRed[0] && !playerBlue[0]}
             onPress={handleShuffleTeams}
           >
-            <Feather name="shuffle" color={theme.colors.primary} size={14} style={{ marginRight: 6 }} />
-            <Text style={styles.shuffleBtnText}>Sortear Lados / Equipos 🔀</Text>
+            <Feather name="shuffle" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
+            <Text style={styles.btnText}>Sortear Lados 🔀</Text>
           </TouchableOpacity>
 
-          {/* BUSCADOR MODAL */}
+          {/* Search Modal */}
           {activeSlot && (
-            <View style={styles.searchModalBox}>
+            <View style={styles.searchBox}>
               <View style={styles.searchHeader}>
-                <Text style={styles.searchTitle}>
-                  Asignar Jugador ({activeSlot.team === 'red' ? 'Lado Rojo' : 'Lado Azul'})
-                </Text>
+                <Text style={styles.searchTitle}>Buscar Jugador</Text>
                 <TouchableOpacity onPress={() => setActiveSlot(null)}>
-                  <Feather name="x" color="#ffffff" size={20} />
+                  <Feather name="x" color="#ffffff" size={18} />
                 </TouchableOpacity>
               </View>
-              <View style={styles.searchInputRow}>
-                <Feather name="search" color="#888888" size={16} style={{ marginRight: 8 }} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Buscar por nombre o @username..."
-                  placeholderTextColor="#666666"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoFocus
-                />
-              </View>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Nombre..."
+                placeholderTextColor="#666666"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus
+              />
               {searching ? (
-                <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
+                <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 8 }} />
               ) : (
-                searchResults.map((item) => {
-                  const isSelected = isPlayerAlreadySelected(item.id);
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[styles.searchResultItem, isSelected && styles.searchResultItemDisabled]}
-                      disabled={isSelected}
-                      onPress={() => handleSelectPlayer(item)}
-                    >
-                      <Feather name="user" color={isSelected ? '#444444' : '#888888'} size={16} style={{ marginRight: 8 }} />
-                      <Text style={[styles.searchResultText, isSelected && styles.searchResultTextDisabled]}>
-                        {item.name} {isSelected && '(Ya seleccionado)'}
-                      </Text>
-                      {!!item.username && <Text style={styles.searchResultSub}>@{item.username}</Text>}
-                    </TouchableOpacity>
-                  );
-                })
+                searchResults.map((item) => (
+                  <TouchableOpacity key={item.id} style={styles.searchRow} onPress={() => handleSelectPlayer(item)}>
+                    <Text style={styles.searchText}>{item.name}</Text>
+                  </TouchableOpacity>
+                ))
               )}
             </View>
           )}
 
-          {/* BOTÓN CONTINUAR A MARCADOR EN VIVO */}
           <TouchableOpacity
-            style={[
-              styles.startMatchBtn,
-              (!playerRed[0] || !playerBlue[0]) && styles.startMatchBtnDisabled,
-            ]}
-            activeOpacity={0.8}
+            style={[styles.primaryBtn, (!playerRed[0] || !playerBlue[0]) && styles.disabled]}
             disabled={!playerRed[0] || !playerBlue[0]}
             onPress={handleStartMatch}
           >
-            <Feather name="play-circle" color="#000000" size={20} style={{ marginRight: 8 }} />
-            <Text style={styles.startMatchBtnText}>Iniciar TipTap y Abrir Marcador 🚀</Text>
+            <Text style={styles.primaryBtnText}>Iniciar Partido 🚀</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        /* ========================================================================= */
-        /* PASO 2: MARCADOR EN VIVO TIPTAP */
-        /* ========================================================================= */
-        <View style={styles.liveSection}>
-          {/* TOTALES Y JUGADORES BLOQUEADOS */}
-          <View style={styles.totalsCard}>
-            {/* Lado Rojo */}
-            <View
-              style={[
-                styles.totalBox,
-                activeTurn === 'red' && styles.totalBoxActiveRed,
-                isTerminal && terminalState.winner === 'red' && styles.totalBoxWinner,
-              ]}
-            >
-              {terminalState.winner === 'red' && <Text style={styles.winnerText}>🏆 GANADOR</Text>}
-              <Text style={styles.totalTeamTagRed}>🔴 {playerRed[0]?.name}</Text>
-              <Text style={styles.totalScoreRed}>{scoreRed}</Text>
-              <Text style={styles.totalLabel}>PUNTOS TOTALES</Text>
+        /* MARCADOR EN VIVO */
+        <View style={styles.liveContainer}>
+          {/* Marcador plano */}
+          <View style={styles.scoreRowCard}>
+            <View style={styles.scoreSide}>
+              <Text style={styles.redLabel}>🔴 {playerRed[0]?.name}</Text>
+              <Text style={styles.scoreVal}>{scoreRed}</Text>
             </View>
-
-            <View style={styles.versusBox}>
-              <Text style={styles.versusText}>VS</Text>
-            </View>
-
-            {/* Lado Azul */}
-            <View
-              style={[
-                styles.totalBox,
-                activeTurn === 'blue' && styles.totalBoxActiveBlue,
-                isTerminal && terminalState.winner === 'blue' && styles.totalBoxWinner,
-              ]}
-            >
-              {terminalState.winner === 'blue' && <Text style={styles.winnerText}>🏆 GANADOR</Text>}
-              <Text style={styles.totalTeamTagBlue}>🔵 {playerBlue[0]?.name}</Text>
-              <Text style={styles.totalScoreBlue}>{scoreBlue}</Text>
-              <Text style={styles.totalLabel}>PUNTOS TOTALES</Text>
+            <Text style={styles.vsText}>VS</Text>
+            <View style={styles.scoreSideRight}>
+              <Text style={styles.blueLabel}>🔵 {playerBlue[0]?.name}</Text>
+              <Text style={styles.scoreVal}>{scoreBlue}</Text>
             </View>
           </View>
 
-          {/* CADA POZO ACUMULADO Y TURNO ACTUAL */}
-          <View style={[styles.accumulatorCard, activeTurn === 'red' ? styles.accumRedBorder : styles.accumBlueBorder]}>
-            <View style={styles.turnIndicatorBadge}>
-              <Text style={styles.turnIndicatorText}>
-                TURNO DE: {activeTurn === 'red' ? `🔴 ${playerRed[0]?.name.toUpperCase()}` : `🔵 ${playerBlue[0]?.name.toUpperCase()}`}
-              </Text>
-            </View>
-
-            <Text style={styles.accumLabel}>POZO ACUMULADO ACTUAL</Text>
-            <Text style={styles.accumNumber}>{accumulator}</Text>
-            <Text style={styles.accumSub}>Puntos en juego para este peloteo</Text>
+          {/* Pozo Acumulado */}
+          <View style={styles.accumBox}>
+            <Text style={styles.accumTurnText}>
+              Turno: {activeTurn === 'red' ? `🔴 ${playerRed[0]?.name}` : `🔵 ${playerBlue[0]?.name}`}
+            </Text>
+            <Text style={styles.accumVal}>{accumulator}</Text>
+            <Text style={styles.accumSub}>Puntos en juego</Text>
           </View>
 
-          {/* BOTONES DE ACCIÓN TIPTAP */}
-          <View style={styles.actionButtonsRow}>
-            {/* Botón SIGUE */}
+          {/* Botones de acción */}
+          <View style={styles.actionRow}>
             <TouchableOpacity
-              style={[styles.sigueButton, isTerminal && styles.actionButtonDisabled]}
-              activeOpacity={0.8}
+              style={[styles.sigueBtn, isTerminal && styles.disabled]}
               disabled={isTerminal}
               onPress={handleSigue}
             >
-              <Feather name="arrow-right-circle" color="#000000" size={24} style={{ marginBottom: 4 }} />
-              <Text style={styles.sigueButtonText}>SIGUE 🟢</Text>
-              <Text style={styles.sigueSubText}>+1 al Pozo & Pasa Turno</Text>
+              <Text style={styles.sigueBtnText}>SIGUE 🟢</Text>
+              <Text style={styles.actionSubText}>+1 al pozo & pasa turno</Text>
             </TouchableOpacity>
 
-            {/* Botón PIERDE */}
             <TouchableOpacity
-              style={[styles.pierdeButton, isTerminal && styles.actionButtonDisabled]}
-              activeOpacity={0.8}
+              style={[styles.pierdeBtn, isTerminal && styles.disabled]}
               disabled={isTerminal}
               onPress={handlePierde}
             >
-              <Feather name="x-circle" color="#ffffff" size={24} style={{ marginBottom: 4 }} />
-              <Text style={styles.pierdeButtonText}>PIERDE 🔴</Text>
-              <Text style={styles.pierdeSubText}>Oponente Cobra {accumulator} pt(s)</Text>
+              <Text style={styles.pierdeBtnText}>PIERDE 🔴</Text>
+              <Text style={styles.actionSubTextWhite}>Rival cobra {accumulator} pts</Text>
             </TouchableOpacity>
           </View>
 
-          {/* HISTORIAL COMPACTO DE PELOTEOS (RALLIES) Y DESHACER */}
-          <View style={styles.timelineRow}>
-            <TouchableOpacity
-              style={styles.undoBtn}
-              onPress={handleUndo}
-              disabled={undoStack.length === 0}
-            >
-              <Feather name="rotate-ccw" color="#ffffff" size={14} style={{ marginRight: 4 }} />
-              <Text style={styles.undoBtnText}>Deshacer</Text>
+          {/* Historial chips */}
+          <View style={styles.historyRow}>
+            <TouchableOpacity style={styles.undoBtn} onPress={handleUndo} disabled={undoStack.length === 0}>
+              <Feather name="rotate-ccw" color="#ffffff" size={14} />
             </TouchableOpacity>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyChipsScroll}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
               {rallies.slice().reverse().map((r, idx) => (
-                <View key={idx} style={[styles.historyChip, r.team === 'red' ? styles.chipRed : styles.chipBlue]}>
-                  <Text style={styles.chipText}>
-                    P{rallies.length - idx}: {r.team === 'red' ? '🔴' : '🔵'} +{r.points} pts
+                <View key={idx} style={styles.historyChip}>
+                  <Text style={styles.historyChipText}>
+                    P{rallies.length - idx}: {r.team === 'red' ? '🔴' : '🔵'} +{r.points}
                   </Text>
                 </View>
               ))}
             </ScrollView>
           </View>
 
-          {/* AVISO DE ESTADO O BOTÓN CERRAR PARTIDO */}
-          {!isTerminal ? (
-            <View style={styles.inProgressNoticeBox}>
-              <Feather name="info" color="#eab308" size={16} style={{ marginRight: 6 }} />
-              <Text style={styles.inProgressNoticeText}>
-                Partido en curso ({rallies.length} peloteos completados). Alcanza {targetScore} puntos para finalizar.
-              </Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.finishMatchBtn}
-              activeOpacity={0.8}
-              disabled={submitting}
-              onPress={handleSubmitMatch}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#000000" />
-              ) : (
-                <>
-                  <Feather name="check-circle" color="#000000" size={20} style={{ marginRight: 8 }} />
-                  <Text style={styles.finishMatchBtnText}>
-                    Finalizar y Registrar TipTap ({scoreRed} - {scoreBlue}) 🏆
-                  </Text>
-                </>
-              )}
+          {isTerminal && (
+            <TouchableOpacity style={styles.finishBtn} disabled={submitting} onPress={handleSubmitMatch}>
+              {submitting ? <ActivityIndicator color="#000" /> : <Text style={styles.finishBtnText}>Guardar Resultado ({scoreRed} - {scoreBlue})</Text>}
             </TouchableOpacity>
           )}
         </View>
@@ -685,159 +508,112 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: theme.spacing.md,
   },
-  sportHeader: {
+  headerBox: {
     marginBottom: theme.spacing.md,
   },
-  sportBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    marginBottom: 6,
-  },
-  sportBadgeText: {
-    color: '#000000',
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  headerTitle: {
+  title: {
     fontSize: 20,
     fontWeight: '800',
     color: theme.colors.text,
-    marginBottom: 4,
   },
-  headerSubtitle: {
-    fontSize: 13,
+  subtitle: {
+    fontSize: 12,
     color: theme.colors.textMuted,
-    lineHeight: 18,
   },
-  setupSection: {
+  card: {
     backgroundColor: theme.colors.cardBg,
     borderRadius: 8,
     padding: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  stepTitleText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
-  },
-  playersSection: {
+  playersGrid: {
     flexDirection: 'row',
-    gap: theme.spacing.md,
+    gap: 12,
     marginBottom: theme.spacing.md,
   },
-  teamContainerRed: {
+  playerBox: {
     flex: 1,
-    backgroundColor: '#121212',
-    borderRadius: 8,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: '#ff4444',
   },
-  teamContainerBlue: {
-    flex: 1,
-    backgroundColor: '#121212',
-    borderRadius: 8,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: '#38bdf8',
-  },
-  teamHeaderRed: {
+  redLabel: {
     fontSize: 11,
     fontWeight: '800',
     color: '#ff4444',
-    marginBottom: theme.spacing.sm,
+    marginBottom: 6,
   },
-  teamHeaderBlue: {
+  blueLabel: {
     fontSize: 11,
     fontWeight: '800',
     color: '#38bdf8',
-    marginBottom: theme.spacing.sm,
+    marginBottom: 6,
   },
-  slotRowActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  playerSlotActive: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 4,
+  playerChip: {
+    backgroundColor: '#161616',
+    borderRadius: 6,
     padding: 8,
     borderWidth: 1,
     borderColor: theme.colors.border,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  slotPlayerName: {
+  chipName: {
     fontSize: 12,
     fontWeight: '700',
     color: theme.colors.text,
     flex: 1,
   },
-  addPlayerBtnRed: {
-    flex: 1,
-    backgroundColor: '#1a1212',
-    borderRadius: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
+  addBtnsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 68, 68, 0.4)',
+    gap: 4,
   },
-  addPlayerBtnTextRed: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#ff4444',
-  },
-  addPlayerBtnBlue: {
-    flex: 1,
-    backgroundColor: '#12171a',
+  btnSmall: {
+    backgroundColor: '#161616',
     borderRadius: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.4)',
-  },
-  addPlayerBtnTextBlue: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#38bdf8',
-  },
-  selfAddBtn: {
-    backgroundColor: '#222222',
+    paddingVertical: 6,
     paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#444444',
+    borderColor: theme.colors.border,
   },
-  selfAddBtnDisabled: {
-    opacity: 0.3,
-    backgroundColor: '#121212',
-    borderColor: '#222222',
-  },
-  selfAddBtnText: {
+  btnSmallText: {
     fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  shuffleBtn: {
+    backgroundColor: '#161616',
+    borderRadius: 6,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    flexDirection: 'row',
+    marginBottom: theme.spacing.md,
+  },
+  btnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  primaryBtn: {
+    backgroundColor: theme.colors.text,
+    borderRadius: 6,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  primaryBtnText: {
+    color: '#000000',
+    fontSize: 13,
     fontWeight: '800',
-    color: '#ffffff',
   },
-  selfAddBtnTextDisabled: {
-    color: '#666666',
+  disabled: {
+    opacity: 0.4,
   },
-  searchModalBox: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 8,
-    padding: theme.spacing.md,
+  searchBox: {
+    backgroundColor: '#121212',
+    borderRadius: 6,
+    padding: 10,
     marginBottom: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -845,326 +621,157 @@ const styles = StyleSheet.create({
   searchHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    marginBottom: 6,
   },
   searchTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: theme.colors.text,
   },
-  searchInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#121212',
-    borderRadius: 6,
-    paddingHorizontal: theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.xs,
-  },
   searchInput: {
-    flex: 1,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     color: theme.colors.text,
-    fontSize: 13,
-    paddingVertical: 8,
+    fontSize: 12,
   },
-  searchResultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
+  searchRow: {
+    paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
-  searchResultItemDisabled: {
-    opacity: 0.4,
-  },
-  searchResultText: {
-    fontSize: 13,
-    fontWeight: '700',
+  searchText: {
+    fontSize: 12,
     color: theme.colors.text,
-    marginRight: 6,
   },
-  searchResultTextDisabled: {
-    color: '#888888',
+  liveContainer: {
+    gap: theme.spacing.md,
   },
-  searchResultSub: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-  },
-  startMatchBtn: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: theme.spacing.sm,
-  },
-  startMatchBtnDisabled: {
-    opacity: 0.4,
-  },
-  startMatchBtnText: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  liveSection: {
-    flex: 1,
-  },
-  totalsCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  scoreRowCard: {
     backgroundColor: theme.colors.cardBg,
     borderRadius: 8,
     padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  totalBox: {
+  scoreSide: {
     flex: 1,
-    alignItems: 'center',
-    padding: theme.spacing.xs,
-    borderRadius: 6,
   },
-  totalBoxActiveRed: {
-    backgroundColor: 'rgba(255, 68, 68, 0.12)',
-    borderWidth: 1,
-    borderColor: '#ff4444',
+  scoreSideRight: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
-  totalBoxActiveBlue: {
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-    borderWidth: 1,
-    borderColor: '#38bdf8',
-  },
-  totalBoxWinner: {
-    borderColor: '#eab308',
-    backgroundColor: '#1a180d',
-  },
-  winnerText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#eab308',
-    marginBottom: 2,
-  },
-  totalTeamTagRed: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#ff4444',
-    marginBottom: 2,
-  },
-  totalTeamTagBlue: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#38bdf8',
-    marginBottom: 2,
-  },
-  totalScoreRed: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#ff4444',
-  },
-  totalScoreBlue: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#38bdf8',
-  },
-  totalLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: theme.colors.textMuted,
-  },
-  versusBox: {
-    marginHorizontal: theme.spacing.xs,
-  },
-  versusText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: theme.colors.textMuted,
-  },
-  accumulatorCard: {
-    backgroundColor: '#121212',
-    borderRadius: 12,
-    padding: theme.spacing.lg,
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
-    borderWidth: 2,
-  },
-  accumRedBorder: {
-    borderColor: '#ff4444',
-  },
-  accumBlueBorder: {
-    borderColor: '#38bdf8',
-  },
-  turnIndicatorBadge: {
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 100,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  turnIndicatorText: {
-    fontSize: 11,
+  scoreVal: {
+    fontSize: 24,
     fontWeight: '800',
     color: theme.colors.text,
+    marginTop: 2,
   },
-  accumLabel: {
-    fontSize: 11,
+  vsText: {
+    fontSize: 12,
     fontWeight: '800',
     color: theme.colors.textMuted,
-    letterSpacing: 1,
   },
-  accumNumber: {
-    fontSize: 64,
+  accumBox: {
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: 8,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+  },
+  accumTurnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.textMuted,
+  },
+  accumVal: {
+    fontSize: 36,
     fontWeight: '900',
-    color: '#ffffff',
+    color: theme.colors.text,
     marginVertical: 4,
   },
   accumSub: {
-    fontSize: 11,
+    fontSize: 10,
     color: theme.colors.textMuted,
   },
-  actionButtonsRow: {
+  actionRow: {
     flexDirection: 'row',
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+    gap: 10,
   },
-  sigueButton: {
+  sigueBtn: {
     flex: 1,
     backgroundColor: '#ffffff',
-    borderRadius: 8,
-    paddingVertical: 18,
+    borderRadius: 6,
+    paddingVertical: 14,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  sigueButtonText: {
-    fontSize: 16,
+  sigueBtnText: {
+    fontSize: 14,
     fontWeight: '900',
     color: '#000000',
   },
-  sigueSubText: {
+  actionSubText: {
     fontSize: 10,
-    fontWeight: '700',
     color: '#444444',
-    marginTop: 2,
+    fontWeight: '700',
   },
-  pierdeButton: {
+  actionSubTextWhite: {
+    fontSize: 10,
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  pierdeBtn: {
     flex: 1,
-    backgroundColor: '#ff4444',
-    borderRadius: 8,
-    paddingVertical: 18,
+    backgroundColor: '#ef4444',
+    borderRadius: 6,
+    paddingVertical: 14,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  pierdeButtonText: {
-    fontSize: 16,
+  pierdeBtnText: {
+    fontSize: 14,
     fontWeight: '900',
     color: '#ffffff',
   },
-  pierdeSubText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginTop: 2,
-  },
-  actionButtonDisabled: {
-    opacity: 0.3,
-  },
-  timelineRow: {
+  historyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    gap: 8,
   },
   undoBtn: {
-    backgroundColor: '#222222',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    backgroundColor: '#161616',
+    padding: 8,
     borderRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: theme.spacing.sm,
     borderWidth: 1,
-    borderColor: '#444444',
-  },
-  undoBtnText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  historyChipsScroll: {
-    flex: 1,
+    borderColor: theme.colors.border,
   },
   historyChip: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
     marginRight: 4,
     borderWidth: 1,
-  },
-  chipRed: {
-    backgroundColor: 'rgba(255, 68, 68, 0.15)',
-    borderColor: '#ff4444',
-  },
-  chipBlue: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderColor: '#38bdf8',
-  },
-  chipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  inProgressNoticeBox: {
-    backgroundColor: '#121212',
-    borderRadius: 8,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: '#333333',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  inProgressNoticeText: {
-    flex: 1,
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    lineHeight: 16,
-  },
-  finishMatchBtn: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: theme.spacing.sm,
-  },
-  finishMatchBtnText: {
-    color: '#000000',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  shuffleBtn: {
-    backgroundColor: '#161616',
-    borderRadius: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
     borderColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
   },
-  shuffleBtnDisabled: {
-    opacity: 0.3,
-  },
-  shuffleBtnText: {
+  historyChipText: {
+    fontSize: 11,
     color: theme.colors.text,
-    fontSize: 12,
     fontWeight: '700',
+  },
+  finishBtn: {
+    backgroundColor: theme.colors.text,
+    borderRadius: 6,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  finishBtnText: {
+    color: '#000000',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });
