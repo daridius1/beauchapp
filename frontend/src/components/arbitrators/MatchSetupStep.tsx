@@ -331,7 +331,7 @@ export const MatchSetupStep: React.FC<Props> = ({
         disabled={!isFormValid}
         onPress={onStartMatch}
       >
-        <Text style={styles.primaryBtnText}>Iniciar Partido ({mode})</Text>
+        <Text style={styles.primaryBtnText}>Iniciar Partido</Text>
       </TouchableOpacity>
     </View>
   );
