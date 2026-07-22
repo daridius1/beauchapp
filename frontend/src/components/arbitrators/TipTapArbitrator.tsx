@@ -306,21 +306,17 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                 <Text style={styles.redLabel}>LADO ROJO</Text>
                 {playerRed[0] ? (
                   <View style={styles.playerCardActive}>
-                    <Avatar user={{ id: playerRed[0].id, collectionId: '_pb_users_auth_', avatar: playerRed[0].avatar, name: playerRed[0].name, username: playerRed[0].username }} size={36} />
-                    <View style={styles.playerMeta}>
-                      <Text style={styles.chipNameRed} numberOfLines={1}>{playerRed[0].name}</Text>
-                      {!!playerRed[0].username && <Text style={styles.playerHandle}>@{playerRed[0].username}</Text>}
-                    </View>
                     <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('red')}>
                       <Feather name="x" color="#888888" size={14} />
                     </TouchableOpacity>
+                    <Avatar user={{ id: playerRed[0].id, collectionId: '_pb_users_auth_', avatar: playerRed[0].avatar, name: playerRed[0].name, username: playerRed[0].username }} size={38} />
+                    <Text style={styles.chipNameRed} numberOfLines={1}>{playerRed[0].name}</Text>
                   </View>
                 ) : (
                   <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'red', index: 0 })}>
                     <View style={styles.plusCircleRed}>
-                      <Feather name="plus" color="#ff4444" size={16} />
+                      <Feather name="plus" color="#ff4444" size={20} />
                     </View>
-                    <Text style={styles.addPlayerPrompt}>Agregar jugador</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -330,21 +326,17 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                 <Text style={styles.blueLabel}>LADO AZUL</Text>
                 {playerBlue[0] ? (
                   <View style={styles.playerCardActive}>
-                    <Avatar user={{ id: playerBlue[0].id, collectionId: '_pb_users_auth_', avatar: playerBlue[0].avatar, name: playerBlue[0].name, username: playerBlue[0].username }} size={36} />
-                    <View style={styles.playerMeta}>
-                      <Text style={styles.chipNameBlue} numberOfLines={1}>{playerBlue[0].name}</Text>
-                      {!!playerBlue[0].username && <Text style={styles.playerHandle}>@{playerBlue[0].username}</Text>}
-                    </View>
                     <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('blue')}>
                       <Feather name="x" color="#888888" size={14} />
                     </TouchableOpacity>
+                    <Avatar user={{ id: playerBlue[0].id, collectionId: '_pb_users_auth_', avatar: playerBlue[0].avatar, name: playerBlue[0].name, username: playerBlue[0].username }} size={38} />
+                    <Text style={styles.chipNameBlue} numberOfLines={1}>{playerBlue[0].name}</Text>
                   </View>
                 ) : (
                   <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'blue', index: 0 })}>
                     <View style={styles.plusCircleBlue}>
-                      <Feather name="plus" color="#38bdf8" size={16} />
+                      <Feather name="plus" color="#38bdf8" size={20} />
                     </View>
-                    <Text style={styles.addPlayerPrompt}>Agregar jugador</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -505,50 +497,50 @@ const styles = StyleSheet.create({
   playerCardActive: {
     backgroundColor: '#161616',
     borderRadius: 8,
-    paddingHorizontal: 10,
+    padding: 10,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    gap: 8,
-    height: 72,
+    justifyContent: 'center',
+    gap: 6,
+    height: 96,
+    position: 'relative',
   },
   emptySlotCard: {
     backgroundColor: '#121212',
     borderRadius: 8,
-    paddingHorizontal: 8,
+    padding: 10,
     borderWidth: 1.5,
     borderColor: '#262626',
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    height: 72,
-  },
-  playerMeta: {
-    flex: 1,
+    height: 96,
   },
   chipNameRed: {
     fontSize: 12,
     fontWeight: '700',
     color: '#ff4444',
+    textAlign: 'center',
   },
   chipNameBlue: {
     fontSize: 12,
     fontWeight: '700',
     color: '#38bdf8',
-  },
-  playerHandle: {
-    fontSize: 10,
-    color: theme.colors.textMuted,
+    textAlign: 'center',
   },
   removeCircleBtn: {
-    padding: 4,
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    padding: 2,
+    zIndex: 2,
   },
   plusCircleRed: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255, 68, 68, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -556,19 +548,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 68, 68, 0.3)',
   },
   plusCircleBlue: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(56, 189, 248, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.3)',
-  },
-  addPlayerPrompt: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: theme.colors.textMuted,
   },
   shuffleBtn: {
     backgroundColor: '#161616',
