@@ -176,13 +176,55 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
           setIsShuffling(false);
           Toast.show({
             type: 'info',
-            text1: '🔀 Sorteo Realizado',
+            text1: 'Sorteo Realizado',
             text2: shouldSwap
               ? '¡Los jugadores cambiaron de lado!'
               : 'Los jugadores se mantuvieron en su lado.',
           });
         });
       }, 400);
+    });
+  };
+
+  const handleSwapTeams = () => {
+    if (playerRed.length === 0 && playerBlue.length === 0) return;
+    if (isShuffling) return;
+
+    setIsShuffling(true);
+
+    Animated.parallel([
+      Animated.timing(shuffleOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shuffleScale, {
+        toValue: 0.95,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      const tempRed = [...playerRed];
+      const tempBlue = [...playerBlue];
+      setPlayerRed(tempBlue);
+      setPlayerBlue(tempRed);
+
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(shuffleOpacity, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(shuffleScale, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setIsShuffling(false);
+        });
+      }, 200);
     });
   };
 
@@ -345,14 +387,26 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             </View>
           </Animated.View>
 
-          <TouchableOpacity
-            style={[styles.shuffleBtn, (!playerRed[0] && !playerBlue[0]) && styles.disabled]}
-            disabled={!playerRed[0] && !playerBlue[0]}
-            onPress={handleShuffleTeams}
-          >
-            <Feather name="shuffle" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
-            <Text style={styles.btnText}>Sortear Equipos 🔀</Text>
-          </TouchableOpacity>
+          {/* Botones Secundarios: Sortear Lados & Cambiar Lados */}
+          <View style={styles.actionBtnsRow}>
+            <TouchableOpacity
+              style={[styles.secondaryBtn, (!playerRed[0] && !playerBlue[0]) && styles.disabled]}
+              disabled={!playerRed[0] && !playerBlue[0]}
+              onPress={handleShuffleTeams}
+            >
+              <Feather name="shuffle" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
+              <Text style={styles.btnText}>Sortear Lados</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryBtn, (!playerRed[0] && !playerBlue[0]) && styles.disabled]}
+              disabled={!playerRed[0] && !playerBlue[0]}
+              onPress={handleSwapTeams}
+            >
+              <Feather name="repeat" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
+              <Text style={styles.btnText}>Cambiar Lados</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Search Modal */}
           {activeSlot && (
@@ -389,7 +443,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             disabled={!playerRed[0] || !playerBlue[0]}
             onPress={handleStartMatch}
           >
-            <Text style={styles.primaryBtnText}>Iniciar Partido 🚀</Text>
+            <Text style={styles.primaryBtnText}>Iniciar Partido</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -424,7 +478,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
               disabled={isTerminal}
               onPress={handleSigue}
             >
-              <Text style={styles.sigueBtnText}>SIGUE 🟢</Text>
+              <Text style={styles.sigueBtnText}>SIGUE</Text>
               <Text style={styles.actionSubText}>+1 al pozo & pasa turno</Text>
             </TouchableOpacity>
 
@@ -433,7 +487,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
               disabled={isTerminal}
               onPress={handlePierde}
             >
-              <Text style={styles.pierdeBtnText}>PIERDE 🔴</Text>
+              <Text style={styles.pierdeBtnText}>PIERDE</Text>
               <Text style={styles.actionSubTextWhite}>Rival cobra {accumulator} pts</Text>
             </TouchableOpacity>
           </View>
@@ -567,7 +621,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.3)',
   },
-  shuffleBtn: {
+  actionBtnsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: theme.spacing.sm,
+  },
+  secondaryBtn: {
+    flex: 1,
     backgroundColor: '#161616',
     borderRadius: 6,
     paddingVertical: 10,
@@ -576,7 +636,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     flexDirection: 'row',
-    marginBottom: theme.spacing.sm,
   },
   btnText: {
     fontSize: 12,
