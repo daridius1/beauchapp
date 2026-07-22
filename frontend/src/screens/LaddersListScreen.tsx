@@ -98,21 +98,11 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
               activeOpacity={0.7}
               onPress={() => navigation.navigate('LadderDetail', { slug: defaultSlug, name: group.groupName })}
             >
-              <View style={styles.rowMain}>
-                <View style={styles.rowHeaderRow}>
-                  <Text style={styles.ladderName}>{group.groupName}</Text>
-                  <View style={styles.modeBadge}>
-                    <Text style={styles.modeBadgeText}>{categoriesLabel}</Text>
-                  </View>
+              <View style={styles.rowHeaderRow}>
+                <Text style={styles.ladderName}>{group.groupName}</Text>
+                <View style={styles.modeBadge}>
+                  <Text style={styles.modeBadgeText}>{categoriesLabel}</Text>
                 </View>
-
-                <Text style={styles.description} numberOfLines={2}>
-                  {group.groupSlug === 'tenis-de-mesa'
-                    ? 'Ranking oficial de Tenis de Mesa (Ping Pong) FCFM.'
-                    : group.groupSlug === 'taca-taca'
-                    ? 'Ranking oficial de Taca Taca FCFM.'
-                    : 'Competencia oficial de TipTap 1v1 FCFM.'}
-                </Text>
               </View>
 
               <Feather name="chevron-right" color={theme.colors.textMuted} size={18} />
@@ -138,10 +128,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  listContainer: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
+  listContainer: {},
   ladderRow: {
     backgroundColor: 'transparent',
     paddingVertical: 14,
