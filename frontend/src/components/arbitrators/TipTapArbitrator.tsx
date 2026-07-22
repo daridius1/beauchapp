@@ -186,46 +186,13 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
     });
   };
 
+  // Intercambio instantáneo sin animación de desvanecimiento
   const handleSwapTeams = () => {
     if (playerRed.length === 0 && playerBlue.length === 0) return;
-    if (isShuffling) return;
-
-    setIsShuffling(true);
-
-    Animated.parallel([
-      Animated.timing(shuffleOpacity, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(shuffleScale, {
-        toValue: 0.95,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      const tempRed = [...playerRed];
-      const tempBlue = [...playerBlue];
-      setPlayerRed(tempBlue);
-      setPlayerBlue(tempRed);
-
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(shuffleOpacity, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shuffleScale, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          setIsShuffling(false);
-        });
-      }, 200);
-    });
+    const tempRed = [...playerRed];
+    const tempBlue = [...playerBlue];
+    setPlayerRed(tempBlue);
+    setPlayerBlue(tempRed);
   };
 
   const handleRemovePlayer = (team: 'red' | 'blue') => {

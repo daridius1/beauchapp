@@ -168,46 +168,13 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
     });
   };
 
+  // Intercambio instantáneo sin animación de desvanecimiento
   const handleSwapTeams = () => {
     if (teamRed.length === 0 && teamBlue.length === 0) return;
-    if (isShuffling) return;
-
-    setIsShuffling(true);
-
-    Animated.parallel([
-      Animated.timing(shuffleOpacity, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(shuffleScale, {
-        toValue: 0.95,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      const tempRed = [...teamRed];
-      const tempBlue = [...teamBlue];
-      setTeamRed(tempBlue);
-      setTeamBlue(tempRed);
-
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(shuffleOpacity, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shuffleScale, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          setIsShuffling(false);
-        });
-      }, 200);
-    });
+    const tempRed = [...teamRed];
+    const tempBlue = [...teamBlue];
+    setTeamRed(tempBlue);
+    setTeamBlue(tempRed);
   };
 
   const handleRemovePlayer = (team: 'red' | 'blue', index: number) => {
