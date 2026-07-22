@@ -15,6 +15,7 @@ export interface LadderRank {
   id: string;
   ladder: string;
   user: string;
+  mode?: '1v1' | '2v2';
   mu: number;
   sigma: number;
   ordinal_rating: number;

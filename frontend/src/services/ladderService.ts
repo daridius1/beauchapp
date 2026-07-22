@@ -36,20 +36,22 @@ export const ladderService = {
     };
   },
 
-  // Obtener la tabla de posiciones (Leaderboard) de un ladder
-  getLadderLeaderboard: async (ladderId: string): Promise<LadderRank[]> => {
+  // Obtener la tabla de posiciones (Leaderboard) de un ladder por modo
+  getLadderLeaderboard: async (ladderId: string, mode?: string): Promise<LadderRank[]> => {
+    const filterStr = mode ? `ladder = "${ladderId}" && mode = "${mode}"` : `ladder = "${ladderId}"`;
     const records = await pb.collection('ladder_ranks').getFullList<LadderRank>({
-      filter: `ladder = "${ladderId}"`,
+      filter: filterStr,
       sort: '-ordinal_rating,-matches_played',
       expand: 'user',
     });
     return records;
   },
 
-  // Obtener historial de partidos de un ladder
-  getLadderMatches: async (ladderId: string): Promise<LadderMatch[]> => {
+  // Obtener historial de partidos de un ladder por modo
+  getLadderMatches: async (ladderId: string, mode?: string): Promise<LadderMatch[]> => {
+    const filterStr = mode ? `ladder = "${ladderId}" && mode = "${mode}"` : `ladder = "${ladderId}"`;
     const records = await pb.collection('ladder_matches').getList<LadderMatch>(1, 50, {
-      filter: `ladder = "${ladderId}"`,
+      filter: filterStr,
       sort: '-created',
       expand: 'arbiter,team_red,team_blue',
     });
@@ -67,9 +69,12 @@ export const ladderService = {
   },
 
   // Obtener historial de partidos de un jugador específico en un ladder
-  getPlayerMatchesInLadder: async (ladderId: string, userId: string): Promise<LadderMatch[]> => {
+  getPlayerMatchesInLadder: async (ladderId: string, userId: string, mode?: string): Promise<LadderMatch[]> => {
+    const filterStr = mode
+      ? `ladder = "${ladderId}" && mode = "${mode}" && (team_red ~ "${userId}" || team_blue ~ "${userId}") && status = "confirmed"`
+      : `ladder = "${ladderId}" && (team_red ~ "${userId}" || team_blue ~ "${userId}") && status = "confirmed"`;
     const records = await pb.collection('ladder_matches').getFullList<LadderMatch>({
-      filter: `ladder = "${ladderId}" && (team_red ~ "${userId}" || team_blue ~ "${userId}") && status = "confirmed"`,
+      filter: filterStr,
       sort: '-created',
       expand: 'arbiter,team_red,team_blue',
     });
@@ -94,20 +99,6 @@ export const ladderService = {
     const user = pb.authStore.model;
     if (!user) throw new Error('Debes estar autenticado para registrar un partido.');
 
-    // Resolver el ladder de destino dinámicamente según la modalidad seleccionada (1v1 vs 2v2)
-    let targetLadderId = data.ladderId;
-    try {
-      const currentLadder = await pb.collection('ladders').getOne(data.ladderId);
-      const sportGroup = currentLadder.slug.replace(/-(1v1|2v2)$/, '');
-      const targetSlug = `${sportGroup}-${data.mode}`;
-      const matchingLadder = await pb.collection('ladders').getFirstListItem(`slug = "${targetSlug}"`);
-      if (matchingLadder) {
-        targetLadderId = matchingLadder.id;
-      }
-    } catch (err) {
-      console.warn('No se pudo resolver sub-ladder específico por modo, usando por defecto:', err);
-    }
-
     // Inicializar confirmación automática del árbitro si está en uno de los equipos
     const confirmations: Record<string, string> = {};
     if (data.teamRed.includes(user.id) || data.teamBlue.includes(user.id)) {
@@ -115,7 +106,7 @@ export const ladderService = {
     }
 
     const payload = {
-      ladder: targetLadderId,
+      ladder: data.ladderId,
       arbiter: user.id,
       mode: data.mode,
       team_red: data.teamRed,
@@ -195,6 +186,7 @@ export const ladderService = {
 
 async function updateRanksForMatch(match: LadderMatch) {
   const ladderId = match.ladder;
+  const matchMode = match.mode || '1v1';
   const redWon = match.score_red > match.score_blue;
   const blueWon = match.score_blue > match.score_red;
 
@@ -204,7 +196,7 @@ async function updateRanksForMatch(match: LadderMatch) {
   const updatePlayerRank = async (userId: string, isWinner: boolean) => {
     try {
       const records = await pb.collection('ladder_ranks').getList(1, 1, {
-        filter: `ladder = "${ladderId}" && user = "${userId}"`,
+        filter: `ladder = "${ladderId}" && user = "${userId}" && mode = "${matchMode}"`,
       });
 
       let rankRecord = records.items[0];
@@ -223,6 +215,7 @@ async function updateRanksForMatch(match: LadderMatch) {
         await pb.collection('ladder_ranks').create({
           ladder: ladderId,
           user: userId,
+          mode: matchMode,
           matches_played: 1,
           wins: isWinner ? 1 : 0,
           losses: isWinner ? 0 : 1,

@@ -11,6 +11,8 @@ import { RootStackParamList } from '../types/navigation';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
+import { getSportGroup } from '../config/ladderGroups';
+
 type LadderPlayerProfileNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LadderPlayerProfile'>;
 type LadderPlayerProfileRouteProp = RouteProp<RootStackParamList, 'LadderPlayerProfile'>;
 
@@ -21,6 +23,7 @@ interface Props {
 
 export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }) => {
   const { userId, slug } = route.params;
+  const sportGroupInfo = getSportGroup(slug);
 
   const [playerUser, setPlayerUser] = useState<any | null>(null);
   const [ladder, setLadder] = useState<Ladder | null>(null);
@@ -41,8 +44,8 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
 
         const [userData, ranksData, matchesData] = await Promise.all([
           ladderService.getUserById(userId),
-          ladderService.getLadderLeaderboard(ladderData.id),
-          ladderService.getPlayerMatchesInLadder(ladderData.id, userId),
+          ladderService.getLadderLeaderboard(ladderData.id, sportGroupInfo.activeCategory.id),
+          ladderService.getPlayerMatchesInLadder(ladderData.id, userId, sportGroupInfo.activeCategory.id),
         ]);
 
         setPlayerUser(userData);

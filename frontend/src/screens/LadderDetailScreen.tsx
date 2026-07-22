@@ -54,8 +54,8 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         navigation.setParams({ name: sportGroupInfo.group.groupName });
 
         const [ranksData, matchesData] = await Promise.all([
-          ladderService.getLadderLeaderboard(ladderData.id),
-          ladderService.getLadderMatches(ladderData.id),
+          ladderService.getLadderLeaderboard(ladderData.id, activeCategory.id),
+          ladderService.getLadderMatches(ladderData.id, activeCategory.id),
         ]);
 
         setLeaderboard(ranksData);
