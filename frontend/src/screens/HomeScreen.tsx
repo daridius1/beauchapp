@@ -10,6 +10,7 @@ import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
+import { QuoteModal } from '../components/QuoteModal';
 import { withMinimumDelay } from '../utils/refresh';
 import Toast from 'react-native-toast-message';
 
@@ -23,6 +24,13 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [tagInput, setTagInput] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  
+  // State para QuoteModal
+  const [quoteModalVisible, setQuoteModalVisible] = useState(false);
+  const [quoteTargetType, setQuoteTargetType] = useState<string | null>(null);
+  const [quoteTargetId, setQuoteTargetId] = useState<string | null>(null);
+  const [quoteTargetMeta, setQuoteTargetMeta] = useState<any | null>(null);
+  const [quoteTargetRecord, setQuoteTargetRecord] = useState<any | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -307,32 +315,22 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       fetchPosts(1, false, true);
     }
   };
-  const handleRepost = async (targetPost: any) => {
+  const handleRepost = (targetPost: any) => {
     if (!user) {
       Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para repostear.' });
       return;
     }
-    try {
-      await pb.collection('posts').create({
-        author: user.id,
-        content: " ",
-        actionType: 'repost',
-        targetType: 'post',
-        targetId: targetPost.id,
-        targetMeta: {
-          authorName: targetPost.expand?.author?.name || 'Usuario',
-          authorUsername: targetPost.expand?.author?.username || '',
-          authorAvatar: targetPost.expand?.author?.avatar || '',
-          content: targetPost.content,
-          photo: targetPost.photo,
-        }
-      });
-      Toast.show({ type: 'success', text1: 'Publicación reposteada' });
-      fetchPosts(1, false, true);
-    } catch (err) {
-      console.error('Error reposting post:', err);
-      Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo repostear.' });
-    }
+    setQuoteTargetType('post');
+    setQuoteTargetId(targetPost.id);
+    setQuoteTargetMeta({
+      authorName: targetPost.expand?.author?.name || 'Usuario',
+      authorUsername: targetPost.expand?.author?.username || '',
+      authorAvatar: targetPost.expand?.author?.avatar || '',
+      content: targetPost.content,
+      photo: targetPost.photo,
+    });
+    setQuoteTargetRecord(targetPost);
+    setQuoteModalVisible(true);
   };
 
   const handleTargetPress = (targetType?: string, targetId?: string) => {
@@ -621,6 +619,16 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         </View>
       )}
+
+      <QuoteModal
+        visible={quoteModalVisible}
+        targetType={quoteTargetType}
+        targetId={quoteTargetId}
+        targetMeta={quoteTargetMeta}
+        targetRecord={quoteTargetRecord}
+        onClose={() => setQuoteModalVisible(false)}
+        onSuccess={() => fetchPosts(1, false, true)}
+      />
     </View>
   );
 };

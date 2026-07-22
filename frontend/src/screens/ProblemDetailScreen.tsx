@@ -22,6 +22,7 @@ import { withMinimumDelay } from '../utils/refresh';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
+import { QuoteModal } from '../components/QuoteModal';
 import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProblemDetail'>;
@@ -68,6 +69,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [submittingRating, setSubmittingRating] = useState(false);
   const [showParentProblem, setShowParentProblem] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [quoteModalVisible, setQuoteModalVisible] = useState(false);
 
   const fetchDetail = async (hideLoading = false) => {
     try {
@@ -338,30 +340,12 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }
     return stars;
   };
-  const handleShareProblemToFeed = async () => {
+  const handleShareProblemToFeed = () => {
     if (!user || !problem) {
       Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para compartir.' });
       return;
     }
-    try {
-      await pb.collection('posts').create({
-        author: user.id,
-        content: " ",
-        actionType: 'repost',
-        targetType: 'problem',
-        targetId: problem.id,
-        targetMeta: {
-          title: problem.title,
-          subtitle: problem.parent ? 'Pauta' : 'Enunciado',
-          ramo: problem.ramo,
-          instancia: problem.instancia,
-        }
-      });
-      Toast.show({ type: 'success', text1: '¡Problema compartido en tu muro!' });
-    } catch (err) {
-      console.error('Error sharing problem to feed:', err);
-      Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo compartir el problema.' });
-    }
+    setQuoteModalVisible(true);
   };
 
 
@@ -774,6 +758,22 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
           </View>
         </View>
+      )}
+
+      {problem && (
+        <QuoteModal
+          visible={quoteModalVisible}
+          targetType="problem"
+          targetId={problem.id}
+          targetMeta={{
+            title: problem.title,
+            subtitle: problem.parent ? 'Pauta' : 'Enunciado',
+            ramo: problem.ramo,
+            instancia: problem.instancia,
+          }}
+          targetRecord={problem}
+          onClose={() => setQuoteModalVisible(false)}
+        />
       )}
     </View>
   );

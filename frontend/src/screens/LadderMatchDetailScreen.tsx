@@ -12,6 +12,7 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import Toast from 'react-native-toast-message';
 import { pb } from '../services/pocketbase';
+import { QuoteModal } from '../components/QuoteModal';
 
 type MatchDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LadderMatchDetail'>;
 type MatchDetailScreenRouteProp = RouteProp<RootStackParamList, 'LadderMatchDetail'>;
@@ -28,6 +29,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
   const [match, setMatch] = useState<LadderMatch | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [quoteModalVisible, setQuoteModalVisible] = useState(false);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
 
   const handleRefresh = async () => {
@@ -36,35 +38,14 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
     setRefreshing(false);
   };
 
-  const handleShareMatchToFeed = async () => {
+  const handleShareMatchToFeed = () => {
     if (!match) return;
-    const user = pb.authStore.model;
-    if (!user) {
+    const authUser = currentUser || pb.authStore.model;
+    if (!authUser) {
       Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para compartir.' });
       return;
     }
-    try {
-      const teamRed = match.expand?.team_red?.map((u: any) => u.name) || [];
-      const teamBlue = match.expand?.team_blue?.map((u: any) => u.name) || [];
-      await pb.collection('posts').create({
-        author: user.id,
-        content: " ",
-        actionType: 'repost',
-        targetType: 'match',
-        targetId: match.id,
-        targetMeta: {
-          mode: match.mode || '1v1',
-          scoreRed: match.score_red,
-          scoreBlue: match.score_blue,
-          teamRed: teamRed,
-          teamBlue: teamBlue,
-        }
-      });
-      Toast.show({ type: 'success', text1: '¡Partido compartido en tu muro!' });
-    } catch (err) {
-      console.error('Error sharing match to feed:', err);
-      Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo compartir el partido.' });
-    }
+    setQuoteModalVisible(true);
   };
 
   const fetchMatch = async (hideLoading = false) => {
@@ -414,6 +395,23 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
             );
           })}
         </View>
+      )}
+
+      {match && (
+        <QuoteModal
+          visible={quoteModalVisible}
+          targetType="match"
+          targetId={match.id}
+          targetMeta={{
+            mode: match.mode || '1v1',
+            scoreRed: match.score_red,
+            scoreBlue: match.score_blue,
+            teamRed: match.expand?.team_red?.map((u: any) => u.name) || [],
+            teamBlue: match.expand?.team_blue?.map((u: any) => u.name) || [],
+          }}
+          targetRecord={match}
+          onClose={() => setQuoteModalVisible(false)}
+        />
       )}
     </ScrollView>
   );

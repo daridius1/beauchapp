@@ -48,97 +48,19 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [viewerVisible, setViewerVisible] = useState(false);
 
   const isDeleted = post.deleted === true;
-  const isPureRepostOfPost = !isDeleted && post.actionType === 'repost' && post.targetType === 'post' && !!post.targetId;
+  const author = isDeleted ? null : post.expand?.author;
+  const isLiked = currentUser && (post.likes || []).includes(currentUser.id);
+  const repliesCount = post.commentCount || 0;
 
-  // Si es un repost directo de un post, traemos los datos reales del post original si no venían expandidos
-  const [fetchedTargetPost, setFetchedTargetPost] = useState<any>(post.expand?.targetId || null);
-
-  useEffect(() => {
-    if (isPureRepostOfPost && !post.expand?.targetId) {
-      let isMounted = true;
-      pb.collection('posts').getOne(post.targetId, { expand: 'author' }).then((res) => {
-        if (isMounted) setFetchedTargetPost(res);
-      }).catch(() => {});
-      return () => { isMounted = false; };
-    }
-  }, [isPureRepostOfPost, post.targetId, post.expand?.targetId]);
-
-  const targetPostRecord = post.expand?.targetId || fetchedTargetPost;
-
-  // Post efectivo que se muestra en la tarjeta
-  const effectivePost = isPureRepostOfPost
-    ? (targetPostRecord || {
-        id: post.targetId,
-        content: post.targetMeta?.content || '',
-        photo: post.targetMeta?.photo,
-        created: post.targetMeta?.created || post.created,
-        likes: [],
-        commentCount: 0,
-        expand: {
-          author: {
-            id: post.targetMeta?.authorId,
-            name: post.targetMeta?.authorName || 'Usuario',
-            username: post.targetMeta?.authorUsername || '',
-            avatar: post.targetMeta?.authorAvatar || '',
-          }
-        }
-      })
-    : post;
-
-  const reposterAuthor = isDeleted ? null : post.expand?.author;
-  const effectiveAuthor = effectivePost.deleted ? null : effectivePost.expand?.author;
-
-  // Likes en tiempo real del post efectivo (post original si es repost)
-  const [likedState, setLikedState] = useState<boolean | null>(null);
-  const [likeCountOffset, setLikeCountOffset] = useState<number>(0);
-
-  useEffect(() => {
-    setLikedState(null);
-    setLikeCountOffset(0);
-  }, [effectivePost.id, effectivePost.likes]);
-
-  const rawLikes = effectivePost.likes || [];
-  const baseIsLiked = currentUser && rawLikes.includes(currentUser.id);
-  const isLiked = likedState !== null ? likedState : baseIsLiked;
-  const likesCount = Math.max(0, (rawLikes.length || 0) + likeCountOffset);
-
-  const handleLike = async () => {
-    if (!currentUser) return;
-    if (!isPureRepostOfPost && onLikePress) {
-      onLikePress();
-      return;
-    }
-
-    const targetPostId = effectivePost.id;
-    const nextIsLiked = !isLiked;
-    setLikedState(nextIsLiked);
-    setLikeCountOffset(prev => (nextIsLiked ? prev + 1 : prev - 1));
-
-    try {
-      const freshPost = await pb.collection('posts').getOne(targetPostId);
-      let currentLikes: string[] = freshPost.likes || [];
-      if (nextIsLiked) {
-        if (!currentLikes.includes(currentUser.id)) currentLikes.push(currentUser.id);
-      } else {
-        currentLikes = currentLikes.filter((id: string) => id !== currentUser.id);
-      }
-      await pb.collection('posts').update(targetPostId, { likes: currentLikes });
-    } catch (err) {
-      setLikedState(baseIsLiked);
-      setLikeCountOffset(0);
-    }
-  };
-
-  const repliesCount = effectivePost.commentCount || 0;
   const [repostCount, setRepostCount] = useState<number>(0);
 
   useEffect(() => {
-    if (isDeleted || !effectivePost.id) return;
+    if (isDeleted || !post.id) return;
     let isMounted = true;
     const fetchRepostCount = async () => {
       try {
         const res = await pb.collection('posts').getList(1, 1, {
-          filter: `targetId = "${effectivePost.id}" && actionType = "repost" && deleted = false`,
+          filter: `targetId = "${post.id}" && actionType = "quote" && deleted = false`,
           skipTotal: false,
         });
         if (isMounted) {
@@ -148,7 +70,7 @@ export const PostCard: React.FC<PostCardProps> = ({
     };
     fetchRepostCount();
     return () => { isMounted = false; };
-  }, [effectivePost.id, isDeleted]);
+  }, [post.id, isDeleted]);
 
   const handleMentionPress = async (username: string) => {
     if (loadingMention) return;
@@ -192,40 +114,10 @@ export const PostCard: React.FC<PostCardProps> = ({
     });
   };
 
-  const handleMainCardPress = () => {
-    if (isPureRepostOfPost) {
-      if (onTargetPress) {
-        onTargetPress();
-      } else {
-        navigation.push('PostDetail', { postId: effectivePost.id });
-      }
-    } else if (onPress) {
-      onPress();
-    }
-  };
-
-  const handleEffectiveAuthorPress = () => {
-    const authorId = effectiveAuthor?.id || effectivePost.author;
-    if (authorId) {
-      navigation.push('UserProfile', { userId: authorId });
-    } else if (onAuthorPress) {
-      onAuthorPress();
-    }
-  };
-
-  const handleReposterAuthorPress = () => {
-    const reposterId = reposterAuthor?.id || post.author;
-    if (reposterId) {
-      navigation.push('UserProfile', { userId: reposterId });
-    } else if (onAuthorPress) {
-      onAuthorPress();
-    }
-  };
-
   const CardComponent = isFocused ? View : TouchableOpacity;
   const cardProps = isFocused ? {} : { 
     activeOpacity: 0.7, 
-    onPress: handleMainCardPress 
+    onPress: onPress 
   };
 
   const formatDate = (dateStr: string) => {
@@ -263,48 +155,32 @@ export const PostCard: React.FC<PostCardProps> = ({
           isParent && styles.parentCard
         ]}
       >
-        {/* Banner de Repost estilo Twitter/X */}
-        {post.actionType === 'repost' && (
-          <View style={styles.repostHeader}>
-            <Feather name="repeat" size={12} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
-            <TouchableOpacity onPress={handleReposterAuthorPress} activeOpacity={0.7}>
-              <Text style={styles.repostHeaderText}>
-                {isDeleted ? 'Usuario' : (reposterAuthor?.name || 'Usuario')} reposteó esto
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Cabecera del autor (Post original si es repost puro, o autor directo si es quote/post) */}
+        {/* Header con la información del autor de este post */}
         <View style={[styles.postHeader, { justifyContent: 'space-between', alignItems: 'center', position: 'relative' }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
             <TouchableOpacity 
-              onPress={isDeleted ? undefined : handleEffectiveAuthorPress}
-              disabled={isDeleted}
+              onPress={isDeleted ? undefined : onAuthorPress}
+              disabled={isDeleted || !onAuthorPress}
               activeOpacity={0.7}
             >
               <View style={{ marginRight: theme.spacing.sm }}>
-                <Avatar user={effectiveAuthor} size={40} />
+                <Avatar user={author} size={40} />
               </View>
             </TouchableOpacity>
             <View style={styles.postMeta}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <TouchableOpacity 
-                  onPress={isDeleted ? undefined : handleEffectiveAuthorPress}
-                  disabled={isDeleted}
+                  onPress={isDeleted ? undefined : onAuthorPress}
+                  disabled={isDeleted || !onAuthorPress}
                   activeOpacity={0.7}
                   style={{ flexDirection: 'row', alignItems: 'center' }}
                 >
-                  <Text style={styles.postAuthor}>
-                    {isDeleted ? '[eliminado]' : (effectiveAuthor?.name || 'Usuario')}
-                  </Text>
-                  {!isDeleted && effectiveAuthor?.username ? (
-                    <Text style={styles.postUsername}> @{effectiveAuthor.username}</Text>
-                  ) : null}
+                  <Text style={styles.postAuthor}>{isDeleted ? '[eliminado]' : (author?.name || 'Usuario')}</Text>
+                  {!isDeleted && author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
                 </TouchableOpacity>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={styles.postDate}>{formatDate(effectivePost.created)}</Text>
+                <Text style={styles.postDate}>{formatDate(post.created)}</Text>
                 {developerMode && !isDeleted && (
                   <TouchableOpacity
                     style={styles.devIdBadge}
@@ -312,25 +188,24 @@ export const PostCard: React.FC<PostCardProps> = ({
                     onPress={(e: any) => {
                       if (e.stopPropagation) e.stopPropagation();
                       if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                        navigator.clipboard.writeText(effectivePost.id);
+                        navigator.clipboard.writeText(post.id);
                       }
                       Toast.show({
                         type: 'info',
                         text1: 'ID Copiado 📋',
-                        text2: `ID del post: ${effectivePost.id}`,
+                        text2: `ID del post: ${post.id}`,
                       });
                     }}
                   >
                     <Feather name="code" size={10} color={theme.colors.primary} style={{ marginRight: 3 }} />
-                    <Text style={styles.devIdBadgeText}>ID: {effectivePost.id}</Text>
+                    <Text style={styles.devIdBadgeText}>ID: {post.id}</Text>
                   </TouchableOpacity>
                 )}
               </View>
             </View>
           </View>
 
-          {/* Menú de opciones (...) para el autor del post o del repost */}
-          {currentUser && (post.author === currentUser.id || effectivePost.author === currentUser.id) && !isDeleted && onDeletePress && (
+          {currentUser && post.author === currentUser.id && !isDeleted && onDeletePress && (
             <TouchableOpacity 
               style={{ padding: 8 }} 
               onPress={() => setMenuOpen(!menuOpen)}
@@ -339,27 +214,26 @@ export const PostCard: React.FC<PostCardProps> = ({
             </TouchableOpacity>
           )}
         </View>
-
-        {/* Indicador de respuesta */}
-        {!isPureRepostOfPost && post.replyTo && (post.expand?.replyTo?.expand?.author || post.expand?.replyTo?.deleted) ? (
+        
+        {post.replyTo && (post.expand?.replyTo?.expand?.author || post.expand?.replyTo?.deleted) ? (
           <Text style={styles.replyContextText}>
             En respuesta a @{post.expand.replyTo.deleted ? '[eliminado]' : (post.expand.replyTo.expand?.author?.username || 'Usuario')}
           </Text>
         ) : null}
 
-        {/* Contenido del post */}
-        {!(isDeleted && !!effectivePost.entityType) && (isDeleted || (effectivePost.content && effectivePost.content.trim() !== '')) && (
+        {/* Texto del post (omitido si sólo contiene espacio en blanco de 1-clic) */}
+        {!(isDeleted && !!post.entityType) && (isDeleted || (post.content && post.content.trim() !== '')) && (
           <Text style={[
             styles.postContent, 
             isFocused && styles.mainPostContent,
             isDeleted && { color: theme.colors.textMuted, fontStyle: 'italic' }
           ]}>
-            {isDeleted ? '[Mensaje eliminado]' : renderContent(effectivePost.content)}
+            {isDeleted ? '[Mensaje eliminado]' : renderContent(post.content)}
           </Text>
         )}
 
-        {/* Target Preview Polimórfico (Solo para QUOTES o reposts de Problemas/Partidos) */}
-        {!isPureRepostOfPost && !!post.targetType && !!post.targetId && (
+        {/* Target Preview Polimórfico (Post, Problema o Partido citado/reposteado) */}
+        {!!post.targetType && !!post.targetId && (
           <TargetPreview
             targetType={post.targetType}
             targetId={post.targetId}
@@ -370,13 +244,13 @@ export const PostCard: React.FC<PostCardProps> = ({
         )}
 
         {/* Adjunto de foto */}
-        {!isDeleted && !!effectivePost.photo && (
+        {!isDeleted && !!post.photo && (
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setViewerVisible(true)}
           >
             <Image 
-              source={{ uri: getFileUrl(effectivePost, effectivePost.photo) }}
+              source={{ uri: getFileUrl(post, post.photo) }}
               style={styles.postImage}
               resizeMode="cover"
             />
@@ -384,9 +258,9 @@ export const PostCard: React.FC<PostCardProps> = ({
         )}
 
         {/* Tags */}
-        {!isDeleted && effectivePost.tags && effectivePost.tags.length > 0 && (
+        {!isDeleted && post.tags && post.tags.length > 0 && (
           <View style={styles.tagsRow}>
-            {effectivePost.tags.map((t: string, i: number) => {
+            {post.tags.map((t: string, i: number) => {
               const ChipComponent = onTagPress ? TouchableOpacity : View;
               const chipProps = onTagPress ? { activeOpacity: 0.7, onPress: (e: any) => { e.stopPropagation(); onTagPress(t); } } : {};
               return (
@@ -398,10 +272,10 @@ export const PostCard: React.FC<PostCardProps> = ({
           </View>
         )}
         
-        {/* Acciones (Likes, Reposts, Comentarios) */}
+        {/* Acciones */}
         <View style={styles.postActions}>
-          {!isDeleted && (
-            <TouchableOpacity style={styles.actionBtn} onPress={handleLike}>
+          {!isDeleted && onLikePress && (
+            <TouchableOpacity style={styles.actionBtn} onPress={onLikePress}>
               <FontAwesome 
                 name={isLiked ? "heart" : "heart-o"} 
                 size={16} 
@@ -409,19 +283,19 @@ export const PostCard: React.FC<PostCardProps> = ({
                 style={{ marginRight: 6 }}
               />
               <Text style={[styles.actionCount, isLiked && styles.actionIconActive]}>
-                {likesCount}
+                {(post.likes || []).length}
               </Text>
             </TouchableOpacity>
           )}
 
           {!isDeleted && onRepostPress && (
-            <TouchableOpacity style={styles.actionBtn} onPress={() => onRepostPress()}>
+            <TouchableOpacity style={styles.actionBtn} onPress={onRepostPress}>
               <Feather name="repeat" size={16} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
               <Text style={styles.actionCount}>{repostCount}</Text>
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={styles.actionBtn} onPress={handleMainCardPress}>
+          <TouchableOpacity style={styles.actionBtn} onPress={onPress}>
             <Feather 
               name="message-square" 
               size={16} 
@@ -450,10 +324,10 @@ export const PostCard: React.FC<PostCardProps> = ({
           </View>
         )}
       </CardComponent>
-      {effectivePost.photo && (
+      {post.photo && (
         <ImageViewer 
           visible={viewerVisible}
-          imageUrl={getFileUrl(effectivePost, effectivePost.photo)}
+          imageUrl={getFileUrl(post, post.photo)}
           onClose={() => setViewerVisible(false)}
         />
       )}
@@ -477,16 +351,6 @@ const styles = StyleSheet.create({
   parentCard: {
     borderBottomColor: theme.colors.border,
     borderBottomWidth: 1,
-  },
-  repostHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  repostHeaderText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: theme.colors.textMuted,
   },
   postHeader: {
     flexDirection: 'row',

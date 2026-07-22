@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { Feather } from '@expo/vector-icons';
 import { PostCard } from '../components/PostCard';
+import { QuoteModal } from '../components/QuoteModal';
 import { withMinimumDelay } from '../utils/refresh';
 import Toast from 'react-native-toast-message';
 
@@ -16,6 +17,13 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Profile' | 'UserProfile
 
 export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   const { user: currentUser } = useAuth();
+  
+  // State para QuoteModal
+  const [quoteModalVisible, setQuoteModalVisible] = useState(false);
+  const [quoteTargetType, setQuoteTargetType] = useState<string | null>(null);
+  const [quoteTargetId, setQuoteTargetId] = useState<string | null>(null);
+  const [quoteTargetMeta, setQuoteTargetMeta] = useState<any | null>(null);
+  const [quoteTargetRecord, setQuoteTargetRecord] = useState<any | null>(null);
   
   // Si no hay userId en los parámetros, usamos el id del usuario actual logueado
   const routeParams = route.params as any;
@@ -164,32 +172,22 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
-  const handleRepost = async (targetPost: any) => {
+  const handleRepost = (targetPost: any) => {
     if (!currentUser) {
       Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para repostear.' });
       return;
     }
-    try {
-      await pb.collection('posts').create({
-        author: currentUser.id,
-        content: " ",
-        actionType: 'repost',
-        targetType: 'post',
-        targetId: targetPost.id,
-        targetMeta: {
-          authorName: targetPost.expand?.author?.name || 'Usuario',
-          authorUsername: targetPost.expand?.author?.username || '',
-          authorAvatar: targetPost.expand?.author?.avatar || '',
-          content: targetPost.content,
-          photo: targetPost.photo,
-        }
-      });
-      Toast.show({ type: 'success', text1: 'Publicación reposteada' });
-      fetchProfileAndPosts(true);
-    } catch (err) {
-      console.error('Error reposting post:', err);
-      Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo repostear.' });
-    }
+    setQuoteTargetType('post');
+    setQuoteTargetId(targetPost.id);
+    setQuoteTargetMeta({
+      authorName: targetPost.expand?.author?.name || 'Usuario',
+      authorUsername: targetPost.expand?.author?.username || '',
+      authorAvatar: targetPost.expand?.author?.avatar || '',
+      content: targetPost.content,
+      photo: targetPost.photo,
+    });
+    setQuoteTargetRecord(targetPost);
+    setQuoteModalVisible(true);
   };
 
   const handleTargetPress = (targetType?: string, targetId?: string) => {
@@ -372,6 +370,16 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </View>
       )}
+
+      <QuoteModal
+        visible={quoteModalVisible}
+        targetType={quoteTargetType}
+        targetId={quoteTargetId}
+        targetMeta={quoteTargetMeta}
+        targetRecord={quoteTargetRecord}
+        onClose={() => setQuoteModalVisible(false)}
+        onSuccess={() => fetchProfileAndPosts(true)}
+      />
     </View>
   );
 };
