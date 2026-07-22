@@ -176,7 +176,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   key={rank.id}
                   style={styles.rankRow}
                   activeOpacity={0.7}
-                  onPress={() => userObj && navigation.navigate('UserProfile', { userId: userObj.id })}
+                  onPress={() => userObj && navigation.navigate('LadderPlayerProfile', { userId: userObj.id, slug: ladder.slug, name: ladder.name })}
                 >
                   <Text style={[styles.rankPosNumber, position <= 3 && styles.rankPosTop]}>
                     {position}º

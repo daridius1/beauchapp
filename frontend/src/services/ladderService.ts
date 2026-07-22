@@ -61,6 +61,26 @@ export const ladderService = {
     }));
   },
 
+  // Obtener usuario por ID
+  getUserById: async (userId: string) => {
+    return await pb.collection('users').getOne(userId);
+  },
+
+  // Obtener historial de partidos de un jugador específico en un ladder
+  getPlayerMatchesInLadder: async (ladderId: string, userId: string): Promise<LadderMatch[]> => {
+    const records = await pb.collection('ladder_matches').getFullList<LadderMatch>({
+      filter: `ladder = "${ladderId}" && (team_red ~ "${userId}" || team_blue ~ "${userId}") && status = "confirmed"`,
+      sort: '-created',
+      expand: 'arbiter,team_red,team_blue',
+    });
+    return records.map((m: LadderMatch) => ({
+      ...m,
+      goal_history: typeof m.goal_history === 'string' ? JSON.parse(m.goal_history as any) : (m.goal_history || []),
+      confirmations: typeof m.confirmations === 'string' ? JSON.parse(m.confirmations as any) : (m.confirmations || {}),
+      openskill_changes: typeof m.openskill_changes === 'string' ? JSON.parse(m.openskill_changes as any) : m.openskill_changes,
+    }));
+  },
+
   // Crear un partido arbitrado en vivo
   submitArbitratedMatch: async (data: {
     ladderId: string;

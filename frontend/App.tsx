@@ -26,6 +26,7 @@ import { LaddersListScreen } from './src/screens/LaddersListScreen';
 import { LadderDetailScreen } from './src/screens/LadderDetailScreen';
 import { LadderMatchArbitratorScreen } from './src/screens/LadderMatchArbitratorScreen';
 import { LadderMatchDetailScreen } from './src/screens/LadderMatchDetailScreen';
+import { LadderPlayerProfileScreen } from './src/screens/LadderPlayerProfileScreen';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -131,7 +132,8 @@ function AppContent() {
       case 'LaddersList': return 'Ladders & Competencias';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
-      case 'LadderMatchDetail': {
+      case 'LadderMatchDetail':
+      case 'LadderPlayerProfile': {
         const slug = params?.slug;
         const name = params?.name;
         if (name) return name;
@@ -281,6 +283,7 @@ function AppContent() {
                     <Stack.Screen name="LadderDetail" component={LadderDetailScreen} />
                     <Stack.Screen name="LadderMatchArbitrator" component={LadderMatchArbitratorScreen} />
                     <Stack.Screen name="LadderMatchDetail" component={LadderMatchDetailScreen} />
+                    <Stack.Screen name="LadderPlayerProfile" component={LadderPlayerProfileScreen} />
                     <Stack.Screen name="Settings" component={SettingsScreen} />
                     <Stack.Screen name="NotFound" component={NotFoundScreen} />
                   </Stack.Navigator>

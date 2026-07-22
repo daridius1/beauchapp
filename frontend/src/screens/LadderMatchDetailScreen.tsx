@@ -191,7 +191,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
               <TouchableOpacity
                 key={p.id}
                 style={styles.playerColumnCentered}
-                onPress={() => navigation.navigate('UserProfile', { userId: p.id })}
+                onPress={() => navigation.navigate('LadderPlayerProfile', { userId: p.id, slug: match.expand?.ladder?.slug || '', name: match.expand?.ladder?.name })}
               >
                 <Text style={styles.playerNameRedCentered} numberOfLines={1}>{p.name}</Text>
               </TouchableOpacity>
@@ -211,7 +211,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
               <TouchableOpacity
                 key={p.id}
                 style={styles.playerColumnCentered}
-                onPress={() => navigation.navigate('UserProfile', { userId: p.id })}
+                onPress={() => navigation.navigate('LadderPlayerProfile', { userId: p.id, slug: match.expand?.ladder?.slug || '', name: match.expand?.ladder?.name })}
               >
                 <Text style={styles.playerNameBlueCentered} numberOfLines={1}>{p.name}</Text>
               </TouchableOpacity>
