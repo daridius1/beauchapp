@@ -251,12 +251,6 @@ function AppContent() {
                   title={getScreenTitle(currentRouteName, currentRouteParams)} 
                   onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                   onBack={showBackButton ? handleBack : undefined}
-                  onTitlePress={() => {
-                    DeviceEventEmitter.emit('onScrollToTop');
-                    if (['Home', 'ProblemsList', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail'].includes(currentRouteName)) {
-                      DeviceEventEmitter.emit('onGlobalRefresh');
-                    }
-                  }}
                   onRefresh={['Home', 'ProblemsList', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail'].includes(currentRouteName) ? () => {
                     DeviceEventEmitter.emit('onGlobalRefresh');
                   } : undefined}
