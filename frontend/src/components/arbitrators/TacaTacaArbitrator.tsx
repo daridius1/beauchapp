@@ -296,7 +296,7 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                       ) : (
                         <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'red', index: idx })}>
                           <View style={styles.plusCircleRed}>
-                            <Feather name="plus" color="#ff4444" size={18} />
+                            <Feather name="plus" color="#ff4444" size={16} />
                           </View>
                           <Text style={styles.addPlayerPrompt}>Agregar jugador</Text>
                         </TouchableOpacity>
@@ -327,7 +327,7 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                       ) : (
                         <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'blue', index: idx })}>
                           <View style={styles.plusCircleBlue}>
-                            <Feather name="plus" color="#38bdf8" size={18} />
+                            <Feather name="plus" color="#38bdf8" size={16} />
                           </View>
                           <Text style={styles.addPlayerPrompt}>Agregar jugador</Text>
                         </TouchableOpacity>
@@ -483,27 +483,25 @@ const styles = StyleSheet.create({
   playerCardActive: {
     backgroundColor: '#161616',
     borderRadius: 8,
-    paddingVertical: 14,
     paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: theme.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    minHeight: 76,
+    height: 72,
   },
   emptySlotCard: {
     backgroundColor: '#121212',
     borderRadius: 8,
-    paddingVertical: 14,
     paddingHorizontal: 8,
     borderWidth: 1.5,
     borderColor: '#262626',
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    minHeight: 76,
+    gap: 4,
+    height: 72,
   },
   playerMeta: {
     flex: 1,
@@ -526,9 +524,9 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   plusCircleRed: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 68, 68, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -536,9 +534,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 68, 68, 0.3)',
   },
   plusCircleBlue: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: 'rgba(56, 189, 248, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
