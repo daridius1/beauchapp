@@ -287,8 +287,9 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                           <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('red', idx)}>
                             <Feather name="x" color="#888888" size={14} />
                           </TouchableOpacity>
-                          <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={38} />
+                          <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={36} />
                           <Text style={styles.chipNameRed} numberOfLines={1}>{player.name}</Text>
+                          {!!player.username && <Text style={styles.playerHandle} numberOfLines={1}>@{player.username}</Text>}
                         </View>
                       ) : (
                         <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'red', index: idx })}>
@@ -314,8 +315,9 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                           <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('blue', idx)}>
                             <Feather name="x" color="#888888" size={14} />
                           </TouchableOpacity>
-                          <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={38} />
+                          <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={36} />
                           <Text style={styles.chipNameBlue} numberOfLines={1}>{player.name}</Text>
+                          {!!player.username && <Text style={styles.playerHandle} numberOfLines={1}>@{player.username}</Text>}
                         </View>
                       ) : (
                         <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'blue', index: idx })}>
@@ -465,12 +467,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#ff4444',
     marginBottom: 8,
+    textAlign: 'center',
   },
   blueLabel: {
     fontSize: 11,
     fontWeight: '800',
     color: '#38bdf8',
     marginBottom: 8,
+    textAlign: 'center',
   },
   playerCardActive: {
     backgroundColor: '#161616',
@@ -481,8 +485,8 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    height: 96,
+    gap: 4,
+    height: 104,
     position: 'relative',
   },
   emptySlotCard: {
@@ -494,7 +498,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 96,
+    height: 104,
   },
   chipNameRed: {
     fontSize: 12,
@@ -507,6 +511,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#38bdf8',
     textAlign: 'center',
+  },
+  playerHandle: {
+    fontSize: 10,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginTop: -2,
   },
   removeCircleBtn: {
     position: 'absolute',

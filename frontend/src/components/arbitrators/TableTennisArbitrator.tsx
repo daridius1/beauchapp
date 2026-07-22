@@ -43,7 +43,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
   const targetScore = ladder.max_score || 11;
   const isDeuce = scoreRed >= targetScore - 1 && scoreBlue >= targetScore - 1;
 
-  // Pre-seleccionar al usuario actual en el Lado Rojo por defecto
+  // Pre-seleccionar al usuario actual en el Equipo Rojo por defecto
   useEffect(() => {
     if (currentUser && playerRed.length === 0 && playerBlue.length === 0) {
       setPlayerRed([{
@@ -273,16 +273,17 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
         <View style={styles.setupContainer}>
           <Animated.View style={{ opacity: shuffleOpacity, transform: [{ scale: shuffleScale }] }}>
             <View style={styles.playersGrid}>
-              {/* Lado Rojo */}
+              {/* Equipo Rojo */}
               <View style={styles.playerBox}>
-                <Text style={styles.redLabel}>LADO ROJO</Text>
+                <Text style={styles.redLabel}>EQUIPO ROJO</Text>
                 {playerRed[0] ? (
                   <View style={styles.playerCardActive}>
                     <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('red')}>
                       <Feather name="x" color="#888888" size={14} />
                     </TouchableOpacity>
-                    <Avatar user={{ id: playerRed[0].id, collectionId: '_pb_users_auth_', avatar: playerRed[0].avatar, name: playerRed[0].name, username: playerRed[0].username }} size={38} />
+                    <Avatar user={{ id: playerRed[0].id, collectionId: '_pb_users_auth_', avatar: playerRed[0].avatar, name: playerRed[0].name, username: playerRed[0].username }} size={36} />
                     <Text style={styles.chipNameRed} numberOfLines={1}>{playerRed[0].name}</Text>
+                    {!!playerRed[0].username && <Text style={styles.playerHandle} numberOfLines={1}>@{playerRed[0].username}</Text>}
                   </View>
                 ) : (
                   <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'red', index: 0 })}>
@@ -293,16 +294,17 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
                 )}
               </View>
 
-              {/* Lado Azul */}
+              {/* Equipo Azul */}
               <View style={styles.playerBox}>
-                <Text style={styles.blueLabel}>LADO AZUL</Text>
+                <Text style={styles.blueLabel}>EQUIPO AZUL</Text>
                 {playerBlue[0] ? (
                   <View style={styles.playerCardActive}>
                     <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('blue')}>
                       <Feather name="x" color="#888888" size={14} />
                     </TouchableOpacity>
-                    <Avatar user={{ id: playerBlue[0].id, collectionId: '_pb_users_auth_', avatar: playerBlue[0].avatar, name: playerBlue[0].name, username: playerBlue[0].username }} size={38} />
+                    <Avatar user={{ id: playerBlue[0].id, collectionId: '_pb_users_auth_', avatar: playerBlue[0].avatar, name: playerBlue[0].name, username: playerBlue[0].username }} size={36} />
                     <Text style={styles.chipNameBlue} numberOfLines={1}>{playerBlue[0].name}</Text>
+                    {!!playerBlue[0].username && <Text style={styles.playerHandle} numberOfLines={1}>@{playerBlue[0].username}</Text>}
                   </View>
                 ) : (
                   <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'blue', index: 0 })}>
@@ -321,7 +323,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
             onPress={handleShuffleTeams}
           >
             <Feather name="shuffle" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
-            <Text style={styles.btnText}>Sortear Lados 🔀</Text>
+            <Text style={styles.btnText}>Sortear Equipos 🔀</Text>
           </TouchableOpacity>
 
           {activeSlot && (
@@ -422,12 +424,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#ff4444',
     marginBottom: 8,
+    textAlign: 'center',
   },
   blueLabel: {
     fontSize: 11,
     fontWeight: '800',
     color: '#38bdf8',
     marginBottom: 8,
+    textAlign: 'center',
   },
   playerCardActive: {
     backgroundColor: '#161616',
@@ -438,8 +442,8 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    height: 96,
+    gap: 4,
+    height: 104,
     position: 'relative',
   },
   emptySlotCard: {
@@ -451,7 +455,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 96,
+    height: 104,
   },
   chipNameRed: {
     fontSize: 12,
@@ -464,6 +468,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#38bdf8',
     textAlign: 'center',
+  },
+  playerHandle: {
+    fontSize: 10,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginTop: -2,
   },
   removeCircleBtn: {
     position: 'absolute',
