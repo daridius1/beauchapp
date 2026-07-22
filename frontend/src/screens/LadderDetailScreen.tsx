@@ -133,9 +133,8 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         />
       }
     >
-      {/* Header Banner Minimalista */}
-      <View style={styles.headerBox}>
-        {/* Carrusel Centrado de Categorías (1v1 / 2v2) */}
+      {/* Header Controls Row: Selector de Categorías & Botón Arbitrar en la misma fila */}
+      <View style={styles.headerControlRow}>
         <CategoryCarousel
           categories={sportGroupInfo.group.categories}
           activeCategoryId={activeCategory.id}
@@ -143,11 +142,11 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         />
 
         <TouchableOpacity
-          style={styles.arbitrateButton}
+          style={styles.arbitrateButtonInline}
           activeOpacity={0.8}
           onPress={() => navigation.navigate('LadderMatchArbitrator', { slug: activeCategory.slug, name: sportGroupInfo.group.groupName })}
         >
-          <Feather name="play-circle" color={theme.colors.text} size={15} style={{ marginRight: 6 }} />
+          <Feather name="play-circle" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
           <Text style={styles.arbitrateButtonText}>Arbitrar</Text>
         </TouchableOpacity>
       </View>
@@ -292,51 +291,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerBox: {
-    marginBottom: theme.spacing.md,
-  },
-  headerRow: {
+  headerControlRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.md,
     gap: 8,
-    marginBottom: 4,
   },
-  ladderTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: theme.colors.text,
-  },
-  modeBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  modeBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: theme.colors.textMuted,
-  },
-  ladderDescription: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    lineHeight: 16,
-    marginBottom: theme.spacing.xs,
-  },
-  arbitrateButton: {
+  arbitrateButtonInline: {
     backgroundColor: theme.colors.cardBg,
     borderRadius: 6,
-    paddingVertical: 10,
+    paddingVertical: 7,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
-    alignSelf: 'center',
-    marginTop: 4,
   },
   arbitrateButtonText: {
     color: theme.colors.text,
