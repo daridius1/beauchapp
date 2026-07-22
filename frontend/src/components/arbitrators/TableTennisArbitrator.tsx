@@ -269,15 +269,8 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.headerBox}>
-        <Text style={styles.title}>Tenis de Mesa ({targetScore} Puntos)</Text>
-        <Text style={styles.subtitle}>
-          {step === 'setup' ? 'Asigna a los jugadores' : `Saca: ${currentServer === 'red' ? playerRed[0]?.name : playerBlue[0]?.name}`}
-        </Text>
-      </View>
-
       {step === 'setup' ? (
-        <View style={styles.card}>
+        <View style={styles.setupContainer}>
           <Animated.View style={{ opacity: shuffleOpacity, transform: [{ scale: shuffleScale }] }}>
             <View style={styles.playersGrid}>
               {/* Lado Rojo */}
@@ -421,29 +414,13 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: theme.spacing.md,
   },
-  headerBox: {
-    marginBottom: theme.spacing.md,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: theme.colors.text,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-  },
-  card: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 8,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+  setupContainer: {
+    gap: theme.spacing.sm,
   },
   playersGrid: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   playerBox: {
     flex: 1,
@@ -463,12 +440,27 @@ const styles = StyleSheet.create({
   playerCardActive: {
     backgroundColor: '#161616',
     borderRadius: 8,
-    padding: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: theme.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    minHeight: 76,
+  },
+  emptySlotCard: {
+    backgroundColor: '#121212',
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderWidth: 1.5,
+    borderColor: '#262626',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 76,
   },
   playerMeta: {
     flex: 1,
@@ -489,18 +481,6 @@ const styles = StyleSheet.create({
   },
   removeCircleBtn: {
     padding: 4,
-  },
-  emptySlotCard: {
-    backgroundColor: '#121212',
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderWidth: 1.5,
-    borderColor: '#262626',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
   },
   plusCircleRed: {
     width: 32,
@@ -530,13 +510,13 @@ const styles = StyleSheet.create({
   shuffleBtn: {
     backgroundColor: '#161616',
     borderRadius: 6,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
     flexDirection: 'row',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   btnText: {
     fontSize: 12,

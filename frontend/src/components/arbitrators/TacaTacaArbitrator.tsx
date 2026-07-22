@@ -255,15 +255,8 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.headerBox}>
-        <Text style={styles.title}>Taca Taca ({targetScore} Goles)</Text>
-        <Text style={styles.subtitle}>
-          {step === 'setup' ? 'Asigna a las parejas competidoras' : 'Registra los goles en vivo'}
-        </Text>
-      </View>
-
       {step === 'setup' ? (
-        <View style={styles.card}>
+        <View style={styles.setupContainer}>
           {/* Selector 1v1 / 2v2 */}
           <View style={styles.modeSelector}>
             <TouchableOpacity
@@ -291,7 +284,7 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                     <View key={`red-${idx}`} style={{ marginBottom: 6 }}>
                       {player ? (
                         <View style={styles.playerCardActive}>
-                          <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={32} />
+                          <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={36} />
                           <View style={styles.playerMeta}>
                             <Text style={styles.chipNameRed} numberOfLines={1}>{player.name}</Text>
                             {!!player.username && <Text style={styles.playerHandle}>@{player.username}</Text>}
@@ -322,7 +315,7 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                     <View key={`blue-${idx}`} style={{ marginBottom: 6 }}>
                       {player ? (
                         <View style={styles.playerCardActive}>
-                          <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={32} />
+                          <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={36} />
                           <View style={styles.playerMeta}>
                             <Text style={styles.chipNameBlue} numberOfLines={1}>{player.name}</Text>
                             {!!player.username && <Text style={styles.playerHandle}>@{player.username}</Text>}
@@ -437,31 +430,15 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: theme.spacing.md,
   },
-  headerBox: {
-    marginBottom: theme.spacing.md,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: theme.colors.text,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-  },
-  card: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 8,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+  setupContainer: {
+    gap: theme.spacing.sm,
   },
   modeSelector: {
     flexDirection: 'row',
     backgroundColor: '#141414',
     borderRadius: 6,
     padding: 3,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   modeTab: {
     flex: 1,
@@ -486,7 +463,7 @@ const styles = StyleSheet.create({
   playersGrid: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   playerBox: {
     flex: 1,
@@ -506,12 +483,27 @@ const styles = StyleSheet.create({
   playerCardActive: {
     backgroundColor: '#161616',
     borderRadius: 8,
-    padding: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: theme.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    minHeight: 76,
+  },
+  emptySlotCard: {
+    backgroundColor: '#121212',
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderWidth: 1.5,
+    borderColor: '#262626',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 76,
   },
   playerMeta: {
     flex: 1,
@@ -532,18 +524,6 @@ const styles = StyleSheet.create({
   },
   removeCircleBtn: {
     padding: 4,
-  },
-  emptySlotCard: {
-    backgroundColor: '#121212',
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderWidth: 1.5,
-    borderColor: '#262626',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
   },
   plusCircleRed: {
     width: 32,
@@ -573,13 +553,13 @@ const styles = StyleSheet.create({
   shuffleBtn: {
     backgroundColor: '#161616',
     borderRadius: 6,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
     flexDirection: 'row',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   btnText: {
     fontSize: 12,

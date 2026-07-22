@@ -130,7 +130,13 @@ function AppContent() {
       case 'Notifications': return 'Notificaciones';
       case 'LaddersList': return 'Ladders & Competencias';
       case 'LadderDetail': return 'Tabla de Posiciones';
-      case 'LadderMatchArbitrator': return 'Arbitraje en Vivo';
+      case 'LadderMatchArbitrator': {
+        const slug = params?.slug;
+        if (slug === 'tiptap') return 'TipTap (30 Puntos)';
+        if (slug === 'tenis-de-mesa') return 'Tenis de Mesa (11 Puntos)';
+        if (slug === 'taca-taca') return 'Taca Taca (7 Goles)';
+        return 'Arbitraje de Competencia';
+      }
       case 'LadderMatchDetail': return 'Detalle de Partido';
       default: return 'Beauchapp';
     }
