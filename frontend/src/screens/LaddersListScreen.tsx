@@ -8,6 +8,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { LADDER_GROUPS, SportGroup } from '../config/ladderGroups';
 
 type LaddersListScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LaddersList'>;
 
@@ -69,6 +70,9 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
     );
   }
 
+  // Agrupar visualmente por deporte
+  const displayedGroups = LADDER_GROUPS;
+
   return (
     <ScrollView
       ref={scrollViewRef}
@@ -90,39 +94,38 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
       </View>
 
-      {ladders.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No hay ladders activos en este momento.</Text>
-        </View>
-      ) : (
-        ladders.map((ladder) => (
+      {displayedGroups.map((group) => {
+        const categoriesLabel = group.categories.map((c) => c.label).join(' / ');
+        const defaultSlug = group.categories[0].slug;
+
+        return (
           <TouchableOpacity
-            key={ladder.id}
+            key={group.groupSlug}
             style={styles.ladderCard}
             activeOpacity={0.7}
-            onPress={() => navigation.navigate('LadderDetail', { slug: ladder.slug })}
+            onPress={() => navigation.navigate('LadderDetail', { slug: defaultSlug, name: group.groupName })}
           >
             <View style={styles.cardMain}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.ladderName}>{ladder.name}</Text>
+                <Text style={styles.ladderName}>{group.groupName}</Text>
                 <View style={styles.modeBadge}>
-                  <Text style={styles.modeBadgeText}>
-                    {ladder.allowed_modes?.join(' / ') || '1v1'}
-                  </Text>
+                  <Text style={styles.modeBadgeText}>{categoriesLabel}</Text>
                 </View>
               </View>
 
-              {!!ladder.description && (
-                <Text style={styles.description} numberOfLines={2}>
-                  {ladder.description}
-                </Text>
-              )}
+              <Text style={styles.description} numberOfLines={2}>
+                {group.groupSlug === 'tenis-de-mesa'
+                  ? 'Ranking oficial de Tenis de Mesa (Ping Pong) FCFM. Modalidades 1v1 e Individuales/Dobles.'
+                  : group.groupSlug === 'taca-taca'
+                  ? 'Ranking oficial de Taca Taca FCFM. Modalidades Individuales (1v1) y Duplas (2v2).'
+                  : 'Competencia oficial de TipTap 1v1 FCFM.'}
+              </Text>
             </View>
 
             <Feather name="chevron-right" color={theme.colors.textMuted} size={18} />
           </TouchableOpacity>
-        ))
-      )}
+        );
+      })}
     </ScrollView>
   );
 };

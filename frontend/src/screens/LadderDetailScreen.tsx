@@ -11,6 +11,8 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { getSportGroup, CategoryOption } from '../config/ladderGroups';
+import { CategoryCarousel } from '../components/CategoryCarousel';
 
 type LadderDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LadderDetail'>;
 type LadderDetailScreenRouteProp = RouteProp<RootStackParamList, 'LadderDetail'>;
@@ -24,6 +26,9 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { slug } = route.params;
   const { user } = useAuth();
 
+  const sportGroupInfo = getSportGroup(slug);
+  const [activeCategory, setActiveCategory] = useState<CategoryOption>(sportGroupInfo.activeCategory);
+
   const [ladder, setLadder] = useState<Ladder | null>(null);
   const [leaderboard, setLeaderboard] = useState<LadderRank[]>([]);
   const [matches, setMatches] = useState<LadderMatch[]>([]);
@@ -31,15 +36,22 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  const fetchLadderData = async (hideLoading = false) => {
+  useEffect(() => {
+    const info = getSportGroup(slug);
+    setActiveCategory(info.activeCategory);
+  }, [slug]);
+
+  const fetchLadderData = async (hideLoading = false, targetSlug?: string) => {
     if (!hideLoading) setLoading(true);
+    const slugToFetch = targetSlug || activeCategory.slug;
+
     try {
       await withMinimumDelay(async () => {
-        const ladderData = await ladderService.getLadderBySlug(slug);
+        const ladderData = await ladderService.getLadderBySlug(slugToFetch);
         setLadder(ladderData);
-        if (ladderData?.name) {
-          navigation.setParams({ name: ladderData.name });
-        }
+        
+        // El título del Header siempre muestra el nombre limpio del deporte
+        navigation.setParams({ name: sportGroupInfo.group.groupName });
 
         const [ranksData, matchesData] = await Promise.all([
           ladderService.getLadderLeaderboard(ladderData.id),
@@ -60,7 +72,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   useFocusEffect(
     useCallback(() => {
       fetchLadderData(!!ladder);
-    }, [slug, !!ladder])
+    }, [activeCategory.slug, !!ladder])
   );
 
   const scrollViewRef = React.useRef<ScrollView>(null);
@@ -76,11 +88,16 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       subScroll.remove();
       subRefresh.remove();
     };
-  }, [slug]);
+  }, [slug, activeCategory.slug]);
 
   const handleRefresh = () => {
     setRefreshing(true);
     fetchLadderData(true);
+  };
+
+  const handleCategorySelect = (cat: CategoryOption) => {
+    setActiveCategory(cat);
+    fetchLadderData(false, cat.slug);
   };
 
   if (loading) {
@@ -119,9 +136,9 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       {/* Header Banner Minimalista */}
       <View style={styles.headerBox}>
         <View style={styles.headerRow}>
-          <Text style={styles.ladderTitle}>{ladder.name}</Text>
+          <Text style={styles.ladderTitle}>{sportGroupInfo.group.groupName}</Text>
           <View style={styles.modeBadge}>
-            <Text style={styles.modeBadgeText}>{ladder.allowed_modes?.join(' / ')}</Text>
+            <Text style={styles.modeBadgeText}>{activeCategory.label}</Text>
           </View>
         </View>
 
@@ -129,13 +146,20 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           <Text style={styles.ladderDescription}>{ladder.description}</Text>
         )}
 
+        {/* Carrusel Centrado de Categorías (1v1 / 2v2) */}
+        <CategoryCarousel
+          categories={sportGroupInfo.group.categories}
+          activeCategoryId={activeCategory.id}
+          onSelectCategory={handleCategorySelect}
+        />
+
         <TouchableOpacity
           style={styles.arbitrateButton}
           activeOpacity={0.8}
-          onPress={() => navigation.navigate('LadderMatchArbitrator', { slug: ladder.slug })}
+          onPress={() => navigation.navigate('LadderMatchArbitrator', { slug: activeCategory.slug, name: sportGroupInfo.group.groupName })}
         >
           <Feather name="play-circle" color={theme.colors.text} size={15} style={{ marginRight: 6 }} />
-          <Text style={styles.arbitrateButtonText}>Arbitrar Partido en Vivo</Text>
+          <Text style={styles.arbitrateButtonText}>Arbitrar Partido en Vivo ({activeCategory.label})</Text>
         </TouchableOpacity>
       </View>
 
@@ -145,7 +169,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           style={[styles.tabButton, activeTab === 'leaderboard' && styles.tabButtonActive]}
           onPress={() => setActiveTab('leaderboard')}
         >
-          <Text style={[styles.tabText, activeTab === 'leaderboard' && styles.tabTextActive]}>Tabla de Posiciones</Text>
+          <Text style={[styles.tabText, activeTab === 'leaderboard' && styles.tabTextActive]}>Tabla de Posiciones ({activeCategory.label})</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -161,7 +185,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.sectionContainer}>
           {leaderboard.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Aún no hay posiciones registradas.</Text>
+              <Text style={styles.emptyText}>Aún no hay posiciones registradas en {activeCategory.label}.</Text>
             </View>
           ) : (
             leaderboard.map((rank, index) => {
@@ -176,7 +200,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   key={rank.id}
                   style={styles.rankRow}
                   activeOpacity={0.7}
-                  onPress={() => userObj && navigation.navigate('LadderPlayerProfile', { userId: userObj.id, slug: ladder.slug, name: ladder.name })}
+                  onPress={() => userObj && navigation.navigate('LadderPlayerProfile', { userId: userObj.id, slug: activeCategory.slug, name: sportGroupInfo.group.groupName })}
                 >
                   <Text style={[styles.rankPosNumber, position <= 3 && styles.rankPosTop]}>
                     {position}º
@@ -206,7 +230,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.sectionContainer}>
           {confirmedMatches.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Aún no hay partidos confirmados.</Text>
+              <Text style={styles.emptyText}>Aún no hay partidos confirmados en {activeCategory.label}.</Text>
             </View>
           ) : (
             confirmedMatches.map((m) => {
@@ -230,7 +254,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     isBlueWinner && styles.matchCardBlueWon,
                   ]}
                   activeOpacity={0.7}
-                  onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id, slug: ladder.slug, name: ladder.name })}
+                  onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id, slug: activeCategory.slug, name: sportGroupInfo.group.groupName })}
                 >
                   <View style={styles.matchCardMain}>
                     <Text style={styles.teamRedName} numberOfLines={1}>{redName}</Text>
@@ -304,7 +328,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.textMuted,
     lineHeight: 16,
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
   },
   arbitrateButton: {
     backgroundColor: theme.colors.cardBg,
@@ -316,7 +340,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     marginTop: 4,
   },
   arbitrateButtonText: {
