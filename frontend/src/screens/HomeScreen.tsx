@@ -319,6 +319,13 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         actionType: 'repost',
         targetType: 'post',
         targetId: targetPost.id,
+        targetMeta: {
+          authorName: targetPost.expand?.author?.name || 'Usuario',
+          authorUsername: targetPost.expand?.author?.username || '',
+          authorAvatar: targetPost.expand?.author?.avatar || '',
+          content: targetPost.content,
+          photo: targetPost.photo,
+        }
       });
       Toast.show({ type: 'success', text1: 'Publicación reposteada' });
       fetchPosts(1, false, true);

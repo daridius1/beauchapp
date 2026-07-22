@@ -28,12 +28,24 @@ onRecordAfterCreateSuccess((e) => {
         if (targetType === "post") {
             try {
                 const targetRecord = $app.findRecordById("posts", targetId);
-                const expand = targetRecord.expand();
-                const author = expand ? expand["author"] : null;
+                const authorId = targetRecord.getString("author");
+                let authorName = "Usuario";
+                let authorUsername = "";
+                let authorAvatar = "";
+
+                if (authorId) {
+                    try {
+                        const authorRecord = $app.findRecordById("users", authorId);
+                        authorName = authorRecord.getString("name");
+                        authorUsername = authorRecord.getString("username");
+                        authorAvatar = authorRecord.getString("avatar");
+                    } catch (err) {}
+                }
+
                 meta = {
-                    authorName: author ? author.getString("name") : "Usuario",
-                    authorUsername: author ? author.getString("username") : "",
-                    authorAvatar: author ? author.getString("avatar") : "",
+                    authorName: authorName,
+                    authorUsername: authorUsername,
+                    authorAvatar: authorAvatar,
                     content: targetRecord.getString("content"),
                     photo: targetRecord.getString("photo"),
                     created: targetRecord.getString("created"),
@@ -60,12 +72,20 @@ onRecordAfterCreateSuccess((e) => {
                 let teamRed = [];
                 let teamBlue = [];
                 try {
-                    const expand = targetRecord.expand();
-                    if (expand && expand["team_red"]) {
-                        teamRed = expand["team_red"].map(u => u.getString("name"));
+                    const redIds = targetRecord.getStringSlice("team_red");
+                    const blueIds = targetRecord.getStringSlice("team_blue");
+
+                    for (let i = 0; i < redIds.length; i++) {
+                        try {
+                            const u = $app.findRecordById("users", redIds[i]);
+                            teamRed.push(u.getString("name"));
+                        } catch (err) {}
                     }
-                    if (expand && expand["team_blue"]) {
-                        teamBlue = expand["team_blue"].map(u => u.getString("name"));
+                    for (let i = 0; i < blueIds.length; i++) {
+                        try {
+                            const u = $app.findRecordById("users", blueIds[i]);
+                            teamBlue.push(u.getString("name"));
+                        } catch (err) {}
                     }
                 } catch (e) {}
 

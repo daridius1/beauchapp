@@ -350,6 +350,12 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         actionType: 'repost',
         targetType: 'problem',
         targetId: problem.id,
+        targetMeta: {
+          title: problem.title,
+          subtitle: problem.parent ? 'Pauta' : 'Enunciado',
+          ramo: problem.ramo,
+          instancia: problem.instancia,
+        }
       });
       Toast.show({ type: 'success', text1: '¡Problema compartido en tu muro!' });
     } catch (err) {

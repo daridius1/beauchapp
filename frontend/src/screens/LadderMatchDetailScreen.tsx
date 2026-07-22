@@ -44,12 +44,21 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
       return;
     }
     try {
+      const teamRed = match.expand?.team_red?.map((u: any) => u.name) || [];
+      const teamBlue = match.expand?.team_blue?.map((u: any) => u.name) || [];
       await pb.collection('posts').create({
         author: user.id,
         content: " ",
         actionType: 'repost',
         targetType: 'match',
         targetId: match.id,
+        targetMeta: {
+          mode: match.mode || '1v1',
+          scoreRed: match.score_red,
+          scoreBlue: match.score_blue,
+          teamRed: teamRed,
+          teamBlue: teamBlue,
+        }
       });
       Toast.show({ type: 'success', text1: '¡Partido compartido en tu muro!' });
     } catch (err) {
