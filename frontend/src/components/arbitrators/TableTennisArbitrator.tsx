@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Animated } from 'react-native';
 import { theme } from '../../theme/theme';
 import { ladderService } from '../../services/ladderService';
 import { Ladder } from '../../types/ladder';
@@ -150,6 +150,39 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     }
   };
 
+  const shuffleAnim = React.useRef(new Animated.Value(1)).current;
+
+  const handleShuffleTeams = () => {
+    if (playerRed.length === 0 && playerBlue.length === 0) return;
+
+    Animated.sequence([
+      Animated.timing(shuffleAnim, {
+        toValue: 0.2,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shuffleAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const tempRed = [...playerRed];
+    const tempBlue = [...playerBlue];
+    setPlayerRed(tempBlue);
+    setPlayerBlue(tempRed);
+
+    const redName = tempBlue[0]?.name || 'Lado Rojo';
+    const blueName = tempRed[0]?.name || 'Lado Azul';
+
+    Toast.show({
+      type: 'info',
+      text1: '🔀 Sorteo de Lados Realizado',
+      text2: `🔴 ${redName} en Lado Rojo | 🔵 ${blueName} en Lado Azul`,
+    });
+  };
+
   const handleRemovePlayer = (team: 'red' | 'blue') => {
     if (team === 'red') {
       setPlayerRed([]);
@@ -278,95 +311,111 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
         <View style={styles.setupSection}>
           <Text style={styles.stepTitleText}>Paso 1: Asignar Jugadores (1 vs 1)</Text>
 
-          <View style={styles.playersSection}>
-            {/* Jugador Lado Rojo */}
-            <View style={styles.teamContainerRed}>
-              <Text style={styles.teamHeaderRed}>JUGADOR ROJO 🏓</Text>
-              {playerRed[0] ? (
-                <View style={styles.playerSlotActive}>
-                  <Text style={styles.slotPlayerName} numberOfLines={1}>
-                    {playerRed[0].name}
-                  </Text>
-                  <TouchableOpacity onPress={() => handleRemovePlayer('red')}>
-                    <Feather name="x" color="#ff4444" size={18} />
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.slotRowActions}>
-                  <TouchableOpacity
-                    style={styles.addPlayerBtnRed}
-                    onPress={() => setActiveSlot({ team: 'red', index: 0 })}
-                  >
-                    <Feather name="user-plus" color="#ff4444" size={14} style={{ marginRight: 4 }} />
-                    <Text style={styles.addPlayerBtnTextRed}>Buscar</Text>
-                  </TouchableOpacity>
-                  {currentUser && (
-                    <TouchableOpacity
-                      style={[
-                        styles.selfAddBtn,
-                        isCurrentUserInMatch && styles.selfAddBtnDisabled,
-                      ]}
-                      disabled={isCurrentUserInMatch}
-                      onPress={() => handleAddMyself('red')}
-                    >
-                      <Text
-                        style={[
-                          styles.selfAddBtnText,
-                          isCurrentUserInMatch && styles.selfAddBtnTextDisabled,
-                        ]}
-                      >
-                        + Yo
-                      </Text>
+          <Animated.View style={{ opacity: shuffleAnim }}>
+            <View style={styles.playersSection}>
+              {/* Jugador Lado Rojo */}
+              <View style={styles.teamContainerRed}>
+                <Text style={styles.teamHeaderRed}>JUGADOR ROJO 🏓</Text>
+                {playerRed[0] ? (
+                  <View style={styles.playerSlotActive}>
+                    <Text style={styles.slotPlayerName} numberOfLines={1}>
+                      {playerRed[0].name}
+                    </Text>
+                    <TouchableOpacity onPress={() => handleRemovePlayer('red')}>
+                      <Feather name="x" color="#ff4444" size={18} />
                     </TouchableOpacity>
-                  )}
-                </View>
-              )}
-            </View>
+                  </View>
+                ) : (
+                  <View style={styles.slotRowActions}>
+                    <TouchableOpacity
+                      style={styles.addPlayerBtnRed}
+                      onPress={() => setActiveSlot({ team: 'red', index: 0 })}
+                    >
+                      <Feather name="user-plus" color="#ff4444" size={14} style={{ marginRight: 4 }} />
+                      <Text style={styles.addPlayerBtnTextRed}>Buscar</Text>
+                    </TouchableOpacity>
+                    {currentUser && (
+                      <TouchableOpacity
+                        style={[
+                          styles.selfAddBtn,
+                          isCurrentUserInMatch && styles.selfAddBtnDisabled,
+                        ]}
+                        disabled={isCurrentUserInMatch}
+                        onPress={() => handleAddMyself('red')}
+                      >
+                        <Text
+                          style={[
+                            styles.selfAddBtnText,
+                            isCurrentUserInMatch && styles.selfAddBtnTextDisabled,
+                          ]}
+                        >
+                          + Yo
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </View>
 
-            {/* Jugador Lado Azul */}
-            <View style={styles.teamContainerBlue}>
-              <Text style={styles.teamHeaderBlue}>JUGADOR AZUL 🏓</Text>
-              {playerBlue[0] ? (
-                <View style={styles.playerSlotActive}>
-                  <Text style={styles.slotPlayerName} numberOfLines={1}>
-                    {playerBlue[0].name}
-                  </Text>
-                  <TouchableOpacity onPress={() => handleRemovePlayer('blue')}>
-                    <Feather name="x" color="#38bdf8" size={18} />
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.slotRowActions}>
-                  <TouchableOpacity
-                    style={styles.addPlayerBtnBlue}
-                    onPress={() => setActiveSlot({ team: 'blue', index: 0 })}
-                  >
-                    <Feather name="user-plus" color="#38bdf8" size={14} style={{ marginRight: 4 }} />
-                    <Text style={styles.addPlayerBtnTextBlue}>Buscar</Text>
-                  </TouchableOpacity>
-                  {currentUser && (
-                    <TouchableOpacity
-                      style={[
-                        styles.selfAddBtn,
-                        isCurrentUserInMatch && styles.selfAddBtnDisabled,
-                      ]}
-                      disabled={isCurrentUserInMatch}
-                      onPress={() => handleAddMyself('blue')}
-                    >
-                      <Text
-                        style={[
-                          styles.selfAddBtnText,
-                          isCurrentUserInMatch && styles.selfAddBtnTextDisabled,
-                        ]}
-                      >
-                        + Yo
-                      </Text>
+              {/* Jugador Lado Azul */}
+              <View style={styles.teamContainerBlue}>
+                <Text style={styles.teamHeaderBlue}>JUGADOR AZUL 🏓</Text>
+                {playerBlue[0] ? (
+                  <View style={styles.playerSlotActive}>
+                    <Text style={styles.slotPlayerName} numberOfLines={1}>
+                      {playerBlue[0].name}
+                    </Text>
+                    <TouchableOpacity onPress={() => handleRemovePlayer('blue')}>
+                      <Feather name="x" color="#38bdf8" size={18} />
                     </TouchableOpacity>
-                  )}
-                </View>
-              )}
+                  </View>
+                ) : (
+                  <View style={styles.slotRowActions}>
+                    <TouchableOpacity
+                      style={styles.addPlayerBtnBlue}
+                      onPress={() => setActiveSlot({ team: 'blue', index: 0 })}
+                    >
+                      <Feather name="user-plus" color="#38bdf8" size={14} style={{ marginRight: 4 }} />
+                      <Text style={styles.addPlayerBtnTextBlue}>Buscar</Text>
+                    </TouchableOpacity>
+                    {currentUser && (
+                      <TouchableOpacity
+                        style={[
+                          styles.selfAddBtn,
+                          isCurrentUserInMatch && styles.selfAddBtnDisabled,
+                        ]}
+                        disabled={isCurrentUserInMatch}
+                        onPress={() => handleAddMyself('blue')}
+                      >
+                        <Text
+                          style={[
+                            styles.selfAddBtnText,
+                            isCurrentUserInMatch && styles.selfAddBtnTextDisabled,
+                          ]}
+                        >
+                          + Yo
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
+          </Animated.View>
+
+          {/* BOTÓN SORTEAR LADOS */}
+          <TouchableOpacity
+            style={[
+              styles.shuffleBtn,
+              (playerRed.length === 0 && playerBlue.length === 0) && styles.shuffleBtnDisabled,
+            ]}
+            disabled={playerRed.length === 0 && playerBlue.length === 0}
+            activeOpacity={0.7}
+            onPress={handleShuffleTeams}
+          >
+            <Feather name="shuffle" color={theme.colors.primary} size={14} style={{ marginRight: 6 }} />
+            <Text style={styles.shuffleBtnText}>Sortear Lados / Equipos 🔀</Text>
+          </TouchableOpacity>
 
           {/* BUSCADOR MODAL */}
           {activeSlot && (
@@ -1063,5 +1112,25 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 15,
     fontWeight: '800',
+  },
+  shuffleBtn: {
+    backgroundColor: '#161616',
+    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: theme.spacing.md,
+  },
+  shuffleBtnDisabled: {
+    opacity: 0.3,
+  },
+  shuffleBtnText: {
+    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
