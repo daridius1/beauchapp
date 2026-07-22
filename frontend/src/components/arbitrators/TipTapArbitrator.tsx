@@ -55,7 +55,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const [searching, setSearching] = useState<boolean>(false);
   const [activeSlot, setActiveSlot] = useState<{ team: 'red' | 'blue'; index: number } | null>(null);
 
-  const targetScore = ladder.max_score || 30;
+  const targetScore = 30;
 
   // Regla de victoria en TipTap: Llegar a 30 puntos
   const checkIsTerminal = (red: number, blue: number): { isTerminal: boolean; winner?: 'red' | 'blue' } => {
