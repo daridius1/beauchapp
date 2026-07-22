@@ -381,12 +381,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#ff4444',
     marginBottom: 8,
+    textAlign: 'center',
   },
   blueLabel: {
     fontSize: 11,
     fontWeight: '800',
     color: '#38bdf8',
     marginBottom: 8,
+    textAlign: 'center',
   },
   playerCardActive: {
     backgroundColor: theme.colors.cardBg,
