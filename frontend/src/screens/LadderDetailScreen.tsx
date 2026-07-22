@@ -228,11 +228,11 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           ) : (
             confirmedMatches.map((m) => {
-              const formattedDate = new Date(m.created).toLocaleDateString('es-CL', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-              });
+              const createdDate = new Date(m.created);
+              const day = String(createdDate.getDate()).padStart(2, '0');
+              const month = String(createdDate.getMonth() + 1).padStart(2, '0');
+              const year = String(createdDate.getFullYear()).slice(-2);
+              const formattedDate = `${day}/${month}/${year}`;
 
               const isRedWinner = m.score_red > m.score_blue;
               const isBlueWinner = m.score_blue > m.score_red;
