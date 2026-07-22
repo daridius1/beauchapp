@@ -229,17 +229,17 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   activeOpacity={0.7}
                   onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id })}
                 >
-                  {/* Fecha arriba al centro */}
-                  <View style={styles.matchDateHeader}>
-                    <Text style={styles.matchDateText}>{formattedDate}</Text>
-                  </View>
-
                   <View style={styles.matchCardMain}>
                     <Text style={styles.teamRedName} numberOfLines={1}>{redName}</Text>
                     <Text style={styles.matchScoreText}>
                       <Text style={{ color: '#ff4444' }}>{m.score_red}</Text> - <Text style={{ color: '#38bdf8' }}>{m.score_blue}</Text>
                     </Text>
                     <Text style={styles.teamBlueNameRight} numberOfLines={1}>{blueName}</Text>
+                  </View>
+
+                  {/* Fecha abajo al centro */}
+                  <View style={styles.matchDateFooter}>
+                    <Text style={styles.matchDateText}>{formattedDate}</Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -412,9 +412,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 3,
     borderBottomColor: '#38bdf8',
   },
-  matchDateHeader: {
+  matchDateFooter: {
     alignItems: 'center',
-    marginBottom: 6,
+    marginTop: 6,
   },
   matchDateText: {
     fontSize: 10,

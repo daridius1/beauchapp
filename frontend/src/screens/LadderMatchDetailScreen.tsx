@@ -166,10 +166,6 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
           match.score_blue > match.score_red && styles.matchCardBlueWon,
         ]}
       >
-        <View style={styles.dateCenteredHeader}>
-          <Text style={styles.dateCenteredText}>{formattedDate}</Text>
-        </View>
-
         <View style={styles.scoreboardMainRow}>
           {/* Lado Rojo */}
           <View style={styles.teamColumn}>
@@ -192,21 +188,26 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
             </Text>
           </View>
 
-        {/* Lado Azul */}
-        <View style={styles.teamColumnRight}>
-          {match.expand?.team_blue?.map((p) => (
-            <TouchableOpacity
-              key={p.id}
-              style={styles.playerRowRight}
-              onPress={() => navigation.navigate('UserProfile', { userId: p.id })}
-            >
-              <Text style={styles.playerNameBlue} numberOfLines={1}>{p.name}</Text>
-              <Avatar user={{ id: p.id, collectionId: '_pb_users_auth_', avatar: p.avatar, name: p.name, username: p.username }} size={28} />
-            </TouchableOpacity>
-          ))}
+          {/* Lado Azul */}
+          <View style={styles.teamColumnRight}>
+            {match.expand?.team_blue?.map((p) => (
+              <TouchableOpacity
+                key={p.id}
+                style={styles.playerRowRight}
+                onPress={() => navigation.navigate('UserProfile', { userId: p.id })}
+              >
+                <Text style={styles.playerNameBlue} numberOfLines={1}>{p.name}</Text>
+                <Avatar user={{ id: p.id, collectionId: '_pb_users_auth_', avatar: p.avatar, name: p.name, username: p.username }} size={28} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Fecha abajo al centro */}
+        <View style={styles.dateCenteredFooter}>
+          <Text style={styles.dateCenteredText}>{formattedDate}</Text>
         </View>
       </View>
-    </View>
 
       {/* Acción Pendiente */}
       {match.status === 'pending_confirmation' && currentUser && (match.team_red.includes(currentUser.id) || match.team_blue.includes(currentUser.id)) && match.confirmations?.[currentUser.id] === undefined && (
@@ -331,9 +332,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 3,
     borderBottomColor: '#38bdf8',
   },
-  dateCenteredHeader: {
+  dateCenteredFooter: {
     alignItems: 'center',
-    marginBottom: 8,
+    marginTop: 8,
   },
   dateCenteredText: {
     fontSize: 10,
