@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, Platform, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, Platform, ScrollView, Image } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { pb } from '../services/pocketbase';
 import { theme } from '../theme/theme';
@@ -9,7 +9,7 @@ import { compressImage } from '../utils/imageCompressor';
 import Toast from 'react-native-toast-message';
 
 export const SettingsScreen: React.FC = () => {
-  const { user } = useAuth();
+  const { user, developerMode, setDeveloperMode } = useAuth();
   
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [name, setName] = useState(user?.name || '');
@@ -47,7 +47,7 @@ export const SettingsScreen: React.FC = () => {
 
     setIsSaving(true);
     try {
-      // Comprimir la imagen usando la utilidad existente (reduce a menos de 250KB, convierte a JPEG, y recorta a cuadrado)
+      // Comprimir la imagen usando la utilidad existente
       const compressedBlob = await compressImage(file, true, 'image/jpeg');
       const compressedFile = new File(
         [compressedBlob], 
@@ -59,15 +59,15 @@ export const SettingsScreen: React.FC = () => {
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
       setAvatarPreview(URL.createObjectURL(compressedFile));
       setAvatarFile(compressedFile);
-    } catch (err: any) {
+    } catch (err) {
+      console.error('Error procesando la imagen:', err);
       Toast.show({
         type: 'error',
-        text1: 'Error al procesar imagen',
-        text2: err.message || 'Ocurrió un error al procesar el archivo.',
+        text1: 'Error',
+        text2: 'No se pudo procesar la imagen seleccionada.',
       });
     } finally {
       setIsSaving(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -75,7 +75,7 @@ export const SettingsScreen: React.FC = () => {
     if (!name.trim()) {
       Toast.show({
         type: 'error',
-        text1: 'Campo obligatorio',
+        text1: 'Campo requerido',
         text2: 'El nombre no puede estar vacío.',
       });
       return;
@@ -85,33 +85,28 @@ export const SettingsScreen: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append('name', name.trim());
+      
       if (avatarFile) {
         formData.append('avatar', avatarFile);
       }
 
-      // Actualizar en PocketBase
       await pb.collection('users').update(user.id, formData);
-      
-      // Refrescar credenciales en el cliente para que AuthContext actualice el estado global de forma inmediata
       await pb.collection('users').authRefresh();
 
       Toast.show({
         type: 'success',
         text1: 'Perfil actualizado',
-        text2: 'Tus cambios se guardaron correctamente.',
+        text2: 'Tus cambios han sido guardados exitosamente.',
       });
       
-      // Limpiar estados de edición
-      setAvatarFile(null);
-      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-      setAvatarPreview(null);
       setIsEditingProfile(false);
+      setAvatarFile(null);
     } catch (err: any) {
-      console.error('Error saving profile changes', err);
+      console.error('Error al guardar el perfil:', err);
       Toast.show({
         type: 'error',
         text1: 'Error al guardar',
-        text2: err.message || 'No se pudo actualizar el perfil.',
+        text2: err.message || 'No se pudieron guardar los cambios.',
       });
     } finally {
       setIsSaving(false);
@@ -120,49 +115,58 @@ export const SettingsScreen: React.FC = () => {
 
   const handleCancel = () => {
     setName(user.name || '');
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    setAvatarPreview(null);
     setAvatarFile(null);
-    if (avatarPreview) {
-      URL.revokeObjectURL(avatarPreview);
-      setAvatarPreview(null);
-    }
     setIsEditingProfile(false);
+  };
+
+  const triggerFileSelect = () => {
+    if (Platform.OS === 'web' && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      {/* Tarjeta de información de la cuenta */}
+      {/* Tarjeta de Cuenta */}
       <View style={styles.accountCard}>
         <View style={styles.avatarWrapper}>
-          <Avatar user={user} size={80} />
+          {avatarPreview ? (
+            <Image source={{ uri: avatarPreview }} style={{ width: 70, height: 70, borderRadius: 35 }} />
+          ) : (
+            <Avatar user={user} size={70} />
+          )}
         </View>
+
         <View style={styles.accountInfo}>
-          <Text style={styles.accountName} numberOfLines={1}>{user.name}</Text>
-          <Text style={styles.accountUsername} numberOfLines={1}>@{user.username}</Text>
-          <Text style={styles.accountEmail} numberOfLines={1}>{user.email}</Text>
+          <Text style={styles.accountName}>{user.name}</Text>
+          <Text style={styles.accountUsername}>@{user.username}</Text>
+          <Text style={styles.accountEmail}>{user.email}</Text>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{getAccountTypeLabel()}</Text>
           </View>
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Ajustes de Cuenta</Text>
-
-      {/* Opción: Modificar mi perfil (Acordeón) */}
+      {/* Sección Editar Perfil */}
+      <Text style={styles.sectionTitle}>Perfil</Text>
+      
       <View style={styles.optionCard}>
         <TouchableOpacity 
-          style={styles.optionHeader}
+          style={styles.optionHeader} 
           onPress={() => setIsEditingProfile(!isEditingProfile)}
           activeOpacity={0.7}
         >
           <View style={styles.optionTitleRow}>
             <Feather name="user" size={20} color={theme.colors.primary} style={styles.optionIcon} />
             <View>
-              <Text style={styles.optionTitle}>Modificar mi perfil</Text>
-              <Text style={styles.optionSubtitle}>Cambia tu nombre y foto de perfil pública</Text>
+              <Text style={styles.optionTitle}>Editar Datos Básicos</Text>
+              <Text style={styles.optionSubtitle}>Cambia tu nombre público y foto de perfil</Text>
             </View>
           </View>
           <Feather 
-            name={isEditingProfile ? 'chevron-up' : 'chevron-down'} 
+            name={isEditingProfile ? "chevron-up" : "chevron-down"} 
             size={20} 
             color={theme.colors.textMuted} 
           />
@@ -170,33 +174,30 @@ export const SettingsScreen: React.FC = () => {
 
         {isEditingProfile && (
           <View style={styles.editForm}>
-            {/* Selector de Avatar */}
+            {/* Picker de Avatar */}
             <View style={styles.avatarPickerContainer}>
               <TouchableOpacity 
-                style={styles.avatarPickerTouch}
-                onPress={() => fileInputRef.current?.click()}
+                style={styles.avatarPickerTouch} 
+                onPress={triggerFileSelect}
                 disabled={isSaving}
-                activeOpacity={0.8}
               >
-                {avatarPreview ? (
-                  <View style={styles.avatarContainer}>
-                    <Avatar user={{ ...user, avatar: avatarPreview }} size={100} />
+                <View style={styles.avatarContainer}>
+                  {avatarPreview ? (
+                    <Image source={{ uri: avatarPreview }} style={{ width: 100, height: 100, borderRadius: 50 }} />
+                  ) : (
+                    <Avatar user={user} size={100} />
+                  )}
+                  <View style={styles.cameraOverlay}>
+                    <Feather name="camera" size={16} color="#000000" />
                   </View>
-                ) : (
-                  <Avatar user={user} size={100} />
-                )}
-                
-                {/* Overlay de cámara */}
-                <View style={styles.cameraOverlay}>
-                  <Feather name="camera" size={16} color="#000000" />
                 </View>
               </TouchableOpacity>
               
               {Platform.OS === 'web' && (
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  accept="image/*" 
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
                   style={{ display: 'none' }}
                   onChange={handleFileChange}
                 />
@@ -242,6 +243,38 @@ export const SettingsScreen: React.FC = () => {
             </View>
           </View>
         )}
+      </View>
+
+      {/* Sección Opciones Avanzadas */}
+      <Text style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>Opciones Avanzadas</Text>
+      
+      <View style={styles.optionCard}>
+        <TouchableOpacity 
+          style={styles.optionHeader} 
+          onPress={() => {
+            const nextState = !developerMode;
+            setDeveloperMode(nextState);
+            Toast.show({
+              type: 'info',
+              text1: nextState ? 'Modo Desarrollador Activado 🛠️' : 'Modo Desarrollador Desactivado',
+              text2: nextState ? 'Los IDs de los posts se mostrarán en la interfaz.' : 'Se han ocultado los identificadores.',
+            });
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={styles.optionTitleRow}>
+            <Feather name="code" size={20} color={theme.colors.primary} style={styles.optionIcon} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.optionTitle}>Modo Desarrollador</Text>
+              <Text style={styles.optionSubtitle}>Muestra el ID único de las publicaciones en el feed</Text>
+            </View>
+          </View>
+          <Feather 
+            name={developerMode ? "check-square" : "square"} 
+            size={22} 
+            color={developerMode ? theme.colors.primary : theme.colors.textMuted} 
+          />
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -418,7 +451,6 @@ const styles = StyleSheet.create({
   btnCancelText: {
     color: theme.colors.textMuted,
     fontWeight: '600',
-    fontSize: 14,
   },
   btnSave: {
     backgroundColor: theme.colors.primary,
@@ -426,6 +458,5 @@ const styles = StyleSheet.create({
   btnSaveText: {
     color: '#000000',
     fontWeight: '700',
-    fontSize: 14,
   },
 });

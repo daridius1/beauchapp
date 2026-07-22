@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, Image, TouchableOpacity, Platform } from 'react-native';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Avatar } from './Avatar';
 import { theme } from '../theme/theme';
@@ -7,6 +7,7 @@ import { pb, getFileUrl } from '../services/pocketbase';
 import { useNavigation } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { ImageViewer } from './ImageViewer';
+import { useAuth } from '../context/AuthContext';
 
 export interface PostCardProps {
   post: any;
@@ -33,6 +34,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   isFocused = false,
   isParent = false,
 }) => {
+  const { developerMode } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [loadingMention, setLoadingMention] = useState(false);
   const [viewerVisible, setViewerVisible] = useState(false);
@@ -211,7 +213,29 @@ export const PostCard: React.FC<PostCardProps> = ({
                 {!isDeleted && author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
               </TouchableOpacity>
             </View>
-            <Text style={styles.postDate}>{formatDate(post.created)}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.postDate}>{formatDate(post.created)}</Text>
+              {developerMode && !isDeleted && (
+                <TouchableOpacity
+                  style={styles.devIdBadge}
+                  activeOpacity={0.7}
+                  onPress={(e: any) => {
+                    if (e.stopPropagation) e.stopPropagation();
+                    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                      navigator.clipboard.writeText(post.id);
+                    }
+                    Toast.show({
+                      type: 'info',
+                      text1: 'ID Copiado 📋',
+                      text2: `ID del post: ${post.id}`,
+                    });
+                  }}
+                >
+                  <Feather name="code" size={10} color={theme.colors.primary} style={{ marginRight: 3 }} />
+                  <Text style={styles.devIdBadgeText}>ID: {post.id}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
 
@@ -554,5 +578,22 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: theme.colors.text,
+  },
+  devIdBadge: {
+    backgroundColor: '#121212',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  devIdBadgeText: {
+    color: theme.colors.primary,
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
 });

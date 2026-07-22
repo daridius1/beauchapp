@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { pb } from '../services/pocketbase';
+import { storage } from '../utils/storage';
 
 export interface User {
   id: string;
@@ -18,6 +19,8 @@ interface AuthContextType {
   loading: boolean;
   isInitialized: boolean;
   error: string | null;
+  developerMode: boolean;
+  setDeveloperMode: (enabled: boolean) => void;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string, username: string) => Promise<void>;
   logout: () => void;
@@ -77,6 +80,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(false);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [developerMode, setDeveloperModeState] = useState<boolean>(() => storage.getItem('beauchapp_dev_mode') === 'true');
+
+  const setDeveloperMode = (enabled: boolean) => {
+    setDeveloperModeState(enabled);
+    storage.setItem('beauchapp_dev_mode', enabled.toString());
+  };
 
   // Sincronizar el estado con el AuthStore de PocketBase al iniciar
   useEffect(() => {
@@ -100,13 +109,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     checkAuth();
 
-    // Suscribirse a cambios en el AuthStore
+    // Escuchar cambios en authStore (ej. logout en otra pestaña)
     const unsubscribe = pb.authStore.onChange((token, model) => {
-      if (model) {
-        setUser(model as unknown as User);
-      } else {
-        setUser(null);
-      }
+      setUser(model as unknown as User);
     });
 
     return () => {
@@ -118,18 +123,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     setError(null);
     try {
-      // Iniciar sesión con email y contraseña
       const authData = await pb.collection('users').authWithPassword(email, password);
-      
-      if (!authData.record.verified && authData.record.type !== 'organization') {
-        pb.authStore.clear();
-        throw new Error('Debes verificar tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada o spam.');
-      }
-      
       setUser(authData.record as unknown as User);
     } catch (err: any) {
-      console.error('Login error:', err);
-      setError(getFriendlyErrorMessage(err, 'Error al iniciar sesión. Verifica tus credenciales.'));
+      console.error('login error:', err);
+      setError(getFriendlyErrorMessage(err, 'Error al iniciar sesión.'));
       throw err;
     } finally {
       setLoading(false);
@@ -140,31 +138,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     setError(null);
     try {
-      // Filtro previo en cliente (adicional al del backend)
-      if (!email.endsWith('@ing.uchile.cl')) {
-        throw new Error('Solo se permiten correos institucionales @ing.uchile.cl');
-      }
-
-      const data = {
-        username: username,
-        email: email,
-        emailVisibility: true,
-        password: password,
+      await pb.collection('users').create({
+        email,
+        password,
         passwordConfirm: password,
-        name: name,
-        type: 'student',
-      };
+        name,
+        username,
+      });
 
-      // Crear el registro de usuario
-      await pb.collection('users').create(data);
-
-      // Enviar enlace de verificación de correo
+      // Solicitar correo de verificación automáticamente tras registro exitoso
       await pb.collection('users').requestVerification(email);
 
-      // No iniciamos sesión automáticamente para obligar a verificar el correo
+      // Auto login después del registro
+      await login(email, password);
     } catch (err: any) {
-      console.error('Signup error:', err);
-      setError(getFriendlyErrorMessage(err, 'Error al registrar usuario.'));
+      console.error('signup error:', err);
+      setError(getFriendlyErrorMessage(err, 'Error al registrarse.'));
       throw err;
     } finally {
       setLoading(false);
@@ -174,7 +163,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     pb.authStore.clear();
     setUser(null);
-    setError(null);
   };
 
   const clearError = () => {
@@ -188,7 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await pb.collection('users').requestVerification(email);
     } catch (err: any) {
       console.error('requestVerification error:', err);
-      setError(getFriendlyErrorMessage(err, 'Error al solicitar verificación.'));
+      setError(getFriendlyErrorMessage(err, 'Error al solicitar correo de verificación.'));
       throw err;
     } finally {
       setLoading(false);
@@ -202,7 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await pb.collection('users').requestPasswordReset(email);
     } catch (err: any) {
       console.error('requestPasswordReset error:', err);
-      setError(getFriendlyErrorMessage(err, 'Error al solicitar reseteo de contraseña.'));
+      setError(getFriendlyErrorMessage(err, 'Error al solicitar restablecimiento de contraseña.'));
       throw err;
     } finally {
       setLoading(false);
@@ -216,7 +204,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await pb.collection('users').confirmPasswordReset(token, password, passwordConfirm);
     } catch (err: any) {
       console.error('confirmPasswordReset error:', err);
-      setError(getFriendlyErrorMessage(err, 'Error al confirmar reseteo de contraseña.'));
+      setError(getFriendlyErrorMessage(err, 'Error al restablecer contraseña.'));
       throw err;
     } finally {
       setLoading(false);
@@ -244,6 +232,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         isInitialized,
         error,
+        developerMode,
+        setDeveloperMode,
         login,
         signup,
         logout,
