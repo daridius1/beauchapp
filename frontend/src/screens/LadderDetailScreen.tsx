@@ -201,12 +201,9 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     <Text style={styles.rankUserName} numberOfLines={1}>
                       {userObj?.name || 'Alumno FCFM'}
                     </Text>
-                    <Text style={styles.rankUserMeta}>
-                      {rank.wins}V - {rank.losses}D ({rank.matches_played} PJ)
-                    </Text>
                   </View>
 
-                  <Text style={styles.ratingScore}>{Math.round(rank.ordinal_rating)} ELO</Text>
+                  <Text style={styles.ratingScore}>{Math.round(rank.ordinal_rating)}</Text>
                 </TouchableOpacity>
               );
             })
