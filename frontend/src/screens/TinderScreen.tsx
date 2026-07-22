@@ -1371,7 +1371,6 @@ const styles = StyleSheet.create({
   cardImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   imageNavArea: {
     position: 'absolute',
@@ -1642,7 +1641,6 @@ const styles = StyleSheet.create({
   slotImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   removePhotoBtn: {
     position: 'absolute',
@@ -1829,7 +1827,6 @@ const styles = StyleSheet.create({
   matchDetailPhoto: {
     width: CARD_WIDTH - 64,
     height: 250,
-    resizeMode: 'cover',
   },
   emptyDetailPhotoBox: {
     width: '100%',

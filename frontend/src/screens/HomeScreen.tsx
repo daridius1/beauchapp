@@ -459,7 +459,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
             )}
             {photoPreview && (
               <View style={styles.previewContainer}>
-                <Image source={{ uri: photoPreview }} style={styles.previewImage} />
+                <Image source={{ uri: photoPreview }} style={styles.previewImage} resizeMode="cover" />
                 <TouchableOpacity style={styles.removeButton} onPress={() => setPhoto(null)}>
                   <Text style={styles.removeText}>X</Text>
                 </TouchableOpacity>
@@ -664,7 +664,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.md,
-    resizeMode: 'cover',
   },
   composeBox: {
     padding: theme.spacing.md,

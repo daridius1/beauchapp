@@ -319,6 +319,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           <Image 
             source={{ uri: getFileUrl(post, post.photo) }}
             style={styles.postImage}
+            resizeMode="cover"
           />
         </TouchableOpacity>
       )}
@@ -455,7 +456,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 240,
     borderRadius: theme.borderRadius.md,
-    resizeMode: 'cover',
     marginBottom: theme.spacing.sm,
   },
   tagsRow: { 

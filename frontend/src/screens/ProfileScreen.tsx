@@ -461,7 +461,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.md,
-    resizeMode: 'cover',
   },
 
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: theme.spacing.sm },

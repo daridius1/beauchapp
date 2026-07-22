@@ -489,20 +489,26 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#ff4444',
     textAlign: 'center',
-    textShadowColor: '#000000',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
-    ...(Platform.OS === 'web' ? ({ textShadow: '0px 2px 8px #000000, 0px 0px 5px #000000, 0px 0px 2px #000000' } as any) : {}),
+    ...(Platform.OS === 'web'
+      ? ({ textShadow: '0px 2px 8px #000000, 0px 0px 5px #000000, 0px 0px 2px #000000' } as any)
+      : {
+          textShadowColor: '#000000',
+          textShadowOffset: { width: 0, height: 2 },
+          textShadowRadius: 8,
+        }),
   },
   playerNameBlueCentered: {
     fontSize: 13,
     fontWeight: '800',
     color: '#38bdf8',
     textAlign: 'center',
-    textShadowColor: '#000000',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
-    ...(Platform.OS === 'web' ? ({ textShadow: '0px 2px 8px #000000, 0px 0px 5px #000000, 0px 0px 2px #000000' } as any) : {}),
+    ...(Platform.OS === 'web'
+      ? ({ textShadow: '0px 2px 8px #000000, 0px 0px 5px #000000, 0px 0px 2px #000000' } as any)
+      : {
+          textShadowColor: '#000000',
+          textShadowOffset: { width: 0, height: 2 },
+          textShadowRadius: 8,
+        }),
   },
   scoreDisplay: {
     paddingHorizontal: 12,

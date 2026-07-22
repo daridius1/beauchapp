@@ -414,7 +414,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.md,
-    resizeMode: 'cover',
   },
   loadMoreBtn: {
     padding: 12,
@@ -531,7 +530,6 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 8,
-    resizeMode: 'cover',
   },
   removeButton: {
     position: 'absolute',
