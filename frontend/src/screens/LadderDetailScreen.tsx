@@ -9,7 +9,6 @@ import { useAuth } from '../context/AuthContext';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
-import Toast from 'react-native-toast-message';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -31,7 +30,6 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'matches'>('leaderboard');
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const fetchLadderData = async (hideLoading = false) => {
     if (!hideLoading) setLoading(true);
@@ -82,27 +80,6 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     fetchLadderData(true);
   };
 
-  const handleRespondMatch = async (matchId: string, decision: 'accepted' | 'rejected') => {
-    setActionLoadingId(matchId);
-    try {
-      await ladderService.respondToMatchConfirmation(matchId, decision);
-      Toast.show({
-        type: 'success',
-        text1: decision === 'accepted' ? 'Resultado Confirmado' : 'Partido Disputado',
-        text2: decision === 'accepted' ? 'Tu confirmación ha sido registrada.' : 'El partido ha pasado a estado disputado.',
-      });
-      fetchLadderData(true);
-    } catch (err: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: err.message || 'No se pudo procesar tu respuesta.',
-      });
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -118,6 +95,9 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       </View>
     );
   }
+
+  // Filtrar solo las partidas confirmadas para el historial
+  const confirmedMatches = matches.filter((m) => m.status === 'confirmed');
 
   return (
     <ScrollView
@@ -218,28 +198,22 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       )}
 
-      {/* TAB 2: HISTORIAL DE PARTIDOS */}
+      {/* TAB 2: HISTORIAL DE PARTIDOS (Solo partidos confirmados) */}
       {activeTab === 'matches' && (
         <View style={styles.sectionContainer}>
-          {matches.length === 0 ? (
+          {confirmedMatches.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No hay partidos registrados recientemente.</Text>
+              <Text style={styles.emptyText}>Aún no hay partidos confirmados.</Text>
             </View>
           ) : (
-            matches.map((m) => {
-              const isPending = m.status === 'pending_confirmation';
-              const isDisputed = m.status === 'disputed';
-              const isConfirmed = m.status === 'confirmed';
-
-              const currentUserId = user?.id;
-              const requiresUserAction =
-                isPending &&
-                currentUserId &&
-                (m.team_red.includes(currentUserId) || m.team_blue.includes(currentUserId)) &&
-                m.confirmations?.[currentUserId] === undefined;
-
+            confirmedMatches.map((m) => {
               const redName = m.expand?.team_red?.[0]?.name || 'Lado Rojo';
               const blueName = m.expand?.team_blue?.[0]?.name || 'Lado Azul';
+              const formattedDate = new Date(m.created).toLocaleDateString('es-CL', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              });
 
               return (
                 <TouchableOpacity
@@ -248,15 +222,9 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   activeOpacity={0.7}
                   onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id })}
                 >
-                  <View style={styles.matchCardTop}>
-                    <Text style={styles.matchDateText}>
-                      {new Date(m.created).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })}
-                    </Text>
-                    <View style={[styles.statusBadge, isConfirmed && styles.statusConfirmed, isPending && styles.statusPending]}>
-                      <Text style={styles.statusBadgeText}>
-                        {isConfirmed ? 'CONFIRMADO' : isDisputed ? 'DISPUTADO' : 'PENDIENTE'}
-                      </Text>
-                    </View>
+                  {/* Fecha arriba al centro */}
+                  <View style={styles.matchDateHeader}>
+                    <Text style={styles.matchDateText}>{formattedDate}</Text>
                   </View>
 
                   <View style={styles.matchCardMain}>
@@ -266,24 +234,6 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     </Text>
                     <Text style={styles.teamBlueNameRight} numberOfLines={1}>{blueName}</Text>
                   </View>
-
-                  {requiresUserAction && (
-                    <View style={styles.confirmPromptRow}>
-                      <Text style={styles.confirmPromptText}>Tu confirmación está pendiente</Text>
-                      {actionLoadingId === m.id ? (
-                        <ActivityIndicator size="small" color={theme.colors.primary} />
-                      ) : (
-                        <View style={styles.promptBtns}>
-                          <TouchableOpacity style={styles.acceptBtn} onPress={() => handleRespondMatch(m.id, 'accepted')}>
-                            <Text style={styles.btnText}>Aceptar</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity style={styles.rejectBtn} onPress={() => handleRespondMatch(m.id, 'rejected')}>
-                            <Text style={styles.btnText}>Objetar</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-                  )}
                 </TouchableOpacity>
               );
             })
@@ -438,32 +388,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  matchCardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  matchDateHeader: {
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   matchDateText: {
-    fontSize: 11,
+    fontSize: 10,
+    fontWeight: '600',
     color: theme.colors.textMuted,
-  },
-  statusBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  statusConfirmed: {
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
-  },
-  statusPending: {
-    backgroundColor: 'rgba(234, 179, 8, 0.12)',
-  },
-  statusBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: theme.colors.textMuted,
+    textAlign: 'center',
   },
   matchCardMain: {
     flexDirection: 'row',
@@ -488,39 +421,5 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: theme.colors.text,
     paddingHorizontal: 12,
-  },
-  confirmPromptRow: {
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  confirmPromptText: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-  },
-  promptBtns: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  acceptBtn: {
-    backgroundColor: '#22c55e',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  rejectBtn: {
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  btnText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '700',
   },
 });

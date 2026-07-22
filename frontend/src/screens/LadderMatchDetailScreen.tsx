@@ -156,31 +156,35 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
             </Text>
           </View>
         </View>
-        <Text style={styles.dateText}>{formattedDate}</Text>
       </View>
 
       {/* Marcador Plano con Nombres Coloreados */}
       <View style={styles.scoreboardCard}>
-        {/* Lado Rojo */}
-        <View style={styles.teamColumn}>
-          {match.expand?.team_red?.map((p) => (
-            <TouchableOpacity
-              key={p.id}
-              style={styles.playerRow}
-              onPress={() => navigation.navigate('UserProfile', { userId: p.id })}
-            >
-              <Avatar user={{ id: p.id, collectionId: '_pb_users_auth_', avatar: p.avatar, name: p.name, username: p.username }} size={28} />
-              <Text style={styles.playerNameRed} numberOfLines={1}>{p.name}</Text>
-            </TouchableOpacity>
-          ))}
+        <View style={styles.dateCenteredHeader}>
+          <Text style={styles.dateCenteredText}>{formattedDate}</Text>
         </View>
 
-        {/* Resultado Uniforme */}
-        <View style={styles.scoreDisplay}>
-          <Text style={styles.scoreValue}>
-            <Text style={{ color: '#ff4444' }}>{match.score_red}</Text> - <Text style={{ color: '#38bdf8' }}>{match.score_blue}</Text>
-          </Text>
-        </View>
+        <View style={styles.scoreboardMainRow}>
+          {/* Lado Rojo */}
+          <View style={styles.teamColumn}>
+            {match.expand?.team_red?.map((p) => (
+              <TouchableOpacity
+                key={p.id}
+                style={styles.playerRow}
+                onPress={() => navigation.navigate('UserProfile', { userId: p.id })}
+              >
+                <Avatar user={{ id: p.id, collectionId: '_pb_users_auth_', avatar: p.avatar, name: p.name, username: p.username }} size={28} />
+                <Text style={styles.playerNameRed} numberOfLines={1}>{p.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Resultado Uniforme */}
+          <View style={styles.scoreDisplay}>
+            <Text style={styles.scoreValue}>
+              <Text style={{ color: '#ff4444' }}>{match.score_red}</Text> - <Text style={{ color: '#38bdf8' }}>{match.score_blue}</Text>
+            </Text>
+          </View>
 
         {/* Lado Azul */}
         <View style={styles.teamColumnRight}>
@@ -196,6 +200,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
           ))}
         </View>
       </View>
+    </View>
 
       {/* Acción Pendiente */}
       {match.status === 'pending_confirmation' && currentUser && (match.team_red.includes(currentUser.id) || match.team_blue.includes(currentUser.id)) && match.confirmations?.[currentUser.id] === undefined && (
@@ -301,10 +306,22 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    marginBottom: theme.spacing.md,
+  },
+  dateCenteredHeader: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  dateCenteredText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+  },
+  scoreboardMainRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.md,
   },
   teamColumn: {
     flex: 1,
