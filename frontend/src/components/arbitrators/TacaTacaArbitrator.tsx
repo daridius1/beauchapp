@@ -5,6 +5,7 @@ import { ladderService } from '../../services/ladderService';
 import { Ladder } from '../../types/ladder';
 import { useAuth } from '../../context/AuthContext';
 import { pb } from '../../services/pocketbase';
+import { Avatar } from '../Avatar';
 import Toast from 'react-native-toast-message';
 import { Feather } from '@expo/vector-icons';
 
@@ -41,6 +42,18 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
   const maxSlots = mode === '1v1' ? 1 : 2;
   const targetScore = ladder.max_score || 7;
+
+  // Pre-seleccionar al usuario actual en el Equipo Rojo (slot 0) por defecto
+  useEffect(() => {
+    if (currentUser && teamRed.length === 0 && teamBlue.length === 0) {
+      setTeamRed([{
+        id: currentUser.id,
+        name: currentUser.name,
+        username: currentUser.username,
+        avatar: currentUser.avatar,
+      }]);
+    }
+  }, [currentUser]);
 
   const isTerminal = scoreRed >= targetScore || scoreBlue >= targetScore;
 
@@ -97,35 +110,6 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
     setActiveSlot(null);
     setSearchQuery('');
     setSearchResults([]);
-  };
-
-  const handleAddMyself = (team: 'red' | 'blue', index: number) => {
-    if (!currentUser) return;
-    if (isPlayerAlreadySelected(currentUser.id)) {
-      Toast.show({
-        type: 'error',
-        text1: 'Ya estás en la lista',
-        text2: 'Ya has sido asignado.',
-      });
-      return;
-    }
-
-    const student: StudentUser = {
-      id: currentUser.id,
-      name: currentUser.name,
-      username: currentUser.username,
-      avatar: currentUser.avatar,
-    };
-
-    if (team === 'red') {
-      const updated = [...teamRed];
-      updated[index] = student;
-      setTeamRed(updated);
-    } else {
-      const updated = [...teamBlue];
-      updated[index] = student;
-      setTeamBlue(updated);
-    }
   };
 
   const [isShuffling, setIsShuffling] = useState<boolean>(false);
@@ -269,8 +253,6 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
     }
   };
 
-  const isCurrentUserInMatch = currentUser ? isPlayerAlreadySelected(currentUser.id) : false;
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.headerBox}>
@@ -308,27 +290,23 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                   return (
                     <View key={`red-${idx}`} style={{ marginBottom: 6 }}>
                       {player ? (
-                        <View style={styles.playerChip}>
-                          <Text style={styles.chipNameRed} numberOfLines={1}>{player.name}</Text>
-                          <TouchableOpacity onPress={() => handleRemovePlayer('red', idx)}>
-                            <Feather name="x" color="#ef4444" size={16} />
+                        <View style={styles.playerCardActive}>
+                          <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={32} />
+                          <View style={styles.playerMeta}>
+                            <Text style={styles.chipNameRed} numberOfLines={1}>{player.name}</Text>
+                            {!!player.username && <Text style={styles.playerHandle}>@{player.username}</Text>}
+                          </View>
+                          <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('red', idx)}>
+                            <Feather name="x" color="#888888" size={14} />
                           </TouchableOpacity>
                         </View>
                       ) : (
-                        <View style={styles.addBtnsRow}>
-                          <TouchableOpacity style={styles.btnSmall} onPress={() => setActiveSlot({ team: 'red', index: idx })}>
-                            <Text style={styles.btnSmallTextRed}>+ Buscar</Text>
-                          </TouchableOpacity>
-                          {currentUser && (
-                            <TouchableOpacity
-                              style={[styles.btnSmall, isCurrentUserInMatch && styles.disabled]}
-                              disabled={isCurrentUserInMatch}
-                              onPress={() => handleAddMyself('red', idx)}
-                            >
-                              <Text style={styles.btnSmallTextRed}>+ Yo</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
+                        <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'red', index: idx })}>
+                          <View style={styles.plusCircleRed}>
+                            <Feather name="plus" color="#ff4444" size={18} />
+                          </View>
+                          <Text style={styles.addPlayerPrompt}>Agregar jugador</Text>
+                        </TouchableOpacity>
                       )}
                     </View>
                   );
@@ -343,27 +321,23 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                   return (
                     <View key={`blue-${idx}`} style={{ marginBottom: 6 }}>
                       {player ? (
-                        <View style={styles.playerChip}>
-                          <Text style={styles.chipNameBlue} numberOfLines={1}>{player.name}</Text>
-                          <TouchableOpacity onPress={() => handleRemovePlayer('blue', idx)}>
-                            <Feather name="x" color="#38bdf8" size={16} />
+                        <View style={styles.playerCardActive}>
+                          <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={32} />
+                          <View style={styles.playerMeta}>
+                            <Text style={styles.chipNameBlue} numberOfLines={1}>{player.name}</Text>
+                            {!!player.username && <Text style={styles.playerHandle}>@{player.username}</Text>}
+                          </View>
+                          <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('blue', idx)}>
+                            <Feather name="x" color="#888888" size={14} />
                           </TouchableOpacity>
                         </View>
                       ) : (
-                        <View style={styles.addBtnsRow}>
-                          <TouchableOpacity style={styles.btnSmall} onPress={() => setActiveSlot({ team: 'blue', index: idx })}>
-                            <Text style={styles.btnSmallTextBlue}>+ Buscar</Text>
-                          </TouchableOpacity>
-                          {currentUser && (
-                            <TouchableOpacity
-                              style={[styles.btnSmall, isCurrentUserInMatch && styles.disabled]}
-                              disabled={isCurrentUserInMatch}
-                              onPress={() => handleAddMyself('blue', idx)}
-                            >
-                              <Text style={styles.btnSmallTextBlue}>+ Yo</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
+                        <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'blue', index: idx })}>
+                          <View style={styles.plusCircleBlue}>
+                            <Feather name="plus" color="#38bdf8" size={18} />
+                          </View>
+                          <Text style={styles.addPlayerPrompt}>Agregar jugador</Text>
+                        </TouchableOpacity>
                       )}
                     </View>
                   );
@@ -391,7 +365,7 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
               </View>
               <TextInput
                 style={styles.searchInput}
-                placeholder="Nombre..."
+                placeholder="Nombre o username..."
                 placeholderTextColor="#666666"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -403,6 +377,7 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                 searchResults.map((item) => (
                   <TouchableOpacity key={item.id} style={styles.searchRow} onPress={() => handleSelectPlayer(item)}>
                     <Text style={styles.searchText}>{item.name}</Text>
+                    {!!item.username && <Text style={styles.searchSub}>@{item.username}</Text>}
                   </TouchableOpacity>
                 ))
               )}
@@ -520,57 +495,80 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: '#ff4444',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   blueLabel: {
     fontSize: 11,
     fontWeight: '800',
     color: '#38bdf8',
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  playerChip: {
+  playerCardActive: {
     backgroundColor: '#161616',
-    borderRadius: 6,
+    borderRadius: 8,
     padding: 8,
     borderWidth: 1,
     borderColor: theme.colors.border,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
+  },
+  playerMeta: {
+    flex: 1,
   },
   chipNameRed: {
     fontSize: 12,
     fontWeight: '700',
     color: '#ff4444',
-    flex: 1,
   },
   chipNameBlue: {
     fontSize: 12,
     fontWeight: '700',
     color: '#38bdf8',
-    flex: 1,
   },
-  addBtnsRow: {
-    flexDirection: 'row',
-    gap: 4,
+  playerHandle: {
+    fontSize: 10,
+    color: theme.colors.textMuted,
   },
-  btnSmall: {
-    backgroundColor: '#161616',
-    borderRadius: 4,
-    paddingVertical: 6,
+  removeCircleBtn: {
+    padding: 4,
+  },
+  emptySlotCard: {
+    backgroundColor: '#121212',
+    borderRadius: 8,
+    paddingVertical: 14,
     paddingHorizontal: 8,
+    borderWidth: 1.5,
+    borderColor: '#262626',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  plusCircleRed: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: 'rgba(255, 68, 68, 0.3)',
   },
-  btnSmallTextRed: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#ff4444',
+  plusCircleBlue: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
   },
-  btnSmallTextBlue: {
+  addPlayerPrompt: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#38bdf8',
+    fontWeight: '600',
+    color: theme.colors.textMuted,
   },
   shuffleBtn: {
     backgroundColor: '#161616',
@@ -635,7 +633,12 @@ const styles = StyleSheet.create({
   },
   searchText: {
     fontSize: 12,
+    fontWeight: '600',
     color: theme.colors.text,
+  },
+  searchSub: {
+    fontSize: 10,
+    color: theme.colors.textMuted,
   },
   liveContainer: {
     gap: theme.spacing.md,
