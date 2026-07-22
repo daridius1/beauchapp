@@ -46,7 +46,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
   const targetScore = ladder.max_score || 11;
   const isDeuce = scoreRed >= targetScore - 1 && scoreBlue >= targetScore - 1;
 
-  // Pre-seleccionar al usuario actual en el Equipo Rojo por defecto
+  // Pre-seleccionar al usuario actual en el Equipo Rojo (slot 0) por defecto
   useEffect(() => {
     if (currentUser && playerRed.length === 0 && playerBlue.length === 0) {
       setPlayerRed([{
@@ -123,9 +123,13 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     }
 
     if (activeSlot.team === 'red') {
-      setPlayerRed([student]);
+      const updated = [...playerRed];
+      updated[activeSlot.index] = student;
+      setPlayerRed(updated);
     } else {
-      setPlayerBlue([student]);
+      const updated = [...playerBlue];
+      updated[activeSlot.index] = student;
+      setPlayerBlue(updated);
     }
 
     setActiveSlot(null);
@@ -181,15 +185,14 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
             type: 'info',
             text1: 'Sorteo Realizado',
             text2: shouldSwap
-              ? '¡Los jugadores cambiaron de lado!'
-              : 'Los jugadores se mantuvieron en su lado.',
+              ? '¡Los equipos cambiaron de lado!'
+              : 'Los equipos se mantuvieron en su lado.',
           });
         });
       }, 400);
     });
   };
 
-  // Intercambio instantáneo sin animación de desvanecimiento
   const handleSwapTeams = () => {
     if (playerRed.length === 0 && playerBlue.length === 0) return;
     const tempRed = [...playerRed];
@@ -198,20 +201,21 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     setPlayerBlue(tempRed);
   };
 
-  const handleRemovePlayer = (team: 'red' | 'blue') => {
+  const handleRemovePlayer = (team: 'red' | 'blue', index: number) => {
     if (team === 'red') {
-      setPlayerRed([]);
+      setPlayerRed(playerRed.filter((_, i) => i !== index));
     } else {
-      setPlayerBlue([]);
+      setPlayerBlue(playerBlue.filter((_, i) => i !== index));
     }
   };
 
   const handleStartMatch = () => {
-    if (playerRed.length < 1 || playerBlue.length < 1) {
+    const required = maxSlots;
+    if (playerRed.length < required || playerBlue.length < required) {
       Toast.show({
         type: 'error',
         text1: 'Faltan Jugadores',
-        text2: 'Asigna a ambos jugadores para iniciar.',
+        text2: `Asigna a ${required} jugador(es) por equipo para iniciar el partido.`,
       });
       return;
     }
@@ -279,52 +283,85 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     }
   };
 
+  const redNamesLabel = playerRed.map((p) => p?.name).filter(Boolean).join(', ') || 'Lado Rojo';
+  const blueNamesLabel = playerBlue.map((p) => p?.name).filter(Boolean).join(', ') || 'Lado Azul';
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       {step === 'setup' ? (
         <View style={styles.setupContainer}>
+          {/* Selector 1v1 / 2v2 */}
+          <View style={styles.modeSelector}>
+            <TouchableOpacity
+              style={[styles.modeTab, mode === '1v1' && styles.modeTabActive]}
+              onPress={() => { setMode('1v1'); setPlayerRed([]); setPlayerBlue([]); }}
+            >
+              <Text style={[styles.modeTabText, mode === '1v1' && styles.modeTabTextActive]}>1 vs 1</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeTab, mode === '2v2' && styles.modeTabActive]}
+              onPress={() => { setMode('2v2'); setPlayerRed([]); setPlayerBlue([]); }}
+            >
+              <Text style={[styles.modeTabText, mode === '2v2' && styles.modeTabTextActive]}>2 vs 2</Text>
+            </TouchableOpacity>
+          </View>
+
           <Animated.View style={{ opacity: shuffleOpacity, transform: [{ scale: shuffleScale }] }}>
             <View style={styles.playersGrid}>
               {/* Equipo Rojo */}
               <View style={styles.playerBox}>
                 <Text style={styles.redLabel}>EQUIPO ROJO</Text>
-                {playerRed[0] ? (
-                  <View style={styles.playerCardActive}>
-                    <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('red')}>
-                      <Feather name="x" color="#888888" size={14} />
-                    </TouchableOpacity>
-                    <Avatar user={{ id: playerRed[0].id, collectionId: '_pb_users_auth_', avatar: playerRed[0].avatar, name: playerRed[0].name, username: playerRed[0].username }} size={36} />
-                    <Text style={styles.chipNameRed} numberOfLines={1}>{playerRed[0].name}</Text>
-                    {!!playerRed[0].username && <Text style={styles.playerHandle} numberOfLines={1}>@{playerRed[0].username}</Text>}
-                  </View>
-                ) : (
-                  <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'red', index: 0 })}>
-                    <View style={styles.plusCircleRed}>
-                      <Feather name="plus" color="#ff4444" size={20} />
+                {Array.from({ length: maxSlots }).map((_, idx) => {
+                  const player = playerRed[idx];
+                  return (
+                    <View key={`red-${idx}`} style={{ marginBottom: 6 }}>
+                      {player ? (
+                        <View style={styles.playerCardActive}>
+                          <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('red', idx)}>
+                            <Feather name="x" color="#888888" size={14} />
+                          </TouchableOpacity>
+                          <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={36} />
+                          <Text style={styles.chipNameRed} numberOfLines={1}>{player.name}</Text>
+                          {!!player.username && <Text style={styles.playerHandle} numberOfLines={1}>@{player.username}</Text>}
+                        </View>
+                      ) : (
+                        <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'red', index: idx })}>
+                          <View style={styles.plusCircleRed}>
+                            <Feather name="plus" color="#ff4444" size={20} />
+                          </View>
+                        </TouchableOpacity>
+                      )}
                     </View>
-                  </TouchableOpacity>
-                )}
+                  );
+                })}
               </View>
 
               {/* Equipo Azul */}
               <View style={styles.playerBox}>
                 <Text style={styles.blueLabel}>EQUIPO AZUL</Text>
-                {playerBlue[0] ? (
-                  <View style={styles.playerCardActive}>
-                    <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('blue')}>
-                      <Feather name="x" color="#888888" size={14} />
-                    </TouchableOpacity>
-                    <Avatar user={{ id: playerBlue[0].id, collectionId: '_pb_users_auth_', avatar: playerBlue[0].avatar, name: playerBlue[0].name, username: playerBlue[0].username }} size={36} />
-                    <Text style={styles.chipNameBlue} numberOfLines={1}>{playerBlue[0].name}</Text>
-                    {!!playerBlue[0].username && <Text style={styles.playerHandle} numberOfLines={1}>@{playerBlue[0].username}</Text>}
-                  </View>
-                ) : (
-                  <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'blue', index: 0 })}>
-                    <View style={styles.plusCircleBlue}>
-                      <Feather name="plus" color="#38bdf8" size={20} />
+                {Array.from({ length: maxSlots }).map((_, idx) => {
+                  const player = playerBlue[idx];
+                  return (
+                    <View key={`blue-${idx}`} style={{ marginBottom: 6 }}>
+                      {player ? (
+                        <View style={styles.playerCardActive}>
+                          <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('blue', idx)}>
+                            <Feather name="x" color="#888888" size={14} />
+                          </TouchableOpacity>
+                          <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={36} />
+                          <Text style={styles.chipNameBlue} numberOfLines={1}>{player.name}</Text>
+                          {!!player.username && <Text style={styles.playerHandle} numberOfLines={1}>@{player.username}</Text>}
+                        </View>
+                      ) : (
+                        <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'blue', index: idx })}>
+                          <View style={styles.plusCircleBlue}>
+                            <Feather name="plus" color="#38bdf8" size={20} />
+                          </View>
+                        </TouchableOpacity>
+                      )}
                     </View>
-                  </TouchableOpacity>
-                )}
+                  );
+                })}
               </View>
             </View>
           </Animated.View>
@@ -332,8 +369,8 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
           {/* Botones Secundarios: Sortear Lados & Cambiar Lados */}
           <View style={styles.actionBtnsRow}>
             <TouchableOpacity
-              style={[styles.secondaryBtn, (!playerRed[0] && !playerBlue[0]) && styles.disabled]}
-              disabled={!playerRed[0] && !playerBlue[0]}
+              style={[styles.secondaryBtn, (playerRed.length === 0 && playerBlue.length === 0) && styles.disabled]}
+              disabled={playerRed.length === 0 && playerBlue.length === 0}
               onPress={handleShuffleTeams}
             >
               <Feather name="shuffle" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
@@ -341,8 +378,8 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.secondaryBtn, (!playerRed[0] && !playerBlue[0]) && styles.disabled]}
-              disabled={!playerRed[0] && !playerBlue[0]}
+              style={[styles.secondaryBtn, (playerRed.length === 0 && playerBlue.length === 0) && styles.disabled]}
+              disabled={playerRed.length === 0 && playerBlue.length === 0}
               onPress={handleSwapTeams}
             >
               <Feather name="repeat" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
@@ -380,11 +417,11 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
           )}
 
           <TouchableOpacity
-            style={[styles.primaryBtn, (!playerRed[0] || !playerBlue[0]) && styles.disabled]}
-            disabled={!playerRed[0] || !playerBlue[0]}
+            style={[styles.primaryBtn, (playerRed.length < maxSlots || playerBlue.length < maxSlots) && styles.disabled]}
+            disabled={playerRed.length < maxSlots || playerBlue.length < maxSlots}
             onPress={handleStartMatch}
           >
-            <Text style={styles.primaryBtnText}>Iniciar Partido</Text>
+            <Text style={styles.primaryBtnText}>Iniciar Partido ({mode})</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -392,7 +429,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
         <View style={styles.liveContainer}>
           <View style={styles.scoreRowCard}>
             <TouchableOpacity style={styles.scoreClickBox} onPress={() => handlePoint('red')} disabled={isTerminal}>
-              <Text style={styles.redLabel}>{playerRed[0]?.name} {currentServer === 'red' && '(Saque)'}</Text>
+              <Text style={styles.redLabel} numberOfLines={1}>{redNamesLabel} {currentServer === 'red' && '(Saque)'}</Text>
               <Text style={styles.scoreValRed}>{scoreRed}</Text>
               <Text style={styles.tapPromptRed}>+ Punto</Text>
             </TouchableOpacity>
@@ -400,7 +437,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
             <Text style={styles.vsText}>VS</Text>
 
             <TouchableOpacity style={styles.scoreClickBoxRight} onPress={() => handlePoint('blue')} disabled={isTerminal}>
-              <Text style={styles.blueLabel}>{playerBlue[0]?.name} {currentServer === 'blue' && '(Saque)'}</Text>
+              <Text style={styles.blueLabel} numberOfLines={1}>{blueNamesLabel} {currentServer === 'blue' && '(Saque)'}</Text>
               <Text style={styles.scoreValBlue}>{scoreBlue}</Text>
               <Text style={styles.tapPromptBlue}>+ Punto</Text>
             </TouchableOpacity>
@@ -435,6 +472,33 @@ const styles = StyleSheet.create({
   setupContainer: {
     gap: theme.spacing.sm,
   },
+  modeSelector: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 8,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 6,
+  },
+  modeTab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  modeTabActive: {
+    backgroundColor: '#ffffff',
+  },
+  modeTabText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.textMuted,
+  },
+  modeTabTextActive: {
+    color: '#000000',
+    fontWeight: '800',
+  },
   playersGrid: {
     flexDirection: 'row',
     gap: 12,
@@ -448,236 +512,237 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#ff4444',
     marginBottom: 8,
-    textAlign: 'center',
   },
   blueLabel: {
     fontSize: 11,
     fontWeight: '800',
     color: '#38bdf8',
     marginBottom: 8,
-    textAlign: 'center',
   },
   playerCardActive: {
-    backgroundColor: '#161616',
+    backgroundColor: theme.colors.cardBg,
     borderRadius: 8,
     padding: 10,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    height: 104,
     position: 'relative',
-  },
-  emptySlotCard: {
-    backgroundColor: '#121212',
-    borderRadius: 8,
-    padding: 10,
-    borderWidth: 1.5,
-    borderColor: '#262626',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 104,
-  },
-  chipNameRed: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#ff4444',
-    textAlign: 'center',
-  },
-  chipNameBlue: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#38bdf8',
-    textAlign: 'center',
-  },
-  playerHandle: {
-    fontSize: 10,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginTop: -2,
   },
   removeCircleBtn: {
     position: 'absolute',
     top: 6,
     right: 6,
     padding: 2,
-    zIndex: 2,
+    zIndex: 10,
+  },
+  chipNameRed: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ff4444',
+    marginTop: 4,
+  },
+  chipNameBlue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#38bdf8',
+    marginTop: 4,
+  },
+  playerHandle: {
+    fontSize: 10,
+    color: theme.colors.textMuted,
+  },
+  emptySlotCard: {
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: 8,
+    height: 76,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: theme.colors.border,
   },
   plusCircleRed: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: 'rgba(255, 68, 68, 0.1)',
-    alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 68, 68, 0.3)',
+    alignItems: 'center',
   },
   plusCircleBlue: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
+    alignItems: 'center',
   },
   actionBtnsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: theme.spacing.sm,
+    marginVertical: 4,
   },
   secondaryBtn: {
     flex: 1,
-    backgroundColor: '#161616',
+    backgroundColor: theme.colors.cardBg,
     borderRadius: 6,
-    paddingVertical: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
-    flexDirection: 'row',
   },
   btnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: theme.colors.text,
-  },
-  primaryBtn: {
-    backgroundColor: theme.colors.text,
-    borderRadius: 6,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  primaryBtnText: {
-    color: '#000000',
-    fontSize: 13,
-    fontWeight: '800',
   },
   disabled: {
     opacity: 0.4,
   },
   searchBox: {
-    backgroundColor: '#121212',
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  searchHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  searchTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: theme.colors.text,
-  },
-  searchInput: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    color: theme.colors.text,
-    fontSize: 12,
-  },
-  searchRow: {
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  searchText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.colors.text,
-  },
-  searchSub: {
-    fontSize: 10,
-    color: theme.colors.textMuted,
-  },
-  liveContainer: {
-    gap: theme.spacing.md,
-  },
-  scoreRowCard: {
     backgroundColor: theme.colors.cardBg,
     borderRadius: 8,
     padding: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    marginTop: 6,
+  },
+  searchHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  searchTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  searchInput: {
+    backgroundColor: theme.colors.background,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: theme.colors.text,
+    fontSize: 13,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 8,
+  },
+  searchRow: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  searchText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  searchSub: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+  },
+  primaryBtn: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  primaryBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  liveContainer: {
+    gap: theme.spacing.md,
+  },
+  scoreRowCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: 8,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   scoreClickBox: {
     flex: 1,
-    padding: 8,
+    alignItems: 'center',
+    paddingVertical: theme.spacing.sm,
   },
   scoreClickBoxRight: {
     flex: 1,
-    padding: 8,
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.sm,
+  },
+  vsText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    marginHorizontal: 8,
   },
   scoreValRed: {
-    fontSize: 32,
+    fontSize: 48,
     fontWeight: '800',
     color: '#ff4444',
     marginVertical: 4,
   },
   scoreValBlue: {
-    fontSize: 32,
+    fontSize: 48,
     fontWeight: '800',
     color: '#38bdf8',
     marginVertical: 4,
   },
   tapPromptRed: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     color: '#ff4444',
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
   },
   tapPromptBlue: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     color: '#38bdf8',
-  },
-  vsText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: theme.colors.textMuted,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
   },
   historyRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
+    alignItems: 'center',
   },
   undoBtn: {
-    backgroundColor: '#161616',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   undoText: {
     color: theme.colors.text,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
   finishBtn: {
-    backgroundColor: theme.colors.text,
-    borderRadius: 6,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
+    marginTop: theme.spacing.sm,
   },
   finishBtnText: {
-    color: '#000000',
-    fontSize: 13,
+    color: '#ffffff',
+    fontSize: 15,
     fontWeight: '800',
   },
 });
