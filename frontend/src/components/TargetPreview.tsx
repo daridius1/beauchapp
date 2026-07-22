@@ -22,21 +22,10 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 }) => {
   const [fetchedTarget, setFetchedTarget] = useState<any>(null);
 
-  // Fetch on-demand si no tenemos datos suficientes del target
+  // Fetch on-demand si no tenemos el objeto record expandido
   useEffect(() => {
     if (!targetType || !targetId) return;
     if (expandedTarget) return; // ya expandido por el query
-
-    // Determinar si targetMeta tiene datos útiles
-    const hasUsefulMeta = targetMeta && typeof targetMeta === 'object' && Object.keys(targetMeta).length > 0;
-
-    if (targetType === 'post') {
-      // Para posts, verificar si tiene al menos authorName real (no el fallback "Usuario")
-      const hasAuthor = hasUsefulMeta && targetMeta.authorName && targetMeta.authorName !== 'Usuario';
-      if (hasAuthor) return; // ya tenemos datos suficientes
-    } else {
-      if (hasUsefulMeta) return; // problemas/partidos: si tiene meta, ya tenemos datos
-    }
 
     let isMounted = true;
     const fetchTarget = async () => {
@@ -57,7 +46,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
     };
     fetchTarget();
     return () => { isMounted = false; };
-  }, [targetType, targetId, expandedTarget, targetMeta]);
+  }, [targetType, targetId, expandedTarget]);
 
   if (!targetType || !targetId) {
     return null;
