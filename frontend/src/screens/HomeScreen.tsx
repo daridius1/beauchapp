@@ -36,7 +36,15 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
   const [feedTab, setFeedTab] = useState<'all' | 'following'>('all');
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('onScrollToTop', () => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (photo) {
@@ -409,6 +417,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       )}
 
       <ScrollView 
+        ref={scrollViewRef}
         style={styles.feedList} 
         contentContainerStyle={styles.feedContent}
         onScroll={handleScroll}

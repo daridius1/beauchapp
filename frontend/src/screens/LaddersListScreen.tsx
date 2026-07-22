@@ -41,11 +41,19 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
     }, [ladders.length])
   );
 
+  const scrollViewRef = React.useRef<ScrollView>(null);
+
   useEffect(() => {
-    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
+    const subScroll = DeviceEventEmitter.addListener('onScrollToTop', () => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    });
+    const subRefresh = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
       handleRefresh();
     });
-    return () => sub.remove();
+    return () => {
+      subScroll.remove();
+      subRefresh.remove();
+    };
   }, []);
 
   const handleRefresh = () => {
@@ -63,6 +71,7 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <ScrollView
+      ref={scrollViewRef}
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       refreshControl={
