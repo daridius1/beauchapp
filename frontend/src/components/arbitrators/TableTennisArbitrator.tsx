@@ -177,14 +177,13 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
       return;
     }
 
-    // Sorteo al Azar del Jugador que saca primero
-    const firstServer = Math.random() < 0.5 ? 'red' : 'blue';
-    setInitialServer(firstServer);
+    // Comienza siempre con Lado Rojo como sacador inicial
+    setInitialServer('red');
 
     Toast.show({
       type: 'info',
-      text1: '🎲 Sorteo Realizado',
-      text2: `Comienza sacando: Lado ${firstServer === 'red' ? 'Rojo 🔴' : 'Azul 🔵'}.`,
+      text1: '🏓 Partido Iniciado',
+      text2: 'Comienza sacando: Lado Rojo 🔴.',
     });
 
     setStep('live');

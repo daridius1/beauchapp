@@ -191,14 +191,13 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
       return;
     }
 
-    // Sorteo de Turno Inicial al Azar
-    const firstTurn = Math.random() < 0.5 ? 'red' : 'blue';
-    setActiveTurn(firstTurn);
+    // Comienza siempre con Lado Rojo como iniciador
+    setActiveTurn('red');
 
     Toast.show({
       type: 'info',
       text1: '🎲 Partido de TipTap Iniciado',
-      text2: `Inicia jugando: Lado ${firstTurn === 'red' ? 'Rojo 🔴' : 'Azul 🔵'}.`,
+      text2: 'Inicia jugando: Lado Rojo 🔴.',
     });
 
     setStep('live');
