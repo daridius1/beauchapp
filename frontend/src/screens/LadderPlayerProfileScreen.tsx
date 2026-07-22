@@ -259,8 +259,6 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
           </View>
         ) : (
           playerMatches.map((m) => {
-            const redName = m.expand?.team_red?.[0]?.name || 'Lado Rojo';
-            const blueName = m.expand?.team_blue?.[0]?.name || 'Lado Azul';
             const formattedDate = new Date(m.created).toLocaleDateString('es-CL', {
               day: '2-digit',
               month: 'short',
@@ -282,7 +280,18 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
                 onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id, slug: ladder.slug, name: ladder.name })}
               >
                 <View style={styles.matchCardMain}>
-                  <Text style={styles.teamRedName} numberOfLines={1}>{redName}</Text>
+                  {/* Integrantes Equipo Rojo */}
+                  <View style={{ flex: 1, justifyContent: 'center' }}>
+                    {m.expand?.team_red && m.expand.team_red.length > 0 ? (
+                      m.expand.team_red.map((p) => (
+                        <Text key={p.id} style={styles.teamRedName} numberOfLines={1}>
+                          {p.name}
+                        </Text>
+                      ))
+                    ) : (
+                      <Text style={styles.teamRedName} numberOfLines={1}>Lado Rojo</Text>
+                    )}
+                  </View>
 
                   {/* Marcador con Guión Estrictamente Centrado */}
                   <View style={styles.scoreContainerFixed}>
@@ -291,7 +300,18 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
                     <Text style={styles.scoreNumBlue}>{m.score_blue}</Text>
                   </View>
 
-                  <Text style={styles.teamBlueNameRight} numberOfLines={1}>{blueName}</Text>
+                  {/* Integrantes Equipo Azul */}
+                  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-end' }}>
+                    {m.expand?.team_blue && m.expand.team_blue.length > 0 ? (
+                      m.expand.team_blue.map((p) => (
+                        <Text key={p.id} style={styles.teamBlueNameRight} numberOfLines={1}>
+                          {p.name}
+                        </Text>
+                      ))
+                    ) : (
+                      <Text style={styles.teamBlueNameRight} numberOfLines={1}>Lado Azul</Text>
+                    )}
+                  </View>
                 </View>
 
                 {/* Fecha abajo al centro */}
