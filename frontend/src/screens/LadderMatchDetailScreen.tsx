@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform, RefreshControl } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { ladderService } from '../services/ladderService';
 import { LadderMatch } from '../types/ladder';
@@ -10,6 +11,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import Toast from 'react-native-toast-message';
+import { pb } from '../services/pocketbase';
 
 type MatchDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LadderMatchDetail'>;
 type MatchDetailScreenRouteProp = RouteProp<RootStackParamList, 'LadderMatchDetail'>;
@@ -25,7 +27,35 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
 
   const [match, setMatch] = useState<LadderMatch | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchMatch(true);
+    setRefreshing(false);
+  };
+
+  const handleShareMatchToFeed = async () => {
+    if (!match) return;
+    const user = pb.authStore.model;
+    if (!user) {
+      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para compartir.' });
+      return;
+    }
+    try {
+      await pb.collection('posts').create({
+        author: user.id,
+        actionType: 'repost',
+        targetType: 'match',
+        targetId: match.id,
+      });
+      Toast.show({ type: 'success', text1: '¡Partido compartido en tu muro!' });
+    } catch (err) {
+      console.error('Error sharing match to feed:', err);
+      Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo compartir el partido.' });
+    }
+  };
 
   const fetchMatch = async (hideLoading = false) => {
     if (!hideLoading) setLoading(true);
@@ -145,7 +175,18 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
   });
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor={theme.colors.primary}
+          colors={[theme.colors.primary]}
+        />
+      }
+    >
       {/* Marcador Plano con Nombres Coloreados */}
       <View
         style={[
@@ -269,6 +310,18 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
           <Text style={styles.dateCenteredText}>{formattedTime}</Text>
         </View>
       </View>
+
+      {/* Botón de Compartir/Repostear en el Muro */}
+      {match.status === 'confirmed' && (
+        <TouchableOpacity
+          style={styles.shareMatchBtn}
+          activeOpacity={0.8}
+          onPress={handleShareMatchToFeed}
+        >
+          <Feather name="repeat" size={14} color={theme.colors.text} style={{ marginRight: 6 }} />
+          <Text style={styles.shareMatchBtnText}>Compartir en el muro</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Insignia / Banner de Estado Pendiente */}
       {(match.status === 'pending_confirmation' || match.status === 'disputed') && (
@@ -453,6 +506,23 @@ const styles = StyleSheet.create({
   dateCenteredHeader: {
     alignItems: 'center',
     marginBottom: 6,
+  },
+  shareMatchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: '#333333',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginBottom: theme.spacing.md,
+  },
+  shareMatchBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.text,
   },
   dateCenteredFooter: {
     alignItems: 'center',

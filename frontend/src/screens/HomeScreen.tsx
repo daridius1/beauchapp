@@ -11,6 +11,7 @@ import { theme } from '../theme/theme';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
 import { withMinimumDelay } from '../utils/refresh';
+import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -306,6 +307,36 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       fetchPosts(1, false, true);
     }
   };
+  const handleRepost = async (targetPost: any) => {
+    if (!user) {
+      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para repostear.' });
+      return;
+    }
+    try {
+      await pb.collection('posts').create({
+        author: user.id,
+        actionType: 'repost',
+        targetType: 'post',
+        targetId: targetPost.id,
+      });
+      Toast.show({ type: 'success', text1: 'Publicación reposteada' });
+      fetchPosts(1, false, true);
+    } catch (err) {
+      console.error('Error reposting post:', err);
+      Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo repostear.' });
+    }
+  };
+
+  const handleTargetPress = (targetType?: string, targetId?: string) => {
+    if (!targetType || !targetId) return;
+    if (targetType === 'post') {
+      navigation.push('PostDetail', { postId: targetId });
+    } else if (targetType === 'problem') {
+      navigation.push('ProblemDetail', { problemId: targetId });
+    } else if (targetType === 'match') {
+      navigation.push('LadderMatchDetail', { matchId: targetId });
+    }
+  };
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr.replace(' ', 'T'));
@@ -541,6 +572,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               onDeletePress={() => setDeleteConfirmPostId(post.id)}
               onAuthorPress={() => navigation.push('UserProfile', { userId: post.author })}
               onTagPress={(t) => activateTagFilter(t)}
+              onRepostPress={() => handleRepost(post)}
+              onTargetPress={() => handleTargetPress(post.targetType, post.targetId)}
             />
           ))
         )}

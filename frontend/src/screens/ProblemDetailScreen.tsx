@@ -338,6 +338,24 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }
     return stars;
   };
+  const handleShareProblemToFeed = async () => {
+    if (!user || !problem) {
+      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para compartir.' });
+      return;
+    }
+    try {
+      await pb.collection('posts').create({
+        author: user.id,
+        actionType: 'repost',
+        targetType: 'problem',
+        targetId: problem.id,
+      });
+      Toast.show({ type: 'success', text1: '¡Problema compartido en tu muro!' });
+    } catch (err) {
+      console.error('Error sharing problem to feed:', err);
+      Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo compartir el problema.' });
+    }
+  };
 
 
 
@@ -481,14 +499,27 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
           </View>
 
-          {user && problem.author === user.id && !problem.deleted && (
-            <TouchableOpacity 
-              style={{ padding: 8 }} 
-              onPress={handleDeleteProblem}
-            >
-              <Feather name="trash-2" size={20} color={theme.colors.error} />
-            </TouchableOpacity>
-          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {!problem.deleted && (
+              <TouchableOpacity
+                style={styles.shareProblemBtn}
+                activeOpacity={0.7}
+                onPress={handleShareProblemToFeed}
+              >
+                <Feather name="repeat" size={14} color={theme.colors.text} style={{ marginRight: 4 }} />
+                <Text style={styles.shareProblemBtnText}>Compartir</Text>
+              </TouchableOpacity>
+            )}
+
+            {user && problem.author === user.id && !problem.deleted && (
+              <TouchableOpacity 
+                style={{ padding: 8 }} 
+                onPress={handleDeleteProblem}
+              >
+                <Feather name="trash-2" size={20} color={theme.colors.error} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Academic Metadata Badges */}
@@ -790,6 +821,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 28,
     marginBottom: theme.spacing.xs,
+  },
+  shareProblemBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: '#333333',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  shareProblemBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.text,
   },
   tagsRow: {
     flexDirection: 'row',

@@ -9,6 +9,8 @@ import Toast from 'react-native-toast-message';
 import { ImageViewer } from './ImageViewer';
 import { useAuth } from '../context/AuthContext';
 
+import { TargetPreview } from './TargetPreview';
+
 export interface PostCardProps {
   post: any;
   currentUser: any;
@@ -18,6 +20,8 @@ export interface PostCardProps {
   onAuthorPress?: () => void;
   onProblemPress?: () => void;
   onTagPress?: (tag: string) => void;
+  onRepostPress?: () => void;
+  onTargetPress?: () => void;
   isFocused?: boolean;
   isParent?: boolean;
 }
@@ -31,6 +35,8 @@ export const PostCard: React.FC<PostCardProps> = ({
   onAuthorPress,
   onProblemPress,
   onTagPress,
+  onRepostPress,
+  onTargetPress,
   isFocused = false,
   isParent = false,
 }) => {
@@ -267,6 +273,25 @@ export const PostCard: React.FC<PostCardProps> = ({
 
 
 
+      {/* Header indicativo de Repost */}
+      {post.actionType === 'repost' && (
+        <View style={styles.repostHeader}>
+          <Feather name="repeat" size={12} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.repostHeaderText}>{isDeleted ? 'Usuario' : (author?.name || 'Usuario')} reposteó esto</Text>
+        </View>
+      )}
+
+      {/* Target Preview Polimórfico (Post, Problema o Partido citado/reposteado) */}
+      {!!post.targetType && !!post.targetId && (
+        <TargetPreview
+          targetType={post.targetType}
+          targetId={post.targetId}
+          targetMeta={post.targetMeta}
+          expandedTarget={post.expand?.targetId}
+          onPress={onTargetPress}
+        />
+      )}
+
       {/* Post photo attachment */}
       {!isDeleted && !!post.photo && (
         <TouchableOpacity
@@ -296,7 +321,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         </View>
       )}
       
-      {/* Actions (Likes and Comments count) */}
+      {/* Actions (Likes, Comments, Repost count) */}
       <View style={styles.postActions}>
         {!isDeleted && onLikePress && (
           <TouchableOpacity style={styles.actionBtn} onPress={onLikePress}>
@@ -311,6 +336,13 @@ export const PostCard: React.FC<PostCardProps> = ({
             </Text>
           </TouchableOpacity>
         )}
+
+        {!isDeleted && onRepostPress && (
+          <TouchableOpacity style={styles.actionBtn} onPress={onRepostPress}>
+            <Feather name="repeat" size={16} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          </TouchableOpacity>
+        )}
+
         <View style={styles.actionBtn}>
           <Feather 
             name="message-square" 
@@ -367,6 +399,16 @@ const styles = StyleSheet.create({
   parentCard: {
     borderBottomColor: theme.colors.border,
     borderBottomWidth: 1,
+  },
+  repostHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  repostHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.textMuted,
   },
   postHeader: {
     flexDirection: 'row',
