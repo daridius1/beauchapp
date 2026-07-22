@@ -48,49 +48,27 @@ export const PostCard: React.FC<PostCardProps> = ({
   const author = isDeleted ? null : post.expand?.author;
   const isLiked = currentUser && (post.likes || []).includes(currentUser.id);
   const repliesCount = post.commentCount || 0;
-  const [ratingData, setRatingData] = useState<{ rating: number, difficulty: number, count: number } | null>(null);
+  const [repostCount, setRepostCount] = useState<number>(0);
 
   useEffect(() => {
-    if (isDeleted || post.entityType !== 'problems' || !post.entityId) {
-      return;
-    }
-    
+    if (isDeleted || !post.id) return;
     let isMounted = true;
-    const fetchRatings = async () => {
+    const fetchRepostCount = async () => {
       try {
-        const ratingsRes = await pb.collection('problem_ratings').getFullList({
-          filter: `problem = "${post.entityId}"`
+        const res = await pb.collection('posts').getList(1, 1, {
+          filter: `targetId = "${post.id}" && actionType = "repost" && deleted = false`,
+          skipTotal: false,
         });
-        
-        if (!isMounted) return;
-        
-        if (ratingsRes.length === 0) {
-          setRatingData({ rating: 0, difficulty: 0, count: 0 });
-          return;
+        if (isMounted) {
+          setRepostCount(res.totalItems);
         }
-        
-        let sumRating = 0;
-        let sumDifficulty = 0;
-        ratingsRes.forEach(r => {
-          sumRating += r.rating;
-          sumDifficulty += r.difficulty;
-        });
-        
-        setRatingData({
-          rating: parseFloat((sumRating / ratingsRes.length).toFixed(1)),
-          difficulty: parseFloat((sumDifficulty / ratingsRes.length).toFixed(1)),
-          count: ratingsRes.length
-        });
-      } catch (err) {
-        console.error('Error fetching entity ratings for post:', err);
-      }
+      } catch (err) {}
     };
-    
-    fetchRatings();
-    return () => {
-      isMounted = false;
-    };
-  }, [post.entityType, post.entityId, isDeleted]);
+    fetchRepostCount();
+    return () => { isMounted = false; };
+  }, [post.id, isDeleted]);
+
+
 
   const renderStars = (rating: number, color: string) => {
     const stars = [];
@@ -340,6 +318,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         {!isDeleted && onRepostPress && (
           <TouchableOpacity style={styles.actionBtn} onPress={onRepostPress}>
             <Feather name="repeat" size={16} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+            <Text style={styles.actionCount}>{repostCount}</Text>
           </TouchableOpacity>
         )}
 

@@ -46,6 +46,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
     try {
       await pb.collection('posts').create({
         author: user.id,
+        content: " ",
         actionType: 'repost',
         targetType: 'match',
         targetId: match.id,

@@ -1,5 +1,16 @@
 /// <reference path="../pb_data/types.d.ts" />
 
+// Asegurar que posts sin texto escrito contengan al menos " " para pasar validaciones del esquema
+onRecordCreate((e) => {
+    try {
+        const content = e.record.getString("content");
+        if (!content || content.trim() === "") {
+            e.record.set("content", " ");
+        }
+    } catch (err) {}
+    return e.next();
+}, "posts");
+
 // Auto-generar snapshot `targetMeta` para citas/reposts al crear una publicación
 onRecordAfterCreateSuccess((e) => {
     try {

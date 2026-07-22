@@ -315,6 +315,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       await pb.collection('posts').create({
         author: user.id,
+        content: " ",
         actionType: 'repost',
         targetType: 'post',
         targetId: targetPost.id,

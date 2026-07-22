@@ -346,6 +346,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     try {
       await pb.collection('posts').create({
         author: user.id,
+        content: " ",
         actionType: 'repost',
         targetType: 'problem',
         targetId: problem.id,

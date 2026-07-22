@@ -10,6 +10,7 @@ import { Avatar } from '../components/Avatar';
 import { Feather } from '@expo/vector-icons';
 import { PostCard } from '../components/PostCard';
 import { withMinimumDelay } from '../utils/refresh';
+import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile' | 'UserProfile'>;
 
@@ -163,6 +164,38 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
+  const handleRepost = async (targetPost: any) => {
+    if (!currentUser) {
+      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para repostear.' });
+      return;
+    }
+    try {
+      await pb.collection('posts').create({
+        author: currentUser.id,
+        content: " ",
+        actionType: 'repost',
+        targetType: 'post',
+        targetId: targetPost.id,
+      });
+      Toast.show({ type: 'success', text1: 'Publicación reposteada' });
+      fetchProfileAndPosts(true);
+    } catch (err) {
+      console.error('Error reposting post:', err);
+      Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo repostear.' });
+    }
+  };
+
+  const handleTargetPress = (targetType?: string, targetId?: string) => {
+    if (!targetType || !targetId) return;
+    if (targetType === 'post') {
+      navigation.push('PostDetail', { postId: targetId });
+    } else if (targetType === 'problem') {
+      navigation.push('ProblemDetail', { problemId: targetId });
+    } else if (targetType === 'match') {
+      navigation.push('LadderMatchDetail', { matchId: targetId });
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr.replace(' ', 'T'));
     return d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL', { hour: '2-digit', minute:'2-digit' });
@@ -292,6 +325,8 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
               onLikePress={() => toggleLike(post)}
               onDeletePress={() => setDeleteConfirmPostId(post.id)}
               onAuthorPress={() => navigation.push('UserProfile', { userId: post.author })}
+              onRepostPress={() => handleRepost(post)}
+              onTargetPress={() => handleTargetPress(post.targetType, post.targetId)}
             />
           ))
         )}
