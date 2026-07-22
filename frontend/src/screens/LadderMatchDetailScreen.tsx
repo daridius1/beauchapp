@@ -94,6 +94,8 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
     day: '2-digit',
     month: 'short',
     year: 'numeric',
+  });
+  const formattedTime = createdDate.toLocaleTimeString('es-CL', {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -257,9 +259,10 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
           </View>
         </View>
 
-        {/* Fecha abajo al centro */}
+        {/* Fecha y Hora abajo al centro (en dos líneas) */}
         <View style={styles.dateCenteredFooter}>
           <Text style={styles.dateCenteredText}>{formattedDate}</Text>
+          <Text style={styles.dateCenteredText}>{formattedTime}</Text>
         </View>
       </View>
 
