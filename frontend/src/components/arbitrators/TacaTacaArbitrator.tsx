@@ -43,6 +43,11 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
   const targetScore = ladder.max_score || 5;
 
+  // Comprobar si un jugador ya está asignado en cualquier posición de cualquier equipo
+  const isPlayerAlreadySelected = (userId: string): boolean => {
+    return teamRed.some((p) => p?.id === userId) || teamBlue.some((p) => p?.id === userId);
+  };
+
   // Regla de victoria en Taca Taca: Llegar a max_score (ej. 5 goles)
   const checkIsTerminal = (red: number, blue: number): { isTerminal: boolean; winner?: 'red' | 'blue' } => {
     if (red >= targetScore) return { isTerminal: true, winner: 'red' };
@@ -87,6 +92,15 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const handleSelectPlayer = (student: StudentUser) => {
     if (!activeSlot) return;
 
+    if (isPlayerAlreadySelected(student.id)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Jugador ya seleccionado',
+        text2: `${student.name} ya está asignado a uno de los equipos.`,
+      });
+      return;
+    }
+
     if (activeSlot.team === 'red') {
       const updated = [...teamRed];
       updated[activeSlot.index] = student;
@@ -104,6 +118,15 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
   const handleAddMyself = (team: 'red' | 'blue', index: number) => {
     if (!currentUser) return;
+    if (isPlayerAlreadySelected(currentUser.id)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Ya estás en la lista',
+        text2: 'Ya has sido asignado a un equipo en esta partida.',
+      });
+      return;
+    }
+
     const student: StudentUser = {
       id: currentUser.id,
       name: currentUser.name,
@@ -212,6 +235,7 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   };
 
   const maxSlots = mode === '1v1' ? 1 : 2;
+  const isCurrentUserInMatch = currentUser ? isPlayerAlreadySelected(currentUser.id) : false;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -263,10 +287,21 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                         </TouchableOpacity>
                         {currentUser && (
                           <TouchableOpacity
-                            style={styles.selfAddBtn}
+                            style={[
+                              styles.selfAddBtn,
+                              isCurrentUserInMatch && styles.selfAddBtnDisabled,
+                            ]}
+                            disabled={isCurrentUserInMatch}
                             onPress={() => handleAddMyself('red', idx)}
                           >
-                            <Text style={styles.selfAddBtnText}>+ Yo</Text>
+                            <Text
+                              style={[
+                                styles.selfAddBtnText,
+                                isCurrentUserInMatch && styles.selfAddBtnTextDisabled,
+                              ]}
+                            >
+                              + Yo
+                            </Text>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -303,10 +338,21 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                         </TouchableOpacity>
                         {currentUser && (
                           <TouchableOpacity
-                            style={styles.selfAddBtn}
+                            style={[
+                              styles.selfAddBtn,
+                              isCurrentUserInMatch && styles.selfAddBtnDisabled,
+                            ]}
+                            disabled={isCurrentUserInMatch}
                             onPress={() => handleAddMyself('blue', idx)}
                           >
-                            <Text style={styles.selfAddBtnText}>+ Yo</Text>
+                            <Text
+                              style={[
+                                styles.selfAddBtnText,
+                                isCurrentUserInMatch && styles.selfAddBtnTextDisabled,
+                              ]}
+                            >
+                              + Yo
+                            </Text>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -342,17 +388,23 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
               {searching ? (
                 <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
               ) : (
-                searchResults.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.searchResultItem}
-                    onPress={() => handleSelectPlayer(item)}
-                  >
-                    <Feather name="user" color="#888888" size={16} style={{ marginRight: 8 }} />
-                    <Text style={styles.searchResultText}>{item.name}</Text>
-                    {!!item.username && <Text style={styles.searchResultSub}>@{item.username}</Text>}
-                  </TouchableOpacity>
-                ))
+                searchResults.map((item) => {
+                  const isSelected = isPlayerAlreadySelected(item.id);
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.searchResultItem, isSelected && styles.searchResultItemDisabled]}
+                      disabled={isSelected}
+                      onPress={() => handleSelectPlayer(item)}
+                    >
+                      <Feather name="user" color={isSelected ? "#444444" : "#888888"} size={16} style={{ marginRight: 8 }} />
+                      <Text style={[styles.searchResultText, isSelected && styles.searchResultTextDisabled]}>
+                        {item.name} {isSelected && '(Ya seleccionado)'}
+                      </Text>
+                      {!!item.username && <Text style={styles.searchResultSub}>@{item.username}</Text>}
+                    </TouchableOpacity>
+                  );
+                })
               )}
             </View>
           )}
@@ -632,10 +684,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#444444',
   },
+  selfAddBtnDisabled: {
+    opacity: 0.3,
+    backgroundColor: '#121212',
+    borderColor: '#222222',
+  },
   selfAddBtnText: {
     fontSize: 11,
     fontWeight: '800',
     color: '#ffffff',
+  },
+  selfAddBtnTextDisabled: {
+    color: '#666666',
   },
   searchModalBox: {
     backgroundColor: theme.colors.cardBg,
@@ -679,11 +739,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
+  searchResultItemDisabled: {
+    opacity: 0.4,
+  },
   searchResultText: {
     fontSize: 13,
     fontWeight: '700',
     color: theme.colors.text,
     marginRight: 6,
+  },
+  searchResultTextDisabled: {
+    color: '#888888',
   },
   searchResultSub: {
     fontSize: 11,

@@ -45,6 +45,11 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
   const [searching, setSearching] = useState<boolean>(false);
   const [activeSlot, setActiveSlot] = useState<{ team: 'red' | 'blue'; index: number } | null>(null);
 
+  // Comprobar si un jugador ya está asignado en cualquier posición
+  const isPlayerAlreadySelected = (userId: string): boolean => {
+    return playerRed.some((p) => p?.id === userId) || playerBlue.some((p) => p?.id === userId);
+  };
+
   // Regla Oficial ITTF de Victoria: Mínimo 11 puntos y diferencia de al menos 2 puntos (Alargue)
   const checkIsTerminal = (red: number, blue: number): { isTerminal: boolean; winner?: 'red' | 'blue' } => {
     if (red >= 11 && red - blue >= 2) return { isTerminal: true, winner: 'red' };
@@ -100,6 +105,15 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
   const handleSelectPlayer = (student: StudentUser) => {
     if (!activeSlot) return;
 
+    if (isPlayerAlreadySelected(student.id)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Jugador ya seleccionado',
+        text2: `${student.name} ya está asignado a uno de los lados.`,
+      });
+      return;
+    }
+
     if (activeSlot.team === 'red') {
       setPlayerRed([student]);
     } else {
@@ -113,6 +127,15 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
 
   const handleAddMyself = (team: 'red' | 'blue') => {
     if (!currentUser) return;
+    if (isPlayerAlreadySelected(currentUser.id)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Ya estás en la lista',
+        text2: 'Ya has sido asignado a esta partida.',
+      });
+      return;
+    }
+
     const student: StudentUser = {
       id: currentUser.id,
       name: currentUser.name,
@@ -232,6 +255,8 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     }
   };
 
+  const isCurrentUserInMatch = currentUser ? isPlayerAlreadySelected(currentUser.id) : false;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       {/* CABECERA GENERAL */}
@@ -278,10 +303,21 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
                   </TouchableOpacity>
                   {currentUser && (
                     <TouchableOpacity
-                      style={styles.selfAddBtn}
+                      style={[
+                        styles.selfAddBtn,
+                        isCurrentUserInMatch && styles.selfAddBtnDisabled,
+                      ]}
+                      disabled={isCurrentUserInMatch}
                       onPress={() => handleAddMyself('red')}
                     >
-                      <Text style={styles.selfAddBtnText}>+ Yo</Text>
+                      <Text
+                        style={[
+                          styles.selfAddBtnText,
+                          isCurrentUserInMatch && styles.selfAddBtnTextDisabled,
+                        ]}
+                      >
+                        + Yo
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -311,10 +347,21 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
                   </TouchableOpacity>
                   {currentUser && (
                     <TouchableOpacity
-                      style={styles.selfAddBtn}
+                      style={[
+                        styles.selfAddBtn,
+                        isCurrentUserInMatch && styles.selfAddBtnDisabled,
+                      ]}
+                      disabled={isCurrentUserInMatch}
                       onPress={() => handleAddMyself('blue')}
                     >
-                      <Text style={styles.selfAddBtnText}>+ Yo</Text>
+                      <Text
+                        style={[
+                          styles.selfAddBtnText,
+                          isCurrentUserInMatch && styles.selfAddBtnTextDisabled,
+                        ]}
+                      >
+                        + Yo
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -347,17 +394,23 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
               {searching ? (
                 <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
               ) : (
-                searchResults.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.searchResultItem}
-                    onPress={() => handleSelectPlayer(item)}
-                  >
-                    <Feather name="user" color="#888888" size={16} style={{ marginRight: 8 }} />
-                    <Text style={styles.searchResultText}>{item.name}</Text>
-                    {!!item.username && <Text style={styles.searchResultSub}>@{item.username}</Text>}
-                  </TouchableOpacity>
-                ))
+                searchResults.map((item) => {
+                  const isSelected = isPlayerAlreadySelected(item.id);
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.searchResultItem, isSelected && styles.searchResultItemDisabled]}
+                      disabled={isSelected}
+                      onPress={() => handleSelectPlayer(item)}
+                    >
+                      <Feather name="user" color={isSelected ? "#444444" : "#888888"} size={16} style={{ marginRight: 8 }} />
+                      <Text style={[styles.searchResultText, isSelected && styles.searchResultTextDisabled]}>
+                        {item.name} {isSelected && '(Ya seleccionado)'}
+                      </Text>
+                      {!!item.username && <Text style={styles.searchResultSub}>@{item.username}</Text>}
+                    </TouchableOpacity>
+                  );
+                })
               )}
             </View>
           )}
@@ -667,10 +720,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#444444',
   },
+  selfAddBtnDisabled: {
+    opacity: 0.3,
+    backgroundColor: '#121212',
+    borderColor: '#222222',
+  },
   selfAddBtnText: {
     fontSize: 11,
     fontWeight: '800',
     color: '#ffffff',
+  },
+  selfAddBtnTextDisabled: {
+    color: '#666666',
   },
   searchModalBox: {
     backgroundColor: theme.colors.cardBg,
@@ -714,11 +775,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
+  searchResultItemDisabled: {
+    opacity: 0.4,
+  },
   searchResultText: {
     fontSize: 13,
     fontWeight: '700',
     color: theme.colors.text,
     marginRight: 6,
+  },
+  searchResultTextDisabled: {
+    color: '#888888',
   },
   searchResultSub: {
     fontSize: 11,
