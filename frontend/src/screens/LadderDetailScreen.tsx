@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   sectionContainer: {
-    gap: 6,
+    gap: 0,
   },
   emptyContainer: {
     padding: theme.spacing.lg,
@@ -373,14 +373,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   rankRow: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    backgroundColor: 'transparent',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   rankPosNumber: {
     fontSize: 13,
