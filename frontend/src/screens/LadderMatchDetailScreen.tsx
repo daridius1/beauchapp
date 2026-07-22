@@ -301,17 +301,25 @@ const styles = StyleSheet.create({
     backgroundImage: 'linear-gradient(to top, rgba(255, 68, 68, 0.22) 0%, rgba(255, 68, 68, 0.04) 60%, transparent 100%)',
     borderBottomWidth: 3,
     borderBottomColor: '#ff4444',
+    borderTopWidth: 3,
+    borderTopColor: theme.colors.border,
   } as any) : {
     borderBottomWidth: 3,
     borderBottomColor: '#ff4444',
+    borderTopWidth: 3,
+    borderTopColor: theme.colors.border,
   },
   matchCardBlueWon: Platform.OS === 'web' ? ({
     backgroundImage: 'linear-gradient(to top, rgba(56, 189, 248, 0.22) 0%, rgba(56, 189, 248, 0.04) 60%, transparent 100%)',
     borderBottomWidth: 3,
     borderBottomColor: '#38bdf8',
+    borderTopWidth: 3,
+    borderTopColor: theme.colors.border,
   } as any) : {
     borderBottomWidth: 3,
     borderBottomColor: '#38bdf8',
+    borderTopWidth: 3,
+    borderTopColor: theme.colors.border,
   },
   dateCenteredFooter: {
     alignItems: 'center',
@@ -427,18 +435,26 @@ const styles = StyleSheet.create({
     backgroundImage: 'linear-gradient(to right, rgba(255, 68, 68, 0.22) 0%, rgba(255, 68, 68, 0.03) 55%, transparent 100%)',
     borderLeftWidth: 3,
     borderLeftColor: '#ff4444',
+    borderRightWidth: 3,
+    borderRightColor: theme.colors.border,
   } as any) : {
     borderLeftWidth: 3,
     borderLeftColor: '#ff4444',
+    borderRightWidth: 3,
+    borderRightColor: theme.colors.border,
     backgroundColor: 'rgba(255, 68, 68, 0.06)',
   },
   eventRowBlue: Platform.OS === 'web' ? ({
     backgroundImage: 'linear-gradient(to left, rgba(56, 189, 248, 0.22) 0%, rgba(56, 189, 248, 0.03) 55%, transparent 100%)',
     borderRightWidth: 3,
     borderRightColor: '#38bdf8',
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.border,
   } as any) : {
     borderRightWidth: 3,
     borderRightColor: '#38bdf8',
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.border,
     backgroundColor: 'rgba(56, 189, 248, 0.06)',
   },
   scoreContainerFixedMain: {

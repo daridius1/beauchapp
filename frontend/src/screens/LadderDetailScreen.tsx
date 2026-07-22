@@ -408,17 +408,25 @@ const styles = StyleSheet.create({
     backgroundImage: 'linear-gradient(to top, rgba(255, 68, 68, 0.22) 0%, rgba(255, 68, 68, 0.04) 60%, transparent 100%)',
     borderBottomWidth: 3,
     borderBottomColor: '#ff4444',
+    borderTopWidth: 3,
+    borderTopColor: theme.colors.border,
   } as any) : {
     borderBottomWidth: 3,
     borderBottomColor: '#ff4444',
+    borderTopWidth: 3,
+    borderTopColor: theme.colors.border,
   },
   matchCardBlueWon: Platform.OS === 'web' ? ({
     backgroundImage: 'linear-gradient(to top, rgba(56, 189, 248, 0.22) 0%, rgba(56, 189, 248, 0.04) 60%, transparent 100%)',
     borderBottomWidth: 3,
     borderBottomColor: '#38bdf8',
+    borderTopWidth: 3,
+    borderTopColor: theme.colors.border,
   } as any) : {
     borderBottomWidth: 3,
     borderBottomColor: '#38bdf8',
+    borderTopWidth: 3,
+    borderTopColor: theme.colors.border,
   },
   matchDateFooter: {
     alignItems: 'center',
