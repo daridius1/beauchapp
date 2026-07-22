@@ -98,6 +98,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
   const formattedTime = createdDate.toLocaleTimeString('es-CL', {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 
   let runningRed = 0;
