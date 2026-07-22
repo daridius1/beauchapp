@@ -20,12 +20,22 @@ interface StudentUser {
   avatar?: string;
 }
 
+interface RallyRecord {
+  rallyIndex: number;
+  loser: 'red' | 'blue';
+  winner: 'red' | 'blue';
+  pozo: number;
+  scoreRedAfter: number;
+  scoreBlueAfter: number;
+  summary: string;
+}
+
 interface HistorySnap {
   scoreRed: number;
   scoreBlue: number;
   accumulator: number;
   activeTurn: 'red' | 'blue';
-  actionLog: string[];
+  rallies: RallyRecord[];
 }
 
 export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
@@ -44,7 +54,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const [scoreBlue, setScoreBlue] = useState<number>(0);
   const [accumulator, setAccumulator] = useState<number>(1);
   const [activeTurn, setActiveTurn] = useState<'red' | 'blue'>('red');
-  const [actionLog, setActionLog] = useState<string[]>([]);
+  const [rallies, setRallies] = useState<RallyRecord[]>([]);
 
   // Pila de Deshacer (Undo Stack)
   const [undoStack, setUndoStack] = useState<HistorySnap[]>([]);
@@ -162,7 +172,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         scoreBlue,
         accumulator,
         activeTurn,
-        actionLog: [...actionLog],
+        rallies: [...rallies],
       },
     ]);
   };
@@ -199,54 +209,53 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
     setStep('live');
   };
 
-  // BOTÓN "SIGUE" (+1 al pozo y cambio de turno)
+  // BOTÓN "SIGUE" (+1 al pozo y cambio de turno sin saturar el historial)
   const handleSigue = () => {
     if (isTerminal) return;
     saveSnap();
-    const currentName = activeTurn === 'red' ? playerRed[0]?.name || 'Rojo' : playerBlue[0]?.name || 'Azul';
     const nextTurn = activeTurn === 'red' ? 'blue' : 'red';
-    const nextAccumulator = accumulator + 1;
-
-    setAccumulator(nextAccumulator);
+    setAccumulator((prev) => prev + 1);
     setActiveTurn(nextTurn);
-    setActionLog((prev) => [
-      ...prev,
-      `🟢 ${currentName} presiona SIGUE (Pozo sube a ${nextAccumulator}) -> Turno ${nextTurn === 'red' ? '🔴 Rojo' : '🔵 Azul'}`,
-    ]);
   };
 
-  // BOTÓN "PIERDE" (Oponente cobra el pozo acumulado)
+  // BOTÓN "PIERDE" (Finaliza un Peloteo / Rally compacto)
   const handlePierde = () => {
     if (isTerminal) return;
     saveSnap();
-    const currentName = activeTurn === 'red' ? playerRed[0]?.name || 'Rojo' : playerBlue[0]?.name || 'Azul';
-    const oppName = activeTurn === 'red' ? playerBlue[0]?.name || 'Azul' : playerRed[0]?.name || 'Rojo';
 
-    const pointsGained = accumulator;
+    const loser = activeTurn;
+    const winner = activeTurn === 'red' ? 'blue' : 'red';
+    const loserName = loser === 'red' ? playerRed[0]?.name || 'Rojo' : playerBlue[0]?.name || 'Azul';
+    const winnerName = winner === 'red' ? playerRed[0]?.name || 'Rojo' : playerBlue[0]?.name || 'Azul';
+    const pozo = accumulator;
+
     let newScoreRed = scoreRed;
     let newScoreBlue = scoreBlue;
 
-    if (activeTurn === 'red') {
-      newScoreBlue = scoreBlue + pointsGained;
+    if (winner === 'blue') {
+      newScoreBlue = scoreBlue + pozo;
       setScoreBlue(newScoreBlue);
     } else {
-      newScoreRed = scoreRed + pointsGained;
+      newScoreRed = scoreRed + pozo;
       setScoreRed(newScoreRed);
     }
 
-    const oppTurn = activeTurn === 'red' ? 'blue' : 'red';
+    const rallyIndex = rallies.length + 1;
+    const summary = `Peloteo ${rallyIndex}: ${loserName} pierde ${pozo} pt(s) -> ${winnerName} cobra +${pozo} pts (${newScoreRed} - ${newScoreBlue})`;
+
+    const newRally: RallyRecord = {
+      rallyIndex,
+      loser,
+      winner,
+      pozo,
+      scoreRedAfter: newScoreRed,
+      scoreBlueAfter: newScoreBlue,
+      summary,
+    };
+
+    setRallies((prev) => [...prev, newRally]);
     setAccumulator(1);
-    setActiveTurn(oppTurn);
-
-    const matchEnded = newScoreRed >= targetScore || newScoreBlue >= targetScore;
-    const winnerName = newScoreRed >= targetScore ? playerRed[0]?.name : playerBlue[0]?.name;
-
-    setActionLog((prev) => [
-      ...prev,
-      matchEnded
-        ? `🏆 ¡${winnerName} ALCANZA ${targetScore} PUNTOS Y GANA EL PARTIDO!`
-        : `🔴 ${currentName} presiona PIERDE -> ¡${oppName} cobra ${pointsGained} pt(s)! (Pozo se reinicia a 1)`,
-    ]);
+    setActiveTurn(winner); // El ganador del peloteo saca/inicia el siguiente
   };
 
   // Deshacer Acción
@@ -259,7 +268,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
     setScoreBlue(lastSnap.scoreBlue);
     setAccumulator(lastSnap.accumulator);
     setActiveTurn(lastSnap.activeTurn);
-    setActionLog(lastSnap.actionLog);
+    setRallies(lastSnap.rallies);
   };
 
   const handleSubmitMatch = async () => {
@@ -281,7 +290,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         teamBlue: playerBlue.map((p) => p.id),
         scoreRed,
         scoreBlue,
-        goalHistory: actionLog as any,
+        goalHistory: rallies.map((r) => r.summary) as any,
       });
 
       Toast.show({
@@ -315,7 +324,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         <Text style={styles.headerSubtitle}>
           {step === 'setup'
             ? 'Paso 1: Asigna a los competidores antes de iniciar la partida.'
-            : `Paso 2: Acumula el pozo con SIGUE o entrega los puntos al rival con PIERDE. Gana el primero en llegar a ${targetScore} puntos.`}
+            : `Paso 2: Peloteos acumulativos. SIGUE aumenta el pozo (+1), PIERDE entrega los puntos al rival y guarda el peloteo.`}
         </Text>
       </View>
 
@@ -526,7 +535,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
             <Text style={styles.accumLabel}>POZO ACUMULADO ACTUAL</Text>
             <Text style={styles.accumNumber}>{accumulator}</Text>
-            <Text style={styles.accumSub}>Puntos en juego para el peloteo</Text>
+            <Text style={styles.accumSub}>Puntos en juego para este peloteo</Text>
           </View>
 
           {/* BOTONES DE ACCIÓN TIPTAP */}
@@ -556,7 +565,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {/* HISTORIAL Y DESHACER */}
+          {/* HISTORIAL COMPACTO DE PELOTEOS (RALLIES) Y DESHACER */}
           <View style={styles.timelineRow}>
             <TouchableOpacity
               style={styles.undoBtn}
@@ -568,9 +577,11 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             </TouchableOpacity>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyChipsScroll}>
-              {actionLog.slice().reverse().map((log, index) => (
-                <View key={index} style={styles.historyChip}>
-                  <Text style={styles.chipText}>{log}</Text>
+              {rallies.slice().reverse().map((r) => (
+                <View key={r.rallyIndex} style={[styles.historyChip, r.winner === 'red' ? styles.chipRed : styles.chipBlue]}>
+                  <Text style={styles.chipText}>
+                    P{r.rallyIndex}: {r.winner === 'red' ? '🔴' : '🔵'} +{r.pozo} pts ({r.scoreRedAfter}-{r.scoreBlueAfter})
+                  </Text>
                 </View>
               ))}
             </ScrollView>
@@ -581,7 +592,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             <View style={styles.inProgressNoticeBox}>
               <Feather name="info" color="#eab308" size={16} style={{ marginRight: 6 }} />
               <Text style={styles.inProgressNoticeText}>
-                Partido en curso. Para finalizar, un jugador debe alcanzar {targetScore} puntos.
+                Partido en curso ({rallies.length} peloteos completados). Alcanza {targetScore} puntos para finalizar.
               </Text>
             </View>
           ) : (
@@ -1031,18 +1042,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   historyChip: {
-    backgroundColor: '#121212',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
     marginRight: 4,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+  },
+  chipRed: {
+    backgroundColor: 'rgba(255, 68, 68, 0.15)',
+    borderColor: '#ff4444',
+  },
+  chipBlue: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: '#38bdf8',
   },
   chipText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: theme.colors.textMuted,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   inProgressNoticeBox: {
     backgroundColor: '#121212',
