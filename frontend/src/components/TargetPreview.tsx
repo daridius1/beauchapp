@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { Avatar } from './Avatar';
-import { getFileUrl } from '../services/pocketbase';
+import { pb, getFileUrl } from '../services/pocketbase';
 
 export interface TargetPreviewProps {
   targetType?: string;
@@ -20,23 +20,65 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
   expandedTarget,
   onPress,
 }) => {
+  const [fetchedTarget, setFetchedTarget] = useState<any>(null);
+
+  // Fetch on-demand si no tenemos datos suficientes del target
+  useEffect(() => {
+    if (!targetType || !targetId) return;
+    if (expandedTarget) return; // ya expandido por el query
+
+    // Determinar si targetMeta tiene datos útiles
+    const hasUsefulMeta = targetMeta && typeof targetMeta === 'object' && Object.keys(targetMeta).length > 0;
+
+    if (targetType === 'post') {
+      // Para posts, verificar si tiene al menos authorName real (no el fallback "Usuario")
+      const hasAuthor = hasUsefulMeta && targetMeta.authorName && targetMeta.authorName !== 'Usuario';
+      if (hasAuthor) return; // ya tenemos datos suficientes
+    } else {
+      if (hasUsefulMeta) return; // problemas/partidos: si tiene meta, ya tenemos datos
+    }
+
+    let isMounted = true;
+    const fetchTarget = async () => {
+      try {
+        if (targetType === 'post') {
+          const record = await pb.collection('posts').getOne(targetId, { expand: 'author' });
+          if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'problem') {
+          const record = await pb.collection('problems').getOne(targetId);
+          if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'match') {
+          const record = await pb.collection('ladder_matches').getOne(targetId, { expand: 'team_red,team_blue' });
+          if (isMounted) setFetchedTarget(record);
+        }
+      } catch (err) {
+        // Target no encontrado o eliminado
+      }
+    };
+    fetchTarget();
+    return () => { isMounted = false; };
+  }, [targetType, targetId, expandedTarget, targetMeta]);
+
   if (!targetType || !targetId) {
     return null;
   }
+
+  // Usar expandedTarget (del query expand), luego fetchedTarget (on-demand), luego targetMeta (snapshot)
+  const resolved = expandedTarget || fetchedTarget;
 
   const Wrapper = onPress ? TouchableOpacity : View;
   const wrapperProps = onPress ? { activeOpacity: 0.8, onPress: (e: any) => { e.stopPropagation(); onPress(); } } : {};
 
   // 1. RENDERIZADO DE POST CITADO
   if (targetType === 'post') {
-    const liveAuthor = expandedTarget?.expand?.author;
+    const liveAuthor = resolved?.expand?.author;
     const authorName = liveAuthor?.name || targetMeta?.authorName || 'Usuario';
     const authorUsername = liveAuthor?.username || targetMeta?.authorUsername || '';
-    const contentText = expandedTarget ? expandedTarget.content : (targetMeta?.content || '');
-    const photoUrl = expandedTarget?.photo 
-      ? getFileUrl(expandedTarget, expandedTarget.photo)
+    const contentText = resolved ? resolved.content : (targetMeta?.content || '');
+    const photoUrl = resolved?.photo 
+      ? getFileUrl(resolved, resolved.photo)
       : (targetMeta?.photo ? getFileUrl({ collectionId: 'posts', id: targetId }, targetMeta.photo) : null);
-    const isDeleted = expandedTarget?.deleted === true;
+    const isDeleted = resolved?.deleted === true;
 
     if (isDeleted) {
       return (
@@ -66,10 +108,10 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
   // 2. RENDERIZADO DE PROBLEMA CITADO
   if (targetType === 'problem') {
-    const title = targetMeta?.title || expandedTarget?.title || 'Problema Académico';
-    const subtitle = targetMeta?.subtitle || (expandedTarget?.parent ? 'Pauta' : 'Enunciado');
-    const ramo = targetMeta?.ramo || expandedTarget?.ramo;
-    const instancia = targetMeta?.instancia || expandedTarget?.instancia;
+    const title = targetMeta?.title || resolved?.title || 'Problema Académico';
+    const subtitle = targetMeta?.subtitle || (resolved?.parent ? 'Pauta' : 'Enunciado');
+    const ramo = targetMeta?.ramo || resolved?.ramo;
+    const instancia = targetMeta?.instancia || resolved?.instancia;
 
     return (
       <Wrapper {...wrapperProps} style={styles.previewCardProblem}>
@@ -87,11 +129,15 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
   // 3. RENDERIZADO DE PARTIDO CITADO
   if (targetType === 'match') {
-    const mode = targetMeta?.mode || expandedTarget?.mode || '1v1';
-    const scoreRed = targetMeta?.scoreRed ?? expandedTarget?.score_red ?? 0;
-    const scoreBlue = targetMeta?.scoreBlue ?? expandedTarget?.score_blue ?? 0;
-    const teamRedNames = targetMeta?.teamRed?.join(' & ') || 'Equipo Rojo';
-    const teamBlueNames = targetMeta?.teamBlue?.join(' & ') || 'Equipo Azul';
+    const mode = targetMeta?.mode || resolved?.mode || '1v1';
+    const scoreRed = targetMeta?.scoreRed ?? resolved?.score_red ?? 0;
+    const scoreBlue = targetMeta?.scoreBlue ?? resolved?.score_blue ?? 0;
+    const teamRedNames = targetMeta?.teamRed?.join(' & ') 
+      || resolved?.expand?.team_red?.map((u: any) => u.name).join(' & ')
+      || 'Equipo Rojo';
+    const teamBlueNames = targetMeta?.teamBlue?.join(' & ')
+      || resolved?.expand?.team_blue?.map((u: any) => u.name).join(' & ')
+      || 'Equipo Azul';
 
     return (
       <Wrapper {...wrapperProps} style={styles.previewCardMatch}>
