@@ -26,6 +26,9 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   const [step, setStep] = useState<'setup' | 'live'>('setup');
+  const is2v2 = (ladder.slug && ladder.slug.includes('2v2')) || (ladder.allowed_modes && ladder.allowed_modes.length === 1 && ladder.allowed_modes[0] === '2v2');
+  const [mode, setMode] = useState<'1v1' | '2v2'>(is2v2 ? '2v2' : '1v1');
+  const maxSlots = mode === '1v1' ? 1 : 2;
 
   const [playerRed, setPlayerRed] = useState<StudentUser[]>([]);
   const [playerBlue, setPlayerBlue] = useState<StudentUser[]>([]);
@@ -246,7 +249,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
     try {
       await ladderService.submitArbitratedMatch({
         ladderId: ladder.id,
-        mode: '1v1',
+        mode: mode,
         teamRed: playerRed.map((p) => p.id),
         teamBlue: playerBlue.map((p) => p.id),
         scoreRed,
