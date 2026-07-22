@@ -215,10 +215,17 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 year: 'numeric',
               });
 
+              const isRedWinner = m.score_red > m.score_blue;
+              const isBlueWinner = m.score_blue > m.score_red;
+
               return (
                 <TouchableOpacity
                   key={m.id}
-                  style={styles.matchCard}
+                  style={[
+                    styles.matchCard,
+                    isRedWinner && styles.matchCardRedWon,
+                    isBlueWinner && styles.matchCardBlueWon,
+                  ]}
                   activeOpacity={0.7}
                   onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id })}
                 >
@@ -387,6 +394,14 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
+  },
+  matchCardRedWon: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff4444',
+  },
+  matchCardBlueWon: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#38bdf8',
   },
   matchDateHeader: {
     alignItems: 'center',

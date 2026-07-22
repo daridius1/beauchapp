@@ -159,7 +159,13 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
       </View>
 
       {/* Marcador Plano con Nombres Coloreados */}
-      <View style={styles.scoreboardCard}>
+      <View
+        style={[
+          styles.scoreboardCard,
+          match.score_red > match.score_blue && styles.matchCardRedWon,
+          match.score_blue > match.score_red && styles.matchCardBlueWon,
+        ]}
+      >
         <View style={styles.dateCenteredHeader}>
           <Text style={styles.dateCenteredText}>{formattedDate}</Text>
         </View>
@@ -307,6 +313,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     marginBottom: theme.spacing.md,
+  },
+  matchCardRedWon: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff4444',
+  },
+  matchCardBlueWon: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#38bdf8',
   },
   dateCenteredHeader: {
     alignItems: 'center',
