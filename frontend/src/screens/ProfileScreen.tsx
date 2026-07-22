@@ -292,11 +292,6 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
               onLikePress={() => toggleLike(post)}
               onDeletePress={() => setDeleteConfirmPostId(post.id)}
               onAuthorPress={() => navigation.push('UserProfile', { userId: post.author })}
-              onProblemPress={() => {
-                if (post.entityType === 'problems') {
-                  navigation.push('ProblemDetail', { problemId: post.entityId });
-                }
-              }}
             />
           ))
         )}

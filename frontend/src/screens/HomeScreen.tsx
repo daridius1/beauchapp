@@ -540,11 +540,6 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               onLikePress={() => toggleLike(post)}
               onDeletePress={() => setDeleteConfirmPostId(post.id)}
               onAuthorPress={() => navigation.push('UserProfile', { userId: post.author })}
-              onProblemPress={() => {
-                if (post.entityType === 'problems') {
-                  navigation.push('ProblemDetail', { problemId: post.entityId });
-                }
-              }}
               onTagPress={(t) => activateTagFilter(t)}
             />
           ))

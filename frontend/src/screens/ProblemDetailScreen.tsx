@@ -67,8 +67,6 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [submittingRating, setSubmittingRating] = useState(false);
   const [showParentProblem, setShowParentProblem] = useState(false);
-  const [linkedPostId, setLinkedPostId] = useState<string | null>(null);
-  const [linkedPostCommentCount, setLinkedPostCommentCount] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
 
   const fetchDetail = async (hideLoading = false) => {
@@ -80,19 +78,6 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         expand: 'author,parent'
       });
       setProblem(probRes);
-
-      // 1b. Find the linked community post
-      try {
-        const linkedPost = await pb.collection('posts').getFirstListItem(
-          `entityType = "problems" && entityId = "${problemId}"`
-        );
-        setLinkedPostId(linkedPost.id);
-        setLinkedPostCommentCount(linkedPost.commentCount || 0);
-      } catch (_) {
-        // No linked post found — that's OK for legacy problems
-        setLinkedPostId(null);
-        setLinkedPostCommentCount(0);
-      }
 
       // 2. Obtener respuestas/pautas (problems con parent = problemId)
       const ansRes = await pb.collection('problems').getList(1, 100, {
@@ -715,23 +700,6 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </>
         )}
 
-        {/* Ver comentarios button */}
-        {!!linkedPostId && (
-          <>
-            {(!answers || answers.length === 0) && <View style={styles.divider} />}
-            <TouchableOpacity
-              style={styles.commentsBtn}
-              activeOpacity={0.7}
-              onPress={() => navigation.push('PostDetail', { postId: linkedPostId })}
-            >
-              <Feather name="message-circle" size={18} color={theme.colors.text} style={{ marginRight: 8 }} />
-              <Text style={styles.commentsBtnText}>
-                Ver comentarios{linkedPostCommentCount > 0 ? ` (${linkedPostCommentCount})` : ''}
-              </Text>
-              <Feather name="chevron-right" size={16} color={theme.colors.textMuted} style={{ marginLeft: 'auto' }} />
-            </TouchableOpacity>
-          </>
-        )}
       </ScrollView>
 
       {/* Modal de confirmación de eliminación customizado */}

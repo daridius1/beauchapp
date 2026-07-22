@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View, Image, TouchableOpacity, Platform } from 'react-native';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Avatar } from './Avatar';
@@ -16,7 +16,6 @@ export interface PostCardProps {
   onLikePress?: () => void;
   onDeletePress?: () => void;
   onAuthorPress?: () => void;
-  onProblemPress?: () => void;
   onTagPress?: (tag: string) => void;
   isFocused?: boolean;
   isParent?: boolean;
@@ -29,7 +28,6 @@ export const PostCard: React.FC<PostCardProps> = ({
   onLikePress,
   onDeletePress,
   onAuthorPress,
-  onProblemPress,
   onTagPress,
   isFocused = false,
   isParent = false,
@@ -42,143 +40,67 @@ export const PostCard: React.FC<PostCardProps> = ({
   const author = isDeleted ? null : post.expand?.author;
   const isLiked = currentUser && (post.likes || []).includes(currentUser.id);
   const repliesCount = post.commentCount || 0;
-  const [ratingData, setRatingData] = useState<{ rating: number, difficulty: number, count: number } | null>(null);
-
-  useEffect(() => {
-    if (isDeleted || post.entityType !== 'problems' || !post.entityId) {
-      return;
-    }
-    
-    let isMounted = true;
-    const fetchRatings = async () => {
-      try {
-        const ratingsRes = await pb.collection('problem_ratings').getFullList({
-          filter: `problem = "${post.entityId}"`
-        });
-        
-        if (!isMounted) return;
-        
-        if (ratingsRes.length === 0) {
-          setRatingData({ rating: 0, difficulty: 0, count: 0 });
-          return;
-        }
-        
-        let sumRating = 0;
-        let sumDifficulty = 0;
-        ratingsRes.forEach(r => {
-          sumRating += r.rating;
-          sumDifficulty += r.difficulty;
-        });
-        
-        setRatingData({
-          rating: parseFloat((sumRating / ratingsRes.length).toFixed(1)),
-          difficulty: parseFloat((sumDifficulty / ratingsRes.length).toFixed(1)),
-          count: ratingsRes.length
-        });
-      } catch (err) {
-        console.error('Error fetching entity ratings for post:', err);
-      }
-    };
-    
-    fetchRatings();
-    return () => {
-      isMounted = false;
-    };
-  }, [post.entityType, post.entityId, isDeleted]);
-
-  const renderStars = (rating: number, color: string) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 >= 0.5;
-    
-    for (let i = 1; i <= 5; i++) {
-      if (i <= fullStars) {
-        stars.push(<FontAwesome key={i} name="star" size={10} color={color} style={{ marginRight: 1 }} />);
-      } else if (i === fullStars + 1 && hasHalfStar) {
-        stars.push(<FontAwesome key={i} name="star-half-o" size={10} color={color} style={{ marginRight: 1 }} />);
-      } else {
-        stars.push(<FontAwesome key={i} name="star-o" size={10} color={color} style={{ marginRight: 1 }} />);
-      }
-    }
-    return stars;
-  };
   const navigation = useNavigation<any>();
-
-  const handleMentionPress = async (username: string) => {
-    if (loadingMention) return;
-    setLoadingMention(true);
-    try {
-      const userRecord = await pb.collection('users').getFirstListItem(`username = "${username}"`);
-      if (userRecord && userRecord.id) {
-        navigation.push('UserProfile', { userId: userRecord.id });
-      }
-    } catch (err: any) {
-      if (err.status === 404) {
-        Toast.show({
-          type: 'error',
-          text1: 'Usuario no encontrado',
-          text2: `No existe ningún usuario con el nombre @${username}`
-        });
-      } else {
-        console.error('Error fetching user for mention:', err);
-      }
-    } finally {
-      setLoadingMention(false);
-    }
-  };
 
   const renderContent = (content: string) => {
     if (!content) return null;
-    const parts = content.split(/(?<=^|\s)(@[a-zA-Z0-9_-]{3,20}\b)/g);
-    return parts.map((part, index) => {
-      if (part.startsWith('@') && /^@[a-zA-Z0-9_-]{3,20}$/.test(part)) {
-        const username = part.substring(1);
-        return (
-          <Text
-            key={index}
-            style={styles.mentionText}
-            onPress={() => handleMentionPress(username)}
-          >
-            {part}
-          </Text>
-        );
+    const mentionRegex = /@(\w+)/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = mentionRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(content.substring(lastIndex, match.index));
       }
-      return <Text key={index}>{part}</Text>;
-    });
-  };
 
+      const username = match[1];
 
+      parts.push(
+        <Text
+          key={`mention-${match.index}`}
+          style={styles.mentionText}
+          onPress={async (e) => {
+            e.stopPropagation();
+            if (loadingMention) return;
+            setLoadingMention(true);
+            try {
+              const res = await fetch(
+                `${pb.baseUrl}/api/collections/users/records?filter=(username='${username}')`
+              );
+              const data = await res.json();
+              if (data.items && data.items.length > 0) {
+                navigation.navigate('UserProfile', { userId: data.items[0].id });
+              } else {
+                Toast.show({
+                  type: 'info',
+                  text1: 'Usuario no encontrado',
+                  text2: `No existe @${username}`,
+                });
+              }
+            } catch (err) {
+              console.error(err);
+            } finally {
+              setLoadingMention(false);
+            }
+          }}
+        >
+          @{username}
+        </Text>
+      );
 
-  const CardComponent = isFocused ? View : TouchableOpacity;
-  const cardProps = isFocused ? {} : { 
-    activeOpacity: 0.7, 
-    onPress: onPress 
-  };
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '';
-    try {
-      const date = new Date(dateStr.replace(' ', 'T'));
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMs / 3600000);
-      const diffDays = Math.floor(diffMs / 86400000);
-
-      if (diffMins < 1) return 'Hace un momento';
-      if (diffMins < 60) return `Hace ${diffMins} min`;
-      if (diffHours < 24) return `Hace ${diffHours} h`;
-      if (diffDays < 7) return `Hace ${diffDays} d`;
-      
-      return date.toLocaleDateString('es-CL', {
-        day: 'numeric',
-        month: 'short',
-        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-      });
-    } catch (_) {
-      return '';
+      lastIndex = mentionRegex.lastIndex;
     }
+
+    if (lastIndex < content.length) {
+      parts.push(content.substring(lastIndex));
+    }
+
+    return parts;
   };
+
+  const CardComponent = onPress ? TouchableOpacity : View;
+  const cardProps = onPress ? { activeOpacity: 0.9, onPress } : {};
 
   return (
     <>
@@ -207,45 +129,56 @@ export const PostCard: React.FC<PostCardProps> = ({
                 onPress={isDeleted ? undefined : onAuthorPress}
                 disabled={isDeleted || !onAuthorPress}
                 activeOpacity={0.7}
-                style={{ flexDirection: 'row', alignItems: 'center' }}
               >
-                <Text style={styles.postAuthor}>{isDeleted ? '[eliminado]' : (author?.name || 'Usuario')}</Text>
-                {!isDeleted && author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
+                <Text style={styles.authorName}>
+                  {isDeleted ? 'Usuario Eliminado' : (author?.name || 'Usuario Anónimo')}
+                </Text>
               </TouchableOpacity>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={styles.postDate}>{formatDate(post.created)}</Text>
-              {developerMode && !isDeleted && (
-                <TouchableOpacity
-                  style={styles.devIdBadge}
-                  activeOpacity={0.7}
-                  onPress={(e: any) => {
-                    if (e.stopPropagation) e.stopPropagation();
-                    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                      navigator.clipboard.writeText(post.id);
-                    }
-                    Toast.show({
-                      type: 'info',
-                      text1: 'ID Copiado 📋',
-                      text2: `ID del post: ${post.id}`,
-                    });
-                  }}
-                >
-                  <Feather name="code" size={10} color={theme.colors.primary} style={{ marginRight: 3 }} />
-                  <Text style={styles.devIdBadgeText}>ID: {post.id}</Text>
-                </TouchableOpacity>
+              {!isDeleted && author?.username && (
+                <Text style={styles.authorUsername}>@{author.username}</Text>
               )}
             </View>
+            <Text style={styles.postTime}>
+              {new Date(post.created).toLocaleDateString()} · {new Date(post.created).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+            </Text>
           </View>
         </View>
 
-        {currentUser && post.author === currentUser.id && !isDeleted && onDeletePress && (
-          <TouchableOpacity 
-            style={{ padding: 8 }} 
-            onPress={() => setMenuOpen(!menuOpen)}
-          >
-            <Feather name="more-horizontal" size={20} color={theme.colors.textMuted} />
-          </TouchableOpacity>
+        {developerMode && (
+          <View style={styles.devIdBadge}>
+            <Feather name="hash" size={10} color={theme.colors.primary} style={{ marginRight: 2 }} />
+            <Text style={styles.devIdBadgeText}>{post.id}</Text>
+          </View>
+        )}
+
+        {!isDeleted && currentUser && currentUser.id === post.author && onDeletePress && (
+          <View>
+            <TouchableOpacity 
+              onPress={(e) => {
+                e.stopPropagation();
+                setMenuOpen(!menuOpen);
+              }}
+              style={{ padding: 4 }}
+            >
+              <Feather name="more-horizontal" size={18} color={theme.colors.textMuted} />
+            </TouchableOpacity>
+
+            {menuOpen && (
+              <View style={styles.dropdownMenu}>
+                <TouchableOpacity 
+                  style={styles.dropdownItem}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    onDeletePress();
+                  }}
+                >
+                  <Feather name="trash-2" size={14} color="#EF4444" style={{ marginRight: 6 }} />
+                  <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>Eliminar</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         )}
       </View>
       
@@ -255,7 +188,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         </Text>
       ) : null}
 
-      {!(isDeleted && !!post.entityType) && (isDeleted || (post.content && post.content.trim() !== '')) && (
+      {(isDeleted || (post.content && post.content.trim() !== '')) && (
         <Text style={[
           styles.postContent, 
           isFocused && styles.mainPostContent,
@@ -265,56 +198,14 @@ export const PostCard: React.FC<PostCardProps> = ({
         </Text>
       )}
 
-      {/* Polymorphic Problem/Pauta Link card */}
-      {!!post.entityType && !!post.entityMeta && (
-        <TouchableOpacity
-          activeOpacity={0.7}
-          style={[styles.entityCard, isDeleted && { opacity: 0.6 }]}
+      {/* Image attachment if exists */}
+      {!isDeleted && post.photo && (
+        <TouchableOpacity 
+          activeOpacity={0.9} 
           onPress={(e) => {
             e.stopPropagation();
-            if (onProblemPress) {
-              onProblemPress();
-            }
+            setViewerVisible(true);
           }}
-        >
-          <View style={styles.entityCardIcon}>
-            <Text style={{ fontSize: 22 }}>{post.entityMeta.subtitle === 'Pauta' ? '✍️' : '📄'}</Text>
-          </View>
-          <View style={styles.entityCardBody}>
-            <Text style={styles.entityCardSubtitle}>{post.entityMeta.subtitle}{post.entityMeta.ramo ? ` · ${post.entityMeta.ramo}` : ''}</Text>
-            <Text style={[styles.entityCardTitle, isDeleted && { color: theme.colors.textMuted, fontStyle: 'italic' }]} numberOfLines={2}>
-              {isDeleted 
-                ? (post.entityMeta.subtitle === 'Pauta' ? 'Pauta eliminada' : 'Problema eliminado') 
-                : post.entityMeta.title}
-            </Text>
-            {ratingData && ratingData.count > 0 && (
-              <View style={styles.entityRatingsRow}>
-                <View style={styles.entityRatingCol}>
-                  <Text style={styles.entityRatingLabel}>Nota: </Text>
-                  <View style={styles.starsWrapper}>
-                    {renderStars(ratingData.rating, '#F59E0B')}
-                  </View>
-                  <Text style={styles.entityRatingText}>{ratingData.rating}</Text>
-                </View>
-                <View style={styles.entityRatingCol}>
-                  <Text style={styles.entityRatingLabel}>Dificultad: </Text>
-                  <View style={styles.starsWrapper}>
-                    {renderStars(ratingData.difficulty, '#EF4444')}
-                  </View>
-                  <Text style={styles.entityRatingText}>{ratingData.difficulty}</Text>
-                </View>
-              </View>
-            )}
-          </View>
-          <Feather name="chevron-right" size={18} color={theme.colors.textMuted} />
-        </TouchableOpacity>
-      )}
-
-      {/* Post photo attachment */}
-      {!isDeleted && !!post.photo && (
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setViewerVisible(true)}
         >
           <Image 
             source={{ uri: getFileUrl(post, post.photo) }}
@@ -349,67 +240,47 @@ export const PostCard: React.FC<PostCardProps> = ({
               color={isLiked ? "#EF4444" : theme.colors.textMuted} 
               style={{ marginRight: 6 }}
             />
-            <Text style={[styles.actionCount, isLiked && styles.actionIconActive]}>
-              {(post.likes || []).length}
+            <Text style={[styles.actionText, isLiked && { color: "#EF4444" }]}>
+              {post.likes ? post.likes.length : 0}
             </Text>
           </TouchableOpacity>
         )}
+
         <View style={styles.actionBtn}>
-          <Feather 
-            name="message-square" 
-            size={16} 
-            color={theme.colors.textMuted} 
-            style={{ marginRight: 6 }}
-          />
-          <Text style={styles.actionCount}>{repliesCount}</Text>
+          <Feather name="message-square" size={16} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.actionText}>{repliesCount}</Text>
         </View>
       </View>
-
-      {/* Menu dropdown inside the card */}
-      {menuOpen && (
-        <View style={styles.dropdownMenu}>
-          <TouchableOpacity 
-            style={styles.dropdownItem} 
-            onPress={() => {
-              setMenuOpen(false);
-              if (onDeletePress) {
-                onDeletePress();
-              }
-            }}
-          >
-            <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
-            <Text style={styles.dropdownItemText}>Eliminar</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </CardComponent>
-    {post.photo && (
+
+    {!isDeleted && post.photo && (
       <ImageViewer 
-        visible={viewerVisible}
-        imageUrl={getFileUrl(post, post.photo)}
-        onClose={() => setViewerVisible(false)}
+        visible={viewerVisible} 
+        imageUrl={getFileUrl(post, post.photo)} 
+        onClose={() => setViewerVisible(false)} 
       />
     )}
   </>
-);
+  );
 };
 
 const styles = StyleSheet.create({
   postCard: {
-    padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    position: 'relative',
-  },
-  mainPostCard: {
     backgroundColor: theme.colors.cardBg,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
     borderColor: theme.colors.border,
   },
+  mainPostCard: {
+    backgroundColor: '#0a0a0a',
+    borderColor: '#333333',
+    padding: theme.spacing.lg,
+  },
   parentCard: {
-    borderBottomColor: theme.colors.border,
-    borderBottomWidth: 1,
+    opacity: 0.85,
+    marginBottom: theme.spacing.sm,
   },
   postHeader: {
     flexDirection: 'row',
@@ -419,25 +290,22 @@ const styles = StyleSheet.create({
   postMeta: {
     justifyContent: 'center',
   },
-  postAuthor: {
+  authorName: {
     color: theme.colors.text,
     fontWeight: '700',
-    fontSize: 15,
+    fontSize: 14,
+    marginRight: 6,
   },
-  postDate: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-  },
-  postUsername: {
+  authorUsername: {
     color: theme.colors.textMuted,
     fontSize: 13,
   },
-  replyContextText: {
+  postTime: {
     color: theme.colors.textMuted,
     fontSize: 12,
-    fontStyle: 'italic',
-    marginBottom: theme.spacing.xs,
+    marginTop: 2,
   },
+  replyContextText: { color: theme.colors.textMuted, fontSize: 12, fontStyle: 'italic', marginBottom: 4 },
   postContent: {
     color: theme.colors.text,
     fontSize: 15,
@@ -488,49 +356,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: theme.spacing.lg,
   },
-  actionIconActive: {
-    color: '#ef4444',
-  },
-  actionCount: {
+  actionText: {
     color: theme.colors.textMuted,
     fontSize: 13,
-    fontWeight: '500',
-  },
-  entityCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: theme.spacing.sm,
-  },
-  entityCardIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#1a1a1a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  entityCardBody: {
-    flex: 1,
-  },
-  entityCardSubtitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  entityCardTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.text,
-    lineHeight: 19,
   },
   dropdownMenu: {
     position: 'absolute',
@@ -553,31 +381,6 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     color: theme.colors.text,
     fontSize: 14,
-  },
-  entityRatingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    gap: 12,
-  },
-  entityRatingCol: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  entityRatingLabel: {
-    fontSize: 10,
-    color: theme.colors.textMuted,
-    marginRight: 2,
-  },
-  starsWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 4,
-  },
-  entityRatingText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: theme.colors.text,
   },
   devIdBadge: {
     backgroundColor: '#121212',
