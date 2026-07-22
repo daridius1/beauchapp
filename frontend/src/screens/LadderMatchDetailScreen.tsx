@@ -167,11 +167,11 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
             ))}
           </View>
 
-          {/* Resultado Uniforme */}
-          <View style={styles.scoreDisplay}>
-            <Text style={styles.scoreValue}>
-              <Text style={{ color: '#ff4444' }}>{match.score_red}</Text> - <Text style={{ color: '#38bdf8' }}>{match.score_blue}</Text>
-            </Text>
+          {/* Resultado Uniforme Centrado */}
+          <View style={styles.scoreContainerFixedMain}>
+            <Text style={styles.scoreNumRedMain}>{match.score_red}</Text>
+            <Text style={styles.scoreDashMain}>-</Text>
+            <Text style={styles.scoreNumBlueMain}>{match.score_blue}</Text>
           </View>
 
           {/* Lado Azul */}
@@ -242,9 +242,9 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
 
                 {/* Marcador al centro siempre actualizándose */}
                 <View style={styles.eventCenterScore}>
-                  <Text style={styles.eventScoreText}>
-                    <Text style={{ color: '#ff4444' }}>{ev.scoreRedAfter}</Text> - <Text style={{ color: '#38bdf8' }}>{ev.scoreBlueAfter}</Text>
-                  </Text>
+                  <Text style={styles.eventScoreNumRed}>{ev.scoreRedAfter}</Text>
+                  <Text style={styles.eventScoreDash}>-</Text>
+                  <Text style={styles.eventScoreNumBlue}>{ev.scoreBlueAfter}</Text>
                 </View>
 
                 {/* Lado Derecho (Info de Lado Azul) */}
@@ -441,6 +441,33 @@ const styles = StyleSheet.create({
     borderRightColor: '#38bdf8',
     backgroundColor: 'rgba(56, 189, 248, 0.06)',
   },
+  scoreContainerFixedMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  scoreNumRedMain: {
+    minWidth: 28,
+    textAlign: 'right',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#ff4444',
+  },
+  scoreDashMain: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    marginHorizontal: 5,
+    textAlign: 'center',
+  },
+  scoreNumBlueMain: {
+    minWidth: 28,
+    textAlign: 'left',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#38bdf8',
+  },
   eventSideLeft: {
     flex: 1,
     flexDirection: 'row',
@@ -453,13 +480,32 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   eventCenterScore: {
-    paddingHorizontal: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    minWidth: 64,
   },
-  eventScoreText: {
+  eventScoreNumRed: {
+    minWidth: 18,
+    textAlign: 'right',
     fontSize: 13,
     fontWeight: '800',
-    color: theme.colors.text,
+    color: '#ff4444',
+  },
+  eventScoreDash: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    marginHorizontal: 3,
+    textAlign: 'center',
+  },
+  eventScoreNumBlue: {
+    minWidth: 18,
+    textAlign: 'left',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#38bdf8',
   },
   eventMetaLeft: {
     flexDirection: 'row',

@@ -234,9 +234,14 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 >
                   <View style={styles.matchCardMain}>
                     <Text style={styles.teamRedName} numberOfLines={1}>{redName}</Text>
-                    <Text style={styles.matchScoreText}>
-                      <Text style={{ color: '#ff4444' }}>{m.score_red}</Text> - <Text style={{ color: '#38bdf8' }}>{m.score_blue}</Text>
-                    </Text>
+                    
+                    {/* Marcador con Guión Estrictamente Centrado */}
+                    <View style={styles.scoreContainerFixed}>
+                      <Text style={styles.scoreNumRed}>{m.score_red}</Text>
+                      <Text style={styles.scoreDash}>-</Text>
+                      <Text style={styles.scoreNumBlue}>{m.score_blue}</Text>
+                    </View>
+
                     <Text style={styles.teamBlueNameRight} numberOfLines={1}>{blueName}</Text>
                   </View>
 
@@ -443,10 +448,31 @@ const styles = StyleSheet.create({
     color: '#38bdf8',
     textAlign: 'right',
   },
-  matchScoreText: {
+  scoreContainerFixed: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  scoreNumRed: {
+    minWidth: 20,
+    textAlign: 'right',
     fontSize: 15,
     fontWeight: '800',
-    color: theme.colors.text,
-    paddingHorizontal: 12,
+    color: '#ff4444',
+  },
+  scoreDash: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    marginHorizontal: 4,
+    textAlign: 'center',
+  },
+  scoreNumBlue: {
+    minWidth: 20,
+    textAlign: 'left',
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#38bdf8',
   },
 });
