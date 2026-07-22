@@ -8,6 +8,7 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import { TacaTacaArbitrator } from '../components/arbitrators/TacaTacaArbitrator';
 import { TableTennisArbitrator } from '../components/arbitrators/TableTennisArbitrator';
+import { TipTapArbitrator } from '../components/arbitrators/TipTapArbitrator';
 
 type ArbitratorScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LadderMatchArbitrator'>;
 type ArbitratorScreenRouteProp = RouteProp<RootStackParamList, 'LadderMatchArbitrator'>;
@@ -61,7 +62,11 @@ export const LadderMatchArbitratorScreen: React.FC<Props> = ({ navigation, route
     return <TableTennisArbitrator ladder={ladder} navigation={navigation} />;
   }
 
-  // Fallback por defecto para otros deportes
+  if (ladder.slug === 'tiptap') {
+    return <TipTapArbitrator ladder={ladder} navigation={navigation} />;
+  }
+
+  // Fallback por defecto: Taca Taca
   return <TacaTacaArbitrator ladder={ladder} navigation={navigation} />;
 };
 
@@ -75,9 +80,9 @@ const styles = StyleSheet.create({
   emptyContainer: {
     flex: 1,
     backgroundColor: theme.colors.background,
+    padding: theme.spacing.xl,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.xl,
   },
   emptyText: {
     color: theme.colors.textMuted,
