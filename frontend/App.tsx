@@ -129,15 +129,20 @@ function AppContent() {
       case 'Tinder': return 'Tinder Beauchef';
       case 'Notifications': return 'Notificaciones';
       case 'LaddersList': return 'Ladders & Competencias';
-      case 'LadderDetail': return 'Tabla de Posiciones';
-      case 'LadderMatchArbitrator': {
+      case 'LadderDetail':
+      case 'LadderMatchArbitrator':
+      case 'LadderMatchDetail': {
         const slug = params?.slug;
+        const name = params?.name;
+        if (name) return name;
         if (slug === 'tiptap') return 'TipTap';
         if (slug === 'tenis-de-mesa') return 'Tenis de Mesa';
         if (slug === 'taca-taca') return 'Taca Taca';
-        return 'Arbitraje de Competencia';
+        if (slug) {
+          return slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        }
+        return 'Competencia';
       }
-      case 'LadderMatchDetail': return 'Detalle de Partido';
       default: return 'Beauchapp';
     }
   };

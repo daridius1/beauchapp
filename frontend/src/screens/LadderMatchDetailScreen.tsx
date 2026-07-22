@@ -33,6 +33,12 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
       await withMinimumDelay(async () => {
         const data = await ladderService.getMatchById(matchId);
         setMatch(data);
+        if (data?.expand?.ladder) {
+          navigation.setParams({
+            slug: data.expand.ladder.slug,
+            name: data.expand.ladder.name,
+          });
+        }
       }, 400);
     } catch (err) {
       console.error('Error fetching match details:', err);

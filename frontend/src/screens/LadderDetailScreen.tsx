@@ -37,6 +37,9 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       await withMinimumDelay(async () => {
         const ladderData = await ladderService.getLadderBySlug(slug);
         setLadder(ladderData);
+        if (ladderData?.name) {
+          navigation.setParams({ name: ladderData.name });
+        }
 
         const [ranksData, matchesData] = await Promise.all([
           ladderService.getLadderLeaderboard(ladderData.id),
@@ -227,7 +230,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     isBlueWinner && styles.matchCardBlueWon,
                   ]}
                   activeOpacity={0.7}
-                  onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id })}
+                  onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id, slug: ladder.slug, name: ladder.name })}
                 >
                   <View style={styles.matchCardMain}>
                     <Text style={styles.teamRedName} numberOfLines={1}>{redName}</Text>

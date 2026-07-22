@@ -21,7 +21,7 @@ export type RootStackParamList = {
   Tinder: { initialTab?: 'discover' | 'matches' | 'profile' } | undefined;
   Notifications: undefined;
   LaddersList: undefined;
-  LadderDetail: { slug: string };
-  LadderMatchArbitrator: { slug: string };
-  LadderMatchDetail: { matchId: string };
+  LadderDetail: { slug: string; name?: string };
+  LadderMatchArbitrator: { slug: string; name?: string };
+  LadderMatchDetail: { matchId: string; slug?: string; name?: string };
 };
