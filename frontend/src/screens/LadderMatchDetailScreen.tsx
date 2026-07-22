@@ -152,6 +152,38 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
           match.score_blue > match.score_red && styles.matchCardBlueWon,
         ]}
       >
+        {/* Avatar de Fondo Lado Rojo (Sangrando por el borde izquierdo) */}
+        {match.expand?.team_red?.[0] && (
+          <View style={styles.bgAvatarLeft} pointerEvents="none">
+            <Avatar
+              user={{
+                id: match.expand.team_red[0].id,
+                collectionId: '_pb_users_auth_',
+                avatar: match.expand.team_red[0].avatar,
+                name: match.expand.team_red[0].name,
+                username: match.expand.team_red[0].username,
+              }}
+              size={95}
+            />
+          </View>
+        )}
+
+        {/* Avatar de Fondo Lado Azul (Sangrando por el borde derecho) */}
+        {match.expand?.team_blue?.[0] && (
+          <View style={styles.bgAvatarRight} pointerEvents="none">
+            <Avatar
+              user={{
+                id: match.expand.team_blue[0].id,
+                collectionId: '_pb_users_auth_',
+                avatar: match.expand.team_blue[0].avatar,
+                name: match.expand.team_blue[0].name,
+                username: match.expand.team_blue[0].username,
+              }}
+              size={95}
+            />
+          </View>
+        )}
+
         <View style={styles.scoreboardMainRow}>
           {/* Lado Rojo */}
           <View style={styles.teamColumn}>
@@ -162,7 +194,6 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
                 onPress={() => navigation.navigate('UserProfile', { userId: p.id })}
               >
                 <Text style={styles.playerNameRedCentered} numberOfLines={1}>{p.name}</Text>
-                <Avatar user={{ id: p.id, collectionId: '_pb_users_auth_', avatar: p.avatar, name: p.name, username: p.username }} size={28} />
               </TouchableOpacity>
             ))}
           </View>
@@ -183,7 +214,6 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
                 onPress={() => navigation.navigate('UserProfile', { userId: p.id })}
               >
                 <Text style={styles.playerNameBlueCentered} numberOfLines={1}>{p.name}</Text>
-                <Avatar user={{ id: p.id, collectionId: '_pb_users_auth_', avatar: p.avatar, name: p.name, username: p.username }} size={28} />
               </TouchableOpacity>
             ))}
           </View>
@@ -295,6 +325,19 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     marginBottom: theme.spacing.md,
     overflow: 'hidden',
+    position: 'relative',
+  },
+  bgAvatarLeft: {
+    position: 'absolute',
+    left: -20,
+    top: -15,
+    opacity: 0.18,
+  },
+  bgAvatarRight: {
+    position: 'absolute',
+    right: -20,
+    top: -15,
+    opacity: 0.18,
   },
   matchCardRedWon: Platform.OS === 'web' ? ({
     backgroundImage: 'linear-gradient(to top, rgba(255, 68, 68, 0.22) 0%, rgba(255, 68, 68, 0.04) 60%, transparent 100%)',
