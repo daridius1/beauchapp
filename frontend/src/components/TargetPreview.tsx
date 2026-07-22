@@ -66,7 +66,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
     const contentText = resolved ? resolved.content : (targetMeta?.content || '');
     const photoUrl = resolved?.photo 
       ? getFileUrl(resolved, resolved.photo)
-      : (targetMeta?.photo ? getFileUrl({ collectionId: 'posts', id: targetId }, targetMeta.photo) : null);
+      : null;
     const isDeleted = resolved?.deleted === true;
 
     if (isDeleted) {
