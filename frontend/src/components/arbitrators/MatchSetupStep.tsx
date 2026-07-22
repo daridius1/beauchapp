@@ -391,7 +391,9 @@ const styles = StyleSheet.create({
   playerCardActive: {
     backgroundColor: theme.colors.cardBg,
     borderRadius: 8,
-    padding: 10,
+    height: 88,
+    paddingHorizontal: 8,
+    justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -408,13 +410,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#ff4444',
-    marginTop: 4,
+    marginTop: 3,
   },
   chipNameBlue: {
     fontSize: 12,
     fontWeight: '700',
     color: '#38bdf8',
-    marginTop: 4,
+    marginTop: 3,
   },
   playerHandle: {
     fontSize: 10,
@@ -423,7 +425,7 @@ const styles = StyleSheet.create({
   emptySlotCard: {
     backgroundColor: theme.colors.cardBg,
     borderRadius: 8,
-    height: 76,
+    height: 88,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
