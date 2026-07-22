@@ -163,16 +163,27 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
       }),
     ]).start();
 
-    const tempRed = [...teamRed];
-    const tempBlue = [...teamBlue];
-    setTeamRed(tempBlue);
-    setTeamBlue(tempRed);
+    // Sorteo real al 50/50
+    const shouldSwap = Math.random() < 0.5;
 
-    Toast.show({
-      type: 'info',
-      text1: '🔀 Sorteo de Equipos Realizado',
-      text2: 'Los jugadores han sido sorteados entre Equipo Rojo y Equipo Azul.',
-    });
+    if (shouldSwap) {
+      const tempRed = [...teamRed];
+      const tempBlue = [...teamBlue];
+      setTeamRed(tempBlue);
+      setTeamBlue(tempRed);
+
+      Toast.show({
+        type: 'info',
+        text1: '🔀 Sorteo Realizado (50/50)',
+        text2: '¡El azar hizo que los equipos cambiaran de lado!',
+      });
+    } else {
+      Toast.show({
+        type: 'info',
+        text1: '🔀 Sorteo Realizado (50/50)',
+        text2: 'El azar mantuvo a los equipos en su posición actual.',
+      });
+    }
   };
 
   const handleRemovePlayer = (team: 'red' | 'blue', index: number) => {

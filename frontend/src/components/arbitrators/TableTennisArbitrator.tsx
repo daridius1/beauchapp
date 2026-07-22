@@ -168,19 +168,27 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
       }),
     ]).start();
 
-    const tempRed = [...playerRed];
-    const tempBlue = [...playerBlue];
-    setPlayerRed(tempBlue);
-    setPlayerBlue(tempRed);
+    // Sorteo real al 50/50
+    const shouldSwap = Math.random() < 0.5;
 
-    const redName = tempBlue[0]?.name || 'Lado Rojo';
-    const blueName = tempRed[0]?.name || 'Lado Azul';
+    if (shouldSwap) {
+      const tempRed = [...playerRed];
+      const tempBlue = [...playerBlue];
+      setPlayerRed(tempBlue);
+      setPlayerBlue(tempRed);
 
-    Toast.show({
-      type: 'info',
-      text1: '🔀 Sorteo de Lados Realizado',
-      text2: `🔴 ${redName} en Lado Rojo | 🔵 ${blueName} en Lado Azul`,
-    });
+      Toast.show({
+        type: 'info',
+        text1: '🔀 Sorteo Realizado (50/50)',
+        text2: '¡El azar hizo que los jugadores cambiaran de lado!',
+      });
+    } else {
+      Toast.show({
+        type: 'info',
+        text1: '🔀 Sorteo Realizado (50/50)',
+        text2: 'El azar mantuvo a los jugadores en su posición actual.',
+      });
+    }
   };
 
   const handleRemovePlayer = (team: 'red' | 'blue') => {

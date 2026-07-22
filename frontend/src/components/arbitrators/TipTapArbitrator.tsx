@@ -156,9 +156,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const handleShuffleTeams = () => {
     if (playerRed.length === 0 && playerBlue.length === 0) return;
 
-    setIsShuffling(true);
-
-    // Animación visual de desvanecimiento/destello al sortear
+    // Animación visual de desvanecimiento/destello al sortear (siempre se ejecuta)
     Animated.sequence([
       Animated.timing(shuffleAnim, {
         toValue: 0.2,
@@ -170,22 +168,29 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         duration: 200,
         useNativeDriver: true,
       }),
-    ]).start(() => setIsShuffling(false));
+    ]).start();
 
-    // Intercambiar jugadores de posición
-    const tempRed = [...playerRed];
-    const tempBlue = [...playerBlue];
-    setPlayerRed(tempBlue);
-    setPlayerBlue(tempRed);
+    // Sorteo real al 50/50
+    const shouldSwap = Math.random() < 0.5;
 
-    const redName = tempBlue[0]?.name || 'Lado Rojo';
-    const blueName = tempRed[0]?.name || 'Lado Azul';
+    if (shouldSwap) {
+      const tempRed = [...playerRed];
+      const tempBlue = [...playerBlue];
+      setPlayerRed(tempBlue);
+      setPlayerBlue(tempRed);
 
-    Toast.show({
-      type: 'info',
-      text1: '🔀 Sorteo de Lados Realizado',
-      text2: `🔴 ${redName} en Lado Rojo | 🔵 ${blueName} en Lado Azul`,
-    });
+      Toast.show({
+        type: 'info',
+        text1: '🔀 Sorteo Realizado (50/50)',
+        text2: '¡El azar hizo que los jugadores cambiaran de lado!',
+      });
+    } else {
+      Toast.show({
+        type: 'info',
+        text1: '🔀 Sorteo Realizado (50/50)',
+        text2: 'El azar mantuvo a los jugadores en su posición actual.',
+      });
+    }
   };
 
   const handleRemovePlayer = (team: 'red' | 'blue') => {
