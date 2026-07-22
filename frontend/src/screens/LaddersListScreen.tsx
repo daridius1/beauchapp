@@ -8,7 +8,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { LADDER_GROUPS, SportGroup } from '../config/ladderGroups';
+import { LADDER_GROUPS } from '../config/ladderGroups';
 
 type LaddersListScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LaddersList'>;
 
@@ -70,7 +70,6 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
     );
   }
 
-  // Agrupar visualmente por deporte
   const displayedGroups = LADDER_GROUPS;
 
   return (
@@ -87,45 +86,40 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
         />
       }
     >
-      <View style={styles.headerBox}>
-        <Text style={styles.title}>Rankings FCFM</Text>
-        <Text style={styles.subtitle}>
-          Competencias deportivas de Beauchef. Selecciona una disciplina para ver posiciones y arbitrar.
-        </Text>
-      </View>
+      <View style={styles.listContainer}>
+        {displayedGroups.map((group) => {
+          const categoriesLabel = group.categories.map((c) => c.label).join(' / ');
+          const defaultSlug = group.categories[0].slug;
 
-      {displayedGroups.map((group) => {
-        const categoriesLabel = group.categories.map((c) => c.label).join(' / ');
-        const defaultSlug = group.categories[0].slug;
-
-        return (
-          <TouchableOpacity
-            key={group.groupSlug}
-            style={styles.ladderCard}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('LadderDetail', { slug: defaultSlug, name: group.groupName })}
-          >
-            <View style={styles.cardMain}>
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.ladderName}>{group.groupName}</Text>
-                <View style={styles.modeBadge}>
-                  <Text style={styles.modeBadgeText}>{categoriesLabel}</Text>
+          return (
+            <TouchableOpacity
+              key={group.groupSlug}
+              style={styles.ladderRow}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('LadderDetail', { slug: defaultSlug, name: group.groupName })}
+            >
+              <View style={styles.rowMain}>
+                <View style={styles.rowHeaderRow}>
+                  <Text style={styles.ladderName}>{group.groupName}</Text>
+                  <View style={styles.modeBadge}>
+                    <Text style={styles.modeBadgeText}>{categoriesLabel}</Text>
+                  </View>
                 </View>
+
+                <Text style={styles.description} numberOfLines={2}>
+                  {group.groupSlug === 'tenis-de-mesa'
+                    ? 'Ranking oficial de Tenis de Mesa (Ping Pong) FCFM.'
+                    : group.groupSlug === 'taca-taca'
+                    ? 'Ranking oficial de Taca Taca FCFM.'
+                    : 'Competencia oficial de TipTap 1v1 FCFM.'}
+                </Text>
               </View>
 
-              <Text style={styles.description} numberOfLines={2}>
-                {group.groupSlug === 'tenis-de-mesa'
-                  ? 'Ranking oficial de Tenis de Mesa (Ping Pong) FCFM. Modalidades 1v1 e Individuales/Dobles.'
-                  : group.groupSlug === 'taca-taca'
-                  ? 'Ranking oficial de Taca Taca FCFM. Modalidades Individuales (1v1) y Duplas (2v2).'
-                  : 'Competencia oficial de TipTap 1v1 FCFM.'}
-              </Text>
-            </View>
-
-            <Feather name="chevron-right" color={theme.colors.textMuted} size={18} />
-          </TouchableOpacity>
-        );
-      })}
+              <Feather name="chevron-right" color={theme.colors.textMuted} size={18} />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </ScrollView>
   );
 };
@@ -144,48 +138,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerBox: {
-    marginBottom: theme.spacing.md,
+  listContainer: {
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    lineHeight: 18,
-  },
-  emptyContainer: {
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: theme.colors.textMuted,
-    fontSize: 14,
-  },
-  ladderCard: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 8,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+  ladderRow: {
+    backgroundColor: 'transparent',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  cardMain: {
+  rowMain: {
     flex: 1,
     marginRight: theme.spacing.sm,
   },
-  cardHeaderRow: {
+  rowHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   ladderName: {
     fontSize: 15,
