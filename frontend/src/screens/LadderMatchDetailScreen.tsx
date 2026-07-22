@@ -107,17 +107,48 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
     (match.team_red.includes(currentUser.id) || match.team_blue.includes(currentUser.id)) &&
     match.confirmations?.[currentUser.id] === undefined;
 
-  // Reconstruir la secuencia de puntos paso a paso para el Replay Timeline
+  // Reconstruir la secuencia de puntos/peloteos paso a paso para el Replay Timeline
   let runningRed = 0;
   let runningBlue = 0;
+  const isTipTap = match.expand?.ladder?.slug === 'tiptap';
+
   const timelineEvents = (match.goal_history || []).map((step, index) => {
-    const isRed = step === 'red' || (typeof step === 'string' && step.toLowerCase().includes('rojo'));
+    const stepStr = typeof step === 'string' ? step : '';
+
+    // Si es un registro de peloteo de TipTap (ej: "Peloteo 1: Eduardo pierde 9 pt(s) -> cata cobra +9 pts (9 - 0)")
+    const scoreMatch = stepStr.match(/\((\d+)\s*-\s*(\d+)\)/);
+    const pozoMatch = stepStr.match(/\+(\d+)\s*pts?/i);
+
+    if (scoreMatch) {
+      const scoreRedAfter = parseInt(scoreMatch[1], 10);
+      const scoreBlueAfter = parseInt(scoreMatch[2], 10);
+      const deltaRed = scoreRedAfter - runningRed;
+      const deltaBlue = scoreBlueAfter - runningBlue;
+      const team = deltaRed > 0 ? 'red' : 'blue';
+      const pozo = parseInt(pozoMatch?.[1] || `${Math.max(deltaRed, deltaBlue)}`, 10);
+
+      runningRed = scoreRedAfter;
+      runningBlue = scoreBlueAfter;
+
+      return {
+        index: index + 1,
+        team,
+        pozo,
+        scoreRedAfter,
+        scoreBlueAfter,
+        text: stepStr,
+      };
+    }
+
+    // Comportamiento estándar gol por gol (1 a 1)
+    const isRed = step === 'red' || stepStr.toLowerCase().includes('rojo');
     if (isRed) runningRed += 1;
     else runningBlue += 1;
 
     return {
       index: index + 1,
       team: isRed ? 'red' : 'blue',
+      pozo: 1,
       scoreRedAfter: runningRed,
       scoreBlueAfter: runningBlue,
       text: isRed ? 'Punto Lado Rojo 🔴' : 'Punto Lado Azul 🔵',
@@ -286,7 +317,11 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
       <View style={styles.sectionBox}>
         <View style={styles.sectionTitleRow}>
           <Feather name="activity" color="#ffffff" size={16} style={{ marginRight: 6 }} />
-          <Text style={styles.sectionTitle}>Secuencia Punto por Punto ({timelineEvents.length} Puntos)</Text>
+          <Text style={styles.sectionTitle}>
+            {isTipTap
+              ? `Secuencia de Peloteos (${timelineEvents.length} Peloteos)`
+              : `Secuencia Punto por Punto (${timelineEvents.length} Puntos)`}
+          </Text>
         </View>
 
         {timelineEvents.length === 0 ? (
