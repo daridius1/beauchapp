@@ -177,36 +177,45 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               <Text style={styles.emptyText}>Aún no hay posiciones registradas en {activeCategory.label}.</Text>
             </View>
           ) : (
-            leaderboard.map((rank, index) => {
-              const userObj = rank.expand?.user;
-              const position = index + 1;
-              const avatarUser = userObj
-                ? { id: userObj.id, collectionId: '_pb_users_auth_', avatar: userObj.avatar, name: userObj.name, username: userObj.username }
-                : { id: 'default', collectionId: '_pb_users_auth_', name: 'Alumno' };
+            <>
+              {/* Header de la Tabla */}
+              <View style={styles.tableHeaderRow}>
+                <Text style={styles.thPos}>POS</Text>
+                <Text style={styles.thName}>NOMBRE</Text>
+                <Text style={styles.thScore}>ELO</Text>
+              </View>
 
-              return (
-                <TouchableOpacity
-                  key={rank.id}
-                  style={styles.rankRow}
-                  activeOpacity={0.7}
-                  onPress={() => userObj && navigation.navigate('LadderPlayerProfile', { userId: userObj.id, slug: activeCategory.slug, name: sportGroupInfo.group.groupName })}
-                >
-                  <Text style={[styles.rankPosNumber, position <= 3 && styles.rankPosTop]}>
-                    {position}º
-                  </Text>
+              {leaderboard.map((rank, index) => {
+                const userObj = rank.expand?.user;
+                const position = index + 1;
+                const avatarUser = userObj
+                  ? { id: userObj.id, collectionId: '_pb_users_auth_', avatar: userObj.avatar, name: userObj.name, username: userObj.username }
+                  : { id: 'default', collectionId: '_pb_users_auth_', name: 'Alumno' };
 
-                  <Avatar user={avatarUser} size={34} />
-
-                  <View style={styles.rankInfo}>
-                    <Text style={styles.rankUserName} numberOfLines={1}>
-                      {userObj?.name || 'Alumno FCFM'}
+                return (
+                  <TouchableOpacity
+                    key={rank.id}
+                    style={styles.rankRow}
+                    activeOpacity={0.7}
+                    onPress={() => userObj && navigation.navigate('LadderPlayerProfile', { userId: userObj.id, slug: activeCategory.slug, name: sportGroupInfo.group.groupName })}
+                  >
+                    <Text style={[styles.rankPosNumber, position <= 3 && styles.rankPosTop]}>
+                      {position}
                     </Text>
-                  </View>
 
-                  <Text style={styles.ratingScore}>{Math.round(rank.ordinal_rating)}</Text>
-                </TouchableOpacity>
-              );
-            })
+                    <Avatar user={avatarUser} size={34} />
+
+                    <View style={styles.rankInfo}>
+                      <Text style={styles.rankUserName} numberOfLines={1}>
+                        {userObj?.name || 'Alumno FCFM'}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.ratingScore}>{Math.round(rank.ordinal_rating)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </>
           )}
         </View>
       )}
@@ -360,6 +369,34 @@ const styles = StyleSheet.create({
   },
   sectionContainer: {
     gap: 0,
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    marginBottom: 2,
+  },
+  thPos: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    width: 28,
+  },
+  thName: {
+    flex: 1,
+    fontSize: 10,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    marginLeft: 44,
+  },
+  thScore: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    textAlign: 'right',
   },
   emptyContainer: {
     padding: theme.spacing.lg,
