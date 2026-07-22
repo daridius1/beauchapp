@@ -19,7 +19,7 @@ interface Props {
 }
 
 export const LadderMatchArbitratorScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { slug } = route.params;
+  const { slug, initialMode } = (route.params || {}) as any;
   const [ladder, setLadder] = useState<Ladder | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -55,11 +55,11 @@ export const LadderMatchArbitratorScreen: React.FC<Props> = ({ navigation, route
 
   // Router dinámico de árbitros según la disciplina deportiva
   if (ladder.slug.startsWith('taca-taca')) {
-    return <TacaTacaArbitrator ladder={ladder} navigation={navigation} />;
+    return <TacaTacaArbitrator ladder={ladder} initialMode={initialMode} navigation={navigation} />;
   }
 
   if (ladder.slug.startsWith('tenis-de-mesa')) {
-    return <TableTennisArbitrator ladder={ladder} navigation={navigation} />;
+    return <TableTennisArbitrator ladder={ladder} initialMode={initialMode} navigation={navigation} />;
   }
 
   if (ladder.slug.startsWith('tiptap')) {
@@ -67,7 +67,7 @@ export const LadderMatchArbitratorScreen: React.FC<Props> = ({ navigation, route
   }
 
   // Fallback por defecto: Taca Taca
-  return <TacaTacaArbitrator ladder={ladder} navigation={navigation} />;
+  return <TacaTacaArbitrator ladder={ladder} initialMode={initialMode} navigation={navigation} />;
 };
 
 const styles = StyleSheet.create({

@@ -9,15 +9,15 @@ import { MatchSetupStep, StudentUser } from './MatchSetupStep';
 
 interface Props {
   ladder: Ladder;
+  initialMode?: '1v1' | '2v2';
   navigation: any;
 }
 
-export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
+export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, navigation }) => {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [step, setStep] = useState<'setup' | 'live'>('setup');
 
-  const is2v2 = (ladder.slug && ladder.slug.includes('2v2')) || (ladder.allowed_modes && ladder.allowed_modes.length === 1 && ladder.allowed_modes[0] === '2v2');
-  const [mode, setMode] = useState<'1v1' | '2v2'>(is2v2 ? '2v2' : '1v1');
+  const [mode, setMode] = useState<'1v1' | '2v2'>(initialMode || '1v1');
 
   const [teamRed, setTeamRed] = useState<StudentUser[]>([]);
   const [teamBlue, setTeamBlue] = useState<StudentUser[]>([]);

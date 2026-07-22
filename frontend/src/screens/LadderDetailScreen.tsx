@@ -41,21 +41,21 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     setActiveCategory(info.activeCategory);
   }, [slug]);
 
-  const fetchLadderData = async (hideLoading = false, targetSlug?: string) => {
+  const fetchLadderData = async (hideLoading = false, targetCatId?: string) => {
     if (!hideLoading) setLoading(true);
-    const slugToFetch = targetSlug || activeCategory.slug;
+    const catIdToFetch = targetCatId || activeCategory.id;
 
     try {
       await withMinimumDelay(async () => {
-        const ladderData = await ladderService.getLadderBySlug(slugToFetch);
+        const ladderData = await ladderService.getLadderBySlug(sportGroupInfo.group.groupSlug);
         setLadder(ladderData);
         
         // El título del Header siempre muestra el nombre limpio del deporte
         navigation.setParams({ name: sportGroupInfo.group.groupName });
 
         const [ranksData, matchesData] = await Promise.all([
-          ladderService.getLadderLeaderboard(ladderData.id, activeCategory.id),
-          ladderService.getLadderMatches(ladderData.id, activeCategory.id),
+          ladderService.getLadderLeaderboard(ladderData.id, catIdToFetch),
+          ladderService.getLadderMatches(ladderData.id, catIdToFetch),
         ]);
 
         setLeaderboard(ranksData);
@@ -72,7 +72,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   useFocusEffect(
     useCallback(() => {
       fetchLadderData(!!ladder);
-    }, [activeCategory.slug, !!ladder])
+    }, [activeCategory.id, !!ladder])
   );
 
   const scrollViewRef = React.useRef<ScrollView>(null);
@@ -88,7 +88,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       subScroll.remove();
       subRefresh.remove();
     };
-  }, [slug, activeCategory.slug]);
+  }, [slug, activeCategory.id]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -97,7 +97,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleCategorySelect = (cat: CategoryOption) => {
     setActiveCategory(cat);
-    fetchLadderData(false, cat.slug);
+    fetchLadderData(false, cat.id);
   };
 
   if (loading) {
