@@ -163,7 +163,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
                 name: match.expand.team_red[0].name,
                 username: match.expand.team_red[0].username,
               }}
-              size={95}
+              size={120}
             />
           </View>
         )}
@@ -179,7 +179,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
                 name: match.expand.team_blue[0].name,
                 username: match.expand.team_blue[0].username,
               }}
-              size={95}
+              size={120}
             />
           </View>
         )}
@@ -329,14 +329,20 @@ const styles = StyleSheet.create({
   },
   bgAvatarLeft: {
     position: 'absolute',
-    left: -20,
-    top: -15,
+    left: -25,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
     opacity: 0.18,
   },
   bgAvatarRight: {
     position: 'absolute',
-    right: -20,
-    top: -15,
+    right: -25,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
     opacity: 0.18,
   },
   matchCardRedWon: Platform.OS === 'web' ? ({
