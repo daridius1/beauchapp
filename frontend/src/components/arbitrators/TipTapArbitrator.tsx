@@ -21,13 +21,8 @@ interface StudentUser {
 }
 
 interface RallyRecord {
-  rallyIndex: number;
-  loser: 'red' | 'blue';
-  winner: 'red' | 'blue';
-  pozo: number;
-  scoreRedAfter: number;
-  scoreBlueAfter: number;
-  summary: string;
+  team: 'red' | 'blue';
+  points: number;
 }
 
 interface HistorySnap {
@@ -218,39 +213,23 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
     setActiveTurn(nextTurn);
   };
 
-  // BOTÓN "PIERDE" (Finaliza un Peloteo / Rally compacto)
+  // BOTÓN "PIERDE" (Finaliza un Peloteo / Rally estructurado {"team": "blue", "points": 9})
   const handlePierde = () => {
     if (isTerminal) return;
     saveSnap();
 
-    const loser = activeTurn;
     const winner = activeTurn === 'red' ? 'blue' : 'red';
-    const loserName = loser === 'red' ? playerRed[0]?.name || 'Rojo' : playerBlue[0]?.name || 'Azul';
-    const winnerName = winner === 'red' ? playerRed[0]?.name || 'Rojo' : playerBlue[0]?.name || 'Azul';
     const pozo = accumulator;
 
-    let newScoreRed = scoreRed;
-    let newScoreBlue = scoreBlue;
-
     if (winner === 'blue') {
-      newScoreBlue = scoreBlue + pozo;
-      setScoreBlue(newScoreBlue);
+      setScoreBlue((prev) => prev + pozo);
     } else {
-      newScoreRed = scoreRed + pozo;
-      setScoreRed(newScoreRed);
+      setScoreRed((prev) => prev + pozo);
     }
 
-    const rallyIndex = rallies.length + 1;
-    const summary = `Peloteo ${rallyIndex}: ${loserName} pierde ${pozo} pt(s) -> ${winnerName} cobra +${pozo} pts (${newScoreRed} - ${newScoreBlue})`;
-
     const newRally: RallyRecord = {
-      rallyIndex,
-      loser,
-      winner,
-      pozo,
-      scoreRedAfter: newScoreRed,
-      scoreBlueAfter: newScoreBlue,
-      summary,
+      team: winner,
+      points: pozo,
     };
 
     setRallies((prev) => [...prev, newRally]);
@@ -290,7 +269,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         teamBlue: playerBlue.map((p) => p.id),
         scoreRed,
         scoreBlue,
-        goalHistory: rallies.map((r) => r.summary) as any,
+        goalHistory: rallies as any, // Guarda la estructura limpia [{"team":"blue","points":9}, ...]
       });
 
       Toast.show({
@@ -324,7 +303,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         <Text style={styles.headerSubtitle}>
           {step === 'setup'
             ? 'Paso 1: Asigna a los competidores antes de iniciar la partida.'
-            : `Paso 2: Peloteos acumulativos. SIGUE aumenta el pozo (+1), PIERDE entrega los puntos al rival y guarda el peloteo.`}
+            : `Paso 2: Peloteos acumulativos. SIGUE aumenta el pozo (+1), PIERDE entrega los puntos al rival.`}
         </Text>
       </View>
 
@@ -577,10 +556,10 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             </TouchableOpacity>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyChipsScroll}>
-              {rallies.slice().reverse().map((r) => (
-                <View key={r.rallyIndex} style={[styles.historyChip, r.winner === 'red' ? styles.chipRed : styles.chipBlue]}>
+              {rallies.slice().reverse().map((r, idx) => (
+                <View key={idx} style={[styles.historyChip, r.team === 'red' ? styles.chipRed : styles.chipBlue]}>
                   <Text style={styles.chipText}>
-                    P{r.rallyIndex}: {r.winner === 'red' ? '🔴' : '🔵'} +{r.pozo} pts ({r.scoreRedAfter}-{r.scoreBlueAfter})
+                    P{rallies.length - idx}: {r.team === 'red' ? '🔴' : '🔵'} +{r.points} pts
                   </Text>
                 </View>
               ))}

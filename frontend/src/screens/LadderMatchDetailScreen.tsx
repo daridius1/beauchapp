@@ -112,46 +112,46 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
   let runningBlue = 0;
   const isTipTap = match.expand?.ladder?.slug === 'tiptap';
 
-  const timelineEvents = (match.goal_history || []).map((step, index) => {
-    const stepStr = typeof step === 'string' ? step : '';
+  const timelineEvents = (match.goal_history || []).map((step: any, index: number) => {
+    let team: 'red' | 'blue' = 'red';
+    let points = 1;
 
-    // Si es un registro de peloteo de TipTap (ej: "Peloteo 1: Eduardo pierde 9 pt(s) -> cata cobra +9 pts (9 - 0)")
-    const scoreMatch = stepStr.match(/\((\d+)\s*-\s*(\d+)\)/);
-    const pozoMatch = stepStr.match(/\+(\d+)\s*pts?/i);
+    if (typeof step === 'object' && step !== null) {
+      team = step.team === 'blue' ? 'blue' : 'red';
+      points = typeof step.points === 'number' ? step.points : 1;
+    } else if (typeof step === 'string') {
+      const scoreMatch = step.match(/\((\d+)\s*-\s*(\d+)\)/);
+      const pozoMatch = step.match(/\+(\d+)\s*pts?/i);
 
-    if (scoreMatch) {
-      const scoreRedAfter = parseInt(scoreMatch[1], 10);
-      const scoreBlueAfter = parseInt(scoreMatch[2], 10);
-      const deltaRed = scoreRedAfter - runningRed;
-      const deltaBlue = scoreBlueAfter - runningBlue;
-      const team = deltaRed > 0 ? 'red' : 'blue';
-      const pozo = parseInt(pozoMatch?.[1] || `${Math.max(deltaRed, deltaBlue)}`, 10);
-
-      runningRed = scoreRedAfter;
-      runningBlue = scoreBlueAfter;
-
-      return {
-        index: index + 1,
-        team,
-        pozo,
-        scoreRedAfter,
-        scoreBlueAfter,
-        text: stepStr,
-      };
+      if (scoreMatch) {
+        const scoreRedAfter = parseInt(scoreMatch[1], 10);
+        const scoreBlueAfter = parseInt(scoreMatch[2], 10);
+        const deltaRed = scoreRedAfter - runningRed;
+        const deltaBlue = scoreBlueAfter - runningBlue;
+        team = deltaRed > 0 ? 'red' : 'blue';
+        points = parseInt(pozoMatch?.[1] || `${Math.max(deltaRed, deltaBlue)}`, 10);
+      } else {
+        team = step === 'red' || step.toLowerCase().includes('rojo') ? 'red' : 'blue';
+        points = 1;
+      }
     }
 
-    // Comportamiento estándar gol por gol (1 a 1)
-    const isRed = step === 'red' || stepStr.toLowerCase().includes('rojo');
-    if (isRed) runningRed += 1;
-    else runningBlue += 1;
+    if (team === 'red') runningRed += points;
+    else runningBlue += points;
+
+    const winnerName = team === 'red'
+      ? (match.expand?.team_red?.[0]?.name || 'Lado Rojo')
+      : (match.expand?.team_blue?.[0]?.name || 'Lado Azul');
 
     return {
       index: index + 1,
-      team: isRed ? 'red' : 'blue',
-      pozo: 1,
+      team,
+      pozo: points,
       scoreRedAfter: runningRed,
       scoreBlueAfter: runningBlue,
-      text: isRed ? 'Punto Lado Rojo 🔴' : 'Punto Lado Azul 🔵',
+      text: isTipTap || points > 1
+        ? `Peloteo #${index + 1}: ${team === 'red' ? '🔴' : '🔵'} ${winnerName} cobra +${points} pts`
+        : (team === 'red' ? 'Punto Lado Rojo 🔴' : 'Punto Lado Azul 🔵'),
     };
   });
 
