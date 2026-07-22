@@ -152,35 +152,73 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
           match.score_blue > match.score_red && styles.matchCardBlueWon,
         ]}
       >
-        {/* Avatar de Fondo Lado Rojo (Sangrando por el borde izquierdo) */}
-        {match.expand?.team_red?.[0] && (
-          <View style={styles.bgAvatarLeft} pointerEvents="none">
-            <Avatar
-              user={{
-                id: match.expand.team_red[0].id,
-                collectionId: '_pb_users_auth_',
-                avatar: match.expand.team_red[0].avatar,
-                name: match.expand.team_red[0].name,
-                username: match.expand.team_red[0].username,
-              }}
-              size={120}
-            />
+        {/* Avatares de Fondo Lado Rojo (Superpuestos con borde negro) */}
+        {match.expand?.team_red && match.expand.team_red.length > 0 && (
+          <View style={styles.bgAvatarLeftGroup} pointerEvents="none">
+            {/* Jugador 1 (adelante / afuera) */}
+            <View style={[styles.bgAvatarFrontLeft, match.expand.team_red.length > 1 && styles.bgAvatarBorderRing]}>
+              <Avatar
+                user={{
+                  id: match.expand.team_red[0].id,
+                  collectionId: '_pb_users_auth_',
+                  avatar: match.expand.team_red[0].avatar,
+                  name: match.expand.team_red[0].name,
+                  username: match.expand.team_red[0].username,
+                }}
+                size={110}
+              />
+            </View>
+
+            {/* Jugador 2 (atrás / adentro) */}
+            {match.expand.team_red[1] && (
+              <View style={styles.bgAvatarBackLeft}>
+                <Avatar
+                  user={{
+                    id: match.expand.team_red[1].id,
+                    collectionId: '_pb_users_auth_',
+                    avatar: match.expand.team_red[1].avatar,
+                    name: match.expand.team_red[1].name,
+                    username: match.expand.team_red[1].username,
+                  }}
+                  size={92}
+                />
+              </View>
+            )}
           </View>
         )}
 
-        {/* Avatar de Fondo Lado Azul (Sangrando por el borde derecho) */}
-        {match.expand?.team_blue?.[0] && (
-          <View style={styles.bgAvatarRight} pointerEvents="none">
-            <Avatar
-              user={{
-                id: match.expand.team_blue[0].id,
-                collectionId: '_pb_users_auth_',
-                avatar: match.expand.team_blue[0].avatar,
-                name: match.expand.team_blue[0].name,
-                username: match.expand.team_blue[0].username,
-              }}
-              size={120}
-            />
+        {/* Avatares de Fondo Lado Azul (Superpuestos con borde negro) */}
+        {match.expand?.team_blue && match.expand.team_blue.length > 0 && (
+          <View style={styles.bgAvatarRightGroup} pointerEvents="none">
+            {/* Jugador 1 (adelante / afuera) */}
+            <View style={[styles.bgAvatarFrontRight, match.expand.team_blue.length > 1 && styles.bgAvatarBorderRing]}>
+              <Avatar
+                user={{
+                  id: match.expand.team_blue[0].id,
+                  collectionId: '_pb_users_auth_',
+                  avatar: match.expand.team_blue[0].avatar,
+                  name: match.expand.team_blue[0].name,
+                  username: match.expand.team_blue[0].username,
+                }}
+                size={110}
+              />
+            </View>
+
+            {/* Jugador 2 (atrás / adentro) */}
+            {match.expand.team_blue[1] && (
+              <View style={styles.bgAvatarBackRight}>
+                <Avatar
+                  user={{
+                    id: match.expand.team_blue[1].id,
+                    collectionId: '_pb_users_auth_',
+                    avatar: match.expand.team_blue[1].avatar,
+                    name: match.expand.team_blue[1].name,
+                    username: match.expand.team_blue[1].username,
+                  }}
+                  size={92}
+                />
+              </View>
+            )}
           </View>
         )}
 
@@ -343,23 +381,43 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  bgAvatarLeft: {
+  bgAvatarLeftGroup: {
     position: 'absolute',
-    left: -25,
+    left: -20,
     top: 0,
     bottom: 0,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    opacity: 0.18,
+    opacity: 0.22,
   },
-  bgAvatarRight: {
+  bgAvatarRightGroup: {
     position: 'absolute',
-    right: -25,
+    right: -20,
     top: 0,
     bottom: 0,
-    justifyContent: 'center',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    opacity: 0.18,
+    opacity: 0.22,
+  },
+  bgAvatarFrontLeft: {
+    zIndex: 2,
+  },
+  bgAvatarBackLeft: {
+    zIndex: 1,
+    marginLeft: -28,
+  },
+  bgAvatarFrontRight: {
+    zIndex: 2,
+  },
+  bgAvatarBackRight: {
+    zIndex: 1,
+    marginRight: -28,
+  },
+  bgAvatarBorderRing: {
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: '#000000',
+    backgroundColor: '#000000',
   },
   matchCardRedWon: Platform.OS === 'web' ? ({
     backgroundImage: 'linear-gradient(to top, rgba(255, 68, 68, 0.22) 0%, rgba(255, 68, 68, 0.04) 60%, transparent 100%)',
