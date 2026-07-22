@@ -150,19 +150,6 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Header */}
-      <View style={styles.headerBox}>
-        <View style={styles.badgeRow}>
-          <Text style={styles.sportTitle}>
-            {match.expand?.ladder?.name || `Ladder ${match.mode}`}
-          </Text>
-          <View style={[styles.statusBadge, isConfirmed && styles.statusConfirmed, isPending && styles.statusPending]}>
-            <Text style={styles.statusBadgeText}>
-              {isConfirmed ? 'CONFIRMADO' : isDisputed ? 'DISPUTADO' : 'PENDIENTE'}
-            </Text>
-          </View>
-        </View>
-      </View>
 
       {/* Marcador Plano con Nombres Coloreados */}
       <View
