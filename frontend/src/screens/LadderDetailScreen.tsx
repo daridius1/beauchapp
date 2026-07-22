@@ -135,17 +135,6 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     >
       {/* Header Banner Minimalista */}
       <View style={styles.headerBox}>
-        <View style={styles.headerRow}>
-          <Text style={styles.ladderTitle}>{sportGroupInfo.group.groupName}</Text>
-          <View style={styles.modeBadge}>
-            <Text style={styles.modeBadgeText}>{activeCategory.label}</Text>
-          </View>
-        </View>
-
-        {!!ladder.description && (
-          <Text style={styles.ladderDescription}>{ladder.description}</Text>
-        )}
-
         {/* Carrusel Centrado de Categorías (1v1 / 2v2) */}
         <CategoryCarousel
           categories={sportGroupInfo.group.categories}
@@ -159,7 +148,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           onPress={() => navigation.navigate('LadderMatchArbitrator', { slug: activeCategory.slug, name: sportGroupInfo.group.groupName })}
         >
           <Feather name="play-circle" color={theme.colors.text} size={15} style={{ marginRight: 6 }} />
-          <Text style={styles.arbitrateButtonText}>Arbitrar Partido en Vivo ({activeCategory.label})</Text>
+          <Text style={styles.arbitrateButtonText}>Arbitrar Partido en Vivo</Text>
         </TouchableOpacity>
       </View>
 
@@ -169,7 +158,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           style={[styles.tabButton, activeTab === 'leaderboard' && styles.tabButtonActive]}
           onPress={() => setActiveTab('leaderboard')}
         >
-          <Text style={[styles.tabText, activeTab === 'leaderboard' && styles.tabTextActive]}>Tabla de Posiciones ({activeCategory.label})</Text>
+          <Text style={[styles.tabText, activeTab === 'leaderboard' && styles.tabTextActive]}>Tabla de Posiciones</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

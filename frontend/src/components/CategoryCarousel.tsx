@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   categoryPillActive: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#ffffff',
     opacity: 1,
   },
   categoryText: {
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
   },
   categoryTextActive: {
-    color: '#ffffff',
+    color: '#000000',
     fontWeight: '800',
   },
 });
