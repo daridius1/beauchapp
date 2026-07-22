@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   primaryBtnText: {
-    color: '#ffffff',
+    color: '#000000',
     fontSize: 14,
     fontWeight: '800',
   },
