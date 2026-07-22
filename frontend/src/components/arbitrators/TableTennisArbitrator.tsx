@@ -286,7 +286,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
       <View style={styles.headerBox}>
         <Text style={styles.title}>Tenis de Mesa ({targetScore} Puntos)</Text>
         <Text style={styles.subtitle}>
-          {step === 'setup' ? 'Asigna a los jugadores' : `Saca: ${currentServer === 'red' ? '🔴 Lado Rojo' : '🔵 Lado Azul'}`}
+          {step === 'setup' ? 'Asigna a los jugadores' : `Saca: ${currentServer === 'red' ? playerRed[0]?.name : playerBlue[0]?.name}`}
         </Text>
       </View>
 
@@ -295,10 +295,10 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
           <Animated.View style={{ opacity: shuffleOpacity, transform: [{ scale: shuffleScale }] }}>
             <View style={styles.playersGrid}>
               <View style={styles.playerBox}>
-                <Text style={styles.redLabel}>🔴 LADO ROJO</Text>
+                <Text style={styles.redLabel}>LADO ROJO</Text>
                 {playerRed[0] ? (
                   <View style={styles.playerChip}>
-                    <Text style={styles.chipName} numberOfLines={1}>{playerRed[0].name}</Text>
+                    <Text style={styles.chipNameRed} numberOfLines={1}>{playerRed[0].name}</Text>
                     <TouchableOpacity onPress={() => handleRemovePlayer('red')}>
                       <Feather name="x" color="#ef4444" size={16} />
                     </TouchableOpacity>
@@ -306,7 +306,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
                 ) : (
                   <View style={styles.addBtnsRow}>
                     <TouchableOpacity style={styles.btnSmall} onPress={() => setActiveSlot({ team: 'red', index: 0 })}>
-                      <Text style={styles.btnSmallText}>+ Buscar</Text>
+                      <Text style={styles.btnSmallTextRed}>+ Buscar</Text>
                     </TouchableOpacity>
                     {currentUser && (
                       <TouchableOpacity
@@ -314,7 +314,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
                         disabled={isCurrentUserInMatch}
                         onPress={() => handleAddMyself('red')}
                       >
-                        <Text style={styles.btnSmallText}>+ Yo</Text>
+                        <Text style={styles.btnSmallTextRed}>+ Yo</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -322,10 +322,10 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
               </View>
 
               <View style={styles.playerBox}>
-                <Text style={styles.blueLabel}>🔵 LADO AZUL</Text>
+                <Text style={styles.blueLabel}>LADO AZUL</Text>
                 {playerBlue[0] ? (
                   <View style={styles.playerChip}>
-                    <Text style={styles.chipName} numberOfLines={1}>{playerBlue[0].name}</Text>
+                    <Text style={styles.chipNameBlue} numberOfLines={1}>{playerBlue[0].name}</Text>
                     <TouchableOpacity onPress={() => handleRemovePlayer('blue')}>
                       <Feather name="x" color="#38bdf8" size={16} />
                     </TouchableOpacity>
@@ -333,7 +333,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
                 ) : (
                   <View style={styles.addBtnsRow}>
                     <TouchableOpacity style={styles.btnSmall} onPress={() => setActiveSlot({ team: 'blue', index: 0 })}>
-                      <Text style={styles.btnSmallText}>+ Buscar</Text>
+                      <Text style={styles.btnSmallTextBlue}>+ Buscar</Text>
                     </TouchableOpacity>
                     {currentUser && (
                       <TouchableOpacity
@@ -341,7 +341,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
                         disabled={isCurrentUserInMatch}
                         onPress={() => handleAddMyself('blue')}
                       >
-                        <Text style={styles.btnSmallText}>+ Yo</Text>
+                        <Text style={styles.btnSmallTextBlue}>+ Yo</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -400,17 +400,17 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, navigation }) =
         <View style={styles.liveContainer}>
           <View style={styles.scoreRowCard}>
             <TouchableOpacity style={styles.scoreClickBox} onPress={() => handlePoint('red')} disabled={isTerminal}>
-              <Text style={styles.redLabel}>🔴 {playerRed[0]?.name} {currentServer === 'red' && '🏓'}</Text>
-              <Text style={styles.scoreVal}>{scoreRed}</Text>
-              <Text style={styles.tapPrompt}>+ Punto Rojo</Text>
+              <Text style={styles.redLabel}>{playerRed[0]?.name} {currentServer === 'red' && '(Saque)'}</Text>
+              <Text style={styles.scoreValRed}>{scoreRed}</Text>
+              <Text style={styles.tapPromptRed}>+ Punto</Text>
             </TouchableOpacity>
 
             <Text style={styles.vsText}>VS</Text>
 
             <TouchableOpacity style={styles.scoreClickBoxRight} onPress={() => handlePoint('blue')} disabled={isTerminal}>
-              <Text style={styles.blueLabel}>🔵 {playerBlue[0]?.name} {currentServer === 'blue' && '🏓'}</Text>
-              <Text style={styles.scoreVal}>{scoreBlue}</Text>
-              <Text style={styles.tapPrompt}>+ Punto Azul</Text>
+              <Text style={styles.blueLabel}>{playerBlue[0]?.name} {currentServer === 'blue' && '(Saque)'}</Text>
+              <Text style={styles.scoreValBlue}>{scoreBlue}</Text>
+              <Text style={styles.tapPromptBlue}>+ Punto</Text>
             </TouchableOpacity>
           </View>
 
@@ -489,10 +489,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  chipName: {
+  chipNameRed: {
     fontSize: 12,
     fontWeight: '700',
-    color: theme.colors.text,
+    color: '#ff4444',
+    flex: 1,
+  },
+  chipNameBlue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#38bdf8',
     flex: 1,
   },
   addBtnsRow: {
@@ -507,10 +513,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  btnSmallText: {
+  btnSmallTextRed: {
     fontSize: 11,
     fontWeight: '700',
-    color: theme.colors.text,
+    color: '#ff4444',
+  },
+  btnSmallTextBlue: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38bdf8',
   },
   shuffleBtn: {
     backgroundColor: '#161616',
@@ -599,16 +610,27 @@ const styles = StyleSheet.create({
     padding: 8,
     alignItems: 'flex-end',
   },
-  scoreVal: {
+  scoreValRed: {
     fontSize: 32,
     fontWeight: '800',
-    color: theme.colors.text,
+    color: '#ff4444',
     marginVertical: 4,
   },
-  tapPrompt: {
+  scoreValBlue: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#38bdf8',
+    marginVertical: 4,
+  },
+  tapPromptRed: {
     fontSize: 10,
     fontWeight: '700',
-    color: theme.colors.textMuted,
+    color: '#ff4444',
+  },
+  tapPromptBlue: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#38bdf8',
   },
   vsText: {
     fontSize: 12,

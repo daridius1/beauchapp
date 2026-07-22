@@ -10,7 +10,6 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import Toast from 'react-native-toast-message';
-import { Feather } from '@expo/vector-icons';
 
 type MatchDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LadderMatchDetail'>;
 type MatchDetailScreenRouteProp = RouteProp<RootStackParamList, 'LadderMatchDetail'>;
@@ -99,7 +98,6 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
 
   const isTipTap = match.expand?.ladder?.slug === 'tiptap';
 
-  // Reconstruir la secuencia de puntos/peloteos paso a paso para el Replay Timeline
   let runningRed = 0;
   let runningBlue = 0;
 
@@ -131,24 +129,22 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
     else runningBlue += points;
 
     const winnerName = team === 'red'
-      ? (match.expand?.team_red?.[0]?.name || 'Lado Rojo')
-      : (match.expand?.team_blue?.[0]?.name || 'Lado Azul');
+      ? (match.expand?.team_red?.[0]?.name || 'Jugador Rojo')
+      : (match.expand?.team_blue?.[0]?.name || 'Jugador Azul');
 
     return {
       index: index + 1,
       team,
-      pozo: points,
+      points,
+      winnerName,
       scoreRedAfter: runningRed,
       scoreBlueAfter: runningBlue,
-      text: isTipTap || points > 1
-        ? `Peloteo #${index + 1}: ${team === 'red' ? '🔴' : '🔵'} ${winnerName} cobra +${points} pts`
-        : (team === 'red' ? 'Punto Lado Rojo 🔴' : 'Punto Lado Azul 🔵'),
     };
   });
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Cabecera Minimalista */}
+      {/* Header */}
       <View style={styles.headerBox}>
         <View style={styles.badgeRow}>
           <Text style={styles.sportTitle}>
@@ -163,11 +159,10 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
         <Text style={styles.dateText}>{formattedDate}</Text>
       </View>
 
-      {/* Marcador Uniforme Plano */}
+      {/* Marcador Plano con Nombres Coloreados */}
       <View style={styles.scoreboardCard}>
         {/* Lado Rojo */}
         <View style={styles.teamColumn}>
-          <Text style={styles.teamTagRed}>🔴 ROJO</Text>
           {match.expand?.team_red?.map((p) => (
             <TouchableOpacity
               key={p.id}
@@ -175,26 +170,27 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
               onPress={() => navigation.navigate('UserProfile', { userId: p.id })}
             >
               <Avatar user={{ id: p.id, collectionId: '_pb_users_auth_', avatar: p.avatar, name: p.name, username: p.username }} size={28} />
-              <Text style={styles.playerName} numberOfLines={1}>{p.name}</Text>
+              <Text style={styles.playerNameRed} numberOfLines={1}>{p.name}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Resultado Uniforme */}
         <View style={styles.scoreDisplay}>
-          <Text style={styles.scoreValue}>{match.score_red} - {match.score_blue}</Text>
+          <Text style={styles.scoreValue}>
+            <Text style={{ color: '#ff4444' }}>{match.score_red}</Text> - <Text style={{ color: '#38bdf8' }}>{match.score_blue}</Text>
+          </Text>
         </View>
 
         {/* Lado Azul */}
         <View style={styles.teamColumnRight}>
-          <Text style={styles.teamTagBlue}>AZUL 🔵</Text>
           {match.expand?.team_blue?.map((p) => (
             <TouchableOpacity
               key={p.id}
               style={styles.playerRowRight}
               onPress={() => navigation.navigate('UserProfile', { userId: p.id })}
             >
-              <Text style={styles.playerNameRight} numberOfLines={1}>{p.name}</Text>
+              <Text style={styles.playerNameBlue} numberOfLines={1}>{p.name}</Text>
               <Avatar user={{ id: p.id, collectionId: '_pb_users_auth_', avatar: p.avatar, name: p.name, username: p.username }} size={28} />
             </TouchableOpacity>
           ))}
@@ -220,14 +216,20 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
         </View>
       )}
 
-      {/* Secuencia / Timeline Minimalista */}
+      {/* Timeline de Secuencia con Nombres Coloreados */}
       <View style={styles.timelineSection}>
         <Text style={styles.timelineTitle}>Secuencia de Juego ({timelineEvents.length})</Text>
 
         {timelineEvents.map((ev) => (
           <View key={ev.index} style={styles.timelineRow}>
             <Text style={styles.timelineIndex}>#{ev.index}</Text>
-            <Text style={styles.timelineText}>{ev.text}</Text>
+            <Text style={styles.timelineText}>
+              Peloteo #{ev.index}:{' '}
+              <Text style={{ color: ev.team === 'red' ? '#ff4444' : '#38bdf8', fontWeight: '700' }}>
+                {ev.winnerName}
+              </Text>
+              {ev.points > 1 ? ` cobra +${ev.points} pts` : ' suma 1 pt'}
+            </Text>
             <Text style={styles.timelineScore}>({ev.scoreRedAfter} - {ev.scoreBlueAfter})</Text>
           </View>
         ))}
@@ -311,40 +313,26 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'flex-end',
   },
-  teamTagRed: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#ff4444',
-    marginBottom: 6,
-  },
-  teamTagBlue: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#38bdf8',
-    marginBottom: 6,
-  },
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 4,
   },
   playerRowRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 4,
   },
-  playerName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.colors.text,
+  playerNameRed: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ff4444',
     flex: 1,
   },
-  playerNameRight: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.colors.text,
+  playerNameBlue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#38bdf8',
     textAlign: 'right',
     flex: 1,
   },

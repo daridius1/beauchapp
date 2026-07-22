@@ -324,10 +324,10 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             <View style={styles.playersGrid}>
               {/* Lado Rojo */}
               <View style={styles.playerBox}>
-                <Text style={styles.redLabel}>🔴 LADO ROJO</Text>
+                <Text style={styles.redLabel}>LADO ROJO</Text>
                 {playerRed[0] ? (
                   <View style={styles.playerChip}>
-                    <Text style={styles.chipName} numberOfLines={1}>{playerRed[0].name}</Text>
+                    <Text style={styles.chipNameRed} numberOfLines={1}>{playerRed[0].name}</Text>
                     <TouchableOpacity onPress={() => handleRemovePlayer('red')}>
                       <Feather name="x" color="#ef4444" size={16} />
                     </TouchableOpacity>
@@ -335,7 +335,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                 ) : (
                   <View style={styles.addBtnsRow}>
                     <TouchableOpacity style={styles.btnSmall} onPress={() => setActiveSlot({ team: 'red', index: 0 })}>
-                      <Text style={styles.btnSmallText}>+ Buscar</Text>
+                      <Text style={styles.btnSmallTextRed}>+ Buscar</Text>
                     </TouchableOpacity>
                     {currentUser && (
                       <TouchableOpacity
@@ -343,7 +343,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                         disabled={isCurrentUserInMatch}
                         onPress={() => handleAddMyself('red')}
                       >
-                        <Text style={styles.btnSmallText}>+ Yo</Text>
+                        <Text style={styles.btnSmallTextRed}>+ Yo</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -352,10 +352,10 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
               {/* Lado Azul */}
               <View style={styles.playerBox}>
-                <Text style={styles.blueLabel}>🔵 LADO AZUL</Text>
+                <Text style={styles.blueLabel}>LADO AZUL</Text>
                 {playerBlue[0] ? (
                   <View style={styles.playerChip}>
-                    <Text style={styles.chipName} numberOfLines={1}>{playerBlue[0].name}</Text>
+                    <Text style={styles.chipNameBlue} numberOfLines={1}>{playerBlue[0].name}</Text>
                     <TouchableOpacity onPress={() => handleRemovePlayer('blue')}>
                       <Feather name="x" color="#38bdf8" size={16} />
                     </TouchableOpacity>
@@ -363,7 +363,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                 ) : (
                   <View style={styles.addBtnsRow}>
                     <TouchableOpacity style={styles.btnSmall} onPress={() => setActiveSlot({ team: 'blue', index: 0 })}>
-                      <Text style={styles.btnSmallText}>+ Buscar</Text>
+                      <Text style={styles.btnSmallTextBlue}>+ Buscar</Text>
                     </TouchableOpacity>
                     {currentUser && (
                       <TouchableOpacity
@@ -371,7 +371,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                         disabled={isCurrentUserInMatch}
                         onPress={() => handleAddMyself('blue')}
                       >
-                        <Text style={styles.btnSmallText}>+ Yo</Text>
+                        <Text style={styles.btnSmallTextBlue}>+ Yo</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -389,7 +389,6 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             <Text style={styles.btnText}>Sortear Lados 🔀</Text>
           </TouchableOpacity>
 
-          {/* Search Modal */}
           {activeSlot && (
             <View style={styles.searchBox}>
               <View style={styles.searchHeader}>
@@ -432,20 +431,23 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
           {/* Marcador plano */}
           <View style={styles.scoreRowCard}>
             <View style={styles.scoreSide}>
-              <Text style={styles.redLabel}>🔴 {playerRed[0]?.name}</Text>
-              <Text style={styles.scoreVal}>{scoreRed}</Text>
+              <Text style={styles.redLabel}>{playerRed[0]?.name}</Text>
+              <Text style={styles.scoreValRed}>{scoreRed}</Text>
             </View>
             <Text style={styles.vsText}>VS</Text>
             <View style={styles.scoreSideRight}>
-              <Text style={styles.blueLabel}>🔵 {playerBlue[0]?.name}</Text>
-              <Text style={styles.scoreVal}>{scoreBlue}</Text>
+              <Text style={styles.blueLabel}>{playerBlue[0]?.name}</Text>
+              <Text style={styles.scoreValBlue}>{scoreBlue}</Text>
             </View>
           </View>
 
           {/* Pozo Acumulado */}
           <View style={styles.accumBox}>
             <Text style={styles.accumTurnText}>
-              Turno: {activeTurn === 'red' ? `🔴 ${playerRed[0]?.name}` : `🔵 ${playerBlue[0]?.name}`}
+              Turno:{' '}
+              <Text style={{ color: activeTurn === 'red' ? '#ff4444' : '#38bdf8', fontWeight: '800' }}>
+                {activeTurn === 'red' ? playerRed[0]?.name : playerBlue[0]?.name}
+              </Text>
             </Text>
             <Text style={styles.accumVal}>{accumulator}</Text>
             <Text style={styles.accumSub}>Puntos en juego</Text>
@@ -481,8 +483,8 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
               {rallies.slice().reverse().map((r, idx) => (
                 <View key={idx} style={styles.historyChip}>
-                  <Text style={styles.historyChipText}>
-                    P{rallies.length - idx}: {r.team === 'red' ? '🔴' : '🔵'} +{r.points}
+                  <Text style={[styles.historyChipText, { color: r.team === 'red' ? '#ff4444' : '#38bdf8' }]}>
+                    P{rallies.length - idx}: +{r.points}
                   </Text>
                 </View>
               ))}
@@ -557,10 +559,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  chipName: {
+  chipNameRed: {
     fontSize: 12,
     fontWeight: '700',
-    color: theme.colors.text,
+    color: '#ff4444',
+    flex: 1,
+  },
+  chipNameBlue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#38bdf8',
     flex: 1,
   },
   addBtnsRow: {
@@ -575,10 +583,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  btnSmallText: {
+  btnSmallTextRed: {
     fontSize: 11,
     fontWeight: '700',
-    color: theme.colors.text,
+    color: '#ff4444',
+  },
+  btnSmallTextBlue: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38bdf8',
   },
   shuffleBtn: {
     backgroundColor: '#161616',
@@ -665,10 +678,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'flex-end',
   },
-  scoreVal: {
+  scoreValRed: {
     fontSize: 24,
     fontWeight: '800',
-    color: theme.colors.text,
+    color: '#ff4444',
+    marginTop: 2,
+  },
+  scoreValBlue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#38bdf8',
     marginTop: 2,
   },
   vsText: {
@@ -760,7 +779,6 @@ const styles = StyleSheet.create({
   },
   historyChipText: {
     fontSize: 11,
-    color: theme.colors.text,
     fontWeight: '700',
   },
   finishBtn: {

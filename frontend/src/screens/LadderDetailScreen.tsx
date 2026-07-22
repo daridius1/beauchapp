@@ -260,9 +260,11 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   </View>
 
                   <View style={styles.matchCardMain}>
-                    <Text style={styles.teamName} numberOfLines={1}>{redName}</Text>
-                    <Text style={styles.matchScoreText}>{m.score_red} - {m.score_blue}</Text>
-                    <Text style={styles.teamNameRight} numberOfLines={1}>{blueName}</Text>
+                    <Text style={styles.teamRedName} numberOfLines={1}>{redName}</Text>
+                    <Text style={styles.matchScoreText}>
+                      <Text style={{ color: '#ff4444' }}>{m.score_red}</Text> - <Text style={{ color: '#38bdf8' }}>{m.score_blue}</Text>
+                    </Text>
+                    <Text style={styles.teamBlueNameRight} numberOfLines={1}>{blueName}</Text>
                   </View>
 
                   {requiresUserAction && (
@@ -468,21 +470,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  teamName: {
+  teamRedName: {
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
-    color: theme.colors.text,
+    color: '#ff4444',
   },
-  teamNameRight: {
+  teamBlueNameRight: {
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
-    color: theme.colors.text,
+    color: '#38bdf8',
     textAlign: 'right',
   },
   matchScoreText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: theme.colors.text,
     paddingHorizontal: 12,
