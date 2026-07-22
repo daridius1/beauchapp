@@ -224,6 +224,11 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
           </View>
         )}
 
+        {/* Fecha arriba al centro */}
+        <View style={styles.dateCenteredHeader}>
+          <Text style={styles.dateCenteredText}>{formattedDate}</Text>
+        </View>
+
         <View style={styles.scoreboardMainRow}>
           {/* Lado Rojo */}
           <View style={styles.teamColumn}>
@@ -259,9 +264,8 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
           </View>
         </View>
 
-        {/* Fecha y Hora abajo al centro (en dos líneas) */}
+        {/* Hora abajo al centro */}
         <View style={styles.dateCenteredFooter}>
-          <Text style={styles.dateCenteredText}>{formattedDate}</Text>
           <Text style={styles.dateCenteredText}>{formattedTime}</Text>
         </View>
       </View>
@@ -446,9 +450,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 3,
     borderTopColor: theme.colors.border,
   },
+  dateCenteredHeader: {
+    alignItems: 'center',
+    marginBottom: 6,
+  },
   dateCenteredFooter: {
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   dateCenteredText: {
     fontSize: 10,
