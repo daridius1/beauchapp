@@ -55,6 +55,18 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const [searching, setSearching] = useState<boolean>(false);
   const [activeSlot, setActiveSlot] = useState<{ team: 'red' | 'blue'; index: number } | null>(null);
 
+  const targetScore = ladder.max_score || 30;
+
+  // Regla de victoria en TipTap: Llegar a 30 puntos
+  const checkIsTerminal = (red: number, blue: number): { isTerminal: boolean; winner?: 'red' | 'blue' } => {
+    if (red >= targetScore) return { isTerminal: true, winner: 'red' };
+    if (blue >= targetScore) return { isTerminal: true, winner: 'blue' };
+    return { isTerminal: false };
+  };
+
+  const terminalState = checkIsTerminal(scoreRed, scoreBlue);
+  const isTerminal = terminalState.isTerminal;
+
   // Comprobar si un jugador ya está asignado en cualquier lado
   const isPlayerAlreadySelected = (userId: string): boolean => {
     return playerRed.some((p) => p?.id === userId) || playerBlue.some((p) => p?.id === userId);
@@ -189,6 +201,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
   // BOTÓN "SIGUE" (+1 al pozo y cambio de turno)
   const handleSigue = () => {
+    if (isTerminal) return;
     saveSnap();
     const currentName = activeTurn === 'red' ? playerRed[0]?.name || 'Rojo' : playerBlue[0]?.name || 'Azul';
     const nextTurn = activeTurn === 'red' ? 'blue' : 'red';
@@ -204,23 +217,35 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
   // BOTÓN "PIERDE" (Oponente cobra el pozo acumulado)
   const handlePierde = () => {
+    if (isTerminal) return;
     saveSnap();
     const currentName = activeTurn === 'red' ? playerRed[0]?.name || 'Rojo' : playerBlue[0]?.name || 'Azul';
     const oppName = activeTurn === 'red' ? playerBlue[0]?.name || 'Azul' : playerRed[0]?.name || 'Rojo';
 
     const pointsGained = accumulator;
+    let newScoreRed = scoreRed;
+    let newScoreBlue = scoreBlue;
+
     if (activeTurn === 'red') {
-      setScoreBlue((prev) => prev + pointsGained);
+      newScoreBlue = scoreBlue + pointsGained;
+      setScoreBlue(newScoreBlue);
     } else {
-      setScoreRed((prev) => prev + pointsGained);
+      newScoreRed = scoreRed + pointsGained;
+      setScoreRed(newScoreRed);
     }
 
     const oppTurn = activeTurn === 'red' ? 'blue' : 'red';
     setAccumulator(1);
     setActiveTurn(oppTurn);
+
+    const matchEnded = newScoreRed >= targetScore || newScoreBlue >= targetScore;
+    const winnerName = newScoreRed >= targetScore ? playerRed[0]?.name : playerBlue[0]?.name;
+
     setActionLog((prev) => [
       ...prev,
-      `🔴 ${currentName} presiona PIERDE -> ¡${oppName} cobra ${pointsGained} pt(s)! (Pozo se reinicia a 1)`,
+      matchEnded
+        ? `🏆 ¡${winnerName} ALCANZA ${targetScore} PUNTOS Y GANA EL PARTIDO!`
+        : `🔴 ${currentName} presiona PIERDE -> ¡${oppName} cobra ${pointsGained} pt(s)! (Pozo se reinicia a 1)`,
     ]);
   };
 
@@ -238,11 +263,11 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   };
 
   const handleSubmitMatch = async () => {
-    if (scoreRed === 0 && scoreBlue === 0) {
+    if (!isTerminal) {
       Toast.show({
         type: 'error',
-        text1: 'Marcador Vacío',
-        text2: 'Debes haber completado al menos una jugada antes de guardar la partida.',
+        text1: 'Partido En Curso',
+        text2: `La partida de TipTap finaliza cuando un jugador alcanza ${targetScore} puntos.`,
       });
       return;
     }
@@ -261,7 +286,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
       Toast.show({
         type: 'success',
-        text1: '¡Partido de TipTap Registrado!',
+        text1: '¡Partido de TipTap Finalizado!',
         text2: `Resultado final: Rojo ${scoreRed} - ${scoreBlue} Azul. Se notificó a los jugadores.`,
       });
 
@@ -284,13 +309,13 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
       {/* CABECERA GENERAL */}
       <View style={styles.sportHeader}>
         <View style={styles.sportBadge}>
-          <Text style={styles.sportBadgeText}>TIPTAP (REGLAS OFICIALES)</Text>
+          <Text style={styles.sportBadgeText}>TIPTAP (A {targetScore} PUNTOS)</Text>
         </View>
         <Text style={styles.headerTitle}>Arbitraje de TipTap 1v1</Text>
         <Text style={styles.headerSubtitle}>
           {step === 'setup'
             ? 'Paso 1: Asigna a los competidores antes de iniciar la partida.'
-            : 'Paso 2: Acumula el pozo con SIGUE o entrega los puntos acumulados al rival con PIERDE.'}
+            : `Paso 2: Acumula el pozo con SIGUE o entrega los puntos al rival con PIERDE. Gana el primero en llegar a ${targetScore} puntos.`}
         </Text>
       </View>
 
@@ -459,7 +484,14 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
           {/* TOTALES Y JUGADORES BLOQUEADOS */}
           <View style={styles.totalsCard}>
             {/* Lado Rojo */}
-            <View style={[styles.totalBox, activeTurn === 'red' && styles.totalBoxActiveRed]}>
+            <View
+              style={[
+                styles.totalBox,
+                activeTurn === 'red' && styles.totalBoxActiveRed,
+                isTerminal && terminalState.winner === 'red' && styles.totalBoxWinner,
+              ]}
+            >
+              {terminalState.winner === 'red' && <Text style={styles.winnerText}>🏆 GANADOR</Text>}
               <Text style={styles.totalTeamTagRed}>🔴 {playerRed[0]?.name}</Text>
               <Text style={styles.totalScoreRed}>{scoreRed}</Text>
               <Text style={styles.totalLabel}>PUNTOS TOTALES</Text>
@@ -470,7 +502,14 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             </View>
 
             {/* Lado Azul */}
-            <View style={[styles.totalBox, activeTurn === 'blue' && styles.totalBoxActiveBlue]}>
+            <View
+              style={[
+                styles.totalBox,
+                activeTurn === 'blue' && styles.totalBoxActiveBlue,
+                isTerminal && terminalState.winner === 'blue' && styles.totalBoxWinner,
+              ]}
+            >
+              {terminalState.winner === 'blue' && <Text style={styles.winnerText}>🏆 GANADOR</Text>}
               <Text style={styles.totalTeamTagBlue}>🔵 {playerBlue[0]?.name}</Text>
               <Text style={styles.totalScoreBlue}>{scoreBlue}</Text>
               <Text style={styles.totalLabel}>PUNTOS TOTALES</Text>
@@ -494,8 +533,9 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
           <View style={styles.actionButtonsRow}>
             {/* Botón SIGUE */}
             <TouchableOpacity
-              style={styles.sigueButton}
+              style={[styles.sigueButton, isTerminal && styles.actionButtonDisabled]}
               activeOpacity={0.8}
+              disabled={isTerminal}
               onPress={handleSigue}
             >
               <Feather name="arrow-right-circle" color="#000000" size={24} style={{ marginBottom: 4 }} />
@@ -505,8 +545,9 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
             {/* Botón PIERDE */}
             <TouchableOpacity
-              style={styles.pierdeButton}
+              style={[styles.pierdeButton, isTerminal && styles.actionButtonDisabled]}
               activeOpacity={0.8}
+              disabled={isTerminal}
               onPress={handlePierde}
             >
               <Feather name="x-circle" color="#ffffff" size={24} style={{ marginBottom: 4 }} />
@@ -535,24 +576,33 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             </ScrollView>
           </View>
 
-          {/* BOTÓN FINALIZAR PARTIDO */}
-          <TouchableOpacity
-            style={styles.finishMatchBtn}
-            activeOpacity={0.8}
-            disabled={submitting || (scoreRed === 0 && scoreBlue === 0)}
-            onPress={handleSubmitMatch}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#000000" />
-            ) : (
-              <>
-                <Feather name="check-circle" color="#000000" size={20} style={{ marginRight: 8 }} />
-                <Text style={styles.finishMatchBtnText}>
-                  Finalizar y Registrar TipTap ({scoreRed} - {scoreBlue}) 🏆
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {/* AVISO DE ESTADO O BOTÓN CERRAR PARTIDO */}
+          {!isTerminal ? (
+            <View style={styles.inProgressNoticeBox}>
+              <Feather name="info" color="#eab308" size={16} style={{ marginRight: 6 }} />
+              <Text style={styles.inProgressNoticeText}>
+                Partido en curso. Para finalizar, un jugador debe alcanzar {targetScore} puntos.
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.finishMatchBtn}
+              activeOpacity={0.8}
+              disabled={submitting}
+              onPress={handleSubmitMatch}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#000000" />
+              ) : (
+                <>
+                  <Feather name="check-circle" color="#000000" size={20} style={{ marginRight: 8 }} />
+                  <Text style={styles.finishMatchBtnText}>
+                    Finalizar y Registrar TipTap ({scoreRed} - {scoreBlue}) 🏆
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </ScrollView>
@@ -821,6 +871,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#38bdf8',
   },
+  totalBoxWinner: {
+    borderColor: '#eab308',
+    backgroundColor: '#1a180d',
+  },
+  winnerText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#eab308',
+    marginBottom: 2,
+  },
   totalTeamTagRed: {
     fontSize: 11,
     fontWeight: '800',
@@ -943,6 +1003,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginTop: 2,
   },
+  actionButtonDisabled: {
+    opacity: 0.3,
+  },
   timelineRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -980,6 +1043,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: theme.colors.textMuted,
+  },
+  inProgressNoticeBox: {
+    backgroundColor: '#121212',
+    borderRadius: 8,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: '#333333',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inProgressNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    lineHeight: 16,
   },
   finishMatchBtn: {
     backgroundColor: '#ffffff',
