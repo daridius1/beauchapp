@@ -128,20 +128,45 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
       || resolved?.expand?.team_blue?.map((u: any) => u.name).join(' & ')
       || 'Equipo Azul';
 
+    const redWon = scoreRed > scoreBlue;
+    const blueWon = scoreBlue > scoreRed;
+
     return (
       <Wrapper {...wrapperProps} style={styles.previewCardMatch}>
-        <View style={styles.matchBadge}>
-          <Feather name="award" size={12} color={theme.colors.primary} style={{ marginRight: 4 }} />
-          <Text style={styles.matchBadgeText}>Partido {mode}</Text>
-        </View>
-        <View style={styles.matchScoreRow}>
-          <Text style={styles.matchTeamRed} numberOfLines={1}>{teamRedNames}</Text>
-          <View style={styles.scoreContainer}>
-            <Text style={styles.scoreNumRed}>{scoreRed}</Text>
-            <Text style={styles.scoreDash}>-</Text>
-            <Text style={styles.scoreNumBlue}>{scoreBlue}</Text>
+        <Text style={styles.matchHeaderCategory}>Escalafón · {mode}</Text>
+        
+        <View style={styles.matchBodyRow}>
+          {/* Columna de Equipos y Marcadores */}
+          <View style={{ flex: 1, gap: 6 }}>
+            {/* Fila Equipo Rojo */}
+            <View style={styles.teamRow}>
+              <View style={[styles.teamDot, { backgroundColor: '#ef4444' }]} />
+              <Text style={[styles.teamNameText, redWon && styles.teamNameWinner]} numberOfLines={1}>
+                {teamRedNames}
+              </Text>
+              <Text style={[styles.teamScoreText, redWon && styles.teamScoreWinner]}>
+                {scoreRed}
+              </Text>
+              {redWon && <Text style={styles.winnerTriangle}>◀</Text>}
+            </View>
+
+            {/* Fila Equipo Azul */}
+            <View style={styles.teamRow}>
+              <View style={[styles.teamDot, { backgroundColor: '#3b82f6' }]} />
+              <Text style={[styles.teamNameText, blueWon && styles.teamNameWinner]} numberOfLines={1}>
+                {teamBlueNames}
+              </Text>
+              <Text style={[styles.teamScoreText, blueWon && styles.teamScoreWinner]}>
+                {scoreBlue}
+              </Text>
+              {blueWon && <Text style={styles.winnerTriangle}>◀</Text>}
+            </View>
           </View>
-          <Text style={styles.matchTeamBlue} numberOfLines={1}>{teamBlueNames}</Text>
+
+          {/* Columna Estado / Info */}
+          <View style={styles.matchStatusCol}>
+            <Text style={styles.statusFinText}>Fin</Text>
+          </View>
         </View>
       </Wrapper>
     );
@@ -233,59 +258,67 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 6,
   },
-  matchBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginBottom: 6,
-  },
-  matchBadgeText: {
+  matchHeaderCategory: {
     fontSize: 10,
     fontWeight: '700',
-    color: theme.colors.primary,
+    color: theme.colors.textMuted,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  matchScoreRow: {
+  matchBodyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  matchTeamRed: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#ff4444',
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 10,
   },
-  matchTeamBlue: {
+  teamDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  teamNameText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#a3a3a3',
+  },
+  teamNameWinner: {
     fontWeight: '700',
-    color: '#38bdf8',
+    color: '#ffffff',
+  },
+  teamScoreText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#a3a3a3',
+    minWidth: 20,
     textAlign: 'right',
   },
-  scoreContainer: {
-    flexDirection: 'row',
+  teamScoreWinner: {
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  winnerTriangle: {
+    fontSize: 8,
+    color: '#ffffff',
+    marginLeft: 4,
+  },
+  matchStatusCol: {
+    borderLeftWidth: 1,
+    borderLeftColor: '#262626',
+    paddingLeft: 12,
+    paddingRight: 4,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 8,
   },
-  scoreNumRed: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#ff4444',
-  },
-  scoreDash: {
-    fontSize: 14,
-    fontWeight: '800',
+  statusFinText: {
+    fontSize: 11,
+    fontWeight: '600',
     color: theme.colors.textMuted,
-    marginHorizontal: 4,
-  },
-  scoreNumBlue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#38bdf8',
   },
   fallbackBox: {
     flexDirection: 'row',
