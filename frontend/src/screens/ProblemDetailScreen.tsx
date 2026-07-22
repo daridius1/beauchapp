@@ -22,7 +22,6 @@ import { withMinimumDelay } from '../utils/refresh';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
-import { QuoteModal } from '../components/QuoteModal';
 import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProblemDetail'>;
@@ -342,10 +341,19 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   };
   const handleShareProblemToFeed = () => {
     if (!user || !problem) {
-      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para compartir.' });
+      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para citar.' });
       return;
     }
-    setQuoteModalVisible(true);
+    navigation.navigate('Home', {
+      quoteTargetType: 'problem',
+      quoteTargetId: problem.id,
+      quoteTargetMeta: {
+        title: problem.title,
+        subtitle: problem.parent ? 'Pauta' : 'Enunciado',
+        ramo: problem.ramo,
+        instancia: problem.instancia,
+      }
+    });
   };
 
 
@@ -758,22 +766,6 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
           </View>
         </View>
-      )}
-
-      {problem && (
-        <QuoteModal
-          visible={quoteModalVisible}
-          targetType="problem"
-          targetId={problem.id}
-          targetMeta={{
-            title: problem.title,
-            subtitle: problem.parent ? 'Pauta' : 'Enunciado',
-            ramo: problem.ramo,
-            instancia: problem.instancia,
-          }}
-          targetRecord={problem}
-          onClose={() => setQuoteModalVisible(false)}
-        />
       )}
     </View>
   );

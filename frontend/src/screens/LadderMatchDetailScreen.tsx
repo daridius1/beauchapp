@@ -12,7 +12,6 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import Toast from 'react-native-toast-message';
 import { pb } from '../services/pocketbase';
-import { QuoteModal } from '../components/QuoteModal';
 
 type MatchDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LadderMatchDetail'>;
 type MatchDetailScreenRouteProp = RouteProp<RootStackParamList, 'LadderMatchDetail'>;
@@ -42,10 +41,20 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
     if (!match) return;
     const authUser = currentUser || pb.authStore.model;
     if (!authUser) {
-      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para compartir.' });
+      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para citar.' });
       return;
     }
-    setQuoteModalVisible(true);
+    navigation.navigate('Home', {
+      quoteTargetType: 'match',
+      quoteTargetId: match.id,
+      quoteTargetMeta: {
+        mode: match.mode || '1v1',
+        scoreRed: match.score_red,
+        scoreBlue: match.score_blue,
+        teamRed: match.expand?.team_red?.map((u: any) => u.name) || [],
+        teamBlue: match.expand?.team_blue?.map((u: any) => u.name) || [],
+      }
+    });
   };
 
   const fetchMatch = async (hideLoading = false) => {
@@ -395,23 +404,6 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
             );
           })}
         </View>
-      )}
-
-      {match && (
-        <QuoteModal
-          visible={quoteModalVisible}
-          targetType="match"
-          targetId={match.id}
-          targetMeta={{
-            mode: match.mode || '1v1',
-            scoreRed: match.score_red,
-            scoreBlue: match.score_blue,
-            teamRed: match.expand?.team_red?.map((u: any) => u.name) || [],
-            teamBlue: match.expand?.team_blue?.map((u: any) => u.name) || [],
-          }}
-          targetRecord={match}
-          onClose={() => setQuoteModalVisible(false)}
-        />
       )}
     </ScrollView>
   );

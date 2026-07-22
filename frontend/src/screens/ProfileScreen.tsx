@@ -9,7 +9,6 @@ import { useAuth } from '../context/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { Feather } from '@expo/vector-icons';
 import { PostCard } from '../components/PostCard';
-import { QuoteModal } from '../components/QuoteModal';
 import { withMinimumDelay } from '../utils/refresh';
 import Toast from 'react-native-toast-message';
 
@@ -174,20 +173,20 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const handleRepost = (targetPost: any) => {
     if (!currentUser) {
-      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para repostear.' });
+      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para citar.' });
       return;
     }
-    setQuoteTargetType('post');
-    setQuoteTargetId(targetPost.id);
-    setQuoteTargetMeta({
-      authorName: targetPost.expand?.author?.name || 'Usuario',
-      authorUsername: targetPost.expand?.author?.username || '',
-      authorAvatar: targetPost.expand?.author?.avatar || '',
-      content: targetPost.content,
-      photo: targetPost.photo,
+    navigation.navigate('Home', {
+      quoteTargetType: 'post',
+      quoteTargetId: targetPost.id,
+      quoteTargetMeta: {
+        authorName: targetPost.expand?.author?.name || 'Usuario',
+        authorUsername: targetPost.expand?.author?.username || '',
+        authorAvatar: targetPost.expand?.author?.avatar || '',
+        content: targetPost.content,
+        photo: targetPost.photo,
+      }
     });
-    setQuoteTargetRecord(targetPost);
-    setQuoteModalVisible(true);
   };
 
   const handleTargetPress = (targetType?: string, targetId?: string) => {
@@ -370,16 +369,6 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </View>
       )}
-
-      <QuoteModal
-        visible={quoteModalVisible}
-        targetType={quoteTargetType}
-        targetId={quoteTargetId}
-        targetMeta={quoteTargetMeta}
-        targetRecord={quoteTargetRecord}
-        onClose={() => setQuoteModalVisible(false)}
-        onSuccess={() => fetchProfileAndPosts(true)}
-      />
     </View>
   );
 };

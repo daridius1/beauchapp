@@ -6,11 +6,11 @@ import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
 import { pb, getFileUrl } from '../services/pocketbase';
 import { ImagePicker } from '../components/ImagePicker';
-import { Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
-import { QuoteModal } from '../components/QuoteModal';
+import { TargetPreview } from '../components/TargetPreview';
 import { withMinimumDelay } from '../utils/refresh';
 import Toast from 'react-native-toast-message';
 
@@ -25,12 +25,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   
-  // State para QuoteModal
-  const [quoteModalVisible, setQuoteModalVisible] = useState(false);
-  const [quoteTargetType, setQuoteTargetType] = useState<string | null>(null);
-  const [quoteTargetId, setQuoteTargetId] = useState<string | null>(null);
-  const [quoteTargetMeta, setQuoteTargetMeta] = useState<any | null>(null);
-  const [quoteTargetRecord, setQuoteTargetRecord] = useState<any | null>(null);
+  // Target pre-seleccionado para citar
+  const [quotedTarget, setQuotedTarget] = useState<{ targetType: string; targetId: string; targetMeta: any } | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -54,6 +50,18 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     });
     return () => sub.remove();
   }, []);
+
+  useEffect(() => {
+    const routeParams = route.params as any;
+    if (routeParams?.quoteTargetType && routeParams?.quoteTargetId) {
+      setQuotedTarget({
+        targetType: routeParams.quoteTargetType,
+        targetId: routeParams.quoteTargetId,
+        targetMeta: routeParams.quoteTargetMeta || {},
+      });
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    }
+  }, [route.params]);
 
   useEffect(() => {
     if (photo) {
@@ -237,7 +245,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const handlePost = async () => {
-    if ((!content.trim() && !photo) || !user) return;
+    if ((!content.trim() && !photo && !quotedTarget) || !user) return;
     setPosting(true);
     try {
       let finalTags = [...tags];
@@ -262,11 +270,19 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       };
       if (photo) postData.photo = photo;
 
+      if (quotedTarget) {
+        postData.actionType = 'quote';
+        postData.targetType = quotedTarget.targetType;
+        postData.targetId = quotedTarget.targetId;
+        postData.targetMeta = quotedTarget.targetMeta;
+      }
+
       await pb.collection('posts').create(postData);
       setContent('');
       setTags([]);
       setTagInput('');
       setPhoto(null);
+      setQuotedTarget(null);
       fetchPosts(1, false);
     } catch (err) {
       console.error(err);
@@ -315,22 +331,24 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       fetchPosts(1, false, true);
     }
   };
+
   const handleRepost = (targetPost: any) => {
     if (!user) {
-      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para repostear.' });
+      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para citar.' });
       return;
     }
-    setQuoteTargetType('post');
-    setQuoteTargetId(targetPost.id);
-    setQuoteTargetMeta({
-      authorName: targetPost.expand?.author?.name || 'Usuario',
-      authorUsername: targetPost.expand?.author?.username || '',
-      authorAvatar: targetPost.expand?.author?.avatar || '',
-      content: targetPost.content,
-      photo: targetPost.photo,
+    setQuotedTarget({
+      targetType: 'post',
+      targetId: targetPost.id,
+      targetMeta: {
+        authorName: targetPost.expand?.author?.name || 'Usuario',
+        authorUsername: targetPost.expand?.author?.username || '',
+        authorAvatar: targetPost.expand?.author?.avatar || '',
+        content: targetPost.content,
+        photo: targetPost.photo,
+      }
     });
-    setQuoteTargetRecord(targetPost);
-    setQuoteModalVisible(true);
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   const handleTargetPress = (targetType?: string, targetId?: string) => {
@@ -494,6 +512,25 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                 ))}
               </View>
             )}
+            {quotedTarget && (
+              <View style={styles.quotedAttachmentCard}>
+                <View style={styles.quotedAttachmentHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <FontAwesome name="quote-left" size={13} color={theme.colors.primary} style={{ marginRight: 6 }} />
+                    <Text style={styles.quotedAttachmentTitle}>Citando elemento</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setQuotedTarget(null)} style={{ padding: 4 }}>
+                    <Feather name="x" size={16} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+                <TargetPreview
+                  targetType={quotedTarget.targetType}
+                  targetId={quotedTarget.targetId}
+                  targetMeta={quotedTarget.targetMeta}
+                />
+              </View>
+            )}
+
             {photoPreview && (
               <View style={styles.previewContainer}>
                 <Image source={{ uri: photoPreview }} style={styles.previewImage} resizeMode="cover" />
@@ -531,9 +568,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={styles.footerActions}>
                 <ImagePicker onImageReady={(f) => setPhoto(f)} value={photo} />
                 <TouchableOpacity 
-                  style={[styles.postBtn, ((!content.trim() && !photo) || posting) && styles.postBtnDisabled]}
+                  style={[styles.postBtn, ((!content.trim() && !photo && !quotedTarget) || posting) && styles.postBtnDisabled]}
                   onPress={handlePost}
-                  disabled={(!content.trim() && !photo) || posting}
+                  disabled={(!content.trim() && !photo && !quotedTarget) || posting}
                 >
                 <Text style={styles.postBtnText}>{posting ? '...' : 'Publicar'}</Text>
                 </TouchableOpacity>
@@ -619,16 +656,6 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         </View>
       )}
-
-      <QuoteModal
-        visible={quoteModalVisible}
-        targetType={quoteTargetType}
-        targetId={quoteTargetId}
-        targetMeta={quoteTargetMeta}
-        targetRecord={quoteTargetRecord}
-        onClose={() => setQuoteModalVisible(false)}
-        onSuccess={() => fetchPosts(1, false, true)}
-      />
     </View>
   );
 };
@@ -714,6 +741,28 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     backgroundColor: theme.colors.cardBg,
+  },
+  quotedAttachmentCard: {
+    backgroundColor: '#0a0a0a',
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: '#262626',
+    padding: 10,
+    marginBottom: theme.spacing.sm,
+  },
+  quotedAttachmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1f1f1f',
+  },
+  quotedAttachmentTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.primary,
   },
   composeRow: {
     flexDirection: 'row',

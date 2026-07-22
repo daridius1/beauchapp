@@ -290,7 +290,7 @@ export const PostCard: React.FC<PostCardProps> = ({
 
           {!isDeleted && onRepostPress && (
             <TouchableOpacity style={styles.actionBtn} onPress={onRepostPress}>
-              <Feather name="repeat" size={16} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+              <FontAwesome name="quote-left" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
               <Text style={styles.actionCount}>{repostCount}</Text>
             </TouchableOpacity>
           )}
