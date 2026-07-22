@@ -265,41 +265,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 13,
   },
-  headerBox: {
-    marginBottom: theme.spacing.md,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  sportTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: theme.colors.text,
-  },
-  statusBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  statusConfirmed: {
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
-  },
-  statusPending: {
-    backgroundColor: 'rgba(234, 179, 8, 0.12)',
-  },
-  statusBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: theme.colors.textMuted,
-  },
-  dateText: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-  },
   scoreboardCard: {
     backgroundColor: theme.colors.cardBg,
     borderRadius: 8,
