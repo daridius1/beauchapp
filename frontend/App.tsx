@@ -132,9 +132,9 @@ function AppContent() {
       case 'LadderDetail': return 'Tabla de Posiciones';
       case 'LadderMatchArbitrator': {
         const slug = params?.slug;
-        if (slug === 'tiptap') return 'TipTap (30 Puntos)';
-        if (slug === 'tenis-de-mesa') return 'Tenis de Mesa (11 Puntos)';
-        if (slug === 'taca-taca') return 'Taca Taca (7 Goles)';
+        if (slug === 'tiptap') return 'TipTap';
+        if (slug === 'tenis-de-mesa') return 'Tenis de Mesa';
+        if (slug === 'taca-taca') return 'Taca Taca';
         return 'Arbitraje de Competencia';
       }
       case 'LadderMatchDetail': return 'Detalle de Partido';
