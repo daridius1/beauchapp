@@ -158,11 +158,11 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
             {match.expand?.team_red?.map((p) => (
               <TouchableOpacity
                 key={p.id}
-                style={styles.playerRow}
+                style={styles.playerColumnCentered}
                 onPress={() => navigation.navigate('UserProfile', { userId: p.id })}
               >
+                <Text style={styles.playerNameRedCentered} numberOfLines={1}>{p.name}</Text>
                 <Avatar user={{ id: p.id, collectionId: '_pb_users_auth_', avatar: p.avatar, name: p.name, username: p.username }} size={28} />
-                <Text style={styles.playerNameRed} numberOfLines={1}>{p.name}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -179,10 +179,10 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
             {match.expand?.team_blue?.map((p) => (
               <TouchableOpacity
                 key={p.id}
-                style={styles.playerRowRight}
+                style={styles.playerColumnCentered}
                 onPress={() => navigation.navigate('UserProfile', { userId: p.id })}
               >
-                <Text style={styles.playerNameBlue} numberOfLines={1}>{p.name}</Text>
+                <Text style={styles.playerNameBlueCentered} numberOfLines={1}>{p.name}</Text>
                 <Avatar user={{ id: p.id, collectionId: '_pb_users_auth_', avatar: p.avatar, name: p.name, username: p.username }} size={28} />
               </TouchableOpacity>
             ))}
@@ -217,7 +217,6 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
       {/* Secuencia Dinámica de Puntos con Gradiente Direccional */}
       {timelineEvents.length > 0 && (
         <View style={styles.timelineSection}>
-          <Text style={styles.timelineTitle}>Secuencia de Juego ({timelineEvents.length})</Text>
 
           {timelineEvents.map((ev) => {
             const isRed = ev.team === 'red';
@@ -338,33 +337,30 @@ const styles = StyleSheet.create({
   },
   teamColumn: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   teamColumnRight: {
     flex: 1,
-    alignItems: 'flex-end',
-  },
-  playerRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
   },
-  playerRowRight: {
-    flexDirection: 'row',
+  playerColumnCentered: {
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 4,
   },
-  playerNameRed: {
+  playerNameRedCentered: {
     fontSize: 13,
     fontWeight: '700',
     color: '#ff4444',
-    flex: 1,
+    textAlign: 'center',
   },
-  playerNameBlue: {
+  playerNameBlueCentered: {
     fontSize: 13,
     fontWeight: '700',
     color: '#38bdf8',
-    textAlign: 'right',
-    flex: 1,
+    textAlign: 'center',
   },
   scoreDisplay: {
     paddingHorizontal: 12,
