@@ -90,7 +90,7 @@ export const EntityCommentBox: React.FC<EntityCommentBoxProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: theme.colors.cardBg,
+    backgroundColor: theme.colors.background,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: theme.colors.border,
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   inputContainer: {
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.cardBg,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 8,
