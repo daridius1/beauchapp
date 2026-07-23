@@ -48,6 +48,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
       quoteTargetType: 'match',
       quoteTargetId: match.id,
       quoteTargetMeta: {
+        sportName: match.expand?.ladder?.name || 'Escalafón',
         mode: match.mode || '1v1',
         scoreRed: match.score_red,
         scoreBlue: match.score_blue,

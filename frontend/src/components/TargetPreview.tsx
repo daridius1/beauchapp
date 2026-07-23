@@ -37,7 +37,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
           const record = await pb.collection('problems').getOne(targetId);
           if (isMounted) setFetchedTarget(record);
         } else if (targetType === 'match') {
-          const record = await pb.collection('ladder_matches').getOne(targetId, { expand: 'team_red,team_blue' });
+          const record = await pb.collection('ladder_matches').getOne(targetId, { expand: 'ladder,team_red,team_blue' });
           if (isMounted) setFetchedTarget(record);
         }
       } catch (err) {
@@ -118,6 +118,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
   // 3. RENDERIZADO DE PARTIDO CITADO
   if (targetType === 'match') {
+    const sportName = targetMeta?.sportName || resolved?.expand?.ladder?.name || 'Partido';
     const mode = targetMeta?.mode || resolved?.mode || '1v1';
     const scoreRed = targetMeta?.scoreRed ?? resolved?.score_red ?? 0;
     const scoreBlue = targetMeta?.scoreBlue ?? resolved?.score_blue ?? 0;
@@ -133,7 +134,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
     return (
       <Wrapper {...wrapperProps} style={styles.previewCardMatch}>
-        <Text style={styles.matchHeaderCategory}>Escalafón · {mode}</Text>
+        <Text style={styles.matchHeaderCategory}>{sportName} · {mode}</Text>
         
         <View style={styles.matchBodyRow}>
           {/* Columna de Equipos y Marcadores */}
@@ -147,7 +148,6 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
               <Text style={[styles.teamScoreText, redWon && styles.teamScoreWinner]}>
                 {scoreRed}
               </Text>
-              {redWon && <Text style={styles.winnerTriangle}>◀</Text>}
             </View>
 
             {/* Fila Equipo Azul */}
@@ -159,13 +159,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
               <Text style={[styles.teamScoreText, blueWon && styles.teamScoreWinner]}>
                 {scoreBlue}
               </Text>
-              {blueWon && <Text style={styles.winnerTriangle}>◀</Text>}
             </View>
-          </View>
-
-          {/* Columna Estado / Info */}
-          <View style={styles.matchStatusCol}>
-            <Text style={styles.statusFinText}>Fin</Text>
           </View>
         </View>
       </Wrapper>
