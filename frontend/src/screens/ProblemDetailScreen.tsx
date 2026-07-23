@@ -212,6 +212,35 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
+  const toggleLikeComment = async (post: any) => {
+    if (!user) return;
+    try {
+      const currentLikes = post.likes || [];
+      let newLikes = [...currentLikes];
+      if (newLikes.includes(user.id)) {
+        newLikes = newLikes.filter((id: string) => id !== user.id);
+      } else {
+        newLikes.push(user.id);
+      }
+      setComments(prev => prev.map(p => p.id === post.id ? { ...p, likes: newLikes } : p));
+      await pb.collection('posts').update(post.id, { likes: newLikes });
+    } catch (err) {
+      console.error('Error liking comment:', err);
+      setComments(prev => prev.map(p => p.id === post.id ? { ...p, likes: post.likes || [] } : p));
+    }
+  };
+
+  const handleDeleteComment = async (postId: string) => {
+    try {
+      setComments(prev => prev.filter(p => p.id !== postId));
+      await pb.collection('posts').update(postId, { deleted: true });
+      Toast.show({ type: 'success', text1: 'Comentario eliminado' });
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+      fetchDetail(true);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       fetchDetail();
@@ -796,6 +825,8 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 post={c}
                 currentUser={user}
                 onPress={() => navigation.push('PostDetail', { postId: c.id })}
+                onLikePress={() => toggleLikeComment(c)}
+                onDeletePress={() => handleDeleteComment(c.id)}
                 onAuthorPress={() => navigation.push('UserProfile', { userId: c.author })}
               />
             </View>
