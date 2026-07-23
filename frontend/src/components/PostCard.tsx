@@ -230,11 +230,11 @@ export const PostCard: React.FC<PostCardProps> = ({
           )}
         </View>
         
-        {post.replyTo && (post.expand?.replyTo?.expand?.author || post.expand?.replyTo?.deleted) ? (
+        {(post.actionType === 'reply' || post.replyTo) && (
           <Text style={styles.replyContextText}>
-            En respuesta a @{post.expand.replyTo.deleted ? '[eliminado]' : (post.expand.replyTo.expand?.author?.username || 'Usuario')}
+            En respuesta a @{post.targetMeta?.authorUsername || post.expand?.replyTo?.expand?.author?.username || 'Usuario'}
           </Text>
-        ) : null}
+        )}
 
         {/* Texto del post (omitido si sólo contiene espacio en blanco de 1-clic) */}
         {!(isDeleted && !!post.entityType) && (isDeleted || (post.content && post.content.trim() !== '')) && (
