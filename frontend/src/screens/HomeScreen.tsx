@@ -114,15 +114,14 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         const safeSearch = activeSearch.replace(/"/g, '\\"');
         filterConditions.push(`content ~ "${safeSearch}"`);
       } else {
-        // Si no hay búsqueda de texto, mostrar SOLO las raíces (posts originales)
-        filterConditions.push(`root = ""`);
+        // Solo mostrar publicaciones principales o citas en el muro (no respuestas/comentarios)
+        filterConditions.push(`actionType != "reply"`);
       }
       
       if (filterTags.length > 0) {
         filterTags.forEach(t => {
           const safeTag = t.replace(/"/g, '\\"').toLowerCase();
-          // Hereda los tags del post raíz
-          filterConditions.push(`(tags ~ "\\"${safeTag}\\"" || root.tags ~ "\\"${safeTag}\\"")`);
+          filterConditions.push(`tags ~ "\\"${safeTag}\\""`);
         });
       }
 
