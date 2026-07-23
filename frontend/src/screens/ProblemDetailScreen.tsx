@@ -24,6 +24,7 @@ import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { PostCard } from '../components/PostCard';
+import { EntityCommentBox } from '../components/EntityCommentBox';
 import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProblemDetail'>;
@@ -183,12 +184,11 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
-  const handleSendComment = async () => {
-    if (!commentContent.trim() || !user || !problem) return;
-    setSubmittingComment(true);
+  const handleSendComment = async (content: string, photoFile: File | null) => {
+    if ((!content.trim() && !photoFile) || !user || !problem) return;
     try {
       const postData: any = {
-        content: commentContent.trim(),
+        content: content.trim() || " ",
         author: user.id,
         actionType: 'comment',
         targetType: 'problem',
@@ -199,16 +199,16 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           instancia: problem.instancia || problem.expand?.parent?.instancia || '',
         }
       };
+      if (photoFile) postData.photo = photoFile;
 
       const created = await pb.collection('posts').create(postData, { expand: 'author' });
       setComments(prev => [...prev, created]);
-      setCommentContent('');
+      setProblem((prev: any) => prev ? { ...prev, commentCount: (prev.commentCount || 0) + 1 } : prev);
       Toast.show({ type: 'success', text1: 'Comentario publicado' });
     } catch (err) {
       console.error('Error enviando comentario:', err);
       Toast.show({ type: 'error', text1: 'Error al enviar comentario' });
-    } finally {
-      setSubmittingComment(false);
+      throw err;
     }
   };
 
@@ -812,6 +812,15 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.sectionTitle}>Comentarios</Text>
         </View>
 
+        {/* Caja de Comentarios Reutilizable para Entidades */}
+        {user && !problem?.deleted && (
+          <EntityCommentBox
+            placeholder="Escribe un comentario en este problema..."
+            style={{ marginHorizontal: -theme.spacing.lg }}
+            onSendComment={handleSendComment}
+          />
+        )}
+
         {comments.length === 0 ? (
           <View style={styles.emptyAnswers}>
             <Feather name="message-square" size={28} color={theme.colors.textMuted} style={{ marginBottom: 8 }} />
@@ -835,27 +844,6 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         )}
 
       </ScrollView>
-
-      {/* Caja de Comentarios (Reply Box) */}
-      {user && !problem?.deleted && (
-        <View style={styles.commentBox}>
-          <TextInput
-            style={styles.commentInput}
-            placeholder="Escribe un comentario..."
-            placeholderTextColor={theme.colors.textMuted}
-            value={commentContent}
-            onChangeText={setCommentContent}
-            multiline
-          />
-          <TouchableOpacity
-            style={[styles.commentBtn, (!commentContent.trim() || submittingComment) && styles.commentBtnDisabled]}
-            onPress={handleSendComment}
-            disabled={!commentContent.trim() || submittingComment}
-          >
-            <Text style={styles.commentBtnText}>Publicar</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Modal de confirmación de eliminación customizado */}
       {showDeleteConfirm && (
