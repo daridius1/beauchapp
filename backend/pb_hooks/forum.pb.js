@@ -1,6 +1,6 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Hook para actualización directa y confiable del contador de comentarios (commentCount)
+// Hook para actualización directa y confiable del contador de comentarios (commentCount) estilo Twitter / X
 
 console.log("[LOAD] forum.pb.js hook loaded!");
 
@@ -34,23 +34,43 @@ onRecordCreateRequest((e) => {
     }
 }, "posts");
 
-// Incrementar commentCount del post padre al crear una respuesta
+// Incrementar commentCount en toda la cadena de ancestros (Estilo Twitter / X)
 onRecordAfterCreateSuccess((e) => {
     try {
         const actionType = e.record.getString("actionType");
         const replyTo = e.record.getString("replyTo");
         const targetId = e.record.getString("targetId");
-        const parentId = targetId || replyTo;
+        let parentId = targetId || replyTo;
 
         if ((actionType === "reply" || replyTo) && parentId) {
-            try {
-                const parent = $app.findRecordById("posts", parentId);
-                const currentCount = parent.getInt("commentCount") || 0;
-                parent.set("commentCount", currentCount + 1);
-                $app.save(parent);
-                console.log(`[forum.pb.js] Incrementado commentCount de ${parentId}: ${currentCount} -> ${currentCount + 1}`);
-            } catch (err) {
-                console.log(`[forum.pb.js] No se encontró el padre ${parentId} para incrementar commentCount:`, err);
+            let depth = 0;
+            const visited = new Set();
+
+            while (parentId && depth < 20 && !visited.has(parentId)) {
+                visited.add(parentId);
+                try {
+                    const parent = $app.findRecordById("posts", parentId);
+                    const currentCount = parent.getInt("commentCount") || 0;
+                    parent.set("commentCount", currentCount + 1);
+                    $app.save(parent);
+                    console.log(`[forum.pb.js] Incrementado commentCount de ${parentId}: ${currentCount} -> ${currentCount + 1}`);
+
+                    // Subir al siguiente ancestro en la cadena
+                    const pActionType = parent.getString("actionType");
+                    const pTargetType = parent.getString("targetType");
+                    const pTargetId = parent.getString("targetId");
+                    const pReplyTo = parent.getString("replyTo");
+
+                    if (pActionType === "reply" || pReplyTo) {
+                        parentId = (pTargetType === "post" ? pTargetId : null) || pReplyTo || null;
+                    } else {
+                        parentId = null; // Llegamos a la raíz del hilo
+                    }
+                } catch (err) {
+                    console.log(`[forum.pb.js] No se encontró el ancestro ${parentId}:`, err);
+                    break;
+                }
+                depth++;
             }
         }
     } catch (err) {
@@ -58,24 +78,44 @@ onRecordAfterCreateSuccess((e) => {
     }
 }, "posts");
 
-// Decrementar commentCount del post padre al eliminar una respuesta
+// Decrementar commentCount en toda la cadena de ancestros (Estilo Twitter / X)
 onRecordAfterDeleteSuccess((e) => {
     try {
         const actionType = e.record.getString("actionType");
         const replyTo = e.record.getString("replyTo");
         const targetId = e.record.getString("targetId");
-        const parentId = targetId || replyTo;
+        let parentId = targetId || replyTo;
 
         if ((actionType === "reply" || replyTo) && parentId) {
-            try {
-                const parent = $app.findRecordById("posts", parentId);
-                const currentCount = parent.getInt("commentCount") || 0;
-                const newCount = Math.max(0, currentCount - 1);
-                parent.set("commentCount", newCount);
-                $app.save(parent);
-                console.log(`[forum.pb.js] Decrementado commentCount de ${parentId}: ${currentCount} -> ${newCount}`);
-            } catch (err) {
-                console.log(`[forum.pb.js] No se encontró el padre ${parentId} para decrementar commentCount:`, err);
+            let depth = 0;
+            const visited = new Set();
+
+            while (parentId && depth < 20 && !visited.has(parentId)) {
+                visited.add(parentId);
+                try {
+                    const parent = $app.findRecordById("posts", parentId);
+                    const currentCount = parent.getInt("commentCount") || 0;
+                    const newCount = Math.max(0, currentCount - 1);
+                    parent.set("commentCount", newCount);
+                    $app.save(parent);
+                    console.log(`[forum.pb.js] Decrementado commentCount de ${parentId}: ${currentCount} -> ${newCount}`);
+
+                    // Subir al siguiente ancestro en la cadena
+                    const pActionType = parent.getString("actionType");
+                    const pTargetType = parent.getString("targetType");
+                    const pTargetId = parent.getString("targetId");
+                    const pReplyTo = parent.getString("replyTo");
+
+                    if (pActionType === "reply" || pReplyTo) {
+                        parentId = (pTargetType === "post" ? pTargetId : null) || pReplyTo || null;
+                    } else {
+                        parentId = null; // Llegamos a la raíz del hilo
+                    }
+                } catch (err) {
+                    console.log(`[forum.pb.js] No se encontró el ancestro ${parentId}:`, err);
+                    break;
+                }
+                depth++;
             }
         }
     } catch (err) {
