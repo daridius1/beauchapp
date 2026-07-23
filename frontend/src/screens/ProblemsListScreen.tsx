@@ -317,12 +317,12 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
         {/* Etiqueta Filter (debajo de la fila horizontal) */}
         <TouchableOpacity 
           onPress={() => setShowTagModal(true)}
-          style={{ marginBottom: theme.spacing.xs }}
+          style={{ marginBottom: activeTags.length > 0 ? theme.spacing.xs : theme.spacing.md }}
         >
           <View style={{ pointerEvents: 'none' }}>
             <TextInput
               style={styles.academicFilterInput}
-              placeholder="Filtrar por Etiqueta (Agregar...)"
+              placeholder="Filtrar por Etiqueta"
               placeholderTextColor={theme.colors.textMuted}
               value=""
               editable={false}
@@ -332,7 +332,7 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Chips de etiquetas de búsqueda activas */}
         {activeTags.length > 0 && (
-          <View style={styles.activeTagsRow}>
+          <View style={[styles.activeTagsRow, { marginBottom: theme.spacing.md }]}>
             {activeTags.map((tag, idx) => (
               <TouchableOpacity 
                 key={idx} 
