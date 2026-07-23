@@ -44,14 +44,40 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, na
   const terminalState = checkIsTerminal(scoreRed, scoreBlue);
   const isTerminal = terminalState.isTerminal;
 
+  const redNamesLabel = teamRed.map((p) => p?.name).filter(Boolean).join(', ') || 'Equipo Rojo';
+  const blueNamesLabel = teamBlue.map((p) => p?.name).filter(Boolean).join(', ') || 'Equipo Azul';
+
   const totalPointsPlayed = scoreRed + scoreBlue;
-  let currentServer: 'red' | 'blue' = initialServer;
-  if (isDeuce) {
-    const pointsInDeuce = totalPointsPlayed - 2 * (targetScore - 1);
-    currentServer = pointsInDeuce % 2 === 0 ? initialServer : (initialServer === 'red' ? 'blue' : 'red');
+  let currentServerTeam: 'red' | 'blue' = 'red';
+  let currentServerPlayerName = '';
+
+  if (mode === '2v2' && teamRed.length >= 2 && teamBlue.length >= 2) {
+    const rotation = [
+      { team: 'red', name: teamRed[0]?.name || 'Rojo 1' },
+      { team: 'blue', name: teamBlue[0]?.name || 'Azul 1' },
+      { team: 'red', name: teamRed[1]?.name || 'Rojo 2' },
+      { team: 'blue', name: teamBlue[1]?.name || 'Azul 2' },
+    ];
+    let idx = 0;
+    if (isDeuce) {
+      const baseBlocks = targetScore - 1;
+      const pointsInDeuce = totalPointsPlayed - 2 * baseBlocks;
+      idx = (baseBlocks + pointsInDeuce) % 4;
+    } else {
+      idx = Math.floor(totalPointsPlayed / 2) % 4;
+    }
+    const active = rotation[idx];
+    currentServerTeam = active.team as 'red' | 'blue';
+    currentServerPlayerName = active.name;
   } else {
-    const serveBlockIndex = Math.floor(totalPointsPlayed / 2);
-    currentServer = serveBlockIndex % 2 === 0 ? initialServer : (initialServer === 'red' ? 'blue' : 'red');
+    if (isDeuce) {
+      const pointsInDeuce = totalPointsPlayed - 2 * (targetScore - 1);
+      currentServerTeam = pointsInDeuce % 2 === 0 ? initialServer : (initialServer === 'red' ? 'blue' : 'red');
+    } else {
+      const serveBlockIndex = Math.floor(totalPointsPlayed / 2);
+      currentServerTeam = serveBlockIndex % 2 === 0 ? initialServer : (initialServer === 'red' ? 'blue' : 'red');
+    }
+    currentServerPlayerName = currentServerTeam === 'red' ? redNamesLabel : blueNamesLabel;
   }
 
   const handlePoint = (team: 'red' | 'blue') => {
@@ -114,9 +140,6 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, na
     }
   };
 
-  const redNamesLabel = teamRed.map((p) => p?.name).filter(Boolean).join(', ') || 'Equipo Rojo';
-  const blueNamesLabel = teamBlue.map((p) => p?.name).filter(Boolean).join(', ') || 'Equipo Azul';
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       {step === 'setup' ? (
@@ -135,13 +158,19 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, na
           {/* Header Superior de Saque */}
           <View style={[
             styles.serveHeaderCard,
-            currentServer === 'red' ? styles.serveHeaderRed : styles.serveHeaderBlue
+            currentServerTeam === 'red' ? styles.serveHeaderRed : styles.serveHeaderBlue
           ]}>
             <Text style={[
-              styles.serveHeaderText,
-              currentServer === 'red' ? styles.serveHeaderTextRed : styles.serveHeaderTextBlue
+              styles.serveHeaderTitle,
+              currentServerTeam === 'red' ? styles.serveHeaderTextRed : styles.serveHeaderTextBlue
             ]}>
-              SAQUE: {currentServer === 'red' ? redNamesLabel : blueNamesLabel}
+              SAQUE
+            </Text>
+            <Text style={[
+              styles.serveHeaderName,
+              currentServerTeam === 'red' ? styles.serveHeaderTextRed : styles.serveHeaderTextBlue
+            ]} numberOfLines={1}>
+              {currentServerPlayerName}
             </Text>
           </View>
 
@@ -152,7 +181,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, na
               style={[
                 styles.squareScoreCard,
                 styles.squareScoreCardRed,
-                currentServer === 'red' && styles.squareScoreCardServerRed,
+                currentServerTeam === 'red' && styles.squareScoreCardServerRed,
                 isTerminal && styles.disabled
               ]}
               activeOpacity={0.8}
@@ -168,7 +197,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, na
               style={[
                 styles.squareScoreCard,
                 styles.squareScoreCardBlue,
-                currentServer === 'blue' && styles.squareScoreCardServerBlue,
+                currentServerTeam === 'blue' && styles.squareScoreCardServerBlue,
                 isTerminal && styles.disabled
               ]}
               activeOpacity={0.8}
@@ -233,10 +262,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(56, 189, 248, 0.12)',
     borderColor: '#38bdf8',
   },
-  serveHeaderText: {
-    fontSize: 13,
+  serveHeaderTitle: {
+    fontSize: 11,
     fontWeight: '900',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
+    opacity: 0.85,
+  },
+  serveHeaderName: {
+    fontSize: 16,
+    fontWeight: '900',
+    marginTop: 2,
   },
   serveHeaderTextRed: {
     color: '#ff4444',
