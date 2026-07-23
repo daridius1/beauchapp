@@ -24,6 +24,7 @@ export interface PostCardProps {
   onTargetPress?: () => void;
   isFocused?: boolean;
   isParent?: boolean;
+  hideTargetContext?: boolean;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -39,6 +40,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onTargetPress,
   isFocused = false,
   isParent = false,
+  hideTargetContext = false,
 }) => {
   const { developerMode } = useAuth();
   const navigation = useNavigation<any>();
@@ -242,7 +244,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         )}
 
         {/* Contexto clickeable para Comentarios a Objetos No-Post (Problemas, Partidos, etc.) */}
-        {post.actionType === 'comment' && !!post.targetType && !!post.targetId && (
+        {!hideTargetContext && post.actionType === 'comment' && !!post.targetType && !!post.targetId && (
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={(e: any) => {

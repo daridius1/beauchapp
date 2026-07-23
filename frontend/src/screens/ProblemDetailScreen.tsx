@@ -824,6 +824,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <PostCard
                 post={c}
                 currentUser={user}
+                hideTargetContext={true}
                 onPress={() => navigation.push('PostDetail', { postId: c.id })}
                 onLikePress={() => toggleLikeComment(c)}
                 onDeletePress={() => handleDeleteComment(c.id)}
