@@ -405,66 +405,72 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             </View>
           )}
 
-          <TouchableOpacity
-            style={[styles.primaryBtn, (!playerRed[0] || !playerBlue[0]) && styles.disabled]}
-            disabled={!playerRed[0] || !playerBlue[0]}
-            onPress={handleStartMatch}
-          >
-            <Text style={styles.primaryBtnText}>Iniciar Partido</Text>
-          </TouchableOpacity>
+          <View style={{ alignItems: 'flex-end', marginTop: theme.spacing.xs }}>
+            <TouchableOpacity
+              style={[styles.primaryBtnRight, (!playerRed[0] || !playerBlue[0]) && styles.disabled]}
+              disabled={!playerRed[0] || !playerBlue[0]}
+              onPress={handleStartMatch}
+            >
+              <Text style={styles.primaryBtnText}>Iniciar Partido</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         /* MARCADOR EN VIVO */
         <View style={styles.liveContainer}>
           <View style={styles.scoreRowCard}>
-            <View style={styles.scoreSide}>
-              <Text style={styles.redLabel}>{playerRed[0]?.name}</Text>
+            <View style={styles.scoreSideCentered}>
+              <Text style={styles.redLabel} numberOfLines={1}>{playerRed[0]?.name || 'Equipo Rojo'}</Text>
               <Text style={styles.scoreValRed}>{scoreRed}</Text>
             </View>
             <Text style={styles.vsText}>VS</Text>
-            <View style={styles.scoreSideRight}>
-              <Text style={styles.blueLabel}>{playerBlue[0]?.name}</Text>
+            <View style={styles.scoreSideCentered}>
+              <Text style={styles.blueLabel} numberOfLines={1}>{playerBlue[0]?.name || 'Equipo Azul'}</Text>
               <Text style={styles.scoreValBlue}>{scoreBlue}</Text>
             </View>
           </View>
 
-          <View style={styles.accumBox}>
-            <Text style={styles.accumTurnText}>
-              Turno:{' '}
-              <Text style={{ color: activeTurn === 'red' ? '#ff4444' : '#38bdf8', fontWeight: '800' }}>
-                {activeTurn === 'red' ? playerRed[0]?.name : playerBlue[0]?.name}
-              </Text>
+          {/* Botón SIGUE con el pozo acumulado y color dinámico según el turno */}
+          <TouchableOpacity
+            style={[
+              styles.bigSigueBtn,
+              activeTurn === 'red' ? styles.bigSigueRed : styles.bigSigueBlue,
+              isTerminal && styles.disabled
+            ]}
+            disabled={isTerminal}
+            onPress={handleSigue}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.bigSigueTitle}>SIGUE</Text>
+            <Text style={styles.bigSiguePozoVal}>{accumulator}</Text>
+            <Text style={styles.bigSigueTurnSub}>
+              Turno: {activeTurn === 'red' ? (playerRed[0]?.name || 'Rojo') : (playerBlue[0]?.name || 'Azul')}
             </Text>
-            <Text style={styles.accumVal}>{accumulator}</Text>
-            <Text style={styles.accumSub}>Puntos en juego</Text>
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.actionRow}>
-            <TouchableOpacity
-              style={[styles.sigueBtn, isTerminal && styles.disabled]}
-              disabled={isTerminal}
-              onPress={handleSigue}
-            >
-              <Text style={styles.sigueBtnText}>SIGUE</Text>
-              <Text style={styles.actionSubText}>+1 al pozo & pasa turno</Text>
-            </TouchableOpacity>
-
+          {/* Fila Inferior: Botón PIERDE + Botón Cuadrado de RETROCEDER */}
+          <View style={styles.bottomActionRow}>
             <TouchableOpacity
               style={[styles.pierdeBtn, isTerminal && styles.disabled]}
               disabled={isTerminal}
               onPress={handlePierde}
+              activeOpacity={0.85}
             >
               <Text style={styles.pierdeBtnText}>PIERDE</Text>
-              <Text style={styles.actionSubTextWhite}>Rival cobra {accumulator} pts</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.undoSquareBtn, undoStack.length === 0 && styles.disabled]}
+              disabled={undoStack.length === 0 || isTerminal}
+              onPress={handleUndo}
+              activeOpacity={0.85}
+            >
+              <Feather name="rotate-ccw" color="#ffffff" size={20} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.historyRow}>
-            <TouchableOpacity style={styles.undoBtn} onPress={handleUndo} disabled={undoStack.length === 0}>
-              <Feather name="rotate-ccw" color="#ffffff" size={14} />
-            </TouchableOpacity>
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
+          {rallies.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.ralliesScroll}>
               {rallies.slice().reverse().map((r, idx) => (
                 <View key={idx} style={styles.historyChip}>
                   <Text style={[styles.historyChipText, { color: r.team === 'red' ? '#ff4444' : '#38bdf8' }]}>
@@ -473,7 +479,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
                 </View>
               ))}
             </ScrollView>
-          </View>
+          )}
 
           {isTerminal && (
             <TouchableOpacity style={styles.finishBtn} disabled={submitting} onPress={handleSubmitMatch}>
@@ -609,10 +615,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.text,
   },
-  primaryBtn: {
+  primaryBtnRight: {
     backgroundColor: theme.colors.text,
     borderRadius: 6,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     alignItems: 'center',
   },
   primaryBtnText: {
@@ -676,12 +683,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  scoreSide: {
+  scoreSideCentered: {
     flex: 1,
-  },
-  scoreSideRight: {
-    flex: 1,
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scoreValRed: {
     fontSize: 24,
@@ -700,66 +705,71 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: theme.colors.textMuted,
   },
-  accumBox: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 8,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+  bigSigueBtn: {
+    borderRadius: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  accumTurnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: theme.colors.textMuted,
+  bigSigueRed: {
+    backgroundColor: '#ff4444',
   },
-  accumVal: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: theme.colors.text,
-    marginVertical: 4,
+  bigSigueBlue: {
+    backgroundColor: '#38bdf8',
   },
-  accumSub: {
-    fontSize: 10,
-    color: theme.colors.textMuted,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  sigueBtn: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: 6,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  sigueBtnText: {
-    fontSize: 14,
+  bigSigueTitle: {
+    fontSize: 15,
     fontWeight: '900',
     color: '#000000',
+    letterSpacing: 1.5,
   },
-  actionSubText: {
-    fontSize: 10,
-    color: '#444444',
-    fontWeight: '700',
+  bigSiguePozoVal: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#000000',
+    marginVertical: 2,
   },
-  actionSubTextWhite: {
-    fontSize: 10,
-    color: '#ffffff',
-    fontWeight: '700',
+  bigSigueTurnSub: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#000000',
+    opacity: 0.9,
+  },
+  bottomActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   pierdeBtn: {
     flex: 1,
-    backgroundColor: '#ef4444',
-    borderRadius: 6,
-    paddingVertical: 14,
+    backgroundColor: '#161616',
+    borderWidth: 1,
+    borderColor: '#ff4444',
+    borderRadius: 8,
+    height: 48,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   pierdeBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '900',
-    color: '#ffffff',
+    color: '#ff4444',
+    letterSpacing: 1,
+  },
+  undoSquareBtn: {
+    width: 48,
+    height: 48,
+    backgroundColor: '#161616',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ralliesScroll: {
+    flexDirection: 'row',
+    marginTop: 4,
   },
   historyRow: {
     flexDirection: 'row',

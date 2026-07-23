@@ -515,8 +515,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={styles.quotedAttachmentCard}>
                 <View style={styles.quotedAttachmentHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <FontAwesome name="quote-left" size={13} color={theme.colors.primary} style={{ marginRight: 6 }} />
-                    <Text style={styles.quotedAttachmentTitle}>Citando elemento</Text>
+                    <Text style={styles.quotedAttachmentTitle}>Citando</Text>
                   </View>
                   <TouchableOpacity onPress={() => setQuotedTarget(null)} style={{ padding: 4 }}>
                     <Feather name="x" size={16} color={theme.colors.textMuted} />
