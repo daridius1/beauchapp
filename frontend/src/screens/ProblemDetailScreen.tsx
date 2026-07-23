@@ -582,7 +582,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 onPress={handleShareProblemToFeed}
               >
                 <FontAwesome name="quote-left" size={12} color={theme.colors.text} style={{ marginRight: 6 }} />
-                <Text style={styles.shareProblemBtnText}>Citar ({problem.quoteCount || 0})</Text>
+                <Text style={styles.shareProblemBtnText}>Citar</Text>
               </TouchableOpacity>
             )}
 

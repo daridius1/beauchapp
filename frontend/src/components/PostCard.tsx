@@ -302,9 +302,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                 name="quote-left" 
                 size={14} 
                 color={theme.colors.textMuted} 
-                style={{ marginRight: 6 }}
               />
-              <Text style={styles.actionCount}>{post.quoteCount || 0}</Text>
             </TouchableOpacity>
           )}
 

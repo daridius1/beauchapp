@@ -320,7 +320,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
           onPress={handleShareMatchToFeed}
         >
           <FontAwesome name="quote-left" size={12} color={theme.colors.text} style={{ marginRight: 6 }} />
-          <Text style={styles.shareMatchBtnText}>Citar en el muro ({(match as any).quoteCount || 0})</Text>
+          <Text style={styles.shareMatchBtnText}>Citar en el muro</Text>
         </TouchableOpacity>
       )}
 
