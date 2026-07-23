@@ -247,8 +247,8 @@ export const PostCard: React.FC<PostCardProps> = ({
           </Text>
         )}
 
-        {/* Target Preview Polimórfico (Post, Problema o Partido citado/reposteado) */}
-        {!!post.targetType && !!post.targetId && (
+        {/* Target Preview Polimórfico (solo para citas, no para respuestas) */}
+        {post.actionType === 'quote' && !!post.targetType && !!post.targetId && (
           <TargetPreview
             targetType={post.targetType}
             targetId={post.targetId}

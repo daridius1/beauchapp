@@ -9,7 +9,7 @@ onRecordCreateRequest((e) => {
         const targetType = e.record.getString("targetType");
         const targetId = e.record.getString("targetId");
 
-        // Si es una respuesta por replyTo legacy, asegurar que actionType sea 'reply' y targetType 'post'
+        // Compatibilidad: si usa replyTo legacy sin actionType, mapear a polimórfico
         if (replyTo && !actionType) {
             e.record.set("actionType", "reply");
             if (!targetType) e.record.set("targetType", "post");
@@ -25,45 +25,56 @@ onRecordCreateRequest((e) => {
         e.record.set("commentCount", 0);
         return e.next();
     } catch (outerErr) {
-        console.log("[DEBUG] ERROR in posts create hook:", outerErr);
+        console.log("[forum.pb.js] ERROR in posts create hook:", outerErr);
     }
 }, "posts");
 
+// Recalcular commentCount del post padre después de crear una respuesta
 onRecordAfterCreateSuccess((e) => {
     try {
         const actionType = e.record.getString("actionType");
-        const targetType = e.record.getString("targetType") || (e.record.getString("replyTo") ? "post" : "");
         const targetId = e.record.getString("targetId") || e.record.getString("replyTo");
 
         if ((actionType === "reply" || e.record.getString("replyTo")) && targetId) {
-            if (targetType === "post") {
-                $app.db().newQuery(
-                    "UPDATE posts SET commentCount = (SELECT COUNT(*) FROM posts WHERE (targetId = {:tId} OR replyTo = {:tId}) AND (actionType = 'reply' OR replyTo != '') AND deleted = false) WHERE id = {:tId}"
-                ).bind({ "tId": targetId }).execute();
-            }
+            recalcCommentCount(targetId);
         }
     } catch (err) {
         console.log("[forum.pb.js] Error updating comment count after create:", err);
     }
 }, "posts");
 
+// Recalcular commentCount del post padre después de eliminar una respuesta
 onRecordAfterDeleteSuccess((e) => {
     try {
         const actionType = e.record.getString("actionType");
-        const targetType = e.record.getString("targetType") || (e.record.getString("replyTo") ? "post" : "");
         const targetId = e.record.getString("targetId") || e.record.getString("replyTo");
 
         if ((actionType === "reply" || e.record.getString("replyTo")) && targetId) {
-            if (targetType === "post") {
-                $app.db().newQuery(
-                    "UPDATE posts SET commentCount = (SELECT COUNT(*) FROM posts WHERE (targetId = {:tId} OR replyTo = {:tId}) AND (actionType = 'reply' OR replyTo != '') AND deleted = false) WHERE id = {:tId}"
-                ).bind({ "tId": targetId }).execute();
-            }
+            recalcCommentCount(targetId);
         }
     } catch (err) {
         console.log("[forum.pb.js] Error updating comment count after delete:", err);
     }
 }, "posts");
+
+// Función compartida: recalcular el commentCount de un post padre
+function recalcCommentCount(parentPostId) {
+    try {
+        // Contar respuestas polimórficas (nuevo) + respuestas legacy (replyTo)
+        const rows = arrayOf(new DynamicModel({ "total": 0 }));
+        $app.db().newQuery(
+            "SELECT COUNT(*) as total FROM posts WHERE ((actionType = 'reply' AND targetType = 'post' AND targetId = {:pid}) OR (replyTo = {:pid} AND (actionType IS NULL OR actionType = '' OR actionType = 'reply'))) AND deleted = false"
+        ).bind({ "pid": parentPostId }).all(rows);
+
+        const newCount = rows.length > 0 ? rows[0].total : 0;
+
+        $app.db().newQuery(
+            "UPDATE posts SET commentCount = {:count} WHERE id = {:pid}"
+        ).bind({ "count": newCount, "pid": parentPostId }).execute();
+    } catch (err) {
+        console.log("[forum.pb.js] Error in recalcCommentCount:", err);
+    }
+}
 
 // Redactar posts/comentarios eliminados para no administradores
 onRecordEnrich((e) => {
