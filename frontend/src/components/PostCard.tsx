@@ -93,6 +93,21 @@ export const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
+  const handleDefaultTargetPress = () => {
+    if (onTargetPress) {
+      onTargetPress();
+      return;
+    }
+    if (!post.targetType || !post.targetId) return;
+    if (post.targetType === 'post') {
+      navigation.push('PostDetail', { postId: post.targetId });
+    } else if (post.targetType === 'problem') {
+      navigation.push('ProblemDetail', { problemId: post.targetId });
+    } else if (post.targetType === 'match') {
+      navigation.push('LadderMatchDetail', { matchId: post.targetId });
+    }
+  };
+
   const renderContent = (contentStr: string) => {
     if (!contentStr) return null;
     const parts = contentStr.split(/(@[a-zA-Z0-9_.]+)/g);
@@ -239,7 +254,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             targetId={post.targetId}
             targetMeta={post.targetMeta}
             expandedTarget={post.expand?.targetId}
-            onPress={onTargetPress}
+            onPress={handleDefaultTargetPress}
           />
         )}
 
