@@ -791,13 +791,14 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         ) : (
           comments.map(c => (
-            <PostCard
-              key={c.id}
-              post={c}
-              currentUser={user}
-              onPress={() => navigation.push('PostDetail', { postId: c.id })}
-              onAuthorPress={() => navigation.push('UserProfile', { userId: c.author })}
-            />
+            <View key={c.id} style={{ marginHorizontal: -theme.spacing.lg }}>
+              <PostCard
+                post={c}
+                currentUser={user}
+                onPress={() => navigation.push('PostDetail', { postId: c.id })}
+                onAuthorPress={() => navigation.push('UserProfile', { userId: c.author })}
+              />
+            </View>
           ))
         )}
 
