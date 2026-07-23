@@ -10,7 +10,8 @@ import {
   DeviceEventEmitter,
   Alert,
   Image,
-  Platform
+  Platform,
+  TextInput
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -22,6 +23,7 @@ import { withMinimumDelay } from '../utils/refresh';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
+import { PostCard } from '../components/PostCard';
 import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProblemDetail'>;
@@ -70,6 +72,10 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [quoteModalVisible, setQuoteModalVisible] = useState(false);
 
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentContent, setCommentContent] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+
   const fetchDetail = async (hideLoading = false) => {
     try {
       if (!hideLoading) setLoading(true);
@@ -87,6 +93,18 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         expand: 'author'
       });
       setAnswers(ansRes.items);
+
+      // 2.5. Obtener comentarios polimórficos dirigidos a este problema o pauta
+      try {
+        const commentsRes = await pb.collection('posts').getList(1, 50, {
+          filter: `targetType = "problem" && targetId = "${problemId}" && actionType = "comment" && deleted = false`,
+          sort: '+created',
+          expand: 'author'
+        });
+        setComments(commentsRes.items);
+      } catch (err) {
+        console.error('Error fetching problem comments:', err);
+      }
 
       // 3. Obtener calificaciones (del problema y de las respuestas)
       const ratingsRes = await pb.collection('problem_ratings').getFullList({
@@ -162,6 +180,35 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     } finally {
       if (!hideLoading) setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const handleSendComment = async () => {
+    if (!commentContent.trim() || !user || !problem) return;
+    setSubmittingComment(true);
+    try {
+      const postData: any = {
+        content: commentContent.trim(),
+        author: user.id,
+        actionType: 'comment',
+        targetType: 'problem',
+        targetId: problem.id,
+        targetMeta: {
+          title: problem.title || (problem.parent ? 'Pauta' : 'Problema'),
+          ramo: problem.ramo || problem.expand?.parent?.ramo || '',
+          instancia: problem.instancia || problem.expand?.parent?.instancia || '',
+        }
+      };
+
+      const created = await pb.collection('posts').create(postData, { expand: 'author' });
+      setComments(prev => [...prev, created]);
+      setCommentContent('');
+      Toast.show({ type: 'success', text1: 'Comentario publicado' });
+    } catch (err) {
+      console.error('Error enviando comentario:', err);
+      Toast.show({ type: 'error', text1: 'Error al enviar comentario' });
+    } finally {
+      setSubmittingComment(false);
     }
   };
 
@@ -730,7 +777,52 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </>
         )}
 
+        {/* Sección de Comentarios Polimórficos */}
+        <View style={styles.divider} />
+        <View style={styles.answersHeaderRow}>
+          <Text style={styles.sectionTitle}>Comentarios</Text>
+        </View>
+
+        {comments.length === 0 ? (
+          <View style={styles.emptyAnswers}>
+            <Feather name="message-square" size={28} color={theme.colors.textMuted} style={{ marginBottom: 8 }} />
+            <Text style={styles.emptyAnswersText}>Aún no hay comentarios.</Text>
+            <Text style={styles.emptyAnswersSub}>Sé el primero en comentar este {problem?.parent ? 'pauta' : 'problema'}.</Text>
+          </View>
+        ) : (
+          comments.map(c => (
+            <PostCard
+              key={c.id}
+              post={c}
+              currentUser={user}
+              onPress={() => navigation.push('PostDetail', { postId: c.id })}
+              onAuthorPress={() => navigation.push('UserProfile', { userId: c.author })}
+            />
+          ))
+        )}
+
       </ScrollView>
+
+      {/* Caja de Comentarios (Reply Box) */}
+      {user && !problem?.deleted && (
+        <View style={styles.commentBox}>
+          <TextInput
+            style={styles.commentInput}
+            placeholder="Escribe un comentario..."
+            placeholderTextColor={theme.colors.textMuted}
+            value={commentContent}
+            onChangeText={setCommentContent}
+            multiline
+          />
+          <TouchableOpacity
+            style={[styles.commentBtn, (!commentContent.trim() || submittingComment) && styles.commentBtnDisabled]}
+            onPress={handleSendComment}
+            disabled={!commentContent.trim() || submittingComment}
+          >
+            <Text style={styles.commentBtnText}>Publicar</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Modal de confirmación de eliminación customizado */}
       {showDeleteConfirm && (
@@ -1142,11 +1234,39 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: theme.spacing.md,
   },
-  deletedBannerText: {
-    color: '#EF4444',
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
+  commentBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: theme.colors.cardBg,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  commentInput: {
+    flex: 1,
+    color: theme.colors.text,
+    fontSize: 15,
+    maxHeight: 90,
+    minHeight: 40,
+    paddingRight: theme.spacing.md,
+    textAlignVertical: 'top',
+  },
+  commentBtn: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  commentBtnDisabled: {
+    opacity: 0.5,
+  },
+  commentBtnText: {
+    color: '#000000',
+    fontWeight: '700',
+    fontSize: 14,
   },
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
