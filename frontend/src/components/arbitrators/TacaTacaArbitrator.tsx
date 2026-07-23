@@ -107,26 +107,40 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, initialMode, navig
       ) : (
         /* MARCADOR EN VIVO DE TACA TACA */
         <View style={styles.liveContainer}>
-          <View style={styles.scoreRowCard}>
-            <TouchableOpacity style={styles.scoreClickBox} onPress={() => handleGoal('red')} disabled={isTerminal}>
+          {/* Primera fila: 2 Cuadrados de Puntaje */}
+          <View style={styles.scoreSquaresRow}>
+            {/* Cuadrado Lado Rojo */}
+            <TouchableOpacity
+              style={[styles.squareScoreCard, styles.squareScoreCardRed, isTerminal && styles.disabled]}
+              activeOpacity={0.8}
+              onPress={() => handleGoal('red')}
+              disabled={isTerminal}
+            >
               <Text style={styles.redLabel} numberOfLines={1}>{redNamesLabel}</Text>
               <Text style={styles.scoreValRed}>{scoreRed}</Text>
-              <Text style={styles.tapPromptRed}>+ Gol Rojo</Text>
             </TouchableOpacity>
 
-            <Text style={styles.vsText}>VS</Text>
-
-            <TouchableOpacity style={styles.scoreClickBoxRight} onPress={() => handleGoal('blue')} disabled={isTerminal}>
+            {/* Cuadrado Lado Azul */}
+            <TouchableOpacity
+              style={[styles.squareScoreCard, styles.squareScoreCardBlue, isTerminal && styles.disabled]}
+              activeOpacity={0.8}
+              onPress={() => handleGoal('blue')}
+              disabled={isTerminal}
+            >
               <Text style={styles.blueLabel} numberOfLines={1}>{blueNamesLabel}</Text>
               <Text style={styles.scoreValBlue}>{scoreBlue}</Text>
-              <Text style={styles.tapPromptBlue}>+ Gol Azul</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.historyRow}>
-            <TouchableOpacity style={styles.undoBtn} onPress={handleUndoGoal} disabled={goalHistory.length === 0}>
-              <Feather name="rotate-ccw" color="#ffffff" size={14} style={{ marginRight: 4 }} />
-              <Text style={styles.undoText}>Deshacer gol</Text>
+          {/* Abajo: Cuadrado Centrado para Deshacer Gol */}
+          <View style={styles.undoContainerCentered}>
+            <TouchableOpacity
+              style={[styles.undoSquareBtn, goalHistory.length === 0 && styles.disabled]}
+              onPress={handleUndoGoal}
+              disabled={goalHistory.length === 0 || isTerminal}
+              activeOpacity={0.8}
+            >
+              <Feather name="rotate-ccw" color="#ffffff" size={20} />
             </TouchableOpacity>
           </View>
 
@@ -152,88 +166,68 @@ const styles = StyleSheet.create({
   liveContainer: {
     gap: theme.spacing.md,
   },
-  scoreRowCard: {
+  disabled: {
+    opacity: 0.4,
+  },
+  scoreSquaresRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: 12,
+  },
+  squareScoreCard: {
+    flex: 1,
+    aspectRatio: 1,
     backgroundColor: theme.colors.cardBg,
-    borderRadius: 8,
-    padding: theme.spacing.md,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.colors.border,
-  },
-  scoreClickBox: {
-    flex: 1,
+    padding: theme.spacing.sm,
     alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
+    justifyContent: 'center',
   },
-  scoreClickBoxRight: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
+  squareScoreCardRed: {
+    borderColor: 'rgba(255, 68, 68, 0.4)',
+  },
+  squareScoreCardBlue: {
+    borderColor: 'rgba(56, 189, 248, 0.4)',
   },
   redLabel: {
     fontSize: 12,
     fontWeight: '800',
     color: '#ff4444',
+    textAlign: 'center',
+    marginBottom: 4,
   },
   blueLabel: {
     fontSize: 12,
     fontWeight: '800',
     color: '#38bdf8',
-  },
-  vsText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: theme.colors.textMuted,
-    marginHorizontal: 8,
+    textAlign: 'center',
+    marginBottom: 4,
   },
   scoreValRed: {
-    fontSize: 48,
-    fontWeight: '800',
+    fontSize: 52,
+    fontWeight: '900',
     color: '#ff4444',
-    marginVertical: 4,
   },
   scoreValBlue: {
-    fontSize: 48,
-    fontWeight: '800',
+    fontSize: 52,
+    fontWeight: '900',
     color: '#38bdf8',
+  },
+  undoContainerCentered: {
+    alignItems: 'center',
+    justifyContent: 'center',
     marginVertical: 4,
   },
-  tapPromptRed: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#ff4444',
-    backgroundColor: 'rgba(255, 68, 68, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  tapPromptBlue: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  historyRow: {
-    alignItems: 'center',
-  },
-  undoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+  undoSquareBtn: {
+    width: 48,
+    height: 48,
+    backgroundColor: '#161616',
     borderWidth: 1,
     borderColor: theme.colors.border,
-  },
-  undoText: {
-    color: theme.colors.text,
-    fontSize: 12,
-    fontWeight: '600',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   finishBtn: {
     backgroundColor: theme.colors.primary,
@@ -243,7 +237,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
   },
   finishBtnText: {
-    color: '#ffffff',
+    color: '#000000',
     fontSize: 15,
     fontWeight: '800',
   },
