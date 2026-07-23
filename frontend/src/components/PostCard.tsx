@@ -227,8 +227,8 @@ export const PostCard: React.FC<PostCardProps> = ({
           </Text>
         )}
 
-        {/* Target Preview Polimórfico (solo para citas, no para respuestas) */}
-        {post.actionType === 'quote' && !!post.targetType && !!post.targetId && (
+        {/* Target Preview Polimórfico (para citas y comentarios a problemas/partidos) */}
+        {(post.actionType === 'quote' || post.actionType === 'comment') && !!post.targetType && !!post.targetId && (
           <TargetPreview
             targetType={post.targetType}
             targetId={post.targetId}
@@ -252,8 +252,8 @@ export const PostCard: React.FC<PostCardProps> = ({
           </TouchableOpacity>
         )}
 
-        {/* Tags (solo se muestran en publicaciones o citas principales, no en respuestas) */}
-        {!isDeleted && post.actionType !== 'reply' && !post.replyTo && post.tags && post.tags.length > 0 && (
+        {/* Tags (solo se muestran en publicaciones o citas principales, no en respuestas ni comentarios) */}
+        {!isDeleted && post.actionType !== 'reply' && post.actionType !== 'comment' && !post.replyTo && post.tags && post.tags.length > 0 && (
           <View style={styles.tagsRow}>
             {post.tags.map((t: string, i: number) => {
               const ChipComponent = onTagPress ? TouchableOpacity : View;

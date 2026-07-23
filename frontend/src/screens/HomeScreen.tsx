@@ -114,9 +114,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         const safeSearch = activeSearch.replace(/"/g, '\\"');
         filterConditions.push(`content ~ "${safeSearch}"`);
       } else {
-        // Solo publicaciones principales o citas en el muro (no respuestas/comentarios)
-        // actionType != reply filtra nuevas respuestas, replyTo = "" filtra las antiguas
-        filterConditions.push(`actionType != "reply" && replyTo = ""`);
+        // Solo publicaciones principales o citas en el muro (no respuestas ni comentarios de problemas/partidos)
+        filterConditions.push(`actionType != "reply" && actionType != "comment" && replyTo = ""`);
       }
       
       if (filterTags.length > 0) {

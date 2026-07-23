@@ -1,6 +1,6 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Hook para actualización directa de commentCount (estilo X) y herencia literal de tags en respuestas
+// Hook para administración de árbol de posts (replyTo / root), citas polimórficas (quote) y comentarios a objetos no-post (comment)
 
 console.log("[LOAD] forum.pb.js hook loaded!");
 
@@ -8,35 +8,40 @@ onRecordCreateRequest((e) => {
     try {
         const actionType = e.record.getString("actionType");
         const replyTo = e.record.getString("replyTo");
-        const targetType = e.record.getString("targetType") || (replyTo ? "post" : "");
-        const targetId = e.record.getString("targetId") || replyTo;
+        const targetType = e.record.getString("targetType");
+        const targetId = e.record.getString("targetId");
 
-        // Sincronización bidireccional entre replyTo y targetId
-        if (replyTo && !targetId) {
+        // 1. Manejo de Respuestas a Posts (vía replyTo / root)
+        if (replyTo || (actionType === "reply" && targetType === "post")) {
             e.record.set("actionType", "reply");
             if (!targetType) e.record.set("targetType", "post");
-            e.record.set("targetId", replyTo);
-        }
-        if (actionType === "reply" && targetType === "post" && targetId && !replyTo) {
-            e.record.set("replyTo", targetId);
-        }
+            if (replyTo && !targetId) e.record.set("targetId", replyTo);
+            if (targetId && !replyTo) e.record.set("replyTo", targetId);
 
-        // Heredar literalmente las etiquetas (tags) del elemento objetivo (Post, Problema o Partido)
-        if (e.record.getString("actionType") === "reply" || replyTo) {
-            if (targetId) {
-                try {
-                    const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : "posts");
-                    const parentRecord = $app.findRecordById(collectionName, targetId);
-                    const parentTags = parentRecord.get("tags") || [];
-                    e.record.set("tags", parentTags);
-                    console.log(`[forum.pb.js] Heredados ${parentTags.length} tags del padre ${targetId}`);
-                } catch (err) {
-                    console.log(`[forum.pb.js] No se pudieron heredar tags del padre ${targetId}:`, err);
-                }
+            e.record.set("tags", []);
+
+            try {
+                const parent = $app.findRecordById("posts", targetId || replyTo);
+                let rootId = parent.getString("root") || parent.id;
+                e.record.set("root", rootId);
+            } catch (err) {
+                console.log("[forum.pb.js] Error buscando root:", err);
+            }
+        } 
+        // 2. Manejo de Comentarios Polimórficos a Objetos No-Post (Problemas, Partidos, etc.)
+        else if (actionType === "comment" && targetType && targetType !== "post" && targetId) {
+            e.record.set("replyTo", "");
+            e.record.set("root", "");
+            try {
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : "posts");
+                const targetRecord = $app.findRecordById(collectionName, targetId);
+                const targetTags = targetRecord.get("tags") || [];
+                e.record.set("tags", targetTags);
+            } catch (err) {
+                console.log(`[forum.pb.js] Error buscando tags de ${targetType} ${targetId}:`, err);
             }
         }
 
-        // Inicializar conteo de comentarios propios en 0
         e.record.set("commentCount", 0);
         return e.next();
     } catch (outerErr) {
@@ -44,7 +49,7 @@ onRecordCreateRequest((e) => {
     }
 }, "posts");
 
-// Incrementar commentCount en toda la cadena de ancestros (Estilo Twitter / X)
+// Incrementar commentCount en toda la cadena de ancestros (replyTo) al crear una respuesta
 onRecordAfterCreateSuccess((e) => {
     try {
         const actionType = e.record.getString("actionType");
@@ -63,21 +68,11 @@ onRecordAfterCreateSuccess((e) => {
                     const currentCount = parent.getInt("commentCount") || 0;
                     parent.set("commentCount", currentCount + 1);
                     $app.save(parent);
-                    console.log(`[forum.pb.js] Incrementado commentCount de ${parentId}: ${currentCount} -> ${currentCount + 1}`);
+                    console.log(`[forum.pb.js] Incrementado commentCount para ${parentId}: ${currentCount} -> ${currentCount + 1}`);
 
-                    // Subir al siguiente ancestro en la cadena
-                    const pActionType = parent.getString("actionType");
-                    const pTargetType = parent.getString("targetType");
-                    const pTargetId = parent.getString("targetId");
-                    const pReplyTo = parent.getString("replyTo");
-
-                    if (pActionType === "reply" || pReplyTo) {
-                        parentId = (pTargetType === "post" ? pTargetId : null) || pReplyTo || null;
-                    } else {
-                        parentId = null; // Llegamos a la raíz del hilo
-                    }
+                    curr = parent.getString("replyTo");
                 } catch (err) {
-                    console.log(`[forum.pb.js] No se encontró el ancestro ${parentId}:`, err);
+                    console.log(`[forum.pb.js] Error actualizando commentCount para ancestro ${parentId}:`, err);
                     break;
                 }
                 depth++;
@@ -88,7 +83,7 @@ onRecordAfterCreateSuccess((e) => {
     }
 }, "posts");
 
-// Decrementar commentCount en toda la cadena de ancestros (Estilo Twitter / X)
+// Decrementar commentCount en toda la cadena de ancestros (replyTo) al eliminar una respuesta
 onRecordAfterDeleteSuccess((e) => {
     try {
         const actionType = e.record.getString("actionType");
@@ -108,21 +103,11 @@ onRecordAfterDeleteSuccess((e) => {
                     const newCount = Math.max(0, currentCount - 1);
                     parent.set("commentCount", newCount);
                     $app.save(parent);
-                    console.log(`[forum.pb.js] Decrementado commentCount de ${parentId}: ${currentCount} -> ${newCount}`);
+                    console.log(`[forum.pb.js] Decrementado commentCount para ${parentId}: ${currentCount} -> ${newCount}`);
 
-                    // Subir al siguiente ancestro en la cadena
-                    const pActionType = parent.getString("actionType");
-                    const pTargetType = parent.getString("targetType");
-                    const pTargetId = parent.getString("targetId");
-                    const pReplyTo = parent.getString("replyTo");
-
-                    if (pActionType === "reply" || pReplyTo) {
-                        parentId = (pTargetType === "post" ? pTargetId : null) || pReplyTo || null;
-                    } else {
-                        parentId = null; // Llegamos a la raíz del hilo
-                    }
+                    curr = parent.getString("replyTo");
                 } catch (err) {
-                    console.log(`[forum.pb.js] No se encontró el ancestro ${parentId}:`, err);
+                    console.log(`[forum.pb.js] Error decrementando commentCount para ancestro ${parentId}:`, err);
                     break;
                 }
                 depth++;
@@ -133,7 +118,7 @@ onRecordAfterDeleteSuccess((e) => {
     }
 }, "posts");
 
-// Redactar posts/comentarios eliminados para no administradores
+// Redactar posts eliminados para no administradores
 onRecordEnrich((e) => {
     if (e.record.getBool("deleted")) {
         const isAdmin = e.requestInfo && e.requestInfo.admin;
