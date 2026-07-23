@@ -1,6 +1,6 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Hook para actualización directa y confiable del contador de comentarios (commentCount) estilo Twitter / X
+// Hook para actualización directa de commentCount (estilo X) y herencia literal de tags en respuestas
 
 console.log("[LOAD] forum.pb.js hook loaded!");
 
@@ -8,8 +8,8 @@ onRecordCreateRequest((e) => {
     try {
         const actionType = e.record.getString("actionType");
         const replyTo = e.record.getString("replyTo");
-        const targetType = e.record.getString("targetType");
-        const targetId = e.record.getString("targetId");
+        const targetType = e.record.getString("targetType") || (replyTo ? "post" : "");
+        const targetId = e.record.getString("targetId") || replyTo;
 
         // Sincronización bidireccional entre replyTo y targetId
         if (replyTo && !targetId) {
@@ -21,9 +21,19 @@ onRecordCreateRequest((e) => {
             e.record.set("replyTo", targetId);
         }
 
-        // Si es un comentario/respuesta, limpiar tags
+        // Heredar literalmente las etiquetas (tags) del elemento objetivo (Post, Problema o Partido)
         if (e.record.getString("actionType") === "reply" || replyTo) {
-            e.record.set("tags", []);
+            if (targetId) {
+                try {
+                    const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : "posts");
+                    const parentRecord = $app.findRecordById(collectionName, targetId);
+                    const parentTags = parentRecord.get("tags") || [];
+                    e.record.set("tags", parentTags);
+                    console.log(`[forum.pb.js] Heredados ${parentTags.length} tags del padre ${targetId}`);
+                } catch (err) {
+                    console.log(`[forum.pb.js] No se pudieron heredar tags del padre ${targetId}:`, err);
+                }
+            }
         }
 
         // Inicializar conteo de comentarios propios en 0
