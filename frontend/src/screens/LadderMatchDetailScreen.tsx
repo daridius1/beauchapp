@@ -380,17 +380,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
         </View>
       </View>
 
-      {/* Botón de Compartir/Citar en el Muro */}
-      {match.status === 'confirmed' && (
-        <TouchableOpacity
-          style={styles.shareMatchBtn}
-          activeOpacity={0.8}
-          onPress={handleShareMatchToFeed}
-        >
-          <FontAwesome name="quote-left" size={12} color={theme.colors.text} style={{ marginRight: 6 }} />
-          <Text style={styles.shareMatchBtnText}>Citar en el muro</Text>
-        </TouchableOpacity>
-      )}
+
 
       {/* Insignia / Banner de Estado Pendiente */}
       {(match.status === 'pending_confirmation' || match.status === 'disputed') && (
@@ -477,8 +467,19 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
 
         {/* Sección de Comentarios Polimórficos */}
         <View style={{ height: 1, backgroundColor: theme.colors.border, marginVertical: theme.spacing.lg }} />
-        <View style={{ marginBottom: theme.spacing.xs }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.xs }}>
           <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '700' }}>Comentarios</Text>
+
+          {match.status === 'confirmed' && (
+            <TouchableOpacity
+              style={styles.quoteHeaderBtn}
+              activeOpacity={0.7}
+              onPress={handleShareMatchToFeed}
+            >
+              <Feather name="repeat" size={14} color={theme.colors.text} style={{ marginRight: 6 }} />
+              <Text style={styles.quoteHeaderBtnText}>Citar</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Caja de Comentarios Reutilizable Inline */}
@@ -929,5 +930,20 @@ const styles = StyleSheet.create({
     color: '#ff4444',
     fontSize: 12,
     fontWeight: '800',
+  },
+  quoteHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161616',
+    borderWidth: 1,
+    borderColor: '#333333',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  quoteHeaderBtnText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

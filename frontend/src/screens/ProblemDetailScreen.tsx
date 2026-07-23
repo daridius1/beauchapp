@@ -575,17 +575,6 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {!problem.deleted && (
-              <TouchableOpacity
-                style={styles.shareProblemBtn}
-                activeOpacity={0.7}
-                onPress={handleShareProblemToFeed}
-              >
-                <FontAwesome name="quote-left" size={12} color={theme.colors.text} style={{ marginRight: 6 }} />
-                <Text style={styles.shareProblemBtnText}>Citar</Text>
-              </TouchableOpacity>
-            )}
-
             {user && problem.author === user.id && !problem.deleted && (
               <TouchableOpacity 
                 style={{ padding: 8 }} 
@@ -808,8 +797,19 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* Sección de Comentarios Polimórficos */}
         <View style={styles.divider} />
-        <View style={styles.answersHeaderRow}>
+        <View style={[styles.answersHeaderRow, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <Text style={styles.sectionTitle}>Comentarios</Text>
+
+          {!problem?.deleted && (
+            <TouchableOpacity
+              style={styles.quoteHeaderBtn}
+              activeOpacity={0.7}
+              onPress={handleShareProblemToFeed}
+            >
+              <Feather name="repeat" size={14} color={theme.colors.text} style={{ marginRight: 6 }} />
+              <Text style={styles.quoteHeaderBtnText}>Citar</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Caja de Comentarios Reutilizable para Entidades */}
@@ -970,6 +970,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     marginBottom: theme.spacing.sm,
+  },
+  quoteHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161616',
+    borderWidth: 1,
+    borderColor: '#333333',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  quoteHeaderBtnText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '600',
   },
   rendererContainer: {
     marginTop: theme.spacing.md,
