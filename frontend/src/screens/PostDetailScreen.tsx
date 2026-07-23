@@ -56,12 +56,12 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const fetchAncestors = async (post: any) => {
     const path = [];
-    let curr = post.replyTo;
+    let curr = (post.actionType === 'reply' && post.targetType === 'post' ? post.targetId : null) || post.replyTo;
     while (curr) {
       try {
         const parent = await pb.collection('posts').getOne(curr, { expand: 'author,replyTo.author' });
         path.unshift(parent);
-        curr = parent.replyTo;
+        curr = (parent.actionType === 'reply' && parent.targetType === 'post' ? parent.targetId : null) || parent.replyTo;
       } catch (e) {
         break; // Parent might be deleted
       }
@@ -73,7 +73,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     if (isLoadMore) setLoadingMore(true);
     try {
       const res = await pb.collection('posts').getList(pageNum, 15, {
-        filter: `replyTo = "${parentId}"`,
+        filter: `((targetType = "post" && targetId = "${parentId}" && actionType = "reply") || replyTo = "${parentId}") && deleted = false`,
         expand: 'author,replyTo.author',
         sort: '+created'
       });
@@ -132,7 +132,15 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       const postData: any = {
         content: content.trim() || " ",
         author: user.id,
-        replyTo: mainPost.id
+        actionType: 'reply',
+        targetType: 'post',
+        targetId: mainPost.id,
+        replyTo: mainPost.id,
+        targetMeta: {
+          authorName: mainPost.expand?.author?.name || 'Usuario',
+          authorUsername: mainPost.expand?.author?.username || '',
+          content: mainPost.content,
+        }
       };
       if (photo) postData.photo = photo;
 
