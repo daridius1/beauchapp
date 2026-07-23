@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform, RefreshControl } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { ladderService } from '../services/ladderService';
 import { LadderMatch } from '../types/ladder';
@@ -312,15 +312,15 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
         </View>
       </View>
 
-      {/* Botón de Compartir/Repostear en el Muro */}
+      {/* Botón de Compartir/Citar en el Muro */}
       {match.status === 'confirmed' && (
         <TouchableOpacity
           style={styles.shareMatchBtn}
           activeOpacity={0.8}
           onPress={handleShareMatchToFeed}
         >
-          <Feather name="repeat" size={14} color={theme.colors.text} style={{ marginRight: 6 }} />
-          <Text style={styles.shareMatchBtnText}>Compartir en el muro</Text>
+          <FontAwesome name="quote-left" size={12} color={theme.colors.text} style={{ marginRight: 6 }} />
+          <Text style={styles.shareMatchBtnText}>Citar en el muro ({(match as any).quoteCount || 0})</Text>
         </TouchableOpacity>
       )}
 

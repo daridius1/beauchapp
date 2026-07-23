@@ -581,8 +581,8 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 activeOpacity={0.7}
                 onPress={handleShareProblemToFeed}
               >
-                <Feather name="repeat" size={14} color={theme.colors.text} style={{ marginRight: 4 }} />
-                <Text style={styles.shareProblemBtnText}>Compartir</Text>
+                <FontAwesome name="quote-left" size={12} color={theme.colors.text} style={{ marginRight: 6 }} />
+                <Text style={styles.shareProblemBtnText}>Citar ({problem.quoteCount || 0})</Text>
               </TouchableOpacity>
             )}
 

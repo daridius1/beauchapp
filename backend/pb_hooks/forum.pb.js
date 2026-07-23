@@ -1,6 +1,6 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Hook para administración de árbol de posts (replyTo / root), citas polimórficas (quote) y comentarios a objetos no-post (comment)
+// Hook para administración de árbol de posts (replyTo / root), citas polimórficas (quote), conteo de citas (quoteCount) y comentarios a objetos no-post (comment)
 
 console.log("[LOAD] forum.pb.js hook loaded!");
 
@@ -43,20 +43,37 @@ onRecordCreateRequest((e) => {
         }
 
         e.record.set("commentCount", 0);
+        e.record.set("quoteCount", 0);
         return e.next();
     } catch (outerErr) {
         console.log("[forum.pb.js] ERROR in posts create hook:", outerErr);
     }
 }, "posts");
 
-// Incrementar commentCount en toda la cadena de ancestros (replyTo) al crear una respuesta
+// Incrementar commentCount en ancestros y quoteCount en elemento objetivo al crear un registro
 onRecordAfterCreateSuccess((e) => {
     try {
         const actionType = e.record.getString("actionType");
         const replyTo = e.record.getString("replyTo");
+        const targetType = e.record.getString("targetType");
         const targetId = e.record.getString("targetId");
-        let parentId = targetId || replyTo;
 
+        // Incrementar quoteCount si es una cita
+        if (actionType === "quote" && targetId && targetType) {
+            try {
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : "posts");
+                const targetRecord = $app.findRecordById(collectionName, targetId);
+                const currentQuotes = targetRecord.getInt("quoteCount") || 0;
+                targetRecord.set("quoteCount", currentQuotes + 1);
+                $app.save(targetRecord);
+                console.log(`[forum.pb.js] Incrementado quoteCount para ${targetType} ${targetId}: ${currentQuotes} -> ${currentQuotes + 1}`);
+            } catch (err) {
+                console.log(`[forum.pb.js] Error incrementando quoteCount para ${targetType} ${targetId}:`, err);
+            }
+        }
+
+        // Incrementar commentCount para respuestas a posts
+        let parentId = targetId || replyTo;
         if ((actionType === "reply" || replyTo) && parentId) {
             let depth = 0;
             const visited = new Set();
@@ -83,14 +100,31 @@ onRecordAfterCreateSuccess((e) => {
     }
 }, "posts");
 
-// Decrementar commentCount en toda la cadena de ancestros (replyTo) al eliminar una respuesta
+// Decrementar commentCount y quoteCount al eliminar un registro
 onRecordAfterDeleteSuccess((e) => {
     try {
         const actionType = e.record.getString("actionType");
         const replyTo = e.record.getString("replyTo");
+        const targetType = e.record.getString("targetType");
         const targetId = e.record.getString("targetId");
-        let parentId = targetId || replyTo;
 
+        // Decrementar quoteCount si se elimina una cita
+        if (actionType === "quote" && targetId && targetType) {
+            try {
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : "posts");
+                const targetRecord = $app.findRecordById(collectionName, targetId);
+                const currentQuotes = targetRecord.getInt("quoteCount") || 0;
+                const newQuotes = Math.max(0, currentQuotes - 1);
+                targetRecord.set("quoteCount", newQuotes);
+                $app.save(targetRecord);
+                console.log(`[forum.pb.js] Decrementado quoteCount para ${targetType} ${targetId}: ${currentQuotes} -> ${newQuotes}`);
+            } catch (err) {
+                console.log(`[forum.pb.js] Error decrementando quoteCount para ${targetType} ${targetId}:`, err);
+            }
+        }
+
+        // Decrementar commentCount para respuestas a posts
+        let parentId = targetId || replyTo;
         if ((actionType === "reply" || replyTo) && parentId) {
             let depth = 0;
             const visited = new Set();

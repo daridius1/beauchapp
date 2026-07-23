@@ -88,6 +88,19 @@ export const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
+  const handleDefaultQuotePress = () => {
+    navigation.navigate('Home', {
+      quoteTargetType: 'post',
+      quoteTargetId: post.id,
+      quoteTargetMeta: {
+        authorName: post.expand?.author?.name || 'Usuario',
+        authorUsername: post.expand?.author?.username || '',
+        content: post.content || '',
+        photo: post.photo || '',
+      }
+    });
+  };
+
   const renderContent = (contentStr: string) => {
     if (!contentStr) return null;
     const parts = contentStr.split(/(@[a-zA-Z0-9_.]+)/g);
@@ -283,9 +296,15 @@ export const PostCard: React.FC<PostCardProps> = ({
             </TouchableOpacity>
           )}
 
-          {!isDeleted && onRepostPress && (
-            <TouchableOpacity style={styles.actionBtn} onPress={onRepostPress}>
-              <FontAwesome name="quote-left" size={14} color={theme.colors.textMuted} />
+          {!isDeleted && (
+            <TouchableOpacity style={styles.actionBtn} onPress={onRepostPress || handleDefaultQuotePress}>
+              <FontAwesome 
+                name="quote-left" 
+                size={14} 
+                color={theme.colors.textMuted} 
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.actionCount}>{post.quoteCount || 0}</Text>
             </TouchableOpacity>
           )}
 
