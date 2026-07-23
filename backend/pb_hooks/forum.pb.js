@@ -72,27 +72,40 @@ onRecordAfterCreateSuccess((e) => {
             }
         }
 
-        // Incrementar commentCount para respuestas a posts
-        let parentId = targetId || replyTo;
-        if ((actionType === "reply" || replyTo) && parentId) {
-            let depth = 0;
-            const visited = new Set();
+        // Incrementar commentCount para respuestas a posts o comentarios a entidades
+        if (actionType === "comment" && targetId && targetType) {
+            try {
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : "posts");
+                const targetRecord = $app.findRecordById(collectionName, targetId);
+                const currentCount = targetRecord.getInt("commentCount") || 0;
+                targetRecord.set("commentCount", currentCount + 1);
+                $app.save(targetRecord);
+                console.log(`[forum.pb.js] Incrementado commentCount para ${targetType} ${targetId}: ${currentCount} -> ${currentCount + 1}`);
+            } catch (err) {
+                console.log(`[forum.pb.js] Error incrementando commentCount para ${targetType} ${targetId}:`, err);
+            }
+        } else {
+            let parentId = targetId || replyTo;
+            if ((actionType === "reply" || replyTo) && parentId) {
+                let depth = 0;
+                const visited = new Set();
 
-            while (parentId && depth < 20 && !visited.has(parentId)) {
-                visited.add(parentId);
-                try {
-                    const parent = $app.findRecordById("posts", parentId);
-                    const currentCount = parent.getInt("commentCount") || 0;
-                    parent.set("commentCount", currentCount + 1);
-                    $app.save(parent);
-                    console.log(`[forum.pb.js] Incrementado commentCount para ${parentId}: ${currentCount} -> ${currentCount + 1}`);
+                while (parentId && depth < 20 && !visited.has(parentId)) {
+                    visited.add(parentId);
+                    try {
+                        const parent = $app.findRecordById("posts", parentId);
+                        const currentCount = parent.getInt("commentCount") || 0;
+                        parent.set("commentCount", currentCount + 1);
+                        $app.save(parent);
+                        console.log(`[forum.pb.js] Incrementado commentCount para ${parentId}: ${currentCount} -> ${currentCount + 1}`);
 
-                    curr = parent.getString("replyTo");
-                } catch (err) {
-                    console.log(`[forum.pb.js] Error actualizando commentCount para ancestro ${parentId}:`, err);
-                    break;
+                        parentId = parent.getString("replyTo");
+                    } catch (err) {
+                        console.log(`[forum.pb.js] Error actualizando commentCount para ancestro ${parentId}:`, err);
+                        break;
+                    }
+                    depth++;
                 }
-                depth++;
             }
         }
     } catch (err) {
@@ -123,28 +136,42 @@ onRecordAfterDeleteSuccess((e) => {
             }
         }
 
-        // Decrementar commentCount para respuestas a posts
-        let parentId = targetId || replyTo;
-        if ((actionType === "reply" || replyTo) && parentId) {
-            let depth = 0;
-            const visited = new Set();
+        // Decrementar commentCount para respuestas a posts o comentarios a entidades
+        if (actionType === "comment" && targetId && targetType) {
+            try {
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : "posts");
+                const targetRecord = $app.findRecordById(collectionName, targetId);
+                const currentCount = targetRecord.getInt("commentCount") || 0;
+                const newCount = Math.max(0, currentCount - 1);
+                targetRecord.set("commentCount", newCount);
+                $app.save(targetRecord);
+                console.log(`[forum.pb.js] Decrementado commentCount para ${targetType} ${targetId}: ${currentCount} -> ${newCount}`);
+            } catch (err) {
+                console.log(`[forum.pb.js] Error decrementando commentCount para ${targetType} ${targetId}:`, err);
+            }
+        } else {
+            let parentId = targetId || replyTo;
+            if ((actionType === "reply" || replyTo) && parentId) {
+                let depth = 0;
+                const visited = new Set();
 
-            while (parentId && depth < 20 && !visited.has(parentId)) {
-                visited.add(parentId);
-                try {
-                    const parent = $app.findRecordById("posts", parentId);
-                    const currentCount = parent.getInt("commentCount") || 0;
-                    const newCount = Math.max(0, currentCount - 1);
-                    parent.set("commentCount", newCount);
-                    $app.save(parent);
-                    console.log(`[forum.pb.js] Decrementado commentCount para ${parentId}: ${currentCount} -> ${newCount}`);
+                while (parentId && depth < 20 && !visited.has(parentId)) {
+                    visited.add(parentId);
+                    try {
+                        const parent = $app.findRecordById("posts", parentId);
+                        const currentCount = parent.getInt("commentCount") || 0;
+                        const newCount = Math.max(0, currentCount - 1);
+                        parent.set("commentCount", newCount);
+                        $app.save(parent);
+                        console.log(`[forum.pb.js] Decrementado commentCount para ${parentId}: ${currentCount} -> ${newCount}`);
 
-                    curr = parent.getString("replyTo");
-                } catch (err) {
-                    console.log(`[forum.pb.js] Error decrementando commentCount para ancestro ${parentId}:`, err);
-                    break;
+                        parentId = parent.getString("replyTo");
+                    } catch (err) {
+                        console.log(`[forum.pb.js] Error decrementando commentCount para ancestro ${parentId}:`, err);
+                        break;
+                    }
+                    depth++;
                 }
-                depth++;
             }
         }
     } catch (err) {
