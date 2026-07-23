@@ -94,7 +94,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: theme.colors.border,
     padding: theme.spacing.md,
-    marginVertical: theme.spacing.sm,
+    marginTop: 4,
+    marginBottom: theme.spacing.sm,
   },
   previewContainer: {
     position: 'relative',

@@ -797,7 +797,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* Sección de Comentarios Polimórficos */}
         <View style={styles.divider} />
-        <View style={[styles.answersHeaderRow, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+        <View style={[styles.answersHeaderRow, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }]}>
           <Text style={styles.sectionTitle}>Comentarios</Text>
 
           {!problem?.deleted && (
@@ -806,7 +806,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               activeOpacity={0.7}
               onPress={handleShareProblemToFeed}
             >
-              <Feather name="repeat" size={14} color={theme.colors.text} style={{ marginRight: 6 }} />
+              <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
               <Text style={styles.quoteHeaderBtnText}>Citar</Text>
             </TouchableOpacity>
           )}

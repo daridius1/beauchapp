@@ -467,7 +467,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
 
         {/* Sección de Comentarios Polimórficos */}
         <View style={{ height: 1, backgroundColor: theme.colors.border, marginVertical: theme.spacing.lg }} />
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.xs }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
           <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '700' }}>Comentarios</Text>
 
           {match.status === 'confirmed' && (
@@ -476,7 +476,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
               activeOpacity={0.7}
               onPress={handleShareMatchToFeed}
             >
-              <Feather name="repeat" size={14} color={theme.colors.text} style={{ marginRight: 6 }} />
+              <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
               <Text style={styles.quoteHeaderBtnText}>Citar</Text>
             </TouchableOpacity>
           )}
