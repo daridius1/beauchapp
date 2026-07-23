@@ -2,6 +2,8 @@
 
 // Hook para creación y recuento polimórfico de comentarios/respuestas
 
+console.log("[LOAD] forum.pb.js hook loaded!");
+
 onRecordCreateRequest((e) => {
     try {
         const actionType = e.record.getString("actionType");
@@ -9,19 +11,24 @@ onRecordCreateRequest((e) => {
         const targetType = e.record.getString("targetType");
         const targetId = e.record.getString("targetId");
 
-        // Compatibilidad: si usa replyTo legacy sin actionType, mapear a polimórfico
-        if (replyTo && !actionType) {
+        // Compatibilidad bidireccional:
+        // 1. Si viene replyTo legacy, asegurar actionType = reply y targetId = replyTo
+        if (replyTo && !targetId) {
             e.record.set("actionType", "reply");
             if (!targetType) e.record.set("targetType", "post");
-            if (!targetId) e.record.set("targetId", replyTo);
+            e.record.set("targetId", replyTo);
+        }
+        // 2. Si viene targetId polimórfico en post, asegurar replyTo = targetId
+        if (actionType === "reply" && targetType === "post" && targetId && !replyTo) {
+            e.record.set("replyTo", targetId);
         }
 
         // Si es un comentario/respuesta, limpiar tags
-        if (e.record.getString("actionType") === "reply") {
+        if (e.record.getString("actionType") === "reply" || replyTo) {
             e.record.set("tags", []);
         }
 
-        // Inicializar conteo
+        // Inicializar conteo de comentarios propios en 0
         e.record.set("commentCount", 0);
         return e.next();
     } catch (outerErr) {
@@ -57,20 +64,20 @@ onRecordAfterDeleteSuccess((e) => {
     }
 }, "posts");
 
-// Función compartida: recalcular el commentCount de un post padre
+// Función compartida: recalcular el commentCount de un post padre usando $app.countRecords
 function recalcCommentCount(parentPostId) {
+    if (!parentPostId) return;
     try {
-        // Contar respuestas polimórficas (nuevo) + respuestas legacy (replyTo)
-        const rows = arrayOf(new DynamicModel({ "total": 0 }));
-        $app.db().newQuery(
-            "SELECT COUNT(*) as total FROM posts WHERE ((actionType = 'reply' AND targetType = 'post' AND targetId = {:pid}) OR (replyTo = {:pid} AND (actionType IS NULL OR actionType = '' OR actionType = 'reply'))) AND deleted = false"
-        ).bind({ "pid": parentPostId }).all(rows);
-
-        const newCount = rows.length > 0 ? rows[0].total : 0;
+        const count = $app.countRecords(
+            "posts",
+            `((targetId = "${parentPostId}" && actionType = "reply") || replyTo = "${parentPostId}") && deleted = false`
+        );
 
         $app.db().newQuery(
             "UPDATE posts SET commentCount = {:count} WHERE id = {:pid}"
-        ).bind({ "count": newCount, "pid": parentPostId }).execute();
+        ).bind({ "count": count, "pid": parentPostId }).execute();
+
+        console.log(`[forum.pb.js] Updated commentCount for post ${parentPostId} -> ${count}`);
     } catch (err) {
         console.log("[forum.pb.js] Error in recalcCommentCount:", err);
     }

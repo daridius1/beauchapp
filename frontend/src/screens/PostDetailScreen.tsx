@@ -135,6 +135,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         actionType: 'reply',
         targetType: 'post',
         targetId: mainPost.id,
+        replyTo: mainPost.id,
         targetMeta: {
           authorName: mainPost.expand?.author?.name || 'Usuario',
           authorUsername: mainPost.expand?.author?.username || '',
