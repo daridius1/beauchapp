@@ -252,8 +252,8 @@ export const PostCard: React.FC<PostCardProps> = ({
           </TouchableOpacity>
         )}
 
-        {/* Tags */}
-        {!isDeleted && post.tags && post.tags.length > 0 && (
+        {/* Tags (solo se muestran en publicaciones o citas principales, no en respuestas) */}
+        {!isDeleted && post.actionType !== 'reply' && !post.replyTo && post.tags && post.tags.length > 0 && (
           <View style={styles.tagsRow}>
             {post.tags.map((t: string, i: number) => {
               const ChipComponent = onTagPress ? TouchableOpacity : View;
