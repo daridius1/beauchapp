@@ -52,6 +52,26 @@ export const PostCard: React.FC<PostCardProps> = ({
   const isLiked = currentUser && (post.likes || []).includes(currentUser.id);
   const repliesCount = post.commentCount || 0;
 
+  const [repostCount, setRepostCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (isDeleted || !post.id) return;
+    let isMounted = true;
+    const fetchRepostCount = async () => {
+      try {
+        const res = await pb.collection('posts').getList(1, 1, {
+          filter: `targetId = "${post.id}" && actionType = "quote" && deleted = false`,
+          skipTotal: false,
+        });
+        if (isMounted) {
+          setRepostCount(res.totalItems);
+        }
+      } catch (err) {}
+    };
+    fetchRepostCount();
+    return () => { isMounted = false; };
+  }, [post.id, isDeleted]);
+
   const handleMentionPress = async (username: string) => {
     if (loadingMention) return;
     setLoadingMention(true);
@@ -210,11 +230,11 @@ export const PostCard: React.FC<PostCardProps> = ({
           )}
         </View>
         
-        {!!(post.actionType === 'reply' || post.replyTo) && (
+        {post.replyTo && (post.expand?.replyTo?.expand?.author || post.expand?.replyTo?.deleted) ? (
           <Text style={styles.replyContextText}>
-            En respuesta a @{post.targetMeta?.authorUsername || post.expand?.replyTo?.expand?.author?.username || 'Usuario'}
+            En respuesta a @{post.expand.replyTo.deleted ? '[eliminado]' : (post.expand.replyTo.expand?.author?.username || 'Usuario')}
           </Text>
-        )}
+        ) : null}
 
         {/* Texto del post (omitido si sólo contiene espacio en blanco de 1-clic) */}
         {!(isDeleted && !!post.entityType) && (isDeleted || (post.content && post.content.trim() !== '')) && (
@@ -227,8 +247,8 @@ export const PostCard: React.FC<PostCardProps> = ({
           </Text>
         )}
 
-        {/* Target Preview Polimórfico (solo para citas, no para respuestas) */}
-        {post.actionType === 'quote' && !!post.targetType && !!post.targetId && (
+        {/* Target Preview Polimórfico (Post, Problema o Partido citado/reposteado) */}
+        {!!post.targetType && !!post.targetId && (
           <TargetPreview
             targetType={post.targetType}
             targetId={post.targetId}
@@ -252,8 +272,8 @@ export const PostCard: React.FC<PostCardProps> = ({
           </TouchableOpacity>
         )}
 
-        {/* Tags (solo se muestran en publicaciones o citas principales, no en respuestas) */}
-        {!isDeleted && post.actionType !== 'reply' && !post.replyTo && post.tags && post.tags.length > 0 && (
+        {/* Tags */}
+        {!isDeleted && post.tags && post.tags.length > 0 && (
           <View style={styles.tagsRow}>
             {post.tags.map((t: string, i: number) => {
               const ChipComponent = onTagPress ? TouchableOpacity : View;
@@ -285,7 +305,8 @@ export const PostCard: React.FC<PostCardProps> = ({
 
           {!isDeleted && onRepostPress && (
             <TouchableOpacity style={styles.actionBtn} onPress={onRepostPress}>
-              <FontAwesome name="quote-left" size={14} color={theme.colors.textMuted} />
+              <FontAwesome name="quote-left" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+              <Text style={styles.actionCount}>{repostCount}</Text>
             </TouchableOpacity>
           )}
 
