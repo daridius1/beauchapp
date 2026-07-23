@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { theme } from '../../theme/theme';
 import { ladderService } from '../../services/ladderService';
 import { Ladder } from '../../types/ladder';
@@ -132,31 +132,50 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, na
       ) : (
         /* MARCADOR EN VIVO DE TENIS DE MESA (Puntos, Saque & Deuce) */
         <View style={styles.liveContainer}>
+          {/* Header Superior de Saque */}
+          <View style={[
+            styles.serveHeaderCard,
+            currentServer === 'red' ? styles.serveHeaderRed : styles.serveHeaderBlue
+          ]}>
+            <Text style={[
+              styles.serveHeaderText,
+              currentServer === 'red' ? styles.serveHeaderTextRed : styles.serveHeaderTextBlue
+            ]}>
+              SAQUE: {currentServer === 'red' ? redNamesLabel : blueNamesLabel}
+            </Text>
+          </View>
+
           {/* Primera fila: 2 Cuadrados de Puntaje */}
           <View style={styles.scoreSquaresRow}>
             {/* Cuadrado Lado Rojo */}
             <TouchableOpacity
-              style={[styles.squareScoreCard, styles.squareScoreCardRed, isTerminal && styles.disabled]}
+              style={[
+                styles.squareScoreCard,
+                styles.squareScoreCardRed,
+                currentServer === 'red' && styles.squareScoreCardServerRed,
+                isTerminal && styles.disabled
+              ]}
               activeOpacity={0.8}
               onPress={() => handlePoint('red')}
               disabled={isTerminal}
             >
-              <Text style={styles.redLabel} numberOfLines={1}>
-                {redNamesLabel} {currentServer === 'red' && '(Saque)'}
-              </Text>
+              <Text style={styles.redLabel} numberOfLines={1}>{redNamesLabel}</Text>
               <Text style={styles.scoreValRed}>{scoreRed}</Text>
             </TouchableOpacity>
 
             {/* Cuadrado Lado Azul */}
             <TouchableOpacity
-              style={[styles.squareScoreCard, styles.squareScoreCardBlue, isTerminal && styles.disabled]}
+              style={[
+                styles.squareScoreCard,
+                styles.squareScoreCardBlue,
+                currentServer === 'blue' && styles.squareScoreCardServerBlue,
+                isTerminal && styles.disabled
+              ]}
               activeOpacity={0.8}
               onPress={() => handlePoint('blue')}
               disabled={isTerminal}
             >
-              <Text style={styles.blueLabel} numberOfLines={1}>
-                {blueNamesLabel} {currentServer === 'blue' && '(Saque)'}
-              </Text>
+              <Text style={styles.blueLabel} numberOfLines={1}>{blueNamesLabel}</Text>
               <Text style={styles.scoreValBlue}>{scoreBlue}</Text>
             </TouchableOpacity>
           </View>
@@ -198,6 +217,33 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.4,
   },
+  serveHeaderCard: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serveHeaderRed: {
+    backgroundColor: 'rgba(255, 68, 68, 0.12)',
+    borderColor: '#ff4444',
+  },
+  serveHeaderBlue: {
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderColor: '#38bdf8',
+  },
+  serveHeaderText: {
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  serveHeaderTextRed: {
+    color: '#ff4444',
+  },
+  serveHeaderTextBlue: {
+    color: '#38bdf8',
+  },
   scoreSquaresRow: {
     flexDirection: 'row',
     gap: 12,
@@ -218,6 +264,22 @@ const styles = StyleSheet.create({
   },
   squareScoreCardBlue: {
     borderColor: 'rgba(56, 189, 248, 0.4)',
+  },
+  squareScoreCardServerRed: Platform.OS === 'web' ? ({
+    backgroundImage: 'linear-gradient(to top, rgba(255, 68, 68, 0.35) 0%, rgba(255, 68, 68, 0.08) 50%, transparent 100%)',
+    borderBottomWidth: 3,
+    borderBottomColor: '#ff4444',
+  } as any) : {
+    borderBottomWidth: 3,
+    borderBottomColor: '#ff4444',
+  },
+  squareScoreCardServerBlue: Platform.OS === 'web' ? ({
+    backgroundImage: 'linear-gradient(to top, rgba(56, 189, 248, 0.35) 0%, rgba(56, 189, 248, 0.08) 50%, transparent 100%)',
+    borderBottomWidth: 3,
+    borderBottomColor: '#38bdf8',
+  } as any) : {
+    borderBottomWidth: 3,
+    borderBottomColor: '#38bdf8',
   },
   redLabel: {
     fontSize: 12,
