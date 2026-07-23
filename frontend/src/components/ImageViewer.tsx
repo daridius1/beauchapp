@@ -50,7 +50,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ visible, imageUrl, onC
           onPress={onClose} 
         />
 
-        <View style={styles.scrollContent} pointerEvents="box-none">
+        <View style={[styles.scrollContent, { pointerEvents: 'box-none' }]}>
           <TouchableOpacity activeOpacity={1} style={styles.imageWrapper}>
             <Image 
               source={{ uri: imageUrl }}

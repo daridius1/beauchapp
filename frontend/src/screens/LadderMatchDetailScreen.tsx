@@ -198,7 +198,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
       >
         {/* Avatares de Fondo Lado Rojo (Superpuestos con borde negro) */}
         {match.expand?.team_red && match.expand.team_red.length > 0 && (
-          <View style={styles.bgAvatarLeftGroup} pointerEvents="none">
+          <View style={[styles.bgAvatarLeftGroup, { pointerEvents: 'none' }]}>
             {/* Jugador 1 (adelante / afuera) */}
             <View style={[styles.bgAvatarFrontLeft, match.expand.team_red.length > 1 && styles.bgAvatarBorderRing]}>
               <Avatar
@@ -233,7 +233,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
 
         {/* Avatares de Fondo Lado Azul (Superpuestos con borde negro) */}
         {match.expand?.team_blue && match.expand.team_blue.length > 0 && (
-          <View style={styles.bgAvatarRightGroup} pointerEvents="none">
+          <View style={[styles.bgAvatarRightGroup, { pointerEvents: 'none' }]}>
             {/* Jugador 1 (adelante / afuera) */}
             <View style={[styles.bgAvatarFrontRight, match.expand.team_blue.length > 1 && styles.bgAvatarBorderRing]}>
               <Avatar

@@ -50,25 +50,35 @@ export const PostCard: React.FC<PostCardProps> = ({
   const isDeleted = post.deleted === true;
   const author = isDeleted ? null : post.expand?.author;
   const isLiked = currentUser && (post.likes || []).includes(currentUser.id);
-  const repliesCount = post.commentCount || 0;
 
+  const [repliesCount, setRepliesCount] = useState<number>(post.commentCount || 0);
   const [repostCount, setRepostCount] = useState<number>(0);
+
+  useEffect(() => {
+    setRepliesCount(post.commentCount || 0);
+  }, [post.commentCount]);
 
   useEffect(() => {
     if (isDeleted || !post.id) return;
     let isMounted = true;
-    const fetchRepostCount = async () => {
+    const fetchCounts = async () => {
       try {
-        const res = await pb.collection('posts').getList(1, 1, {
+        // 1. Cargar conteo de citas de forma perezosa
+        const resRepost = await pb.collection('posts').getList(1, 1, {
           filter: `targetId = "${post.id}" && actionType = "quote" && deleted = false`,
           skipTotal: false,
         });
-        if (isMounted) {
-          setRepostCount(res.totalItems);
-        }
+        if (isMounted) setRepostCount(resRepost.totalItems);
+
+        // 2. Cargar conteo de respuestas de forma perezosa
+        const resReplies = await pb.collection('posts').getList(1, 1, {
+          filter: `((targetId = "${post.id}" && actionType = "reply") || replyTo = "${post.id}") && deleted = false`,
+          skipTotal: false,
+        });
+        if (isMounted) setRepliesCount(resReplies.totalItems);
       } catch (err) {}
     };
-    fetchRepostCount();
+    fetchCounts();
     return () => { isMounted = false; };
   }, [post.id, isDeleted]);
 
@@ -230,7 +240,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           )}
         </View>
         
-        {(post.actionType === 'reply' || post.replyTo) && (
+        {!!(post.actionType === 'reply' || post.replyTo) && (
           <Text style={styles.replyContextText}>
             En respuesta a @{post.targetMeta?.authorUsername || post.expand?.replyTo?.expand?.author?.username || 'Usuario'}
           </Text>

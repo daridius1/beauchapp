@@ -622,7 +622,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                         />
                         
                         {/* Tap left/right to browse images overlay */}
-                        <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+                        <View style={[StyleSheet.absoluteFillObject, { pointerEvents: 'box-none' }]}>
                           <TouchableOpacity
                             style={[styles.imageNavArea, { left: 0 }]}
                             onPress={() => setActivePhotoIndex(prev => Math.max(0, prev - 1))}
@@ -804,7 +804,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                     />
                     
                     {/* Tap left/right to browse images overlay */}
-                    <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+                    <View style={[StyleSheet.absoluteFillObject, { pointerEvents: 'box-none' }]}>
                       <TouchableOpacity
                         style={[styles.imageNavArea, { left: 0 }]}
                         onPress={() => setPreviewPhotoIndex(prev => Math.max(0, prev - 1))}
@@ -1029,7 +1029,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                       />
                       
                       {/* Tap left/right to browse images overlay */}
-                      <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+                      <View style={[StyleSheet.absoluteFillObject, { pointerEvents: 'box-none' }]}>
                         <TouchableOpacity
                           style={[styles.imageNavArea, { left: 0 }]}
                           onPress={() => setMatchPhotoIndex(prev => Math.max(0, prev - 1))}
@@ -1157,7 +1157,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                       />
                       
                       {/* Tap left/right to browse images overlay */}
-                      <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+                      <View style={[StyleSheet.absoluteFillObject, { pointerEvents: 'box-none' }]}>
                         <TouchableOpacity
                           style={[styles.imageNavArea, { left: 0 }]}
                           onPress={() => setDetailPhotoIndex(prev => Math.max(0, prev - 1))}

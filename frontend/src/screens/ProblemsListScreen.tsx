@@ -256,7 +256,7 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
             }}
             style={{ flex: 1, marginRight: theme.spacing.xs }}
           >
-            <View pointerEvents="none">
+            <View style={{ pointerEvents: 'none' }}>
               <TextInput
                 style={styles.academicFilterInput}
                 placeholder="Ramo"
@@ -279,7 +279,7 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
             }}
             style={{ flex: 1, marginRight: theme.spacing.xs }}
           >
-            <View pointerEvents="none">
+            <View style={{ pointerEvents: 'none' }}>
               <TextInput
                 style={styles.academicFilterInput}
                 placeholder="Semestre"
@@ -302,7 +302,7 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
             }}
             style={{ flex: 1 }}
           >
-            <View pointerEvents="none">
+            <View style={{ pointerEvents: 'none' }}>
               <TextInput
                 style={styles.academicFilterInput}
                 placeholder="Instancia"
@@ -319,7 +319,7 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
           onPress={() => setShowTagModal(true)}
           style={{ marginBottom: theme.spacing.xs }}
         >
-          <View pointerEvents="none">
+          <View style={{ pointerEvents: 'none' }}>
             <TextInput
               style={styles.academicFilterInput}
               placeholder="Filtrar por Etiqueta (Agregar...)"

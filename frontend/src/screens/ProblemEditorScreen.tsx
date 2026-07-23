@@ -350,7 +350,7 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
                   style={[styles.inputGroup, { flex: 1, marginRight: theme.spacing.xs }]}
                 >
                   <Text style={styles.inputLabel}>Ramo</Text>
-                  <View pointerEvents="none">
+                  <View style={{ pointerEvents: 'none' }}>
                     <TextInput
                       style={styles.textInput}
                       placeholder="Ej. MA1001"
@@ -373,7 +373,7 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
                   style={[styles.inputGroup, { flex: 1, marginRight: theme.spacing.xs }]}
                 >
                   <Text style={styles.inputLabel}>Semestre</Text>
-                  <View pointerEvents="none">
+                  <View style={{ pointerEvents: 'none' }}>
                     <TextInput
                       style={styles.textInput}
                       placeholder="Ej. 2024-1"
@@ -396,7 +396,7 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
                   style={[styles.inputGroup, { flex: 1 }]}
                 >
                   <Text style={styles.inputLabel}>Instancia</Text>
-                  <View pointerEvents="none">
+                  <View style={{ pointerEvents: 'none' }}>
                     <TextInput
                       style={styles.textInput}
                       placeholder="Ej. C1"
@@ -421,7 +421,7 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
                   style={{ marginTop: theme.spacing.xs }}
                   disabled={tags.length + ((ramo ? 1 : 0) + (semestre ? 1 : 0) + (instancia ? 1 : 0)) >= 10}
                 >
-                  <View pointerEvents="none">
+                  <View style={{ pointerEvents: 'none' }}>
                     <TextInput
                       style={styles.textInput}
                       placeholder={tags.length + ((ramo ? 1 : 0) + (semestre ? 1 : 0) + (instancia ? 1 : 0)) >= 10 ? "Límite de 10 etiquetas alcanzado" : "Seleccionar / Agregar etiqueta..."}
