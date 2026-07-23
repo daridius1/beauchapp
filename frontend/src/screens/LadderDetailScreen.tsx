@@ -32,7 +32,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [ladder, setLadder] = useState<Ladder | null>(null);
   const [leaderboard, setLeaderboard] = useState<LadderRank[]>([]);
   const [matches, setMatches] = useState<LadderMatch[]>([]);
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'matches'>('leaderboard');
+  const [activeTab, setActiveTab] = useState<'leaderboard' | 'matches' | 'my_matches'>('leaderboard');
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
@@ -116,8 +116,16 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     );
   }
 
-  // Filtrar solo las partidas confirmadas para el historial
+  // Filtrar solo las partidas confirmadas para el historial público
   const confirmedMatches = matches.filter((m) => m.status === 'confirmed');
+
+  // Filtrar las partidas del usuario (incluyendo las pendientes de confirmación y disputadas)
+  const myMatches = matches.filter((m) => {
+    if (!user) return false;
+    const inRed = (m.team_red || []).includes(user.id) || (m.expand?.team_red || []).some((u: any) => u.id === user.id);
+    const inBlue = (m.team_blue || []).includes(user.id) || (m.expand?.team_blue || []).some((u: any) => u.id === user.id);
+    return inRed || inBlue;
+  });
 
   return (
     <ScrollView
@@ -157,14 +165,21 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           style={[styles.tabButton, activeTab === 'leaderboard' && styles.tabButtonActive]}
           onPress={() => setActiveTab('leaderboard')}
         >
-          <Text style={[styles.tabText, activeTab === 'leaderboard' && styles.tabTextActive]}>Tabla de Posiciones</Text>
+          <Text style={[styles.tabText, activeTab === 'leaderboard' && styles.tabTextActive]}>Posiciones</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'matches' && styles.tabButtonActive]}
           onPress={() => setActiveTab('matches')}
         >
-          <Text style={[styles.tabText, activeTab === 'matches' && styles.tabTextActive]}>Historial de Partidos</Text>
+          <Text style={[styles.tabText, activeTab === 'matches' && styles.tabTextActive]}>Historial</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'my_matches' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('my_matches')}
+        >
+          <Text style={[styles.tabText, activeTab === 'my_matches' && styles.tabTextActive]}>Mis Partidas</Text>
         </TouchableOpacity>
       </View>
 
@@ -248,6 +263,98 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   activeOpacity={0.7}
                   onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id, slug: activeCategory.slug, name: sportGroupInfo.group.groupName })}
                 >
+                  <View style={styles.matchCardMain}>
+                    {/* Integrantes Equipo Rojo */}
+                    <View style={{ flex: 1, justifyContent: 'center' }}>
+                      {m.expand?.team_red && m.expand.team_red.length > 0 ? (
+                        m.expand.team_red.map((p) => (
+                          <Text key={p.id} style={styles.teamRedName} numberOfLines={1}>
+                            {p.name}
+                          </Text>
+                        ))
+                      ) : (
+                        <Text style={styles.teamRedName} numberOfLines={1}>Lado Rojo</Text>
+                      )}
+                    </View>
+                    
+                    {/* Marcador con Guión Estrictamente Centrado */}
+                    <View style={styles.scoreContainerFixed}>
+                      <Text style={styles.scoreNumRed}>{m.score_red}</Text>
+                      <Text style={styles.scoreDash}>-</Text>
+                      <Text style={styles.scoreNumBlue}>{m.score_blue}</Text>
+                    </View>
+
+                    {/* Integrantes Equipo Azul */}
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-end' }}>
+                      {m.expand?.team_blue && m.expand.team_blue.length > 0 ? (
+                        m.expand.team_blue.map((p) => (
+                          <Text key={p.id} style={styles.teamBlueNameRight} numberOfLines={1}>
+                            {p.name}
+                          </Text>
+                        ))
+                      ) : (
+                        <Text style={styles.teamBlueNameRight} numberOfLines={1}>Lado Azul</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Fecha abajo al centro */}
+                  <View style={styles.matchDateFooter}>
+                    <Text style={styles.matchDateText}>{formattedDate}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
+      )}
+
+      {/* TAB 3: MIS PARTIDAS (Partidas del usuario actual incluyendo pendientes) */}
+      {activeTab === 'my_matches' && (
+        <View style={styles.sectionContainer}>
+          {!user ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Inicia sesión para ver tus partidas.</Text>
+            </View>
+          ) : myMatches.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Aún no tienes partidas registradas en {activeCategory.label}.</Text>
+            </View>
+          ) : (
+            myMatches.map((m) => {
+              const createdDate = new Date(m.created);
+              const day = String(createdDate.getDate()).padStart(2, '0');
+              const month = String(createdDate.getMonth() + 1).padStart(2, '0');
+              const year = String(createdDate.getFullYear()).slice(-2);
+              const formattedDate = `${day}/${month}/${year}`;
+
+              const isRedWinner = m.score_red > m.score_blue;
+              const isBlueWinner = m.score_blue > m.score_red;
+              const isPending = m.status === 'pending_confirmation' || m.status === 'disputed';
+
+              return (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[
+                    styles.matchCard,
+                    isRedWinner && m.status === 'confirmed' && styles.matchCardRedWon,
+                    isBlueWinner && m.status === 'confirmed' && styles.matchCardBlueWon,
+                    isPending && styles.matchCardPending,
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id, slug: activeCategory.slug, name: sportGroupInfo.group.groupName })}
+                >
+                  {isPending && (
+                    <View style={styles.pendingBadgeRow}>
+                      <View style={styles.pendingChip}>
+                        <Feather name="clock" size={10} color="#ffaa00" style={{ marginRight: 4 }} />
+                        <Text style={styles.pendingChipText}>
+                          {m.status === 'disputed' ? 'Disputado (Rechazado)' : 'Pendiente de confirmación'}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
                   <View style={styles.matchCardMain}>
                     {/* Integrantes Equipo Rojo */}
                     <View style={{ flex: 1, justifyContent: 'center' }}>
@@ -520,5 +627,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: '#38bdf8',
+  },
+  matchCardPending: {
+    borderColor: '#ffaa00',
+    borderWidth: 1,
+    backgroundColor: 'rgba(255, 170, 0, 0.04)',
+  },
+  pendingBadgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  pendingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 170, 0, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  pendingChipText: {
+    color: '#ffaa00',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
