@@ -1,6 +1,6 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Hook para creación y recuento polimórfico de comentarios/respuestas
+// Hook para actualización directa y confiable del contador de comentarios (commentCount)
 
 console.log("[LOAD] forum.pb.js hook loaded!");
 
@@ -11,14 +11,12 @@ onRecordCreateRequest((e) => {
         const targetType = e.record.getString("targetType");
         const targetId = e.record.getString("targetId");
 
-        // Compatibilidad bidireccional:
-        // 1. Si viene replyTo legacy, asegurar actionType = reply y targetId = replyTo
+        // Sincronización bidireccional entre replyTo y targetId
         if (replyTo && !targetId) {
             e.record.set("actionType", "reply");
             if (!targetType) e.record.set("targetType", "post");
             e.record.set("targetId", replyTo);
         }
-        // 2. Si viene targetId polimórfico en post, asegurar replyTo = targetId
         if (actionType === "reply" && targetType === "post" && targetId && !replyTo) {
             e.record.set("replyTo", targetId);
         }
@@ -36,52 +34,54 @@ onRecordCreateRequest((e) => {
     }
 }, "posts");
 
-// Recalcular commentCount del post padre después de crear una respuesta
+// Incrementar commentCount del post padre al crear una respuesta
 onRecordAfterCreateSuccess((e) => {
     try {
         const actionType = e.record.getString("actionType");
-        const targetId = e.record.getString("targetId") || e.record.getString("replyTo");
+        const replyTo = e.record.getString("replyTo");
+        const targetId = e.record.getString("targetId");
+        const parentId = targetId || replyTo;
 
-        if ((actionType === "reply" || e.record.getString("replyTo")) && targetId) {
-            recalcCommentCount(targetId);
+        if ((actionType === "reply" || replyTo) && parentId) {
+            try {
+                const parent = $app.findRecordById("posts", parentId);
+                const currentCount = parent.getInt("commentCount") || 0;
+                parent.set("commentCount", currentCount + 1);
+                $app.save(parent);
+                console.log(`[forum.pb.js] Incrementado commentCount de ${parentId}: ${currentCount} -> ${currentCount + 1}`);
+            } catch (err) {
+                console.log(`[forum.pb.js] No se encontró el padre ${parentId} para incrementar commentCount:`, err);
+            }
         }
     } catch (err) {
-        console.log("[forum.pb.js] Error updating comment count after create:", err);
+        console.log("[forum.pb.js] Error in onRecordAfterCreateSuccess:", err);
     }
 }, "posts");
 
-// Recalcular commentCount del post padre después de eliminar una respuesta
+// Decrementar commentCount del post padre al eliminar una respuesta
 onRecordAfterDeleteSuccess((e) => {
     try {
         const actionType = e.record.getString("actionType");
-        const targetId = e.record.getString("targetId") || e.record.getString("replyTo");
+        const replyTo = e.record.getString("replyTo");
+        const targetId = e.record.getString("targetId");
+        const parentId = targetId || replyTo;
 
-        if ((actionType === "reply" || e.record.getString("replyTo")) && targetId) {
-            recalcCommentCount(targetId);
+        if ((actionType === "reply" || replyTo) && parentId) {
+            try {
+                const parent = $app.findRecordById("posts", parentId);
+                const currentCount = parent.getInt("commentCount") || 0;
+                const newCount = Math.max(0, currentCount - 1);
+                parent.set("commentCount", newCount);
+                $app.save(parent);
+                console.log(`[forum.pb.js] Decrementado commentCount de ${parentId}: ${currentCount} -> ${newCount}`);
+            } catch (err) {
+                console.log(`[forum.pb.js] No se encontró el padre ${parentId} para decrementar commentCount:`, err);
+            }
         }
     } catch (err) {
-        console.log("[forum.pb.js] Error updating comment count after delete:", err);
+        console.log("[forum.pb.js] Error in onRecordAfterDeleteSuccess:", err);
     }
 }, "posts");
-
-// Función compartida: recalcular el commentCount de un post padre usando $app.countRecords
-function recalcCommentCount(parentPostId) {
-    if (!parentPostId) return;
-    try {
-        const count = $app.countRecords(
-            "posts",
-            `((targetId = "${parentPostId}" && actionType = "reply") || replyTo = "${parentPostId}") && deleted = false`
-        );
-
-        $app.db().newQuery(
-            "UPDATE posts SET commentCount = {:count} WHERE id = {:pid}"
-        ).bind({ "count": count, "pid": parentPostId }).execute();
-
-        console.log(`[forum.pb.js] Updated commentCount for post ${parentPostId} -> ${count}`);
-    } catch (err) {
-        console.log("[forum.pb.js] Error in recalcCommentCount:", err);
-    }
-}
 
 // Redactar posts/comentarios eliminados para no administradores
 onRecordEnrich((e) => {

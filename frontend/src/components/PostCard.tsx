@@ -50,37 +50,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   const isDeleted = post.deleted === true;
   const author = isDeleted ? null : post.expand?.author;
   const isLiked = currentUser && (post.likes || []).includes(currentUser.id);
-
-  const [repliesCount, setRepliesCount] = useState<number>(post.commentCount || 0);
-  const [repostCount, setRepostCount] = useState<number>(0);
-
-  useEffect(() => {
-    setRepliesCount(post.commentCount || 0);
-  }, [post.commentCount]);
-
-  useEffect(() => {
-    if (isDeleted || !post.id) return;
-    let isMounted = true;
-    const fetchCounts = async () => {
-      try {
-        // 1. Cargar conteo de citas de forma perezosa
-        const resRepost = await pb.collection('posts').getList(1, 1, {
-          filter: `targetId = "${post.id}" && actionType = "quote" && deleted = false`,
-          skipTotal: false,
-        });
-        if (isMounted) setRepostCount(resRepost.totalItems);
-
-        // 2. Cargar conteo de respuestas de forma perezosa
-        const resReplies = await pb.collection('posts').getList(1, 1, {
-          filter: `((targetId = "${post.id}" && actionType = "reply") || replyTo = "${post.id}") && deleted = false`,
-          skipTotal: false,
-        });
-        if (isMounted) setRepliesCount(resReplies.totalItems);
-      } catch (err) {}
-    };
-    fetchCounts();
-    return () => { isMounted = false; };
-  }, [post.id, isDeleted]);
+  const repliesCount = post.commentCount || 0;
 
   const handleMentionPress = async (username: string) => {
     if (loadingMention) return;
@@ -315,8 +285,7 @@ export const PostCard: React.FC<PostCardProps> = ({
 
           {!isDeleted && onRepostPress && (
             <TouchableOpacity style={styles.actionBtn} onPress={onRepostPress}>
-              <FontAwesome name="quote-left" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
-              <Text style={styles.actionCount}>{repostCount}</Text>
+              <FontAwesome name="quote-left" size={14} color={theme.colors.textMuted} />
             </TouchableOpacity>
           )}
 

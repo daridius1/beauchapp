@@ -145,6 +145,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       if (photo) postData.photo = photo;
 
       await pb.collection('posts').create(postData);
+      setMainPost((prev: any) => prev ? { ...prev, commentCount: (prev.commentCount || 0) + 1 } : prev);
       setPhoto(null);
       setContent('');
       fetchData(true);
