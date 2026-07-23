@@ -59,7 +59,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     let curr = (post.actionType === 'reply' && post.targetType === 'post' ? post.targetId : null) || post.replyTo;
     while (curr) {
       try {
-        const parent = await pb.collection('posts').getOne(curr, { expand: 'author' });
+        const parent = await pb.collection('posts').getOne(curr, { expand: 'author,replyTo.author' });
         path.unshift(parent);
         curr = (parent.actionType === 'reply' && parent.targetType === 'post' ? parent.targetId : null) || parent.replyTo;
       } catch (e) {
@@ -74,7 +74,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     try {
       const res = await pb.collection('posts').getList(pageNum, 15, {
         filter: `((targetType = "post" && targetId = "${parentId}" && actionType = "reply") || replyTo = "${parentId}") && deleted = false`,
-        expand: 'author',
+        expand: 'author,replyTo.author',
         sort: '+created'
       });
       if (isLoadMore) {
@@ -94,7 +94,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const fetchData = async (hideLoading = false) => {
     if (!hideLoading) setLoading(true);
     try {
-      const postRes = await pb.collection('posts').getOne(postId, { expand: 'author' });
+      const postRes = await pb.collection('posts').getOne(postId, { expand: 'author,replyTo.author' });
       setMainPost(postRes);
       
       const path = await fetchAncestors(postRes);
