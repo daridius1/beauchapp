@@ -12,6 +12,8 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import Toast from 'react-native-toast-message';
 import { pb } from '../services/pocketbase';
+import { PostCard } from '../components/PostCard';
+import { EntityCommentBox } from '../components/EntityCommentBox';
 
 type MatchDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LadderMatchDetail'>;
 type MatchDetailScreenRouteProp = RouteProp<RootStackParamList, 'LadderMatchDetail'>;
@@ -26,6 +28,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
   const { user: currentUser } = useAuth();
 
   const [match, setMatch] = useState<LadderMatch | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [quoteModalVisible, setQuoteModalVisible] = useState(false);
@@ -70,6 +73,17 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
             name: data.expand.ladder.name,
           });
         }
+
+        try {
+          const commentsRes = await pb.collection('posts').getList(1, 50, {
+            filter: `targetType = "match" && targetId = "${matchId}" && actionType = "comment" && deleted = false`,
+            sort: '+created',
+            expand: 'author'
+          });
+          setComments(commentsRes.items);
+        } catch (err) {
+          console.error('Error fetching match comments:', err);
+        }
       }, 400);
     } catch (err) {
       console.error('Error fetching match details:', err);
@@ -101,6 +115,60 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
       });
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleSendComment = async (content: string, photoFile: File | null) => {
+    if ((!content.trim() && !photoFile) || !currentUser || !match) return;
+    try {
+      const postData: any = {
+        content: content.trim() || " ",
+        author: currentUser.id,
+        actionType: 'comment',
+        targetType: 'match',
+        targetId: match.id,
+        targetMeta: {
+          sportName: match.expand?.ladder?.name || 'Escalafón',
+          mode: match.mode || '1v1',
+          scoreRed: match.score_red,
+          scoreBlue: match.score_blue,
+        }
+      };
+      if (photoFile) postData.photo = photoFile;
+
+      const created = await pb.collection('posts').create(postData, { expand: 'author' });
+      setComments(prev => [...prev, created]);
+      setMatch((prev: any) => prev ? { ...prev, commentCount: (prev.commentCount || 0) + 1 } : prev);
+      Toast.show({ type: 'success', text1: 'Comentario publicado' });
+    } catch (err) {
+      console.error('Error enviando comentario:', err);
+      Toast.show({ type: 'error', text1: 'Error al enviar comentario' });
+      throw err;
+    }
+  };
+
+  const toggleLikeComment = async (post: any) => {
+    if (!currentUser) return;
+    try {
+      const likes = post.likes || [];
+      const hasLiked = likes.includes(currentUser.id);
+      const updatedLikes = hasLiked ? likes.filter((id: string) => id !== currentUser.id) : [...likes, currentUser.id];
+      setComments(prev => prev.map(c => c.id === post.id ? { ...c, likes: updatedLikes } : c));
+      await pb.collection('posts').update(post.id, { likes: updatedLikes });
+    } catch (err) {
+      console.error('Error liking comment:', err);
+      fetchMatch(true);
+    }
+  };
+
+  const handleDeleteComment = async (postId: string) => {
+    try {
+      setComments(prev => prev.filter(c => c.id !== postId));
+      await pb.collection('posts').update(postId, { deleted: true });
+      Toast.show({ type: 'success', text1: 'Comentario eliminado' });
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+      fetchMatch(true);
     }
   };
 
@@ -406,7 +474,44 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
           })}
         </View>
       )}
-    </ScrollView>
+
+        {/* Sección de Comentarios Polimórficos */}
+        <View style={{ height: 1, backgroundColor: theme.colors.border, marginVertical: theme.spacing.lg }} />
+        <View style={{ marginBottom: theme.spacing.xs }}>
+          <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '700' }}>Comentarios</Text>
+        </View>
+
+        {/* Caja de Comentarios Reutilizable Inline */}
+        {currentUser && (
+          <EntityCommentBox
+            placeholder="Escribe un comentario sobre este partido..."
+            style={{ marginHorizontal: -theme.spacing.md }}
+            onSendComment={handleSendComment}
+          />
+        )}
+
+        {comments.length === 0 ? (
+          <View style={{ padding: theme.spacing.xl, alignItems: 'center' }}>
+            <Feather name="message-square" size={28} color={theme.colors.textMuted} style={{ marginBottom: 8 }} />
+            <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Aún no hay comentarios.</Text>
+            <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginTop: 2 }}>Sé el primero en comentar esta partida.</Text>
+          </View>
+        ) : (
+          comments.map(c => (
+            <View key={c.id} style={{ marginHorizontal: -theme.spacing.md }}>
+              <PostCard
+                post={c}
+                currentUser={currentUser}
+                hideTargetContext={true}
+                onPress={() => navigation.push('PostDetail', { postId: c.id })}
+                onLikePress={() => toggleLikeComment(c)}
+                onDeletePress={() => handleDeleteComment(c.id)}
+                onAuthorPress={() => navigation.push('UserProfile', { userId: c.author })}
+              />
+            </View>
+          ))
+        )}
+      </ScrollView>
   );
 };
 
