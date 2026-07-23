@@ -44,8 +44,10 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, na
   const terminalState = checkIsTerminal(scoreRed, scoreBlue);
   const isTerminal = terminalState.isTerminal;
 
-  const redNamesLabel = teamRed.map((p) => p?.name).filter(Boolean).join(', ') || 'Equipo Rojo';
-  const blueNamesLabel = teamBlue.map((p) => p?.name).filter(Boolean).join(', ') || 'Equipo Azul';
+  const redPlayers = teamRed.map((p) => p?.name).filter(Boolean);
+  const bluePlayers = teamBlue.map((p) => p?.name).filter(Boolean);
+  const redNamesLabel = redPlayers.join(', ') || 'Equipo Rojo';
+  const blueNamesLabel = bluePlayers.join(', ') || 'Equipo Azul';
 
   const totalPointsPlayed = scoreRed + scoreBlue;
   let currentServerTeam: 'red' | 'blue' = 'red';
@@ -188,7 +190,23 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, na
               onPress={() => handlePoint('red')}
               disabled={isTerminal}
             >
-              <Text style={styles.redLabel} numberOfLines={1}>{redNamesLabel}</Text>
+              <View style={styles.cardNamesContainer}>
+                {redPlayers.length > 0 ? (
+                  redPlayers.map((name, index) => (
+                    <React.Fragment key={index}>
+                      {index > 0 && (
+                        <View style={styles.nameSeparatorRow}>
+                          <View style={styles.nameDotRed} />
+                        </View>
+                      )}
+                      <Text style={styles.redLabel} numberOfLines={1}>{name}</Text>
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Text style={styles.redLabel} numberOfLines={1}>Equipo Rojo</Text>
+                )}
+              </View>
+
               <Text style={styles.scoreValRed}>{scoreRed}</Text>
             </TouchableOpacity>
 
@@ -204,7 +222,23 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, na
               onPress={() => handlePoint('blue')}
               disabled={isTerminal}
             >
-              <Text style={styles.blueLabel} numberOfLines={1}>{blueNamesLabel}</Text>
+              <View style={styles.cardNamesContainer}>
+                {bluePlayers.length > 0 ? (
+                  bluePlayers.map((name, index) => (
+                    <React.Fragment key={index}>
+                      {index > 0 && (
+                        <View style={styles.nameSeparatorRow}>
+                          <View style={styles.nameDotBlue} />
+                        </View>
+                      )}
+                      <Text style={styles.blueLabel} numberOfLines={1}>{name}</Text>
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Text style={styles.blueLabel} numberOfLines={1}>Equipo Azul</Text>
+                )}
+              </View>
+
               <Text style={styles.scoreValBlue}>{scoreBlue}</Text>
             </TouchableOpacity>
           </View>
@@ -214,7 +248,7 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, na
             <TouchableOpacity
               style={[styles.undoSquareBtn, pointHistory.length === 0 && styles.disabled]}
               onPress={handleUndoPoint}
-              disabled={pointHistory.length === 0 || isTerminal}
+              disabled={pointHistory.length === 0}
               activeOpacity={0.8}
             >
               <Feather name="rotate-ccw" color="#ffffff" size={20} />
@@ -315,6 +349,33 @@ const styles = StyleSheet.create({
   } as any) : {
     borderBottomWidth: 3,
     borderBottomColor: '#38bdf8',
+  },
+  cardNamesContainer: {
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 4,
+  },
+  nameSeparatorRow: {
+    height: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 2,
+  },
+  nameDotRed: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#ff4444',
+    opacity: 0.6,
+  },
+  nameDotBlue: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#38bdf8',
+    opacity: 0.6,
   },
   redLabel: {
     fontSize: 12,

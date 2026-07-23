@@ -137,7 +137,7 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, initialMode, navig
             <TouchableOpacity
               style={[styles.undoSquareBtn, goalHistory.length === 0 && styles.disabled]}
               onPress={handleUndoGoal}
-              disabled={goalHistory.length === 0 || isTerminal}
+              disabled={goalHistory.length === 0}
               activeOpacity={0.8}
             >
               <Feather name="rotate-ccw" color="#ffffff" size={20} />

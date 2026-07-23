@@ -461,7 +461,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
             <TouchableOpacity
               style={[styles.undoSquareBtn, undoStack.length === 0 && styles.disabled]}
-              disabled={undoStack.length === 0 || isTerminal}
+              disabled={undoStack.length === 0}
               onPress={handleUndo}
               activeOpacity={0.85}
             >
