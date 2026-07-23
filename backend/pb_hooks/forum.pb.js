@@ -1,12 +1,11 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// 6. Lógica de Árboles Estilo Reddit para Posts (Lógica inyectada directamente en los hooks)
+// Hook para actualización directa del árbol de comentarios (replyTo / root)
+
+console.log("[LOAD] forum.pb.js hook loaded!");
 
 onRecordCreateRequest((e) => {
-    console.log("[DEBUG] onRecordCreateRequest triggered for posts");
-    console.log("[DEBUG] Auth user ID:", e.auth ? e.auth.id : "null");
-    console.log("[DEBUG] Record author field:", e.record.get("author"));
-    console.log("[DEBUG] Is superuser auth:", e.hasSuperuserAuth());
+    console.log("[DEBUG] onRecordCreateRequest triggered for post ID:", e.record.id || "new");
 
     try {
         const parentId = e.record.getString("replyTo");
@@ -23,107 +22,77 @@ onRecordCreateRequest((e) => {
                     rootId = parent.id; // El padre es la raíz
                 }
                 e.record.set("root", rootId);
+                console.log(`[DEBUG] Asignado rootId ${rootId} a la respuesta`);
             } catch (err) {
-                console.log("[DEBUG] Error in root hook:", err);
+                console.log("[DEBUG] Error buscando root en create hook:", err);
             }
         }
 
-        // Inicializar conteo
+        // Inicializar conteo propio en 0
         e.record.set("commentCount", 0);
-        console.log("[DEBUG] Posts check passed, calling e.next()...");
         return e.next();
     } catch (outerErr) {
         console.log("[DEBUG] OUTER ERROR in posts create hook:", outerErr);
     }
 }, "posts");
 
+// Incrementar commentCount en toda la cadena de ancestros (replyTo) al crear una respuesta
 onRecordAfterCreateSuccess((e) => {
     console.log("[DEBUG] forum.pb.js onRecordAfterCreateSuccess triggered for post ID:", e.record.id);
-    const rootId = e.record.getString("root");
-    if (rootId) {
-        try {
-            const rows = arrayOf(new DynamicModel({ "id": "", "replyTo": "", "commentCount": 0 }));
-            $app.db().select("id", "replyTo", "commentCount").from("posts").where(
-                $dbx.or($dbx.hashExp({ "root": rootId }), $dbx.hashExp({ "id": rootId }))
-            ).all(rows);
-            
-            const childrenMap = {};
-            for (let j = 0; j < rows.length; j++) {
-                const r = rows[j];
-                if (r.replyTo) {
-                    if (!childrenMap[r.replyTo]) childrenMap[r.replyTo] = [];
-                    childrenMap[r.replyTo].push(r.id);
-                }
+    const parentId = e.record.getString("replyTo");
+
+    if (parentId) {
+        let curr = parentId;
+        const visited = new Set();
+        let depth = 0;
+
+        while (curr && depth < 20 && !visited.has(curr)) {
+            visited.add(curr);
+            try {
+                const parent = $app.findRecordById("posts", curr);
+                const currentCount = parent.getInt("commentCount") || 0;
+                parent.set("commentCount", currentCount + 1);
+                $app.save(parent);
+                console.log(`[DEBUG] Incrementado commentCount para ${curr}: ${currentCount} -> ${currentCount + 1}`);
+
+                curr = parent.getString("replyTo");
+            } catch (err) {
+                console.log(`[DEBUG] Error actualizando commentCount para ancestro ${curr}:`, err);
+                break;
             }
-            
-            function countDescendants(postId) {
-                const kids = childrenMap[postId] || [];
-                let count = kids.length;
-                for (let i = 0; i < kids.length; i++) {
-                    count += countDescendants(kids[i]);
-                }
-                return count;
-            }
-            
-            for (let j = 0; j < rows.length; j++) {
-                const r = rows[j];
-                const newCount = countDescendants(r.id);
-                if (r.commentCount !== newCount) {
-                    $app.db().newQuery("UPDATE posts SET commentCount = {:count} WHERE id = {:id}").bind({
-                        "count": newCount,
-                        "id": r.id,
-                    }).execute();
-                }
-            }
-        } catch (err) {
-            console.log("Error recalcTree create:", err);
+            depth++;
         }
     }
-
 }, "posts");
 
+// Decrementar commentCount en toda la cadena de ancestros (replyTo) al eliminar una respuesta
 onRecordAfterDeleteSuccess((e) => {
-    const rootId = e.record.getString("root");
-    if (rootId) {
-        try {
-            const rows = arrayOf(new DynamicModel({ "id": "", "replyTo": "", "commentCount": 0 }));
-            $app.db().select("id", "replyTo", "commentCount").from("posts").where(
-                $dbx.or($dbx.hashExp({ "root": rootId }), $dbx.hashExp({ "id": rootId }))
-            ).all(rows);
-            
-            const childrenMap = {};
-            for (let j = 0; j < rows.length; j++) {
-                const r = rows[j];
-                if (r.replyTo) {
-                    if (!childrenMap[r.replyTo]) childrenMap[r.replyTo] = [];
-                    childrenMap[r.replyTo].push(r.id);
-                }
+    console.log("[DEBUG] forum.pb.js onRecordAfterDeleteSuccess triggered for post ID:", e.record.id);
+    const parentId = e.record.getString("replyTo");
+
+    if (parentId) {
+        let curr = parentId;
+        const visited = new Set();
+        let depth = 0;
+
+        while (curr && depth < 20 && !visited.has(curr)) {
+            visited.add(curr);
+            try {
+                const parent = $app.findRecordById("posts", curr);
+                const currentCount = parent.getInt("commentCount") || 0;
+                const newCount = Math.max(0, currentCount - 1);
+                parent.set("commentCount", newCount);
+                $app.save(parent);
+                console.log(`[DEBUG] Decrementado commentCount para ${curr}: ${currentCount} -> ${newCount}`);
+
+                curr = parent.getString("replyTo");
+            } catch (err) {
+                console.log(`[DEBUG] Error decrementando commentCount para ancestro ${curr}:`, err);
+                break;
             }
-            
-            function countDescendants(postId) {
-                const kids = childrenMap[postId] || [];
-                let count = kids.length;
-                for (let i = 0; i < kids.length; i++) {
-                    count += countDescendants(kids[i]);
-                }
-                return count;
-            }
-            
-            for (let j = 0; j < rows.length; j++) {
-                const r = rows[j];
-                const newCount = countDescendants(r.id);
-                if (r.commentCount !== newCount) {
-                    $app.db().newQuery("UPDATE posts SET commentCount = {:count} WHERE id = {:id}").bind({
-                        "count": newCount,
-                        "id": r.id,
-                    }).execute();
-                }
-            }
-        } catch (err) {
-            console.log("Error recalcTree delete:", err);
+            depth++;
         }
     }
-
 }, "posts");
 
 // Redactar posts eliminados para no administradores
@@ -144,4 +113,3 @@ onRecordEnrich((e) => {
     }
     return e.next();
 }, "posts");
-
