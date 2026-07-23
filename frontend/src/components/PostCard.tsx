@@ -223,10 +223,40 @@ export const PostCard: React.FC<PostCardProps> = ({
           )}
         </View>
         
+        {/* Contexto clickeable para Respuestas a Posts */}
         {!!(post.actionType === 'reply' || post.replyTo) && (
-          <Text style={styles.replyContextText}>
-            En respuesta a @{post.targetMeta?.authorUsername || post.expand?.replyTo?.expand?.author?.username || 'Usuario'}
-          </Text>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={(e: any) => {
+              if (e.stopPropagation) e.stopPropagation();
+              const parentId = post.replyTo || post.targetId;
+              if (parentId) {
+                navigation.push('PostDetail', { postId: parentId });
+              }
+            }}
+          >
+            <Text style={styles.replyContextText}>
+              En respuesta a <Text style={{ fontWeight: '700' }}>@{post.targetMeta?.authorUsername || post.expand?.replyTo?.expand?.author?.username || 'Usuario'}</Text>
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Contexto clickeable para Comentarios a Objetos No-Post (Problemas, Partidos, etc.) */}
+        {post.actionType === 'comment' && !!post.targetType && !!post.targetId && (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={(e: any) => {
+              if (e.stopPropagation) e.stopPropagation();
+              handleDefaultTargetPress();
+            }}
+          >
+            <Text style={styles.replyContextText}>
+              En respuesta a {post.targetType === 'problem' ? 'Problema: ' : post.targetType === 'match' ? 'Partido: ' : ''}
+              <Text style={{ fontWeight: '700', textDecorationLine: 'underline' }}>
+                {post.targetMeta?.title || post.targetMeta?.sportName || (post.targetType === 'problem' ? 'Ver problema' : 'Ver partido')}
+              </Text>
+            </Text>
+          </TouchableOpacity>
         )}
 
         {/* Texto del post (omitido si sólo contiene espacio en blanco de 1-clic) */}
