@@ -91,7 +91,6 @@ export const EntityCommentBox: React.FC<EntityCommentBoxProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.background,
-    borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: theme.colors.border,
     padding: theme.spacing.md,
