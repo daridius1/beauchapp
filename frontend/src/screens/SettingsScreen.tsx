@@ -27,6 +27,7 @@ export const SettingsScreen: React.FC = () => {
   // Gestión de Integrantes para Organizaciones
   const [isManagingMembers, setIsManagingMembers] = useState(false);
   const [members, setMembers] = useState<OrganizationMemberRecord[]>([]);
+  const [editingRoles, setEditingRoles] = useState<{ [membershipId: string]: string }>({});
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [searchStudentQuery, setSearchStudentQuery] = useState('');
   const [studentSearchResults, setStudentSearchResults] = useState<User[]>([]);
@@ -171,9 +172,9 @@ export const SettingsScreen: React.FC = () => {
     }
   };
 
-  const handleAddMember = async (student: User) => {
+  const handleAddMember = async (student: User, role: string = '') => {
     try {
-      await organizationService.addMember(user.id, student.id);
+      await organizationService.addMember(user.id, student.id, role);
       Toast.show({
         type: 'success',
         text1: 'Integrante agregado',
@@ -187,6 +188,24 @@ export const SettingsScreen: React.FC = () => {
         type: 'error',
         text1: 'Error al agregar',
         text2: err.message || 'No se pudo agregar al integrante.',
+      });
+    }
+  };
+
+  const handleUpdateRole = async (membershipId: string, role: string) => {
+    try {
+      await organizationService.updateMemberRole(membershipId, role);
+      Toast.show({
+        type: 'success',
+        text1: 'Rol actualizado',
+        text2: 'Se ha asignado el nuevo rol.',
+      });
+      loadMembers();
+    } catch (err: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: err.message || 'No se pudo actualizar el rol.',
       });
     }
   };
@@ -464,20 +483,42 @@ export const SettingsScreen: React.FC = () => {
                 members.map((m) => {
                   const student = m.expand?.user;
                   if (!student) return null;
+                  const currentRoleInput = editingRoles[m.id] !== undefined ? editingRoles[m.id] : (m.role || '');
 
                   return (
-                    <View key={m.id} style={styles.memberRow}>
-                      <Avatar user={student} size={36} />
-                      <View style={styles.memberInfo}>
-                        <Text style={styles.memberName}>{student.name}</Text>
-                        <Text style={styles.memberSub}>@{student.username}</Text>
+                    <View key={m.id} style={styles.memberCardContainer}>
+                      <View style={styles.memberRow}>
+                        <Avatar user={student} size={36} />
+                        <View style={styles.memberInfo}>
+                          <Text style={styles.memberName}>{student.name}</Text>
+                          <Text style={styles.memberSub}>@{student.username}</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.removeMemberBtn}
+                          onPress={() => handleRemoveMember(m.id, student.name)}
+                        >
+                          <Feather name="trash-2" size={14} color="#ff4444" />
+                        </TouchableOpacity>
                       </View>
-                      <TouchableOpacity
-                        style={styles.removeMemberBtn}
-                        onPress={() => handleRemoveMember(m.id, student.name)}
-                      >
-                        <Feather name="trash-2" size={14} color="#ff4444" />
-                      </TouchableOpacity>
+
+                      {/* Asignación / Edición de Rol */}
+                      <View style={styles.memberRoleRow}>
+                        <TextInput
+                          style={styles.roleInput}
+                          value={currentRoleInput}
+                          onChangeText={(text) => setEditingRoles((prev) => ({ ...prev, [m.id]: text }))}
+                          placeholder="Rol / Cargo (ej. Presidente, Capitán, Delegado)..."
+                          placeholderTextColor={theme.colors.textMuted}
+                        />
+                        {editingRoles[m.id] !== undefined && editingRoles[m.id] !== (m.role || '') && (
+                          <TouchableOpacity
+                            style={styles.saveRoleBtn}
+                            onPress={() => handleUpdateRole(m.id, editingRoles[m.id])}
+                          >
+                            <Text style={styles.saveRoleBtnText}>Guardar</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                   );
                 })
@@ -777,6 +818,42 @@ const styles = StyleSheet.create({
   },
   removeMemberBtn: {
     padding: 8,
+  },
+  memberCardContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 8,
+    padding: 6,
+  },
+  memberRoleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 8,
+  },
+  roleInput: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    fontSize: 12,
+    color: theme.colors.text,
+  },
+  saveRoleBtn: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  saveRoleBtnText: {
+    color: '#000000',
+    fontSize: 11,
+    fontWeight: '700',
   },
   noMembersText: {
     color: theme.colors.textMuted,

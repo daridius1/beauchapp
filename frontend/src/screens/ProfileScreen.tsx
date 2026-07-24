@@ -330,7 +330,7 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.statCount}>{followersCount}</Text>
               <Text style={styles.statLabel}>Seguidores</Text>
             </TouchableOpacity>
-            {profileUser.type === 'student' && (
+            {profileUser.type === 'student' ? (
               <TouchableOpacity 
                 style={styles.statBox}
                 activeOpacity={0.7}
@@ -339,48 +339,18 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                 <Text style={styles.statCount}>{followingCount}</Text>
                 <Text style={styles.statLabel}>Siguiendo</Text>
               </TouchableOpacity>
+            ) : (
+              <TouchableOpacity 
+                style={styles.statBox}
+                activeOpacity={0.7}
+                onPress={() => navigation.push('FollowList', { userId: targetUserId, type: 'members', username: profileUser.username })}
+              >
+                <Text style={styles.statCount}>{orgMembers.length}</Text>
+                <Text style={styles.statLabel}>Integrantes</Text>
+              </TouchableOpacity>
             )}
           </View>
         </View>
-
-        {/* Sección Integrantes de la Organización */}
-        {profileUser.type === 'organization' && (
-          <View style={styles.orgMembersSection}>
-            <View style={styles.orgMembersHeaderRow}>
-              <Text style={styles.orgMembersTitle}>Integrantes ({orgMembers.length})</Text>
-              {currentUser?.id === targetUserId && (
-                <TouchableOpacity
-                  style={styles.manageMembersBtn}
-                  onPress={() => navigation.navigate('Settings')}
-                >
-                  <Feather name="settings" size={12} color={theme.colors.primary} style={{ marginRight: 4 }} />
-                  <Text style={styles.manageMembersBtnText}>Gestionar</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {orgMembers.length === 0 ? (
-              <Text style={styles.noMembersText}>Aún no hay integrantes agregados a esta organización.</Text>
-            ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.membersHorizontalScroll}>
-                {orgMembers.map((m) => {
-                  const student = m.expand?.user;
-                  if (!student) return null;
-                  return (
-                    <TouchableOpacity
-                      key={m.id}
-                      style={styles.memberAvatarCard}
-                      onPress={() => navigation.push('UserProfile', { userId: student.id })}
-                    >
-                      <Avatar user={student} size={44} />
-                      <Text style={styles.memberCardName} numberOfLines={1}>{student.name}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
-          </View>
-        )}
 
         <View style={styles.divider} />
 

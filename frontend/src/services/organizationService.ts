@@ -6,6 +6,7 @@ export interface OrganizationMemberRecord {
   user: string;
   organization: string;
   status: 'active' | 'inactive';
+  role?: string;
   created: string;
   updated: string;
   expand?: {
@@ -50,9 +51,9 @@ export const organizationService = {
   },
 
   /**
-   * Agregar a un estudiante como integrante de una organización
+   * Agregar a un estudiante como integrante de una organización con un rol opcional
    */
-  async addMember(organizationId: string, studentUserId: string): Promise<OrganizationMemberRecord> {
+  async addMember(organizationId: string, studentUserId: string, role: string = ''): Promise<OrganizationMemberRecord> {
     // Comprobar si ya existe un registro previo
     const existing = await pb.collection('organization_members').getList<OrganizationMemberRecord>(1, 1, {
       filter: `organization = "${organizationId}" && user = "${studentUserId}"`,
@@ -60,18 +61,26 @@ export const organizationService = {
 
     if (existing.items.length > 0) {
       const rec = existing.items[0];
-      if (rec.status === 'inactive') {
-        return await pb.collection('organization_members').update<OrganizationMemberRecord>(rec.id, {
-          status: 'active',
-        });
-      }
-      return rec;
+      return await pb.collection('organization_members').update<OrganizationMemberRecord>(rec.id, {
+        status: 'active',
+        role: role.trim(),
+      });
     }
 
     return await pb.collection('organization_members').create<OrganizationMemberRecord>({
       organization: organizationId,
       user: studentUserId,
       status: 'active',
+      role: role.trim(),
+    });
+  },
+
+  /**
+   * Actualizar el rol de un integrante de la organización
+   */
+  async updateMemberRole(membershipId: string, role: string): Promise<OrganizationMemberRecord> {
+    return await pb.collection('organization_members').update<OrganizationMemberRecord>(membershipId, {
+      role: role.trim(),
     });
   },
 

@@ -39,7 +39,9 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   } else if (routeName === 'FollowList') {
     emptyText = routeParams?.type === 'followers'
       ? 'Esta cuenta aún no tiene seguidores.'
-      : 'Esta cuenta aún no sigue a nadie.';
+      : routeParams?.type === 'following'
+      ? 'Esta cuenta aún no sigue a nadie.'
+      : 'Esta organización aún no tiene integrantes registrados.';
   }
 
   const fetchProfiles = async (hideLoading = false) => {
@@ -49,23 +51,42 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
       if (routeName === 'FollowList') {
         const userId = routeParams?.userId;
         const type = routeParams?.type;
-        const isFollowers = type === 'followers';
-        
-        const filterStr = isFollowers 
-          ? `following = "${userId}"` 
-          : `follower = "${userId}"`;
+
+        if (type === 'members') {
+          const res = await pb.collection('organization_members').getList(1, 200, {
+            filter: `organization = "${userId}" && status = "active"`,
+            expand: 'user',
+            sort: '-created',
+          });
+          const mappedUsers = res.items
+            .map(item => {
+              const u = item.expand?.user;
+              if (!u) return null;
+              return {
+                ...u,
+                memberRole: item.role,
+              };
+            })
+            .filter(user => !!user);
+          setProfiles(mappedUsers);
+        } else {
+          const isFollowers = type === 'followers';
+          const filterStr = isFollowers 
+            ? `following = "${userId}"` 
+            : `follower = "${userId}"`;
+            
+          const res = await pb.collection('follows').getList(1, 200, {
+            filter: filterStr,
+            expand: isFollowers ? 'follower' : 'following',
+            sort: '-created',
+          });
           
-        const res = await pb.collection('follows').getList(1, 200, {
-          filter: filterStr,
-          expand: isFollowers ? 'follower' : 'following',
-          sort: '-created',
-        });
-        
-        const mappedUsers = res.items
-          .map(item => isFollowers ? item.expand?.follower : item.expand?.following)
-          .filter(user => !!user);
-          
-        setProfiles(mappedUsers);
+          const mappedUsers = res.items
+            .map(item => isFollowers ? item.expand?.follower : item.expand?.following)
+            .filter(user => !!user);
+            
+          setProfiles(mappedUsers);
+        }
       } else {
         const res = await pb.collection('users').getList(1, 100, {
           filter: filter,
@@ -164,9 +185,16 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
                   <Avatar user={profile} size={40} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.itemName}>
-                    {profile.name || 'Usuario'}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                    <Text style={styles.itemName}>
+                      {profile.name || 'Usuario'}
+                    </Text>
+                    {!!profile.memberRole && (
+                      <View style={styles.roleBadge}>
+                        <Text style={styles.roleBadgeText}>{profile.memberRole}</Text>
+                      </View>
+                    )}
+                  </View>
                   {!!profile.username && (
                     <Text style={styles.itemUsername}>
                       @{profile.username}
@@ -221,6 +249,19 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 13,
     marginTop: 2,
+  },
+  roleBadge: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: '#38bdf8',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  roleBadgeText: {
+    color: '#38bdf8',
+    fontSize: 11,
+    fontWeight: '700',
   },
   searchContainer: {
     paddingHorizontal: theme.spacing.lg,

@@ -29,9 +29,6 @@ export const OrgChip: React.FC<Props> = ({ organization, onPress, size = 'md' })
       onPress={onPress}
       disabled={!onPress}
     >
-      <View style={[styles.iconCircle, { backgroundColor: chipColor }]}>
-        <Feather name="shield" size={isSmall ? 8 : 10} color="#000000" />
-      </View>
       <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, { color: chipColor }]} numberOfLines={1}>
         {chipText}
       </Text>
