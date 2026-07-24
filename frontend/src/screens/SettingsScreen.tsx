@@ -10,6 +10,7 @@ import Toast from 'react-native-toast-message';
 
 import { organizationService, OrganizationMemberRecord } from '../services/organizationService';
 import { OrgChip } from '../components/OrgChip';
+import { UserChipsRow, YEARS_LIST, DEPARTMENTS_LIST } from '../components/UserChipsRow';
 import { User } from '../context/AuthContext';
 
 export const SettingsScreen: React.FC = () => {
@@ -23,6 +24,10 @@ export const SettingsScreen: React.FC = () => {
   // Configuración de Chip para Organizaciones
   const [chipText, setChipText] = useState(user?.chip_text || '');
   const [chipColor, setChipColor] = useState(user?.chip_color || '#38bdf8');
+
+  // Insignias / Pins para Estudiantes
+  const [entryYear, setEntryYear] = useState(user?.entry_year || '');
+  const [department, setDepartment] = useState(user?.department || '');
 
   // Gestión de Integrantes para Organizaciones
   const [isManagingMembers, setIsManagingMembers] = useState(false);
@@ -125,6 +130,9 @@ export const SettingsScreen: React.FC = () => {
       if (user.type === 'organization') {
         formData.append('chip_text', chipText.trim());
         formData.append('chip_color', chipColor.trim());
+      } else {
+        formData.append('entry_year', entryYear.trim());
+        formData.append('department', department.trim());
       }
 
       if (avatarFile) {
@@ -376,6 +384,87 @@ export const SettingsScreen: React.FC = () => {
                       ...user,
                       chip_text: chipText,
                       chip_color: chipColor,
+                    }}
+                  />
+                </View>
+              </>
+            )}
+
+            {/* Selección de Insignias / Pins para Estudiantes */}
+            {user.type === 'student' && (
+              <>
+                {/* Pin 1: Año de Ingreso (Generación) - Excluyente */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Pin de Año de Ingreso (Generación)</Text>
+                  <Text style={styles.avatarPickerHelp}>Selecciona tu año de ingreso a la facultad (2026 - 2000)</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                    <View style={styles.chipsSelectionRow}>
+                      {YEARS_LIST.map((year) => {
+                        const isSelected = entryYear === year;
+                        return (
+                          <TouchableOpacity
+                            key={year}
+                            style={[
+                              styles.selectableChip,
+                              styles.yearSelectableChip,
+                              isSelected && styles.yearChipSelected,
+                            ]}
+                            onPress={() => setEntryYear(isSelected ? '' : year)}
+                          >
+                            <Text
+                              style={[
+                                styles.selectableChipText,
+                                isSelected ? styles.yearChipTextSelected : { color: '#10b981' },
+                              ]}
+                            >
+                              Gen '{year.slice(2)}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </View>
+
+                {/* Pin 2: Departamento / Especialidad - Excluyente */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Pin de Departamento / Especialidad</Text>
+                  <Text style={styles.avatarPickerHelp}>Selecciona tu departamento o plan común</Text>
+                  <View style={[styles.chipsSelectionRow, { flexWrap: 'wrap', marginTop: 8 }]}>
+                    {DEPARTMENTS_LIST.map((dept) => {
+                      const isSelected = department === dept.code;
+                      return (
+                        <TouchableOpacity
+                          key={dept.code}
+                          style={[
+                            styles.selectableChip,
+                            styles.deptSelectableChip,
+                            isSelected && styles.deptChipSelected,
+                          ]}
+                          onPress={() => setDepartment(isSelected ? '' : dept.code)}
+                        >
+                          <Text
+                            style={[
+                              styles.selectableChipText,
+                              isSelected ? styles.deptChipTextSelected : { color: '#8b5cf6' },
+                            ]}
+                          >
+                            {dept.code}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Previsualización de Pins */}
+                <View style={styles.chipPreviewContainer}>
+                  <Text style={styles.inputLabel}>Insignias en tu perfil:</Text>
+                  <UserChipsRow
+                    user={{
+                      ...user,
+                      entry_year: entryYear,
+                      department: department,
                     }}
                   />
                 </View>
@@ -860,5 +949,44 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: 'italic',
     marginVertical: 8,
+  },
+  chipsSelectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  selectableChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginRight: 4,
+    marginBottom: 6,
+  },
+  selectableChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  yearSelectableChip: {
+    borderColor: '#10b981',
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+  },
+  yearChipSelected: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  yearChipTextSelected: {
+    color: '#000000',
+  },
+  deptSelectableChip: {
+    borderColor: '#8b5cf6',
+    backgroundColor: 'rgba(139, 92, 246, 0.05)',
+  },
+  deptChipSelected: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  deptChipTextSelected: {
+    color: '#ffffff',
   },
 });

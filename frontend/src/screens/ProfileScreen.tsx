@@ -14,6 +14,7 @@ import Toast from 'react-native-toast-message';
 
 import { organizationService, OrganizationMemberRecord } from '../services/organizationService';
 import { OrgChip } from '../components/OrgChip';
+import { UserChipsRow } from '../components/UserChipsRow';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile' | 'UserProfile'>;
 
@@ -277,21 +278,13 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.profileBio}>{profileUser.description}</Text>
             )}
 
-            {/* Chips de Pertenencia a Organizaciones para Estudiantes */}
-            {profileUser.type === 'student' && studentMemberships.length > 0 && (
-              <View style={styles.orgChipsRow}>
-                {studentMemberships.map((m) => {
-                  const org = m.expand?.organization;
-                  if (!org) return null;
-                  return (
-                    <OrgChip
-                      key={m.id}
-                      organization={org}
-                      onPress={() => navigation.push('UserProfile', { userId: org.id })}
-                    />
-                  );
-                })}
-              </View>
+            {/* Insignias / Chips del usuario (Año, Departamento y Organizaciones) */}
+            {profileUser.type === 'student' && (
+              <UserChipsRow
+                user={profileUser}
+                memberships={studentMemberships}
+                onOrgPress={(orgId) => navigation.push('UserProfile', { userId: orgId })}
+              />
             )}
           </View>
 

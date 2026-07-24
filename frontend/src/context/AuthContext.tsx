@@ -14,6 +14,8 @@ export interface User {
   description?: string;
   chip_text?: string;
   chip_color?: string;
+  entry_year?: string;
+  department?: string;
 }
 
 interface AuthContextType {

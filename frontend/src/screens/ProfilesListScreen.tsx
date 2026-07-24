@@ -8,6 +8,7 @@ import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
 import { withMinimumDelay } from '../utils/refresh';
+import { UserChipsRow } from '../components/UserChipsRow';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Communities' | 'Centers' | 'Teams' | 'Students' | 'FollowList'>;
 
@@ -200,6 +201,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
                       @{profile.username}
                     </Text>
                   )}
+                  <UserChipsRow user={profile} size="sm" />
                 </View>
                 <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
               </TouchableOpacity>
