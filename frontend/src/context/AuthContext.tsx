@@ -12,6 +12,8 @@ export interface User {
   type: 'student' | 'organization';
   subtype?: 'center' | 'team' | 'community';
   description?: string;
+  chip_text?: string;
+  chip_color?: string;
 }
 
 interface AuthContextType {

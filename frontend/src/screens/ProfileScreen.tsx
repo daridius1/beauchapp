@@ -12,6 +12,9 @@ import { PostCard } from '../components/PostCard';
 import { withMinimumDelay } from '../utils/refresh';
 import Toast from 'react-native-toast-message';
 
+import { organizationService, OrganizationMemberRecord } from '../services/organizationService';
+import { OrgChip } from '../components/OrgChip';
+
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile' | 'UserProfile'>;
 
 export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
@@ -38,6 +41,10 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Estados de Organizaciones e Integrantes
+  const [studentMemberships, setStudentMemberships] = useState<OrganizationMemberRecord[]>([]);
+  const [orgMembers, setOrgMembers] = useState<OrganizationMemberRecord[]>([]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -75,8 +82,13 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           filter: `follower = "${targetUserId}"`
         });
         setFollowingCount(followingRes.totalItems);
+
+        const membershipsData = await organizationService.getStudentMemberships(targetUserId);
+        setStudentMemberships(membershipsData);
       } else {
         setFollowingCount(0);
+        const membersData = await organizationService.getOrganizationMembers(targetUserId);
+        setOrgMembers(membersData);
       }
 
       // 4. Verificar si el usuario actual sigue a este perfil
@@ -264,6 +276,23 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
             {!!profileUser.description && (
               <Text style={styles.profileBio}>{profileUser.description}</Text>
             )}
+
+            {/* Chips de Pertenencia a Organizaciones para Estudiantes */}
+            {profileUser.type === 'student' && studentMemberships.length > 0 && (
+              <View style={styles.orgChipsRow}>
+                {studentMemberships.map((m) => {
+                  const org = m.expand?.organization;
+                  if (!org) return null;
+                  return (
+                    <OrgChip
+                      key={m.id}
+                      organization={org}
+                      onPress={() => navigation.push('UserProfile', { userId: org.id })}
+                    />
+                  );
+                })}
+              </View>
+            )}
           </View>
 
           {currentUser && currentUser.id !== targetUserId && currentUser.type !== 'organization' && (
@@ -313,6 +342,45 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
             )}
           </View>
         </View>
+
+        {/* Sección Integrantes de la Organización */}
+        {profileUser.type === 'organization' && (
+          <View style={styles.orgMembersSection}>
+            <View style={styles.orgMembersHeaderRow}>
+              <Text style={styles.orgMembersTitle}>Integrantes ({orgMembers.length})</Text>
+              {currentUser?.id === targetUserId && (
+                <TouchableOpacity
+                  style={styles.manageMembersBtn}
+                  onPress={() => navigation.navigate('Settings')}
+                >
+                  <Feather name="settings" size={12} color={theme.colors.primary} style={{ marginRight: 4 }} />
+                  <Text style={styles.manageMembersBtnText}>Gestionar</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {orgMembers.length === 0 ? (
+              <Text style={styles.noMembersText}>Aún no hay integrantes agregados a esta organización.</Text>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.membersHorizontalScroll}>
+                {orgMembers.map((m) => {
+                  const student = m.expand?.user;
+                  if (!student) return null;
+                  return (
+                    <TouchableOpacity
+                      key={m.id}
+                      style={styles.memberAvatarCard}
+                      onPress={() => navigation.push('UserProfile', { userId: student.id })}
+                    >
+                      <Avatar user={student} size={44} />
+                      <Text style={styles.memberCardName} numberOfLines={1}>{student.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+        )}
 
         <View style={styles.divider} />
 
@@ -598,5 +666,60 @@ const styles = StyleSheet.create({
   modalBtnDeleteText: {
     color: '#ffffff',
     fontWeight: '700',
+  },
+  orgChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: theme.spacing.xs,
+  },
+  orgMembersSection: {
+    paddingHorizontal: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  orgMembersHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.xs,
+  },
+  orgMembersTitle: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  manageMembersBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  manageMembersBtnText: {
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  membersHorizontalScroll: {
+    flexDirection: 'row',
+    marginTop: 4,
+  },
+  memberAvatarCard: {
+    alignItems: 'center',
+    marginRight: 14,
+    maxWidth: 60,
+  },
+  memberCardName: {
+    color: theme.colors.textMuted,
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  noMembersText: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
 });
