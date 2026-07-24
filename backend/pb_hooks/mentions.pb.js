@@ -35,7 +35,7 @@ onRecordAfterCreateSuccess((e) => {
         mentionedUsernames.forEach((username) => {
             try {
                 // Find user by username
-                const targetUser = $app.findFirstRecordByFilter("users", "username = {:username}", { username: username });
+                const targetUser = $app.findFirstRecordByFilter("users", `username = "${username}"`);
                 console.log("[Mentions Hook] Target user search for", username, ":", targetUser ? targetUser.id : "null");
                 
                 if (targetUser && targetUser.id !== authorId) {

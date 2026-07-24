@@ -94,7 +94,7 @@ onRecordCreateRequest((e) => {
     try {
         const userRec = $app.findRecordById("users", userId);
         if (userRec.getString("type") !== "student") {
-            throw new Error("El integrante debe ser una cuenta de estudiante.");
+            throw new ApiError(400, "El integrante debe ser una cuenta de estudiante.");
         }
     } catch(err) {
         throw new ApiError(400, err.message || "El usuario no existe.");
@@ -103,22 +103,22 @@ onRecordCreateRequest((e) => {
     try {
         const orgRec = $app.findRecordById("users", orgId);
         if (orgRec.getString("type") !== "organization") {
-            throw new Error("El destino debe ser una cuenta de organización.");
+            throw new ApiError(400, "El destino debe ser una cuenta de organización.");
         }
     } catch(err) {
         throw new ApiError(400, err.message || "La organización no existe.");
     }
 
-    const existing = $app.findRecordsByFilter(
-        "organization_members",
-        "organization = {:orgId} && user = {:userId}",
-        "",
-        1,
-        0,
-        { orgId: orgId, user: userId }
-    );
-    if (existing.length > 0) {
-        throw new ApiError(400, "El usuario ya participa en esta organización.");
+    try {
+        const existing = $app.findRecordsByFilter(
+            "organization_members",
+            `organization = "${orgId}" && user = "${userId}"`
+        );
+        if (existing && existing.length > 0) {
+            throw new ApiError(400, "El usuario ya participa en esta organización.");
+        }
+    } catch(err) {
+        // Ignorar si no existe previa membresía
     }
 
     return e.next();
