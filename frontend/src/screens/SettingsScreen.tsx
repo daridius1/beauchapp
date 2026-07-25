@@ -12,6 +12,7 @@ import { organizationService, OrganizationMemberRecord } from '../services/organ
 import { OrgChip } from '../components/OrgChip';
 import { UserChipsRow, YEARS_LIST, DEPARTMENTS_LIST } from '../components/UserChipsRow';
 import { User } from '../context/AuthContext';
+import { UserSelectorModal } from '../components/UserSelectorModal';
 
 export const SettingsScreen: React.FC = () => {
   const { user, developerMode, setDeveloperMode } = useAuth();
@@ -37,6 +38,7 @@ export const SettingsScreen: React.FC = () => {
   const [searchStudentQuery, setSearchStudentQuery] = useState('');
   const [studentSearchResults, setStudentSearchResults] = useState<User[]>([]);
   const [searchingStudents, setSearchingStudents] = useState(false);
+  const [showUserSelectorModal, setShowUserSelectorModal] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -180,7 +182,7 @@ export const SettingsScreen: React.FC = () => {
     }
   };
 
-  const handleAddMember = async (student: User, role: string = '') => {
+  const handleAddMember = async (student: { id: string; name: string }, role: string = '') => {
     try {
       await organizationService.addMember(user.id, student.id, role);
       Toast.show({
@@ -521,43 +523,32 @@ export const SettingsScreen: React.FC = () => {
 
           {isManagingMembers && (
             <View style={styles.membersForm}>
-              {/* Buscador de Estudiantes */}
+              {/* Buscador de Estudiantes con Modal */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Agregar Integrante (Estudiante)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={searchStudentQuery}
-                  onChangeText={handleSearchStudents}
-                  placeholder="Buscar estudiante por nombre o @username..."
-                  placeholderTextColor={theme.colors.textMuted}
-                />
+                <TouchableOpacity
+                  onPress={() => setShowUserSelectorModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ pointerEvents: 'none' }}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Buscar estudiante para agregar..."
+                      placeholderTextColor={theme.colors.textMuted}
+                      editable={false}
+                    />
+                  </View>
+                </TouchableOpacity>
               </View>
 
-              {searchingStudents && (
-                <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 8 }} />
-              )}
-
-              {/* Resultados de Búsqueda */}
-              {studentSearchResults.length > 0 && (
-                <View style={styles.searchResultsList}>
-                  {studentSearchResults.map((student) => (
-                    <View key={student.id} style={styles.memberRow}>
-                      <Avatar user={student} size={34} />
-                      <View style={styles.memberInfo}>
-                        <Text style={styles.memberName}>{student.name}</Text>
-                        <Text style={styles.memberSub}>@{student.username}</Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.addMemberBtn}
-                        onPress={() => handleAddMember(student)}
-                      >
-                        <Feather name="user-plus" size={14} color="#000000" />
-                        <Text style={styles.addMemberBtnText}>Agregar</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              )}
+              <UserSelectorModal
+                visible={showUserSelectorModal}
+                title="Agregar Integrante"
+                placeholder="Buscar estudiante por nombre o @username..."
+                excludeUserIds={members.map((m) => m.user || m.expand?.user?.id).filter(Boolean) as string[]}
+                onSelect={(student) => handleAddMember(student)}
+                onClose={() => setShowUserSelectorModal(false)}
+              />
 
               {/* Lista de Integrantes Actuales */}
               <Text style={[styles.inputLabel, { marginTop: theme.spacing.md }]}>

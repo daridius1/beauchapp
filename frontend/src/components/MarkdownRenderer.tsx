@@ -164,15 +164,23 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
             notifyTimeout = setTimeout(function() {
               const contentDiv = document.getElementById('content');
               if (!contentDiv) return;
-              
-              // Medir el alto del contenido real
-              const height = Math.ceil(contentDiv.getBoundingClientRect().height);
-              
-              if (window.parent) {
-                window.parent.postMessage({ type: 'markdown-height', id: '${rendererId}', height: height }, '*');
-              }
-              if (window.ReactNativeWebView) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'markdown-height', id: '${rendererId}', height: height }));
+
+              var doMeasure = function() {
+                const height = Math.ceil(contentDiv.getBoundingClientRect().height);
+                if (window.parent) {
+                  window.parent.postMessage({ type: 'markdown-height', id: '${rendererId}', height: height }, '*');
+                }
+                if (window.ReactNativeWebView) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'markdown-height', id: '${rendererId}', height: height }));
+                }
+              };
+
+              if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(function() {
+                  requestAnimationFrame(doMeasure);
+                });
+              } else {
+                requestAnimationFrame(doMeasure);
               }
             }, 100);
           }
@@ -185,6 +193,33 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
           }
 
           window.onload = function() {
+            // Wait for all external stylesheets to be fully loaded before
+            // touching the DOM, so the browser doesn't force layout
+            // while CSS is still being fetched (srcdoc iframe issue).
+            var links = document.querySelectorAll('link[rel="stylesheet"]');
+            var pending = 0;
+
+            function onReady() {
+              pending--;
+              if (pending <= 0) {
+                requestAnimationFrame(doRender);
+              }
+            }
+
+            links.forEach(function(link) {
+              // If the sheet is already accessible, it's loaded
+              try { if (link.sheet && link.sheet.cssRules) return; } catch(e) {}
+              pending++;
+              link.addEventListener('load', onReady);
+              link.addEventListener('error', onReady);
+            });
+
+            if (pending === 0) {
+              requestAnimationFrame(doRender);
+            }
+          };
+
+          function doRender() {
             try {
               var processedContent = ${JSON.stringify(processed)};
               var latexBlocks = ${JSON.stringify(blocks)};

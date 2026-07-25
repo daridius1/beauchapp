@@ -8,7 +8,6 @@ import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
 import { withMinimumDelay } from '../utils/refresh';
-import { UserChipsRow } from '../components/UserChipsRow';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Communities' | 'Centers' | 'Teams' | 'Students' | 'FollowList'>;
 
@@ -186,22 +185,24 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
                   <Avatar user={profile} size={40} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                    <Text style={styles.itemName}>
-                      {profile.name || 'Usuario'}
-                    </Text>
+                  <Text style={styles.itemName}>
+                    {profile.name || 'Usuario'}
+                  </Text>
+                  <View style={styles.itemSubtitleRow}>
+                    {!!profile.username && (
+                      <Text style={styles.itemUsername}>
+                        @{profile.username}
+                      </Text>
+                    )}
+                    {!!profile.username && !!profile.memberRole && (
+                      <Text style={styles.subtitleDot}>•</Text>
+                    )}
                     {!!profile.memberRole && (
-                      <View style={styles.roleBadge}>
-                        <Text style={styles.roleBadgeText}>{profile.memberRole}</Text>
-                      </View>
+                      <Text style={styles.memberRoleText}>
+                        {profile.memberRole}
+                      </Text>
                     )}
                   </View>
-                  {!!profile.username && (
-                    <Text style={styles.itemUsername}>
-                      @{profile.username}
-                    </Text>
-                  )}
-                  <UserChipsRow user={profile} size="sm" />
                 </View>
                 <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
               </TouchableOpacity>
@@ -228,6 +229,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.sm,
     paddingBottom: 40,
   },
   emptyText: {
@@ -247,28 +249,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.text,
   },
+  itemSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: 2,
+    gap: 4,
+  },
   itemUsername: {
     color: theme.colors.textMuted,
     fontSize: 13,
-    marginTop: 2,
   },
-  roleBadge: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderColor: '#38bdf8',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+  subtitleDot: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
   },
-  roleBadgeText: {
-    color: '#38bdf8',
-    fontSize: 11,
-    fontWeight: '700',
+  memberRoleText: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
   },
   searchContainer: {
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
+    paddingBottom: theme.spacing.md,
     backgroundColor: theme.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
