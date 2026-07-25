@@ -399,7 +399,6 @@ export const SettingsScreen: React.FC = () => {
                   {/* Pin 1: Generación - Dropdown */}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.inputLabel}>Generación</Text>
-                    <Text style={styles.avatarPickerHelp}>Elige una opción</Text>
                     <select
                       style={{
                         backgroundColor: theme.colors.background,
@@ -431,7 +430,6 @@ export const SettingsScreen: React.FC = () => {
                   {/* Pin 2: Especialidad - Dropdown */}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.inputLabel}>Especialidad</Text>
-                    <Text style={styles.avatarPickerHelp}>Elige una opción</Text>
                     <select
                       style={{
                         backgroundColor: theme.colors.background,
