@@ -395,68 +395,70 @@ export const SettingsScreen: React.FC = () => {
             {/* Selección de Insignias / Pins para Estudiantes */}
             {user.type === 'student' && (
               <>
-                {/* Pin 1: Generación - Dropdown */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Generación</Text>
-                  <Text style={styles.avatarPickerHelp}>Elige una opción</Text>
-                  <select
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderRadius: 8,
-                      padding: 10,
-                      color: theme.colors.text,
-                      borderWidth: 1,
-                      borderColor: theme.colors.border,
-                      fontSize: 14,
-                      marginTop: 6,
-                      width: '100%',
-                      outline: 'none',
-                      cursor: 'pointer',
-                    } as any}
-                    value={entryYear}
-                    onChange={(e: any) => setEntryYear(e.target.value)}
-                  >
-                    <option value="" style={{ backgroundColor: '#0c0c0c', color: theme.colors.textMuted }}>
-                      -- Sin generación --
-                    </option>
-                    {YEARS_LIST.map((year) => (
-                      <option key={year} value={year} style={{ backgroundColor: '#0c0c0c', color: '#ffffff' }}>
-                        {year}
+                <View style={{ flexDirection: 'row', gap: 12, marginBottom: theme.spacing.md }}>
+                  {/* Pin 1: Generación - Dropdown */}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputLabel}>Generación</Text>
+                    <Text style={styles.avatarPickerHelp}>Elige una opción</Text>
+                    <select
+                      style={{
+                        backgroundColor: theme.colors.background,
+                        borderRadius: 8,
+                        padding: 10,
+                        color: theme.colors.text,
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
+                        fontSize: 14,
+                        marginTop: 6,
+                        width: '100%',
+                        outline: 'none',
+                        cursor: 'pointer',
+                      } as any}
+                      value={entryYear}
+                      onChange={(e: any) => setEntryYear(e.target.value)}
+                    >
+                      <option value="" style={{ backgroundColor: '#0c0c0c', color: theme.colors.textMuted }}>
+                        -- Sin generación --
                       </option>
-                    ))}
-                  </select>
-                </View>
+                      {YEARS_LIST.map((year) => (
+                        <option key={year} value={year} style={{ backgroundColor: '#0c0c0c', color: '#ffffff' }}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </View>
 
-                {/* Pin 2: Especialidad - Dropdown */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Especialidad</Text>
-                  <Text style={styles.avatarPickerHelp}>Elige una opción</Text>
-                  <select
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderRadius: 8,
-                      padding: 10,
-                      color: theme.colors.text,
-                      borderWidth: 1,
-                      borderColor: theme.colors.border,
-                      fontSize: 14,
-                      marginTop: 6,
-                      width: '100%',
-                      outline: 'none',
-                      cursor: 'pointer',
-                    } as any}
-                    value={department}
-                    onChange={(e: any) => setDepartment(e.target.value)}
-                  >
-                    <option value="" style={{ backgroundColor: '#0c0c0c', color: theme.colors.textMuted }}>
-                      -- Sin especialidad --
-                    </option>
-                    {DEPARTMENTS_LIST.map((dept) => (
-                      <option key={dept.code} value={dept.code} style={{ backgroundColor: '#0c0c0c', color: '#ffffff' }}>
-                        {dept.code} - {dept.label}
+                  {/* Pin 2: Especialidad - Dropdown */}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputLabel}>Especialidad</Text>
+                    <Text style={styles.avatarPickerHelp}>Elige una opción</Text>
+                    <select
+                      style={{
+                        backgroundColor: theme.colors.background,
+                        borderRadius: 8,
+                        padding: 10,
+                        color: theme.colors.text,
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
+                        fontSize: 14,
+                        marginTop: 6,
+                        width: '100%',
+                        outline: 'none',
+                        cursor: 'pointer',
+                      } as any}
+                      value={department}
+                      onChange={(e: any) => setDepartment(e.target.value)}
+                    >
+                      <option value="" style={{ backgroundColor: '#0c0c0c', color: theme.colors.textMuted }}>
+                        -- Sin especialidad --
                       </option>
-                    ))}
-                  </select>
+                      {DEPARTMENTS_LIST.map((dept) => (
+                        <option key={dept.code} value={dept.code} style={{ backgroundColor: '#0c0c0c', color: '#ffffff' }}>
+                          {dept.code} - {dept.label}
+                        </option>
+                      ))}
+                    </select>
+                  </View>
                 </View>
 
                 {/* Previsualización de Pins */}
