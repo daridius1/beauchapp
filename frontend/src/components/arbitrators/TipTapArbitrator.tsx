@@ -8,18 +8,11 @@ import { pb } from '../../services/pocketbase';
 import { Avatar } from '../Avatar';
 import Toast from 'react-native-toast-message';
 import { Feather } from '@expo/vector-icons';
-import { UserSelectorModal } from '../UserSelectorModal';
+import { MatchSetupStep, StudentUser } from './MatchSetupStep';
 
 interface Props {
   ladder: Ladder;
   navigation: any;
-}
-
-interface StudentUser {
-  id: string;
-  name: string;
-  username?: string;
-  avatar?: string;
 }
 
 interface RallyRecord {
@@ -52,24 +45,7 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
   const [undoStack, setUndoStack] = useState<HistorySnap[]>([]);
 
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [searchResults, setSearchResults] = useState<StudentUser[]>([]);
-  const [searching, setSearching] = useState<boolean>(false);
-  const [activeSlot, setActiveSlot] = useState<{ team: 'red' | 'blue'; index: number } | null>(null);
-
   const targetScore = 30;
-
-  // Pre-seleccionar al usuario actual en el Equipo Rojo por defecto
-  useEffect(() => {
-    if (currentUser && playerRed.length === 0 && playerBlue.length === 0) {
-      setPlayerRed([{
-        id: currentUser.id,
-        name: currentUser.name,
-        username: currentUser.username,
-        avatar: currentUser.avatar,
-      }]);
-    }
-  }, [currentUser]);
 
   const checkIsTerminal = (red: number, blue: number): { isTerminal: boolean; winner?: 'red' | 'blue' } => {
     if (red >= targetScore) return { isTerminal: true, winner: 'red' };
@@ -79,130 +55,6 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
   const terminalState = checkIsTerminal(scoreRed, scoreBlue);
   const isTerminal = terminalState.isTerminal;
-
-  const isPlayerAlreadySelected = (userId: string): boolean => {
-    return playerRed.some((p) => p?.id === userId) || playerBlue.some((p) => p?.id === userId);
-  };
-
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const query = searchQuery.trim();
-        const records = await pb.collection('users').getList<StudentUser>(1, 10, {
-          filter: `type != "organization" && (name ~ "${query}" || username ~ "${query}")`,
-        });
-        setSearchResults(records.items);
-      } catch (err) {
-        console.error('Error searching students:', err);
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  const handleSelectPlayer = (student: StudentUser) => {
-    if (!activeSlot) return;
-
-    if (isPlayerAlreadySelected(student.id)) {
-      Toast.show({
-        type: 'error',
-        text1: 'Jugador ya seleccionado',
-        text2: `${student.name} ya está asignado.`,
-      });
-      return;
-    }
-
-    if (activeSlot.team === 'red') {
-      setPlayerRed([student]);
-    } else {
-      setPlayerBlue([student]);
-    }
-
-    setActiveSlot(null);
-    setSearchQuery('');
-    setSearchResults([]);
-  };
-
-  const [isShuffling, setIsShuffling] = useState<boolean>(false);
-  const shuffleOpacity = React.useRef(new Animated.Value(1)).current;
-  const shuffleScale = React.useRef(new Animated.Value(1)).current;
-
-  const handleShuffleTeams = () => {
-    if (playerRed.length === 0 && playerBlue.length === 0) return;
-    if (isShuffling) return;
-
-    setIsShuffling(true);
-
-    Animated.parallel([
-      Animated.timing(shuffleOpacity, {
-        toValue: 0,
-        duration: 350,
-        useNativeDriver: true,
-      }),
-      Animated.timing(shuffleScale, {
-        toValue: 0.92,
-        duration: 350,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      const shouldSwap = Math.random() < 0.5;
-      if (shouldSwap) {
-        const tempRed = [...playerRed];
-        const tempBlue = [...playerBlue];
-        setPlayerRed(tempBlue);
-        setPlayerBlue(tempRed);
-      }
-
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(shuffleOpacity, {
-            toValue: 1,
-            duration: 450,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shuffleScale, {
-            toValue: 1,
-            duration: 450,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          setIsShuffling(false);
-          Toast.show({
-            type: 'info',
-            text1: 'Sorteo Realizado',
-            text2: shouldSwap
-              ? '¡Los jugadores cambiaron de lado!'
-              : 'Los jugadores se mantuvieron en su lado.',
-          });
-        });
-      }, 400);
-    });
-  };
-
-  // Intercambio instantáneo sin animación de desvanecimiento
-  const handleSwapTeams = () => {
-    if (playerRed.length === 0 && playerBlue.length === 0) return;
-    const tempRed = [...playerRed];
-    const tempBlue = [...playerBlue];
-    setPlayerRed(tempBlue);
-    setPlayerBlue(tempRed);
-  };
-
-  const handleRemovePlayer = (team: 'red' | 'blue') => {
-    if (team === 'red') {
-      setPlayerRed([]);
-    } else {
-      setPlayerBlue([]);
-    }
-  };
 
   const saveSnap = () => {
     setUndoStack((prev) => [
@@ -215,19 +67,6 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         rallies: [...rallies],
       },
     ]);
-  };
-
-  const handleStartMatch = () => {
-    if (playerRed.length < 1 || playerBlue.length < 1) {
-      Toast.show({
-        type: 'error',
-        text1: 'Faltan Jugadores',
-        text2: 'Asigna a ambos jugadores para iniciar.',
-      });
-      return;
-    }
-    setActiveTurn('red');
-    setStep('live');
   };
 
   const handleSigue = () => {
@@ -308,101 +147,18 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       {step === 'setup' ? (
-        <View style={styles.setupContainer}>
-          <Animated.View style={{ opacity: shuffleOpacity, transform: [{ scale: shuffleScale }] }}>
-            <View style={styles.playersGrid}>
-              {/* Equipo Rojo */}
-              <View style={styles.playerBox}>
-                <Text style={styles.redLabel}>EQUIPO ROJO</Text>
-                {playerRed[0] ? (
-                  <View style={styles.playerCardActive}>
-                    <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('red')}>
-                      <Feather name="x" color="#888888" size={14} />
-                    </TouchableOpacity>
-                    <Avatar user={{ id: playerRed[0].id, collectionId: '_pb_users_auth_', avatar: playerRed[0].avatar, name: playerRed[0].name, username: playerRed[0].username }} size={36} />
-                    <Text style={styles.chipNameRed} numberOfLines={1}>{playerRed[0].name}</Text>
-                    {!!playerRed[0].username && <Text style={styles.playerHandle} numberOfLines={1}>@{playerRed[0].username}</Text>}
-                  </View>
-                ) : (
-                  <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'red', index: 0 })}>
-                    <View style={styles.plusCircleRed}>
-                      <Feather name="plus" color="#ff4444" size={20} />
-                    </View>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Equipo Azul */}
-              <View style={styles.playerBox}>
-                <Text style={styles.blueLabel}>EQUIPO AZUL</Text>
-                {playerBlue[0] ? (
-                  <View style={styles.playerCardActive}>
-                    <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('blue')}>
-                      <Feather name="x" color="#888888" size={14} />
-                    </TouchableOpacity>
-                    <Avatar user={{ id: playerBlue[0].id, collectionId: '_pb_users_auth_', avatar: playerBlue[0].avatar, name: playerBlue[0].name, username: playerBlue[0].username }} size={36} />
-                    <Text style={styles.chipNameBlue} numberOfLines={1}>{playerBlue[0].name}</Text>
-                    {!!playerBlue[0].username && <Text style={styles.playerHandle} numberOfLines={1}>@{playerBlue[0].username}</Text>}
-                  </View>
-                ) : (
-                  <TouchableOpacity style={styles.emptySlotCard} activeOpacity={0.7} onPress={() => setActiveSlot({ team: 'blue', index: 0 })}>
-                    <View style={styles.plusCircleBlue}>
-                      <Feather name="plus" color="#38bdf8" size={20} />
-                    </View>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          </Animated.View>
-
-          {/* Botones Secundarios: Sortear Lados & Cambiar Lados */}
-          <View style={styles.actionBtnsRow}>
-            <TouchableOpacity
-              style={[styles.secondaryBtn, (!playerRed[0] && !playerBlue[0]) && styles.disabled]}
-              disabled={!playerRed[0] && !playerBlue[0]}
-              onPress={handleShuffleTeams}
-            >
-              <Feather name="shuffle" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
-              <Text style={styles.btnText}>Sortear Lados</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.secondaryBtn, (!playerRed[0] && !playerBlue[0]) && styles.disabled]}
-              disabled={!playerRed[0] && !playerBlue[0]}
-              onPress={handleSwapTeams}
-            >
-              <Feather name="repeat" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
-              <Text style={styles.btnText}>Cambiar Lados</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Search Modal */}
-          <UserSelectorModal
-            visible={!!activeSlot}
-            title={activeSlot?.team === 'red' ? 'Seleccionar Jugador Rojo' : 'Seleccionar Jugador Azul'}
-            placeholder="Buscar por nombre o @username..."
-            excludeUserIds={[...playerRed, ...playerBlue].map(p => p?.id).filter(Boolean) as string[]}
-            onSelect={(student) => {
-              if (activeSlot?.team === 'red') {
-                setPlayerRed([student]);
-              } else if (activeSlot?.team === 'blue') {
-                setPlayerBlue([student]);
-              }
-              setActiveSlot(null);
-            }}
-            onClose={() => setActiveSlot(null)}
-          />
-
-          <View style={{ alignItems: 'flex-end', marginTop: theme.spacing.xs }}>
-            <TouchableOpacity
-              style={[styles.primaryBtnRight, (!playerRed[0] || !playerBlue[0]) && styles.disabled]}
-              disabled={!playerRed[0] || !playerBlue[0]}
-              onPress={handleStartMatch}
-            >
-              <Text style={styles.primaryBtnText}>Iniciar Partido</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <MatchSetupStep
+          mode="1v1"
+          showModeSelector={false}
+          teamRed={playerRed}
+          setTeamRed={setPlayerRed}
+          teamBlue={playerBlue}
+          setTeamBlue={setPlayerBlue}
+          onStartMatch={() => {
+            setActiveTurn('red');
+            setStep('live');
+          }}
+        />
       ) : (
         /* MARCADOR EN VIVO */
         <View style={styles.liveContainer}>
