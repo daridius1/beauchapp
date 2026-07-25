@@ -286,8 +286,7 @@ export const SettingsScreen: React.FC = () => {
           <View style={styles.optionTitleRow}>
             <Feather name="user" size={20} color={theme.colors.primary} style={styles.optionIcon} />
             <View>
-              <Text style={styles.optionTitle}>Editar Datos Básicos</Text>
-              <Text style={styles.optionSubtitle}>Cambia tu nombre público y foto de perfil</Text>
+              <Text style={styles.optionTitle}>Editar Datos</Text>
             </View>
           </View>
           <Feather 
@@ -312,9 +311,9 @@ export const SettingsScreen: React.FC = () => {
                   ) : (
                     <Avatar user={user} size={100} />
                   )}
-                  <View style={styles.cameraOverlay}>
-                    <Feather name="camera" size={16} color="#000000" />
-                  </View>
+                </View>
+                <View style={styles.cameraOverlay}>
+                  <Feather name="camera" size={15} color="#000000" />
                 </View>
               </TouchableOpacity>
               
@@ -327,7 +326,6 @@ export const SettingsScreen: React.FC = () => {
                   onChange={handleFileChange}
                 />
               )}
-              <Text style={styles.avatarPickerHelp}>Presiona el círculo para cambiar tu foto</Text>
             </View>
 
             {/* Inputs */}
@@ -749,7 +747,8 @@ const styles = StyleSheet.create({
   },
   avatarPickerTouch: {
     position: 'relative',
-    borderRadius: 50,
+    width: 100,
+    height: 100,
   },
   avatarContainer: {
     width: 100,
@@ -759,17 +758,17 @@ const styles = StyleSheet.create({
   },
   cameraOverlay: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
+    bottom: -2,
+    right: -2,
     backgroundColor: theme.colors.primary,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: theme.colors.cardBg,
-    elevation: 2,
+    borderWidth: 2,
+    borderColor: '#0c0c0c',
+    zIndex: 10,
   },
   avatarPickerHelp: {
     color: theme.colors.textMuted,
