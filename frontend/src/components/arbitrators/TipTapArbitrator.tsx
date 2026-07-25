@@ -8,6 +8,7 @@ import { pb } from '../../services/pocketbase';
 import { Avatar } from '../Avatar';
 import Toast from 'react-native-toast-message';
 import { Feather } from '@expo/vector-icons';
+import { UserSelectorModal } from '../UserSelectorModal';
 
 interface Props {
   ladder: Ladder;
@@ -376,34 +377,21 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
           </View>
 
           {/* Search Modal */}
-          {activeSlot && (
-            <View style={styles.searchBox}>
-              <View style={styles.searchHeader}>
-                <Text style={styles.searchTitle}>Buscar Jugador</Text>
-                <TouchableOpacity onPress={() => setActiveSlot(null)}>
-                  <Feather name="x" color="#ffffff" size={18} />
-                </TouchableOpacity>
-              </View>
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Nombre o username..."
-                placeholderTextColor="#666666"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoFocus
-              />
-              {searching ? (
-                <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 8 }} />
-              ) : (
-                searchResults.map((item) => (
-                  <TouchableOpacity key={item.id} style={styles.searchRow} onPress={() => handleSelectPlayer(item)}>
-                    <Text style={styles.searchText}>{item.name}</Text>
-                    {!!item.username && <Text style={styles.searchSub}>@{item.username}</Text>}
-                  </TouchableOpacity>
-                ))
-              )}
-            </View>
-          )}
+          <UserSelectorModal
+            visible={!!activeSlot}
+            title={activeSlot?.team === 'red' ? 'Seleccionar Jugador Rojo' : 'Seleccionar Jugador Azul'}
+            placeholder="Buscar por nombre o @username..."
+            excludeUserIds={[...playerRed, ...playerBlue].map(p => p?.id).filter(Boolean) as string[]}
+            onSelect={(student) => {
+              if (activeSlot?.team === 'red') {
+                setPlayerRed([student]);
+              } else if (activeSlot?.team === 'blue') {
+                setPlayerBlue([student]);
+              }
+              setActiveSlot(null);
+            }}
+            onClose={() => setActiveSlot(null)}
+          />
 
           <View style={{ alignItems: 'flex-end', marginTop: theme.spacing.xs }}>
             <TouchableOpacity

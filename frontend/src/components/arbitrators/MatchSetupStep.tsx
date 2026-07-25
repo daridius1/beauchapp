@@ -37,9 +37,6 @@ export const MatchSetupStep: React.FC<Props> = ({
   onStartMatch,
 }) => {
   const { user: currentUser } = useAuth();
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [searchResults, setSearchResults] = useState<StudentUser[]>([]);
-  const [searching, setSearching] = useState<boolean>(false);
   const [activeSlot, setActiveSlot] = useState<{ team: 'red' | 'blue'; index: number } | null>(null);
 
   const maxSlots = mode === '1v1' ? 1 : 2;
@@ -59,30 +56,6 @@ export const MatchSetupStep: React.FC<Props> = ({
   const isPlayerAlreadySelected = (userId: string): boolean => {
     return teamRed.some((p) => p?.id === userId) || teamBlue.some((p) => p?.id === userId);
   };
-
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const query = searchQuery.trim();
-        const records = await pb.collection('users').getList<StudentUser>(1, 10, {
-          filter: `type != "organization" && (name ~ "${query}" || username ~ "${query}")`,
-        });
-        setSearchResults(records.items);
-      } catch (err) {
-        console.error('Error searching students:', err);
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   const handleSelectPlayer = (student: StudentUser) => {
     if (!activeSlot) return;
@@ -107,8 +80,6 @@ export const MatchSetupStep: React.FC<Props> = ({
     }
 
     setActiveSlot(null);
-    setSearchQuery('');
-    setSearchResults([]);
   };
 
   const [isShuffling, setIsShuffling] = useState<boolean>(false);
