@@ -395,68 +395,68 @@ export const SettingsScreen: React.FC = () => {
             {/* Selección de Insignias / Pins para Estudiantes */}
             {user.type === 'student' && (
               <>
-                {/* Pin 1: Generación - Excluyente */}
+                {/* Pin 1: Generación - Dropdown */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Generación</Text>
                   <Text style={styles.avatarPickerHelp}>Elige una opción</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-                    <View style={styles.chipsSelectionRow}>
-                      {YEARS_LIST.map((year) => {
-                        const isSelected = entryYear === year;
-                        return (
-                          <TouchableOpacity
-                            key={year}
-                            style={[
-                              styles.selectableChip,
-                              styles.yearSelectableChip,
-                              isSelected && styles.yearChipSelected,
-                            ]}
-                            onPress={() => setEntryYear(isSelected ? '' : year)}
-                          >
-                            <Text
-                              style={[
-                                styles.selectableChipText,
-                                isSelected ? styles.yearChipTextSelected : { color: '#10b981' },
-                              ]}
-                            >
-                              Gen '{year.slice(2)}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </ScrollView>
+                  <select
+                    style={{
+                      backgroundColor: theme.colors.background,
+                      borderRadius: 8,
+                      padding: 10,
+                      color: theme.colors.text,
+                      borderWidth: 1,
+                      borderColor: theme.colors.border,
+                      fontSize: 14,
+                      marginTop: 6,
+                      width: '100%',
+                      outline: 'none',
+                      cursor: 'pointer',
+                    } as any}
+                    value={entryYear}
+                    onChange={(e: any) => setEntryYear(e.target.value)}
+                  >
+                    <option value="" style={{ backgroundColor: '#0c0c0c', color: theme.colors.textMuted }}>
+                      -- Sin generación --
+                    </option>
+                    {YEARS_LIST.map((year) => (
+                      <option key={year} value={year} style={{ backgroundColor: '#0c0c0c', color: '#ffffff' }}>
+                        Gen '{year.slice(2)} ({year})
+                      </option>
+                    ))}
+                  </select>
                 </View>
 
-                {/* Pin 2: Especialidad - Excluyente */}
+                {/* Pin 2: Especialidad - Dropdown */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Especialidad</Text>
                   <Text style={styles.avatarPickerHelp}>Elige una opción</Text>
-                  <View style={[styles.chipsSelectionRow, { flexWrap: 'wrap', marginTop: 8 }]}>
-                    {DEPARTMENTS_LIST.map((dept) => {
-                      const isSelected = department === dept.code;
-                      return (
-                        <TouchableOpacity
-                          key={dept.code}
-                          style={[
-                            styles.selectableChip,
-                            styles.deptSelectableChip,
-                            isSelected && styles.deptChipSelected,
-                          ]}
-                          onPress={() => setDepartment(isSelected ? '' : dept.code)}
-                        >
-                          <Text
-                            style={[
-                              styles.selectableChipText,
-                              isSelected ? styles.deptChipTextSelected : { color: '#8b5cf6' },
-                            ]}
-                          >
-                            {dept.code}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                  <select
+                    style={{
+                      backgroundColor: theme.colors.background,
+                      borderRadius: 8,
+                      padding: 10,
+                      color: theme.colors.text,
+                      borderWidth: 1,
+                      borderColor: theme.colors.border,
+                      fontSize: 14,
+                      marginTop: 6,
+                      width: '100%',
+                      outline: 'none',
+                      cursor: 'pointer',
+                    } as any}
+                    value={department}
+                    onChange={(e: any) => setDepartment(e.target.value)}
+                  >
+                    <option value="" style={{ backgroundColor: '#0c0c0c', color: theme.colors.textMuted }}>
+                      -- Sin especialidad --
+                    </option>
+                    {DEPARTMENTS_LIST.map((dept) => (
+                      <option key={dept.code} value={dept.code} style={{ backgroundColor: '#0c0c0c', color: '#ffffff' }}>
+                        {dept.code} - {dept.label}
+                      </option>
+                    ))}
+                  </select>
                 </View>
 
                 {/* Previsualización de Pins */}
