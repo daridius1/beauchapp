@@ -15,6 +15,7 @@ import Toast from 'react-native-toast-message';
 import { organizationService, OrganizationMemberRecord } from '../services/organizationService';
 import { OrgChip } from '../components/OrgChip';
 import { UserChipsRow } from '../components/UserChipsRow';
+import { marketplaceService, SellerProfileRecord } from '../services/marketplaceService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile' | 'UserProfile'>;
 
@@ -47,6 +48,9 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   const [studentMemberships, setStudentMemberships] = useState<OrganizationMemberRecord[]>([]);
   const [orgMembers, setOrgMembers] = useState<OrganizationMemberRecord[]>([]);
 
+  // Estado de Perfil de Vendedor
+  const [sellerProfile, setSellerProfile] = useState<SellerProfileRecord | null>(null);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await withMinimumDelay(() => fetchProfileAndPosts(true));
@@ -63,6 +67,14 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
       // 1. Obtener datos del usuario del perfil
       const userRes = await pb.collection('users').getOne(targetUserId);
       setProfileUser(userRes);
+
+      // Cargar Perfil de Vendedor si existe
+      try {
+        const sProfile = await marketplaceService.getSellerProfile(targetUserId);
+        setSellerProfile(sProfile);
+      } catch (e) {
+        setSellerProfile(null);
+      }
 
       // 2. Obtener publicaciones del usuario
       const postsRes = await pb.collection('posts').getList(1, 50, {
@@ -285,6 +297,17 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                 memberships={studentMemberships}
                 onOrgPress={(orgId) => navigation.push('UserProfile', { userId: orgId })}
               />
+            )}
+
+            {/* Acceso al Perfil de Vendedor (Solo si la tienda está activada) */}
+            {sellerProfile && (
+              <TouchableOpacity
+                style={styles.sellerProfileBtn}
+                onPress={() => navigation.push('SellerProfile', { sellerProfileId: sellerProfile.id })}
+              >
+                <Feather name="shopping-bag" size={13} color={theme.colors.primary} />
+                <Text style={styles.sellerProfileBtnText}>🛍️ Ver Perfil de Vendedor</Text>
+              </TouchableOpacity>
             )}
           </View>
 
@@ -684,5 +707,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: 'italic',
     marginTop: 4,
+  },
+  sellerProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    gap: 6,
+  },
+  sellerProfileBtnText: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

@@ -25,4 +25,7 @@ export type RootStackParamList = {
   LadderMatchArbitrator: { slug: string; name?: string };
   LadderMatchDetail: { matchId: string; slug?: string; name?: string };
   LadderPlayerProfile: { userId: string; slug: string; name?: string };
+  Marketplace: { initialCategory?: string } | undefined;
+  MarketplaceItemDetail: { itemId: string };
+  SellerProfile: { sellerProfileId?: string; userId?: string };
 };

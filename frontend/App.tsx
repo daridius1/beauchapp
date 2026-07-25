@@ -27,6 +27,9 @@ import { LadderDetailScreen } from './src/screens/LadderDetailScreen';
 import { LadderMatchArbitratorScreen } from './src/screens/LadderMatchArbitratorScreen';
 import { LadderMatchDetailScreen } from './src/screens/LadderMatchDetailScreen';
 import { LadderPlayerProfileScreen } from './src/screens/LadderPlayerProfileScreen';
+import { MarketplaceScreen } from './src/screens/MarketplaceScreen';
+import { MarketplaceItemDetailScreen } from './src/screens/MarketplaceItemDetailScreen';
+import { SellerProfileScreen } from './src/screens/SellerProfileScreen';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -130,6 +133,9 @@ function AppContent() {
       case 'Tinder': return 'Tinder Beauchef';
       case 'Notifications': return 'Notificaciones';
       case 'LaddersList': return 'Ladders';
+      case 'Marketplace': return 'Marketplace';
+      case 'MarketplaceItemDetail': return 'Producto';
+      case 'SellerProfile': return 'Perfil de Vendedor';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
       case 'LadderMatchDetail':
@@ -222,6 +228,9 @@ function AppContent() {
               LadderDetail: 'ladders/:slug',
               LadderMatchArbitrator: 'ladders/:slug/arbitrate',
               LadderMatchDetail: 'ladders/matches/:matchId',
+              Marketplace: 'marketplace',
+              MarketplaceItemDetail: 'marketplace/item/:itemId',
+              SellerProfile: 'marketplace/seller/:sellerProfileId',
             }
           }
         }}
@@ -258,7 +267,7 @@ function AppContent() {
                   title={getScreenTitle(currentRouteName, currentRouteParams)} 
                   onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                   onBack={showBackButton ? handleBack : undefined}
-                  onRefresh={['Home', 'ProblemsList', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail'].includes(currentRouteName) ? () => {
+                  onRefresh={['Home', 'ProblemsList', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'Marketplace', 'SellerProfile'].includes(currentRouteName) ? () => {
                     DeviceEventEmitter.emit('onGlobalRefresh');
                   } : undefined}
                 />
@@ -284,6 +293,9 @@ function AppContent() {
                     <Stack.Screen name="LadderMatchArbitrator" component={LadderMatchArbitratorScreen} />
                     <Stack.Screen name="LadderMatchDetail" component={LadderMatchDetailScreen} />
                     <Stack.Screen name="LadderPlayerProfile" component={LadderPlayerProfileScreen} />
+                    <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
+                    <Stack.Screen name="MarketplaceItemDetail" component={MarketplaceItemDetailScreen} />
+                    <Stack.Screen name="SellerProfile" component={SellerProfileScreen} />
                     <Stack.Screen name="Settings" component={SettingsScreen} />
                     <Stack.Screen name="NotFound" component={NotFoundScreen} />
                   </Stack.Navigator>

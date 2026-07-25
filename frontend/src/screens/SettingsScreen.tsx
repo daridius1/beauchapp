@@ -627,7 +627,6 @@ export const SettingsScreen: React.FC = () => {
             <Feather name="code" size={20} color={theme.colors.primary} style={styles.optionIcon} />
             <View style={{ flex: 1 }}>
               <Text style={styles.optionTitle}>Modo Desarrollador</Text>
-              <Text style={styles.optionSubtitle}>Muestra el ID único de las publicaciones en el feed</Text>
             </View>
           </View>
           <Feather 
