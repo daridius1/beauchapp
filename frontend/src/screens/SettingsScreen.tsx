@@ -421,7 +421,7 @@ export const SettingsScreen: React.FC = () => {
                     </option>
                     {YEARS_LIST.map((year) => (
                       <option key={year} value={year} style={{ backgroundColor: '#0c0c0c', color: '#ffffff' }}>
-                        Gen '{year.slice(2)} ({year})
+                        {year}
                       </option>
                     ))}
                   </select>
