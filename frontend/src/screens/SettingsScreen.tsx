@@ -395,10 +395,10 @@ export const SettingsScreen: React.FC = () => {
             {/* Selección de Insignias / Pins para Estudiantes */}
             {user.type === 'student' && (
               <>
-                {/* Pin 1: Año de Ingreso (Generación) - Excluyente */}
+                {/* Pin 1: Generación - Excluyente */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Pin de Año de Ingreso (Generación)</Text>
-                  <Text style={styles.avatarPickerHelp}>Selecciona tu año de ingreso a la facultad (2026 - 2000)</Text>
+                  <Text style={styles.inputLabel}>Generación</Text>
+                  <Text style={styles.avatarPickerHelp}>Elige una opción</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
                     <View style={styles.chipsSelectionRow}>
                       {YEARS_LIST.map((year) => {
@@ -428,10 +428,10 @@ export const SettingsScreen: React.FC = () => {
                   </ScrollView>
                 </View>
 
-                {/* Pin 2: Departamento / Especialidad - Excluyente */}
+                {/* Pin 2: Especialidad - Excluyente */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Pin de Departamento / Especialidad</Text>
-                  <Text style={styles.avatarPickerHelp}>Selecciona tu departamento o plan común</Text>
+                  <Text style={styles.inputLabel}>Especialidad</Text>
+                  <Text style={styles.avatarPickerHelp}>Elige una opción</Text>
                   <View style={[styles.chipsSelectionRow, { flexWrap: 'wrap', marginTop: 8 }]}>
                     {DEPARTMENTS_LIST.map((dept) => {
                       const isSelected = department === dept.code;
