@@ -39,6 +39,12 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
         } else if (targetType === 'match') {
           const record = await pb.collection('ladder_matches').getOne(targetId, { expand: 'ladder,team_red,team_blue' });
           if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'marketplace_item' || targetType === 'product') {
+          const record = await pb.collection('marketplace_items').getOne(targetId, { expand: 'seller.user' });
+          if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'seller_profile' || targetType === 'seller') {
+          const record = await pb.collection('seller_profiles').getOne(targetId, { expand: 'user' });
+          if (isMounted) setFetchedTarget(record);
         }
       } catch (err) {
         // Target no encontrado o eliminado
@@ -162,6 +168,52 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
             </View>
           </View>
         </View>
+      </Wrapper>
+    );
+  }
+
+  // 4. RENDERIZADO DE PRODUCTO CITADO (MARKETPLACE)
+  if (targetType === 'marketplace_item' || targetType === 'product') {
+    const title = targetMeta?.title || resolved?.title || 'Producto de Marketplace';
+    const price = targetMeta?.price ?? resolved?.price;
+    const category = targetMeta?.category || resolved?.category || '';
+
+    return (
+      <Wrapper {...wrapperProps} style={styles.previewCardProblem}>
+        <View style={styles.iconBox}>
+          <Text style={{ fontSize: 18 }}>📦</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.problemSubtitle}>Marketplace{category ? ` · ${category}` : ''}</Text>
+          <Text style={styles.problemTitle} numberOfLines={2}>{title}</Text>
+          {price !== undefined && price !== null && (
+            <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: '800', marginTop: 2 }}>
+              ${price.toLocaleString('es-CL')}
+            </Text>
+          )}
+        </View>
+        <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
+      </Wrapper>
+    );
+  }
+
+  // 5. RENDERIZADO DE VENDEDOR / TIENDA CITADO
+  if (targetType === 'seller_profile' || targetType === 'seller') {
+    const sellerName = targetMeta?.sellerName || resolved?.expand?.user?.name || 'Perfil de Vendedor';
+    const sellerUsername = targetMeta?.sellerUsername || resolved?.expand?.user?.username || '';
+    const bio = targetMeta?.bio || resolved?.bio || '';
+
+    return (
+      <Wrapper {...wrapperProps} style={styles.previewCardProblem}>
+        <View style={styles.iconBox}>
+          <Text style={{ fontSize: 18 }}>🛍️</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.problemSubtitle}>Perfil de Vendedor{sellerUsername ? ` · @${sellerUsername}` : ''}</Text>
+          <Text style={styles.problemTitle} numberOfLines={1}>{sellerName}</Text>
+          {!!bio && <Text style={{ color: theme.colors.textMuted, fontSize: 11 }} numberOfLines={1}>{bio}</Text>}
+        </View>
+        <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
       </Wrapper>
     );
   }

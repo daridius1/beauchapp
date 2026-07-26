@@ -17,13 +17,12 @@ import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { Feather, FontAwesome } from '@expo/vector-icons';
-import {
-  marketplaceService,
-  MarketplaceItemRecord,
-  CATEGORIES,
-} from '../services/marketplaceService';
+import { marketplaceService, MarketplaceItemRecord, CATEGORIES } from '../services/marketplaceService';
 import { DeleteConfirmationModal } from '../components/marketplace/DeleteConfirmationModal';
 import Toast from 'react-native-toast-message';
+import { pb } from '../services/pocketbase';
+import { EntityCommentBox } from '../components/EntityCommentBox';
+import { PostCard } from '../components/PostCard';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -34,6 +33,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
   const { user: currentUser } = useAuth();
 
   const [item, setItem] = useState<MarketplaceItemRecord | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
@@ -53,6 +53,18 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
         const isRec = await marketplaceService.hasUserRecommended(record.expand.seller.id);
         setIsRecommended(isRec);
       }
+
+      // Cargar comentarios dirigidos a este producto
+      try {
+        const commentsRes = await pb.collection('posts').getList(1, 50, {
+          filter: `targetType = "marketplace_item" && targetId = "${itemId}" && actionType = "comment" && deleted = false`,
+          sort: '+created',
+          expand: 'author',
+        });
+        setComments(commentsRes.items);
+      } catch (err) {
+        console.error('Error loading item comments:', err);
+      }
     } catch (err) {
       console.error('Error fetching item detail:', err);
     } finally {
@@ -63,6 +75,72 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
   useEffect(() => {
     loadItem();
   }, [loadItem]);
+
+  const handleSendComment = async (content: string, photoFile: File | null) => {
+    if ((!content.trim() && !photoFile) || !currentUser || !item) return;
+    try {
+      const postData: any = {
+        content: content.trim() || ' ',
+        author: currentUser.id,
+        actionType: 'comment',
+        targetType: 'marketplace_item',
+        targetId: item.id,
+        targetMeta: {
+          title: item.title,
+          price: item.price,
+          category: item.category,
+        },
+      };
+      if (photoFile) postData.photo = photoFile;
+
+      const created = await pb.collection('posts').create(postData, { expand: 'author' });
+      setComments((prev) => [...prev, created]);
+      Toast.show({ type: 'success', text1: 'Comentario publicado' });
+    } catch (err) {
+      console.error('Error enviando comentario:', err);
+      Toast.show({ type: 'error', text1: 'Error al enviar comentario' });
+      throw err;
+    }
+  };
+
+  const toggleLikeComment = async (post: any) => {
+    if (!currentUser) return;
+    try {
+      const currentLikes = post.likes || [];
+      let newLikes = [...currentLikes];
+      if (newLikes.includes(currentUser.id)) {
+        newLikes = newLikes.filter((id: string) => id !== currentUser.id);
+      } else {
+        newLikes.push(currentUser.id);
+      }
+      setComments((prev) => prev.map((p) => (p.id === post.id ? { ...p, likes: newLikes } : p)));
+      await pb.collection('posts').update(post.id, { likes: newLikes });
+    } catch (err) {
+      console.error('Error liking comment:', err);
+    }
+  };
+
+  const handleDeleteComment = async (postId: string) => {
+    try {
+      setComments((prev) => prev.filter((p) => p.id !== postId));
+      await pb.collection('posts').update(postId, { deleted: true });
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+    }
+  };
+
+  const handleQuoteItem = () => {
+    if (!item) return;
+    navigation.navigate('Home', {
+      quoteTargetType: 'marketplace_item',
+      quoteTargetId: item.id,
+      quoteTargetMeta: {
+        title: item.title,
+        price: item.price,
+        category: item.category,
+      },
+    });
+  };
 
   if (loading || !item) {
     return (
@@ -340,6 +418,52 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
             </View>
           </View>
         )}
+
+        {/* Sección de Comentarios Polimórficos y Citas */}
+        <View style={{ height: 1, backgroundColor: theme.colors.border, marginVertical: theme.spacing.lg }} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '700' }}>Comentarios ({comments.length})</Text>
+
+          <TouchableOpacity
+            style={styles.quoteHeaderBtn}
+            activeOpacity={0.7}
+            onPress={handleQuoteItem}
+          >
+            <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
+            <Text style={styles.quoteHeaderBtnText}>Citar Producto</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Caja de Comentarios Reutilizable Inline */}
+        {currentUser && (
+          <EntityCommentBox
+            placeholder="Escribe un comentario sobre este producto..."
+            style={{ marginHorizontal: -theme.spacing.md }}
+            onSendComment={handleSendComment}
+          />
+        )}
+
+        {comments.length === 0 ? (
+          <View style={{ padding: theme.spacing.xl, alignItems: 'center' }}>
+            <Feather name="message-square" size={28} color={theme.colors.textMuted} style={{ marginBottom: 8 }} />
+            <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Aún no hay comentarios.</Text>
+            <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginTop: 2 }}>Sé el primero en comentar este producto.</Text>
+          </View>
+        ) : (
+          comments.map((c) => (
+            <View key={c.id} style={{ marginHorizontal: -theme.spacing.md }}>
+              <PostCard
+                post={c}
+                currentUser={currentUser}
+                hideTargetContext={true}
+                onPress={() => navigation.push('PostDetail', { postId: c.id })}
+                onLikePress={() => toggleLikeComment(c)}
+                onDeletePress={() => handleDeleteComment(c.id)}
+                onAuthorPress={() => navigation.push('UserProfile', { userId: c.author })}
+              />
+            </View>
+          ))
+        )}
       </ScrollView>
 
       {/* Modal de Advertencia Estilo Beauchapp para Eliminar Producto */}
@@ -358,6 +482,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  quoteHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  quoteHeaderBtnText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '600',
   },
   centerContainer: {
     flex: 1,

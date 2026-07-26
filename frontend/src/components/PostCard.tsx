@@ -87,6 +87,10 @@ export const PostCard: React.FC<PostCardProps> = ({
       navigation.push('ProblemDetail', { problemId: post.targetId });
     } else if (post.targetType === 'match') {
       navigation.push('LadderMatchDetail', { matchId: post.targetId });
+    } else if (post.targetType === 'marketplace_item' || post.targetType === 'product') {
+      navigation.push('MarketplaceItemDetail', { itemId: post.targetId });
+    } else if (post.targetType === 'seller_profile' || post.targetType === 'seller') {
+      navigation.push('SellerProfile', { sellerProfileId: post.targetId });
     }
   };
 
@@ -243,7 +247,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           </TouchableOpacity>
         )}
 
-        {/* Contexto clickeable para Comentarios a Objetos No-Post (Problemas, Partidos, etc.) */}
+        {/* Contexto clickeable para Comentarios a Objetos No-Post (Problemas, Partidos, Productos, Vendedores, etc.) */}
         {!hideTargetContext && post.actionType === 'comment' && !!post.targetType && !!post.targetId && (
           <TouchableOpacity
             activeOpacity={0.7}
@@ -253,9 +257,19 @@ export const PostCard: React.FC<PostCardProps> = ({
             }}
           >
             <Text style={styles.replyContextText}>
-              En respuesta a {post.targetType === 'problem' ? 'Problema: ' : post.targetType === 'match' ? 'Partido: ' : ''}
+              En respuesta a {
+                post.targetType === 'problem' ? 'Problema: ' :
+                post.targetType === 'match' ? 'Partido: ' :
+                (post.targetType === 'marketplace_item' || post.targetType === 'product') ? 'Producto: ' :
+                (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Vendedor: ' : ''
+              }
               <Text style={{ fontWeight: '700', textDecorationLine: 'underline' }}>
-                {post.targetMeta?.title || post.targetMeta?.sportName || (post.targetType === 'problem' ? 'Ver problema' : 'Ver partido')}
+                {post.targetMeta?.title || post.targetMeta?.sportName || post.targetMeta?.sellerName || (
+                  post.targetType === 'problem' ? 'Ver problema' :
+                  post.targetType === 'match' ? 'Ver partido' :
+                  (post.targetType === 'marketplace_item' || post.targetType === 'product') ? 'Ver producto' :
+                  (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Ver tienda' : 'Ver detalle'
+                )}
               </Text>
             </Text>
           </TouchableOpacity>

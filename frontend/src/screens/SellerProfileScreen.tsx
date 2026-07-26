@@ -26,6 +26,9 @@ import {
 import { MarketplaceItemCard } from '../components/marketplace/MarketplaceItemCard';
 import Toast from 'react-native-toast-message';
 import { SIGNAL_LOGO_BASE64 } from '../assets/signalLogo';
+import { pb } from '../services/pocketbase';
+import { EntityCommentBox } from '../components/EntityCommentBox';
+import { PostCard } from '../components/PostCard';
 
 interface ContactModalData {
   type: 'whatsapp' | 'instagram' | 'telegram' | 'signal' | 'email';
@@ -45,6 +48,7 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const [sellerProfile, setSellerProfile] = useState<SellerProfileRecord | null>(null);
   const [items, setItems] = useState<MarketplaceItemRecord[]>([]);
+  const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -100,6 +104,18 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           perPage: 50,
         });
         setItems(res.items);
+
+        // Cargar comentarios del muro del vendedor
+        try {
+          const commentsRes = await pb.collection('posts').getList(1, 50, {
+            filter: `targetType = "seller_profile" && targetId = "${profile.id}" && actionType = "comment" && deleted = false`,
+            sort: '+created',
+            expand: 'author',
+          });
+          setComments(commentsRes.items);
+        } catch (err) {
+          console.error('Error loading seller wall comments:', err);
+        }
       }
     } catch (err) {
       console.error('Error loading seller profile:', err);
@@ -239,6 +255,74 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
       iconName: 'envelope',
       iconFamily: 'FontAwesome',
       color: '#ea4335',
+    });
+  };
+
+  const handleSendComment = async (content: string, photoFile: File | null) => {
+    if ((!content.trim() && !photoFile) || !currentUser || !sellerProfile) return;
+    try {
+      const sellerUser = sellerProfile.expand?.user;
+      const postData: any = {
+        content: content.trim() || ' ',
+        author: currentUser.id,
+        actionType: 'comment',
+        targetType: 'seller_profile',
+        targetId: sellerProfile.id,
+        targetMeta: {
+          sellerName: sellerUser?.name || 'Vendedor',
+          sellerUsername: sellerUser?.username || '',
+          bio: sellerProfile.bio || '',
+        },
+      };
+      if (photoFile) postData.photo = photoFile;
+
+      const created = await pb.collection('posts').create(postData, { expand: 'author' });
+      setComments((prev) => [...prev, created]);
+      Toast.show({ type: 'success', text1: 'Comentario publicado en el muro' });
+    } catch (err) {
+      console.error('Error enviando comentario al muro:', err);
+      Toast.show({ type: 'error', text1: 'Error al publicar comentario' });
+      throw err;
+    }
+  };
+
+  const toggleLikeComment = async (post: any) => {
+    if (!currentUser) return;
+    try {
+      const currentLikes = post.likes || [];
+      let newLikes = [...currentLikes];
+      if (newLikes.includes(currentUser.id)) {
+        newLikes = newLikes.filter((id: string) => id !== currentUser.id);
+      } else {
+        newLikes.push(currentUser.id);
+      }
+      setComments((prev) => prev.map((p) => (p.id === post.id ? { ...p, likes: newLikes } : p)));
+      await pb.collection('posts').update(post.id, { likes: newLikes });
+    } catch (err) {
+      console.error('Error liking comment:', err);
+    }
+  };
+
+  const handleDeleteComment = async (postId: string) => {
+    try {
+      setComments((prev) => prev.filter((p) => p.id !== postId));
+      await pb.collection('posts').update(postId, { deleted: true });
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+    }
+  };
+
+  const handleQuoteSellerProfile = () => {
+    if (!sellerProfile) return;
+    const sellerUser = sellerProfile.expand?.user;
+    navigation.navigate('Home', {
+      quoteTargetType: 'seller_profile',
+      quoteTargetId: sellerProfile.id,
+      quoteTargetMeta: {
+        sellerName: sellerUser?.name || 'Perfil de Vendedor',
+        sellerUsername: sellerUser?.username || '',
+        bio: sellerProfile.bio || '',
+      },
     });
   };
 
@@ -391,7 +475,7 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                 onPress={() => navigation.navigate('SellerProfileEditor', { sellerProfileId: sellerProfile.id })}
               >
                 <Feather name="edit-3" size={14} color={theme.colors.text} />
-                <Text style={styles.editStoreBtnText}>Editar Tienda / Muro</Text>
+                <Text style={styles.editStoreBtnText}>Editar Muro</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -428,6 +512,52 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
           )}
         </View>
+
+        {/* SECCIÓN DE MURO / COMENTARIOS DEL VENDEDOR */}
+        <View style={{ height: 1, backgroundColor: theme.colors.border, marginVertical: theme.spacing.lg }} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '700' }}>Muro del Vendedor ({comments.length})</Text>
+
+          <TouchableOpacity
+            style={styles.quoteHeaderBtn}
+            activeOpacity={0.7}
+            onPress={handleQuoteSellerProfile}
+          >
+            <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
+            <Text style={styles.quoteHeaderBtnText}>Citar Tienda</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Caja de Comentarios Reutilizable Inline */}
+        {currentUser && (
+          <EntityCommentBox
+            placeholder="Escribe en el muro de este vendedor..."
+            style={{ marginHorizontal: -theme.spacing.md }}
+            onSendComment={handleSendComment}
+          />
+        )}
+
+        {comments.length === 0 ? (
+          <View style={{ padding: theme.spacing.xl, alignItems: 'center' }}>
+            <Feather name="message-square" size={28} color={theme.colors.textMuted} style={{ marginBottom: 8 }} />
+            <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Aún no hay publicaciones en este muro.</Text>
+            <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginTop: 2 }}>Sé el primero en dejar una reseña o comentario.</Text>
+          </View>
+        ) : (
+          comments.map((c) => (
+            <View key={c.id} style={{ marginHorizontal: -theme.spacing.md }}>
+              <PostCard
+                post={c}
+                currentUser={currentUser}
+                hideTargetContext={true}
+                onPress={() => navigation.push('PostDetail', { postId: c.id })}
+                onLikePress={() => toggleLikeComment(c)}
+                onDeletePress={() => handleDeleteComment(c.id)}
+                onAuthorPress={() => navigation.push('UserProfile', { userId: c.author })}
+              />
+            </View>
+          ))
+        )}
       </ScrollView>
 
       {/* Modal de Acción de Contacto */}
@@ -554,6 +684,21 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: theme.spacing.lg,
     paddingBottom: 40,
+  },
+  quoteHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  quoteHeaderBtnText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '600',
   },
   profileCard: {
     position: 'relative',
