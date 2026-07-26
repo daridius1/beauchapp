@@ -188,13 +188,14 @@ export const SellerProfileEditorScreen: React.FC<Props> = ({ route, navigation }
           {/* Signal */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Signal</Text>
+            <Text style={styles.helpText}>Formato de usuario Signal (ej: usuario.15)</Text>
             <TextInput
               style={styles.input}
               value={signalPhone}
               onChangeText={setSignalPhone}
-              placeholder="+56912345678"
+              placeholder="usuario.15"
               placeholderTextColor={theme.colors.textMuted}
-              keyboardType="phone-pad"
+              autoCapitalize="none"
             />
           </View>
 
