@@ -29,10 +29,11 @@ export const SellerProfileEditorScreen: React.FC<Props> = ({ route, navigation }
   const [saving, setSaving] = useState(false);
 
   const [bio, setBio] = useState('');
-  const [wallAnnouncement, setWallAnnouncement] = useState('');
   const [wspPhone, setWspPhone] = useState('');
   const [instagramHandle, setInstagramHandle] = useState('');
-  const [contactNotes, setContactNotes] = useState('');
+  const [telegramHandle, setTelegramHandle] = useState('');
+  const [signalPhone, setSignalPhone] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -53,10 +54,11 @@ export const SellerProfileEditorScreen: React.FC<Props> = ({ route, navigation }
         setExistingProfile(profile);
         if (profile) {
           setBio(profile.bio || '');
-          setWallAnnouncement(profile.wall_announcement || '');
           setWspPhone(profile.wsp_phone || '');
           setInstagramHandle(profile.instagram_handle || '');
-          setContactNotes(profile.contact_notes || '');
+          setTelegramHandle(profile.telegram_handle || '');
+          setSignalPhone(profile.signal_phone || '');
+          setContactEmail(profile.contact_email || '');
         }
       } catch (err) {
         console.error('Error fetching seller profile for editing:', err);
@@ -82,10 +84,11 @@ export const SellerProfileEditorScreen: React.FC<Props> = ({ route, navigation }
     try {
       const updated = await marketplaceService.upsertSellerProfile({
         bio: bio.trim(),
-        wall_announcement: wallAnnouncement.trim(),
         wsp_phone: wspPhone.trim(),
         instagram_handle: instagramHandle.trim(),
-        contact_notes: contactNotes.trim(),
+        telegram_handle: telegramHandle.trim(),
+        signal_phone: signalPhone.trim(),
+        contact_email: contactEmail.trim(),
       });
 
       Toast.show({
@@ -137,10 +140,10 @@ export const SellerProfileEditorScreen: React.FC<Props> = ({ route, navigation }
 
         {/* Formulario */}
         <View style={styles.formCard}>
-          {/* Bio / Presentación de la Tienda */}
+          {/* Descripción */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Presentación / Bio de la Tienda</Text>
-            <Text style={styles.helpText}>Describe qué productos o servicios ofreces a la comunidad</Text>
+            <Text style={styles.inputLabel}>Descripción</Text>
+            <Text style={styles.helpText}>Describe brevemente tu tienda o servicios</Text>
             <TextInput
               style={[styles.input, { height: 75 }]}
               multiline
@@ -151,26 +154,12 @@ export const SellerProfileEditorScreen: React.FC<Props> = ({ route, navigation }
             />
           </View>
 
-          {/* Muro del Vendedor (Aviso del día) */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Aviso / Posteo en tu Muro de Tienda</Text>
-            <Text style={styles.helpText}>
-              Escribe novedades o avisos destacados para quienes visiten tu perfil de tienda
-            </Text>
-            <TextInput
-              style={[styles.input, { height: 75 }]}
-              multiline
-              value={wallAnnouncement}
-              onChangeText={setWallAnnouncement}
-              placeholder="Ej: ¡Hoy estaré en el Patio Central vendiendo brownie vegano de 12:30 a 15:00!"
-              placeholderTextColor={theme.colors.textMuted}
-            />
-          </View>
+          {/* Contacto */}
+          <Text style={styles.sectionHeaderTitle}>Contacto</Text>
 
-          {/* Teléfono WhatsApp */}
+          {/* WhatsApp */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>WhatsApp de Contacto (opcional)</Text>
-            <Text style={styles.helpText}>Formato con código de país o 9 dígitos (ej: +56912345678 o 912345678)</Text>
+            <Text style={styles.inputLabel}>WhatsApp</Text>
             <TextInput
               style={styles.input}
               value={wspPhone}
@@ -181,28 +170,56 @@ export const SellerProfileEditorScreen: React.FC<Props> = ({ route, navigation }
             />
           </View>
 
-          {/* Usuario Instagram */}
+          {/* Instagram */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Usuario Instagram (opcional)</Text>
+            <Text style={styles.inputLabel}>Instagram</Text>
             <TextInput
               style={styles.input}
               value={instagramHandle}
               onChangeText={setInstagramHandle}
-              placeholder="@tu_tienda_beauchef"
+              placeholder="@tu_usuario"
               placeholderTextColor={theme.colors.textMuted}
               autoCapitalize="none"
             />
           </View>
 
-          {/* Notas de Entrega / Ubicación */}
+          {/* Telegram */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Notas de Entrega / Ubicación habitual (opcional)</Text>
+            <Text style={styles.inputLabel}>Telegram</Text>
             <TextInput
               style={styles.input}
-              value={contactNotes}
-              onChangeText={setContactNotes}
-              placeholder="Ej: Entregas presenciales en Patio Central / Sala de Alumnos DFI"
+              value={telegramHandle}
+              onChangeText={setTelegramHandle}
+              placeholder="@tu_usuario"
               placeholderTextColor={theme.colors.textMuted}
+              autoCapitalize="none"
+            />
+          </View>
+
+          {/* Signal */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Signal</Text>
+            <TextInput
+              style={styles.input}
+              value={signalPhone}
+              onChangeText={setSignalPhone}
+              placeholder="+56912345678"
+              placeholderTextColor={theme.colors.textMuted}
+              keyboardType="phone-pad"
+            />
+          </View>
+
+          {/* Correo Electrónico */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Correo Electrónico</Text>
+            <TextInput
+              style={styles.input}
+              value={contactEmail}
+              onChangeText={setContactEmail}
+              placeholder="ejemplo@domain.com"
+              placeholderTextColor={theme.colors.textMuted}
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
           </View>
 
@@ -271,6 +288,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     padding: theme.spacing.md,
+  },
+  sectionHeaderTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: '800',
+    marginTop: 8,
+    marginBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    paddingBottom: 6,
   },
   inputGroup: {
     marginBottom: 16,

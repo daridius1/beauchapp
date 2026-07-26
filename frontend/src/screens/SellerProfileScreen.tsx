@@ -143,6 +143,23 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
     Linking.openURL(`https://instagram.com/${handle}`);
   };
 
+  const openTelegram = () => {
+    if (!sellerProfile?.telegram_handle) return;
+    const handle = sellerProfile.telegram_handle.replace(/^@/, '');
+    Linking.openURL(`https://t.me/${handle}`);
+  };
+
+  const openSignal = () => {
+    if (!sellerProfile?.signal_phone) return;
+    const phone = sellerProfile.signal_phone.replace(/[^0-9+]/g, '');
+    Linking.openURL(`https://signal.me/#p/${phone}`);
+  };
+
+  const openEmail = () => {
+    if (!sellerProfile?.contact_email) return;
+    Linking.openURL(`mailto:${sellerProfile.contact_email}`);
+  };
+
   if (loading && !refreshing) {
     return (
       <View style={styles.centerContainer}>
@@ -210,19 +227,44 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.contactRow}>
             {!!sellerProfile.wsp_phone && (
               <TouchableOpacity style={styles.wspBtn} onPress={openWhatsApp}>
-                <Feather name="message-circle" size={16} color="#ffffff" />
+                <Feather name="message-circle" size={15} color="#ffffff" />
                 <Text style={styles.wspBtnText}>WhatsApp</Text>
               </TouchableOpacity>
             )}
 
             {!!sellerProfile.instagram_handle && (
               <TouchableOpacity style={styles.igBtn} onPress={openInstagram}>
-                <Feather name="instagram" size={16} color="#ffffff" />
+                <Feather name="instagram" size={15} color="#ffffff" />
                 <Text style={styles.igBtnText}>
                   {sellerProfile.instagram_handle.startsWith('@')
                     ? sellerProfile.instagram_handle
                     : `@${sellerProfile.instagram_handle}`}
                 </Text>
+              </TouchableOpacity>
+            )}
+
+            {!!sellerProfile.telegram_handle && (
+              <TouchableOpacity style={styles.telegramBtn} onPress={openTelegram}>
+                <Feather name="send" size={15} color="#ffffff" />
+                <Text style={styles.telegramBtnText}>
+                  {sellerProfile.telegram_handle.startsWith('@')
+                    ? sellerProfile.telegram_handle
+                    : `@${sellerProfile.telegram_handle}`}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {!!sellerProfile.signal_phone && (
+              <TouchableOpacity style={styles.signalBtn} onPress={openSignal}>
+                <Feather name="shield" size={15} color="#ffffff" />
+                <Text style={styles.signalBtnText}>Signal</Text>
+              </TouchableOpacity>
+            )}
+
+            {!!sellerProfile.contact_email && (
+              <TouchableOpacity style={styles.emailBtn} onPress={openEmail}>
+                <Feather name="mail" size={15} color="#ffffff" />
+                <Text style={styles.emailBtnText}>Email</Text>
               </TouchableOpacity>
             )}
 
@@ -247,14 +289,6 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
             )}
           </View>
 
-          {/* Notas de Entrega */}
-          {!!sellerProfile.contact_notes && (
-            <View style={styles.notesBox}>
-              <Feather name="map-pin" size={13} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
-              <Text style={styles.notesText}>{sellerProfile.contact_notes}</Text>
-            </View>
-          )}
-
           {/* Botones de Administración si es el dueño */}
           {isOwner && (
             <View style={styles.ownerActionsRow}>
@@ -277,16 +311,7 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           )}
         </View>
 
-        {/* MURO DEL VENDEDOR (Aviso / Publicación Destacada del Vendedor) */}
-        {!!sellerProfile.wall_announcement && (
-          <View style={styles.wallContainer}>
-            <View style={styles.wallHeader}>
-              <Feather name="volume-2" size={16} color={theme.colors.primary} />
-              <Text style={styles.wallTitle}>Muro del Vendedor / Aviso del día</Text>
-            </View>
-            <Text style={styles.wallContent}>{sellerProfile.wall_announcement}</Text>
-          </View>
-        )}
+
 
         {/* CATÁLOGO DE PRODUCTOS DEL VENDEDOR */}
         <View style={styles.catalogSection}>
@@ -436,6 +461,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  telegramBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#229ED9',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  telegramBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  signalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3A76F0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  signalBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  emailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6366F1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  emailBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   recommendBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -458,19 +525,6 @@ const styles = StyleSheet.create({
   },
   recommendBtnTextActive: {
     color: theme.colors.primary,
-  },
-  notesBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 8,
-    padding: 8,
-    marginTop: 12,
-  },
-  notesText: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    flex: 1,
   },
   ownerActionsRow: {
     flexDirection: 'row',

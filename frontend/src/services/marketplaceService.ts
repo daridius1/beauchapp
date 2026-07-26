@@ -6,10 +6,11 @@ export interface SellerProfileRecord {
   id: string;
   user: string;
   bio?: string;
-  wall_announcement?: string;
   wsp_phone?: string;
   instagram_handle?: string;
-  contact_notes?: string;
+  telegram_handle?: string;
+  signal_phone?: string;
+  contact_email?: string;
   recommendations_count: number;
   created: string;
   updated: string;
@@ -77,10 +78,11 @@ export const marketplaceService = {
   // Crear o actualizar perfil de vendedor
   upsertSellerProfile: async (data: {
     bio?: string;
-    wall_announcement?: string;
     wsp_phone?: string;
     instagram_handle?: string;
-    contact_notes?: string;
+    telegram_handle?: string;
+    signal_phone?: string;
+    contact_email?: string;
   }): Promise<SellerProfileRecord> => {
     const user = pb.authStore.model;
     if (!user) throw new Error('Debes estar autenticado para configurar tu perfil de vendedor.');
@@ -90,10 +92,11 @@ export const marketplaceService = {
     const payload = {
       user: user.id,
       bio: data.bio || '',
-      wall_announcement: data.wall_announcement || '',
       wsp_phone: data.wsp_phone || '',
       instagram_handle: data.instagram_handle || '',
-      contact_notes: data.contact_notes || '',
+      telegram_handle: data.telegram_handle || '',
+      signal_phone: data.signal_phone || '',
+      contact_email: data.contact_email || '',
     };
 
     if (existing) {
