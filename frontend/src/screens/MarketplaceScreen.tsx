@@ -33,7 +33,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const [activeCategory, setActiveCategory] = useState<string>(initialCategory);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [activeTag, setActiveTag] = useState<string | undefined>(undefined);
+  const [activeTags, setActiveTags] = useState<string[]>([]);
 
   const [showCategoryModal, setShowCategoryModal] = useState<boolean>(false);
   const [showTagModal, setShowTagModal] = useState<boolean>(false);
@@ -51,7 +51,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
         const res = await marketplaceService.getMarketplaceItems({
           category: activeCategory,
           query: searchQuery,
-          tag: activeTag,
+          tag: activeTags.join(','),
         });
         setItems(res.items);
 
@@ -66,7 +66,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeCategory, searchQuery, activeTag, currentUser]);
+  }, [activeCategory, searchQuery, activeTags, currentUser]);
 
   useEffect(() => {
     loadItems();
@@ -155,13 +155,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
 
           {/* Etiqueta Selector Filter */}
           <TouchableOpacity 
-            onPress={() => {
-              if (activeTag) {
-                setActiveTag(undefined);
-              } else {
-                setShowTagModal(true);
-              }
-            }}
+            onPress={() => setShowTagModal(true)}
             style={{ flex: 1 }}
           >
             <View style={{ pointerEvents: 'none' }}>
@@ -169,25 +163,30 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
                 style={styles.filterInput}
                 placeholder="Etiqueta"
                 placeholderTextColor={theme.colors.textMuted}
-                value={activeTag || ''}
+                value=""
                 editable={false}
               />
             </View>
           </TouchableOpacity>
         </View>
 
-        {/* Chip de Etiqueta Seleccionada */}
-        {!!activeTag && (
-          <View style={{ marginTop: 10, flexDirection: 'row' }}>
-            <TouchableOpacity
-              style={styles.subTagChipActive}
-              onPress={() => setActiveTag(undefined)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.subTagChipTextActive}>{activeTag}</Text>
-              <Feather name="x" size={12} color="#ffffff" style={{ marginLeft: 6 }} />
-            </TouchableOpacity>
-          </View>
+        {/* Chips de Etiquetas Seleccionadas */}
+        {activeTags.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              {activeTags.map((tag) => (
+                <TouchableOpacity
+                  key={tag}
+                  style={styles.subTagChipActive}
+                  onPress={() => setActiveTags((prev) => prev.filter((t) => t !== tag))}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.subTagChipTextActive}>{tag}</Text>
+                  <Feather name="x" size={12} color="#ffffff" style={{ marginLeft: 6 }} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
         )}
       </View>
 
@@ -212,7 +211,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
             <Feather name="box" size={40} color={theme.colors.textMuted} />
             <Text style={styles.emptyTitle}>No hay productos disponibles</Text>
             <Text style={styles.emptySub}>
-              {searchQuery.trim() || activeTag
+              {searchQuery.trim() || activeTags.length > 0
                 ? 'Prueba ajustando tu búsqueda o filtros.'
                 : 'Sé el primero en publicar un producto o servicio en Beauchapp.'}
             </Text>
@@ -254,13 +253,13 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
         title="Filtrar por Etiqueta"
         placeholder="Buscar etiqueta..."
         suggestions={popularTags}
-        allowCustom={false}
+        allowCustom={true}
         onSelect={(tagVal) => {
-          if (!tagVal) {
-            setActiveTag(undefined);
-          } else {
+          if (tagVal) {
             const clean = tagVal.trim().replace(/^#/, '').toLowerCase();
-            setActiveTag(clean);
+            if (clean && !activeTags.includes(clean)) {
+              setActiveTags((prev) => [...prev, clean]);
+            }
           }
         }}
         onClose={() => setShowTagModal(false)}

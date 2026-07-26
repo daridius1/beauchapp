@@ -218,13 +218,22 @@ export const marketplaceService = {
         expand: 'seller.user,user',
       });
 
-      // Filtrado por sub-tag manual en frontend si aplica
+      // Filtrado por sub-tags manuales en frontend si aplica
       let finalItems = res.items;
       if (params.tag) {
-        const targetTag = params.tag.toLowerCase();
-        finalItems = res.items.filter((item) =>
-          Array.isArray(item.tags) && item.tags.some((t) => t.toLowerCase() === targetTag)
-        );
+        const targetTags = params.tag
+          .split(',')
+          .map((t) => t.trim().toLowerCase())
+          .filter(Boolean);
+
+        if (targetTags.length > 0) {
+          finalItems = res.items.filter((item) =>
+            Array.isArray(item.tags) &&
+            targetTags.every((targetTag) =>
+              item.tags!.some((t) => t.toLowerCase() === targetTag)
+            )
+          );
+        }
       }
 
       return {
