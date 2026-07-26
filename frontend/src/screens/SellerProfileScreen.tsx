@@ -210,16 +210,16 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.profileCard}>
           <View style={styles.avatarRow}>
             <Avatar user={sellerUser} size={70} />
-            <View style={{ flex: 1, marginLeft: 12 }}>
+            <View style={{ flex: 1, marginLeft: 12, justifyContent: 'center' }}>
               <Text style={styles.sellerName}>{sellerUser?.name || 'Vendedor'}</Text>
-              {!!sellerUser?.username && <Text style={styles.sellerHandle}>@{sellerUser.username}</Text>}
-
-              <View style={styles.recBadgeRow}>
-                <View style={styles.recBadge}>
+              <View style={styles.sellerSubRow}>
+                {!!sellerUser?.username && (
+                  <Text style={styles.sellerHandle}>@{sellerUser.username}</Text>
+                )}
+                {!!sellerUser?.username && <Text style={styles.dotSeparator}>·</Text>}
+                <View style={styles.recommendInline}>
                   <Feather name="thumbs-up" size={12} color={theme.colors.primary} />
-                  <Text style={styles.recBadgeText}>
-                    {sellerProfile.recommendations_count || 0} Recomendaciones
-                  </Text>
+                  <Text style={styles.recommendCount}>{sellerProfile.recommendations_count || 0}</Text>
                 </View>
               </View>
             </View>
@@ -408,25 +408,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
   },
-  recBadgeRow: {
+  sellerSubRow: {
     flexDirection: 'row',
-    marginTop: 6,
+    alignItems: 'center',
+    marginTop: 3,
+    gap: 6,
   },
-  recBadge: {
+  dotSeparator: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+  },
+  recommendInline: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(16, 185, 129, 0.1)',
     borderWidth: 1,
-    borderColor: theme.colors.primary,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
     borderRadius: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    gap: 6,
+    gap: 4,
   },
-  recBadgeText: {
+  recommendCount: {
     color: theme.colors.primary,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   bioText: {
     color: theme.colors.text,

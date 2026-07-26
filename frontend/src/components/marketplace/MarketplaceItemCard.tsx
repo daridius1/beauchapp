@@ -80,10 +80,16 @@ export const MarketplaceItemCard: React.FC<Props> = ({ item, onPress }) => {
         {/* Vendedor Info */}
         {sellerUser && (
           <View style={styles.sellerRow}>
-            <Avatar user={sellerUser} size={20} />
+            <Avatar user={sellerUser} size={18} />
             <Text style={styles.sellerName} numberOfLines={1}>
               {sellerUser.name}
             </Text>
+            {!!item.expand?.seller?.recommendations_count && (
+              <View style={styles.cardRecInline}>
+                <Feather name="thumbs-up" size={10} color={theme.colors.primary} />
+                <Text style={styles.cardRecText}>{item.expand.seller.recommendations_count}</Text>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -211,5 +217,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     flex: 1,
+  },
+  cardRecInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  cardRecText: {
+    color: theme.colors.primary,
+    fontSize: 10,
+    fontWeight: '800',
   },
 });

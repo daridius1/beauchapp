@@ -289,14 +289,17 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
             <Text style={styles.sectionHeader}>Vendedor</Text>
             <View style={styles.sellerHeaderRow}>
               <Avatar user={sellerUser} size={50} />
-              <View style={{ flex: 1, marginLeft: 10 }}>
+              <View style={{ flex: 1, marginLeft: 10, justifyContent: 'center' }}>
                 <Text style={styles.sellerName}>{sellerUser?.name || 'Vendedor'}</Text>
-                {!!sellerUser?.username && <Text style={styles.sellerHandle}>@{sellerUser.username}</Text>}
-                <View style={styles.recBadge}>
-                  <Feather name="thumbs-up" size={11} color={theme.colors.primary} />
-                  <Text style={styles.recBadgeText}>
-                    {sellerProfile.recommendations_count || 0} Recomendaciones
-                  </Text>
+                <View style={styles.sellerSubRow}>
+                  {!!sellerUser?.username && (
+                    <Text style={styles.sellerHandle}>@{sellerUser.username}</Text>
+                  )}
+                  {!!sellerUser?.username && <Text style={styles.dotSeparator}>·</Text>}
+                  <View style={styles.recommendInline}>
+                    <Feather name="thumbs-up" size={11} color={theme.colors.primary} />
+                    <Text style={styles.recommendCount}>{sellerProfile.recommendations_count || 0}</Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -598,18 +601,32 @@ const styles = StyleSheet.create({
   sellerHandle: {
     color: theme.colors.textMuted,
     fontSize: 12,
-    marginTop: 2,
   },
-  recBadge: {
+  sellerSubRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 3,
+    gap: 6,
+  },
+  dotSeparator: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+  },
+  recommendInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderRadius: 12,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
     gap: 4,
   },
-  recBadgeText: {
+  recommendCount: {
     color: theme.colors.primary,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   sellerContactRow: {
     flexDirection: 'row',
