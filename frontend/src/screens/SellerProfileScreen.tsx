@@ -398,10 +398,18 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                   <Text style={styles.sellerHandle}>@{sellerUser.username}</Text>
                 )}
                 {!!sellerUser?.username && <Text style={styles.dotSeparator}>·</Text>}
-                <View style={styles.recommendInline}>
+                <TouchableOpacity
+                  style={styles.recommendInline}
+                  activeOpacity={0.7}
+                  onPress={() => navigation.navigate('FollowList', {
+                    userId: sellerProfile.id,
+                    type: 'recommendations',
+                    username: sellerUser?.name || sellerUser?.username || 'Vendedor'
+                  })}
+                >
                   <FontAwesome name="star" size={12} color="#f59e0b" style={{ marginRight: 3 }} />
                   <Text style={styles.recommendCount}>{sellerProfile.recommendations_count || 0}</Text>
-                </View>
+                </TouchableOpacity>
               </View>
             </View>
           </View>

@@ -119,12 +119,13 @@ function AppContent() {
       case 'Communities': return 'Comunidades';
       case 'Centers': return 'Centros';
       case 'Teams': return 'Equipos';
+      case 'Bands': return 'Bandas';
       case 'Settings': return 'Ajustes';
       case 'Directory': return 'Perfiles';
       case 'Students': return 'Personas';
       case 'FollowList': {
         const type = params?.type;
-        return type === 'followers' ? 'Seguidores' : 'Siguiendo';
+        return type === 'followers' ? 'Seguidores' : type === 'following' ? 'Siguiendo' : type === 'recommendations' ? 'Recomendaciones' : 'Integrantes';
       }
       case 'ProblemsList': return 'Problemas';
       case 'ProblemDetail': {
@@ -192,7 +193,7 @@ function AppContent() {
     } else {
       if (['ProblemDetail', 'ProblemEditor'].includes(currentRouteName)) {
         navigationRef.navigate('ProblemsList');
-      } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'FollowList'].includes(currentRouteName)) {
+      } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'FollowList'].includes(currentRouteName)) {
         navigationRef.navigate('Directory');
       } else {
         navigationRef.navigate('Home');
@@ -216,6 +217,7 @@ function AppContent() {
               Communities: 'communities',
               Centers: 'centers',
               Teams: 'teams',
+              Bands: 'bands',
               Directory: 'directory',
               UserProfile: 'users/:userId',
               Students: 'students',
@@ -273,7 +275,7 @@ function AppContent() {
                   title={getScreenTitle(currentRouteName, currentRouteParams)} 
                   onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                   onBack={showBackButton ? handleBack : undefined}
-                  onRefresh={['Home', 'ProblemsList', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'Marketplace', 'SellerProfile'].includes(currentRouteName) ? () => {
+                  onRefresh={['Home', 'ProblemsList', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'Marketplace', 'SellerProfile'].includes(currentRouteName) ? () => {
                     DeviceEventEmitter.emit('onGlobalRefresh');
                   } : undefined}
                 />
@@ -286,6 +288,7 @@ function AppContent() {
                     <Stack.Screen name="Communities" component={ProfilesListScreen} />
                     <Stack.Screen name="Centers" component={ProfilesListScreen} />
                     <Stack.Screen name="Teams" component={ProfilesListScreen} />
+                    <Stack.Screen name="Bands" component={ProfilesListScreen} />
                     <Stack.Screen name="PostDetail" component={PostDetailScreen} />
                     <Stack.Screen name="UserProfile" component={ProfileScreen} />
                     <Stack.Screen name="FollowList" component={ProfilesListScreen} />

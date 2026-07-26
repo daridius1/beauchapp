@@ -37,6 +37,13 @@ export const DirectoryScreen: React.FC<Props> = ({ navigation }) => {
       color: '#F59E0B',
     },
     {
+      id: 'Bands',
+      title: 'Bandas',
+      description: 'Grupos musicales, bandas emergentes, ensambles y proyectos artísticos.',
+      icon: 'music' as const,
+      color: '#EC4899',
+    },
+    {
       id: 'Students',
       title: 'Personas',
       description: 'Explora y conecta con perfiles de tus compañeros y otros estudiantes.',

@@ -9,7 +9,7 @@ import { Feather } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
 import { withMinimumDelay } from '../utils/refresh';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Communities' | 'Centers' | 'Teams' | 'Students' | 'FollowList'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Communities' | 'Centers' | 'Teams' | 'Bands' | 'Students' | 'FollowList'>;
 
 export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -33,6 +33,9 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   } else if (routeName === 'Teams') {
     filter = 'type = "organization" && subtype = "team"';
     emptyText = 'Aún no hay equipos creados.';
+  } else if (routeName === 'Bands') {
+    filter = 'type = "organization" && subtype = "band"';
+    emptyText = 'Aún no hay bandas registradas.';
   } else if (routeName === 'Students') {
     filter = 'type != "organization"';
     emptyText = 'Aún no hay personas registradas.';
@@ -41,6 +44,8 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
       ? 'Esta cuenta aún no tiene seguidores.'
       : routeParams?.type === 'following'
       ? 'Esta cuenta aún no sigue a nadie.'
+      : routeParams?.type === 'recommendations'
+      ? 'Aún nadie ha recomendado a este vendedor.'
       : 'Esta organización aún no tiene integrantes registrados.';
   }
 
@@ -67,6 +72,16 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
                 memberRole: item.role,
               };
             })
+            .filter(user => !!user);
+          setProfiles(mappedUsers);
+        } else if (type === 'recommendations') {
+          const res = await pb.collection('seller_recommendations').getList(1, 200, {
+            filter: `seller = "${userId}"`,
+            expand: 'user',
+            sort: '-created',
+          });
+          const mappedUsers = res.items
+            .map(item => item.expand?.user)
             .filter(user => !!user);
           setProfiles(mappedUsers);
         } else {

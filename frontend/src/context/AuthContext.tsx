@@ -10,7 +10,7 @@ export interface User {
   avatar?: string;
   collectionId: string;
   type: 'student' | 'organization';
-  subtype?: 'center' | 'team' | 'community';
+  subtype?: 'center' | 'team' | 'community' | 'band';
   description?: string;
   chip_text?: string;
   chip_color?: string;

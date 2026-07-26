@@ -5,6 +5,7 @@ export type RootStackParamList = {
   Communities: undefined;
   Centers: undefined;
   Teams: undefined;
+  Bands: undefined;
   PostDetail: { postId: string };
   UserProfile: { userId: string; title?: string };
   NotFound: undefined;
@@ -14,7 +15,7 @@ export type RootStackParamList = {
   Settings: undefined;
   Directory: undefined;
   Students: undefined;
-  FollowList: { userId: string; type: 'followers' | 'following' | 'members'; username?: string };
+  FollowList: { userId: string; type: 'followers' | 'following' | 'members' | 'recommendations'; username?: string };
   ProblemsList: undefined;
   ProblemDetail: { problemId: string; type?: 'problem' | 'solution' };
   ProblemEditor: { problemId?: string; answerId?: string; type: 'problem' | 'answer'; initialContent?: string; problemTitle?: string };

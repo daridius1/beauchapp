@@ -70,6 +70,7 @@ export const SettingsScreen: React.FC = () => {
       if (user.subtype === 'center') return 'Centro de Estudiantes';
       if (user.subtype === 'community') return 'Comunidad';
       if (user.subtype === 'team') return 'Equipo';
+      if (user.subtype === 'band') return 'Banda / Grupo Musical';
       return 'Organización';
     }
     return 'Usuario Estudiante';
