@@ -8,13 +8,15 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
+  Modal,
+  Clipboard,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { Avatar } from '../components/Avatar';
-import { Feather, FontAwesome } from '@expo/vector-icons';
+import { Feather, FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   marketplaceService,
   SellerProfileRecord,
@@ -22,6 +24,16 @@ import {
 } from '../services/marketplaceService';
 import { MarketplaceItemCard } from '../components/marketplace/MarketplaceItemCard';
 import Toast from 'react-native-toast-message';
+
+interface ContactModalData {
+  type: 'whatsapp' | 'instagram' | 'telegram' | 'signal' | 'email';
+  title: string;
+  value: string;
+  actionUrl: string;
+  iconName: string;
+  iconFamily: 'FontAwesome' | 'Feather' | 'MaterialCommunityIcons';
+  color: string;
+}
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SellerProfile'>;
 
@@ -36,6 +48,25 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const [isRecommended, setIsRecommended] = useState(false);
   const [recommendLoading, setRecommendLoading] = useState(false);
+
+  const [activeContactModal, setActiveContactModal] = useState<ContactModalData | null>(null);
+
+  const copyToClipboard = (text: string) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text);
+      } else {
+        Clipboard.setString(text);
+      }
+    } catch {
+      Clipboard.setString(text);
+    }
+    Toast.show({
+      type: 'success',
+      text1: '¡Copiado!',
+      text2: `${text} se copió al portapapeles.`,
+    });
+  };
 
   const isOwner =
     currentUser &&
@@ -131,38 +162,82 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
-  const openWhatsApp = () => {
+  const handleOpenWhatsAppModal = () => {
     if (!sellerProfile?.wsp_phone) return;
-    const phone = sellerProfile.wsp_phone.replace(/[^0-9]/g, '');
-    Linking.openURL(`https://wa.me/${phone}`);
+    const phone = sellerProfile.wsp_phone.trim();
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    setActiveContactModal({
+      type: 'whatsapp',
+      title: 'WhatsApp',
+      value: phone,
+      actionUrl: `https://wa.me/${cleanPhone}`,
+      iconName: 'whatsapp',
+      iconFamily: 'FontAwesome',
+      color: '#25D366',
+    });
   };
 
-  const openInstagram = () => {
+  const handleOpenInstagramModal = () => {
     if (!sellerProfile?.instagram_handle) return;
-    const handle = sellerProfile.instagram_handle.replace(/^@/, '');
-    Linking.openURL(`https://instagram.com/${handle}`);
+    const handle = sellerProfile.instagram_handle.trim();
+    const cleanHandle = handle.replace(/^@/, '');
+    setActiveContactModal({
+      type: 'instagram',
+      title: 'Instagram',
+      value: handle.startsWith('@') ? handle : `@${handle}`,
+      actionUrl: `https://instagram.com/${cleanHandle}`,
+      iconName: 'instagram',
+      iconFamily: 'Feather',
+      color: '#E1306C',
+    });
   };
 
-  const openTelegram = () => {
+  const handleOpenTelegramModal = () => {
     if (!sellerProfile?.telegram_handle) return;
-    const handle = sellerProfile.telegram_handle.replace(/^@/, '');
-    Linking.openURL(`https://t.me/${handle}`);
+    const handle = sellerProfile.telegram_handle.trim();
+    const cleanHandle = handle.replace(/^@/, '');
+    setActiveContactModal({
+      type: 'telegram',
+      title: 'Telegram',
+      value: handle.startsWith('@') ? handle : `@${handle}`,
+      actionUrl: `https://t.me/${cleanHandle}`,
+      iconName: 'telegram',
+      iconFamily: 'FontAwesome',
+      color: '#229ED9',
+    });
   };
 
-  const openSignal = () => {
+  const handleOpenSignalModal = () => {
     if (!sellerProfile?.signal_phone) return;
-    const input = sellerProfile.signal_phone.trim().replace(/^@/, '');
-    if (input.includes('.')) {
-      Linking.openURL(`https://signal.me/#eu/${input}`);
-    } else {
-      const phone = input.replace(/[^0-9+]/g, '');
-      Linking.openURL(`https://signal.me/#p/${phone}`);
-    }
+    const val = sellerProfile.signal_phone.trim();
+    const cleanVal = val.replace(/^@/, '');
+    const actionUrl = cleanVal.includes('.')
+      ? `https://signal.me/#eu/${cleanVal}`
+      : `https://signal.me/#p/${cleanVal.replace(/[^0-9+]/g, '')}`;
+
+    setActiveContactModal({
+      type: 'signal',
+      title: 'Signal',
+      value: val,
+      actionUrl,
+      iconName: 'signal-variant',
+      iconFamily: 'MaterialCommunityIcons',
+      color: '#3A76F0',
+    });
   };
 
-  const openEmail = () => {
+  const handleOpenEmailModal = () => {
     if (!sellerProfile?.contact_email) return;
-    Linking.openURL(`mailto:${sellerProfile.contact_email}`);
+    const email = sellerProfile.contact_email.trim();
+    setActiveContactModal({
+      type: 'email',
+      title: 'Correo Electrónico',
+      value: email,
+      actionUrl: `mailto:${email}`,
+      iconName: 'envelope',
+      iconFamily: 'FontAwesome',
+      color: '#ea4335',
+    });
   };
 
   if (loading && !refreshing) {
@@ -251,47 +326,57 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Botones de Contacto Directo (Filas de a 2) */}
           <View style={styles.contactRow}>
             {!!sellerProfile.wsp_phone && (
-              <TouchableOpacity style={styles.wspBtn} onPress={openWhatsApp}>
-                <Feather name="message-circle" size={14} color="#25D366" />
-                <Text style={styles.wspBtnText} numberOfLines={1}>WhatsApp</Text>
+              <TouchableOpacity
+                style={[styles.contactChip, { borderColor: 'rgba(37, 211, 102, 0.3)', backgroundColor: 'rgba(37, 211, 102, 0.08)' }]}
+                onPress={handleOpenWhatsAppModal}
+                activeOpacity={0.7}
+              >
+                <FontAwesome name="whatsapp" size={16} color="#25D366" />
+                <Text style={styles.contactChipText}>WhatsApp</Text>
               </TouchableOpacity>
             )}
 
             {!!sellerProfile.instagram_handle && (
-              <TouchableOpacity style={styles.igBtn} onPress={openInstagram}>
-                <Feather name="instagram" size={14} color="#E1306C" />
-                <Text style={styles.igBtnText} numberOfLines={1}>
-                  {sellerProfile.instagram_handle.startsWith('@')
-                    ? sellerProfile.instagram_handle
-                    : `@${sellerProfile.instagram_handle}`}
-                </Text>
+              <TouchableOpacity
+                style={[styles.contactChip, { borderColor: 'rgba(225, 48, 108, 0.3)', backgroundColor: 'rgba(225, 48, 108, 0.08)' }]}
+                onPress={handleOpenInstagramModal}
+                activeOpacity={0.7}
+              >
+                <Feather name="instagram" size={16} color="#E1306C" />
+                <Text style={styles.contactChipText}>Instagram</Text>
               </TouchableOpacity>
             )}
 
             {!!sellerProfile.telegram_handle && (
-              <TouchableOpacity style={styles.telegramBtn} onPress={openTelegram}>
-                <Feather name="send" size={14} color="#229ED9" />
-                <Text style={styles.telegramBtnText} numberOfLines={1}>
-                  {sellerProfile.telegram_handle.startsWith('@')
-                    ? sellerProfile.telegram_handle
-                    : `@${sellerProfile.telegram_handle}`}
-                </Text>
+              <TouchableOpacity
+                style={[styles.contactChip, { borderColor: 'rgba(34, 158, 217, 0.3)', backgroundColor: 'rgba(34, 158, 217, 0.08)' }]}
+                onPress={handleOpenTelegramModal}
+                activeOpacity={0.7}
+              >
+                <FontAwesome name="telegram" size={16} color="#229ED9" />
+                <Text style={styles.contactChipText}>Telegram</Text>
               </TouchableOpacity>
             )}
 
             {!!sellerProfile.signal_phone && (
-              <TouchableOpacity style={styles.signalBtn} onPress={openSignal}>
-                <Feather name="shield" size={14} color="#3A76F0" />
-                <Text style={styles.signalBtnText} numberOfLines={1}>
-                  {sellerProfile.signal_phone.trim()}
-                </Text>
+              <TouchableOpacity
+                style={[styles.contactChip, { borderColor: 'rgba(58, 118, 240, 0.3)', backgroundColor: 'rgba(58, 118, 240, 0.08)' }]}
+                onPress={handleOpenSignalModal}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="signal-variant" size={16} color="#3A76F0" />
+                <Text style={styles.contactChipText}>Signal</Text>
               </TouchableOpacity>
             )}
 
             {!!sellerProfile.contact_email && (
-              <TouchableOpacity style={styles.emailBtn} onPress={openEmail}>
-                <Feather name="mail" size={14} color="#8b5cf6" />
-                <Text style={styles.emailBtnText} numberOfLines={1}>Email</Text>
+              <TouchableOpacity
+                style={[styles.contactChip, { borderColor: 'rgba(234, 67, 53, 0.3)', backgroundColor: 'rgba(234, 67, 53, 0.08)' }]}
+                onPress={handleOpenEmailModal}
+                activeOpacity={0.7}
+              >
+                <FontAwesome name="envelope" size={16} color="#ea4335" />
+                <Text style={styles.contactChipText}>Correo</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -342,6 +427,82 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           )}
         </View>
       </ScrollView>
+
+      {/* Modal de Acción de Contacto */}
+      <Modal
+        visible={!!activeContactModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveContactModal(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setActiveContactModal(null)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
+            {/* Header del Modal */}
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalIconCircle, { backgroundColor: `${activeContactModal?.color}15`, borderColor: activeContactModal?.color }]}>
+                {activeContactModal?.iconFamily === 'FontAwesome' && (
+                  <FontAwesome name={activeContactModal.iconName as any} size={28} color={activeContactModal.color} />
+                )}
+                {activeContactModal?.iconFamily === 'MaterialCommunityIcons' && (
+                  <MaterialCommunityIcons name={activeContactModal.iconName as any} size={28} color={activeContactModal.color} />
+                )}
+                {activeContactModal?.iconFamily === 'Feather' && (
+                  <Feather name={activeContactModal.iconName as any} size={28} color={activeContactModal.color} />
+                )}
+              </View>
+              <Text style={styles.modalTitle}>{activeContactModal?.title}</Text>
+            </View>
+
+            {/* Caja de Datos de Contacto */}
+            <View style={styles.contactValueBox}>
+              <Text style={styles.contactValueText} selectable>{activeContactModal?.value}</Text>
+            </View>
+
+            {/* Botones de Acción */}
+            <View style={styles.modalActionsRow}>
+              {/* Botón Ir al Enlace */}
+              <TouchableOpacity
+                style={[styles.modalActionPrimary, { backgroundColor: activeContactModal?.color }]}
+                onPress={() => {
+                  if (activeContactModal?.actionUrl) {
+                    Linking.openURL(activeContactModal.actionUrl);
+                  }
+                  setActiveContactModal(null);
+                }}
+              >
+                <Feather name="external-link" size={16} color="#000000" />
+                <Text style={styles.modalActionPrimaryText}>Ir al Enlace</Text>
+              </TouchableOpacity>
+
+              {/* Botón Copiar */}
+              <TouchableOpacity
+                style={styles.modalActionSecondary}
+                onPress={() => {
+                  if (activeContactModal?.value) {
+                    copyToClipboard(activeContactModal.value);
+                  }
+                  setActiveContactModal(null);
+                }}
+              >
+                <Feather name="copy" size={16} color={theme.colors.text} />
+                <Text style={styles.modalActionSecondaryText}>Copiar</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Botón Cerrar */}
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setActiveContactModal(null)}
+            >
+              <Text style={styles.modalCloseBtnText}>Cerrar</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -448,126 +609,119 @@ const styles = StyleSheet.create({
     marginTop: 14,
     width: '100%',
   },
-  wspBtn: {
+  contactChip: {
     minWidth: '47%',
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0c0c0c',
     borderWidth: 1,
-    borderColor: '#25D366',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 9,
-    gap: 6,
+    gap: 8,
   },
-  wspBtnText: {
-    color: '#25D366',
-    fontSize: 12,
+  contactChipText: {
+    color: '#ffffff',
+    fontSize: 13,
     fontWeight: '700',
   },
-  igBtn: {
-    minWidth: '47%',
+  modalOverlay: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
-    backgroundColor: '#0c0c0c',
-    borderWidth: 1,
-    borderColor: '#E1306C',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 9,
-    gap: 6,
-  },
-  igBtnText: {
-    color: '#E1306C',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  telegramBtn: {
-    minWidth: '47%',
-    flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0c0c0c',
-    borderWidth: 1,
-    borderColor: '#229ED9',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 9,
-    gap: 6,
+    padding: 20,
   },
-  telegramBtnText: {
-    color: '#229ED9',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  signalBtn: {
-    minWidth: '47%',
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0c0c0c',
-    borderWidth: 1,
-    borderColor: '#3A76F0',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 9,
-    gap: 6,
-  },
-  signalBtnText: {
-    color: '#3A76F0',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  emailBtn: {
-    minWidth: '47%',
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0c0c0c',
-    borderWidth: 1,
-    borderColor: '#8b5cf6',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 9,
-    gap: 6,
-  },
-  emailBtnText: {
-    color: '#8b5cf6',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  recommendBtn: {
-    minWidth: '47%',
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0c0c0c',
+  modalContent: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#161616',
     borderWidth: 1,
     borderColor: theme.colors.border,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  contactValueBox: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 18,
+    alignItems: 'center',
+  },
+  contactValueText: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  modalActionsRow: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  modalActionPrimary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 9,
+    paddingVertical: 10,
     gap: 6,
   },
-  recommendBtnActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  modalActionPrimaryText: {
+    color: '#000000',
+    fontSize: 13,
+    fontWeight: '800',
   },
-  recommendBtnText: {
-    color: '#ffffff',
-    fontSize: 12,
+  modalActionSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 8,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  modalActionSecondaryText: {
+    color: theme.colors.text,
+    fontSize: 13,
     fontWeight: '700',
   },
-  recommendBtnTextActive: {
-    color: theme.colors.primary,
+  modalCloseBtn: {
+    paddingVertical: 6,
+  },
+  modalCloseBtnText: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
   },
   ownerActionsRow: {
     flexDirection: 'row',
