@@ -21,7 +21,6 @@ import {
   MarketplaceItemRecord,
 } from '../services/marketplaceService';
 import { MarketplaceItemCard } from '../components/marketplace/MarketplaceItemCard';
-import { MarketplaceItemEditorModal } from '../components/marketplace/MarketplaceItemEditorModal';
 import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SellerProfile'>;
@@ -37,9 +36,6 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const [isRecommended, setIsRecommended] = useState(false);
   const [recommendLoading, setRecommendLoading] = useState(false);
-
-  const [showSellerEditor, setShowSellerEditor] = useState(false);
-  const [showItemEditor, setShowItemEditor] = useState(false);
 
   const isOwner =
     currentUser &&
@@ -270,7 +266,10 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                 <Text style={styles.editStoreBtnText}>Editar Tienda / Muro</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.addPublishBtn} onPress={() => setShowItemEditor(true)}>
+              <TouchableOpacity
+                style={styles.addPublishBtn}
+                onPress={() => navigation.navigate('MarketplaceItemEditor')}
+              >
                 <Feather name="plus-circle" size={14} color="#000000" />
                 <Text style={styles.addPublishBtnText}>Publicar Producto</Text>
               </TouchableOpacity>
@@ -311,13 +310,6 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           )}
         </View>
       </ScrollView>
-
-      {/* Modales */}
-      <MarketplaceItemEditorModal
-        visible={showItemEditor}
-        onSuccess={() => loadData()}
-        onClose={() => setShowItemEditor(false)}
-      />
     </View>
   );
 };

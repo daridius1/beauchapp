@@ -21,7 +21,6 @@ import {
   SellerProfileRecord,
 } from '../services/marketplaceService';
 import { MarketplaceItemCard } from '../components/marketplace/MarketplaceItemCard';
-import { MarketplaceItemEditorModal } from '../components/marketplace/MarketplaceItemEditorModal';
 import { withMinimumDelay } from '../utils/refresh';
 import Toast from 'react-native-toast-message';
 
@@ -40,8 +39,6 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const [mySellerProfile, setMySellerProfile] = useState<SellerProfileRecord | null>(null);
-  const [showItemEditor, setShowItemEditor] = useState<boolean>(false);
-  const [showSellerEditor, setShowSellerEditor] = useState<boolean>(false);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -74,29 +71,6 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
   const onRefresh = () => {
     setRefreshing(true);
     loadItems();
-  };
-
-  const handleOpenPublish = () => {
-    if (!currentUser) {
-      Toast.show({
-        type: 'error',
-        text1: 'Autenticación requerida',
-        text2: 'Debes iniciar sesión para publicar productos.',
-      });
-      return;
-    }
-
-    if (!mySellerProfile) {
-      Toast.show({
-        type: 'info',
-        text1: 'Perfil de Vendedor requerido',
-        text2: 'Primero activa tu perfil de vendedor para publicar productos.',
-      });
-      navigation.navigate('SellerProfileEditor');
-      return;
-    }
-
-    setShowItemEditor(true);
   };
 
   const handleOpenMySellerProfile = () => {
@@ -146,13 +120,8 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
           <TouchableOpacity style={styles.mySellerBtn} onPress={handleOpenMySellerProfile}>
             <Feather name="shopping-bag" size={14} color={theme.colors.primary} />
             <Text style={styles.mySellerBtnText}>
-              {mySellerProfile ? 'Mi Tienda' : 'Activar Vendedor'}
+              {mySellerProfile ? '🛍️ Mi Tienda / Perfil de Vendedor' : 'Activar Perfil de Vendedor'}
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.publishBtn} onPress={handleOpenPublish}>
-            <Feather name="plus-circle" size={14} color="#000000" />
-            <Text style={styles.publishBtnText}>Publicar</Text>
           </TouchableOpacity>
         </View>
 
@@ -238,13 +207,6 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         )}
       </ScrollView>
-
-      {/* Modales */}
-      <MarketplaceItemEditorModal
-        visible={showItemEditor}
-        onSuccess={() => loadItems()}
-        onClose={() => setShowItemEditor(false)}
-      />
     </View>
   );
 };
