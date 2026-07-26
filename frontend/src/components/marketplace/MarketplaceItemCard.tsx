@@ -57,28 +57,31 @@ export const MarketplaceItemCard: React.FC<Props> = ({ item, onPress }) => {
 
       {/* Info Content */}
       <View style={styles.content}>
-        {/* Categoría Badge */}
-        <View style={styles.categoryRow}>
+        {/* Filas de Chips (Categoría Principal + Sub-tags) */}
+        <View style={styles.chipsRow}>
+          {/* Categoría Principal Chip */}
           <View style={[styles.categoryBadge, { borderColor: categoryObj?.color || theme.colors.primary }]}>
             <Text style={[styles.categoryText, { color: categoryObj?.color || theme.colors.primary }]}>
               {categoryObj?.label || item.category}
             </Text>
           </View>
+
+          {/* Sub-tags Chips */}
+          {Array.isArray(item.tags) && item.tags.length > 0 && (
+            <>
+              {item.tags.slice(0, 2).map((t, idx) => (
+                <View key={idx} style={styles.subTagBadge}>
+                  <Text style={styles.subTagText}>{t}</Text>
+                </View>
+              ))}
+              {item.tags.length > 2 && (
+                <Text style={styles.tagMore}>+{item.tags.length - 2}</Text>
+              )}
+            </>
+          )}
         </View>
 
         <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-
-        {/* Tags */}
-        {Array.isArray(item.tags) && item.tags.length > 0 && (
-          <View style={styles.tagsRow}>
-            {item.tags.slice(0, 2).map((t, idx) => (
-              <Text key={idx} style={styles.tagChip}>#{t}</Text>
-            ))}
-            {item.tags.length > 2 && (
-              <Text style={styles.tagMore}>+{item.tags.length - 2}</Text>
-            )}
-          </View>
-        )}
 
         {/* Vendedor Info */}
         {sellerUser && (
@@ -169,9 +172,12 @@ const styles = StyleSheet.create({
   content: {
     padding: 10,
   },
-  categoryRow: {
+  chipsRow: {
     flexDirection: 'row',
-    marginBottom: 4,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginBottom: 6,
   },
   categoryBadge: {
     borderWidth: 1,
@@ -184,24 +190,25 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
+  subTagBadge: {
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  subTagText: {
+    color: theme.colors.textMuted,
+    fontSize: 10,
+    fontWeight: '600',
+  },
   title: {
     color: theme.colors.text,
     fontSize: 14,
     fontWeight: '700',
     marginBottom: 6,
     lineHeight: 18,
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginBottom: 6,
-  },
-  tagChip: {
-    color: theme.colors.textMuted,
-    fontSize: 10,
-    fontWeight: '600',
   },
   tagMore: {
     color: theme.colors.textMuted,

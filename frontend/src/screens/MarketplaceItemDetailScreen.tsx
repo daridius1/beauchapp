@@ -250,7 +250,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
             <View style={styles.tagsRow}>
               {item.tags.map((t, idx) => (
                 <View key={idx} style={styles.tagChip}>
-                  <Text style={styles.tagChipText}>#{t}</Text>
+                  <Text style={styles.tagChipText}>{t}</Text>
                 </View>
               ))}
             </View>
