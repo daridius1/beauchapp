@@ -229,22 +229,13 @@ export const PostCard: React.FC<PostCardProps> = ({
           )}
         </View>
         
-        {/* Contexto clickeable para Respuestas a Posts */}
+        {/* Contexto NO clickeable para Respuestas entre Posts */}
         {!!(post.actionType === 'reply' || post.replyTo) && (
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={(e: any) => {
-              if (e.stopPropagation) e.stopPropagation();
-              const parentId = post.replyTo || post.targetId;
-              if (parentId) {
-                navigation.push('PostDetail', { postId: parentId });
-              }
-            }}
-          >
+          <View style={{ marginBottom: 2 }}>
             <Text style={styles.replyContextText}>
               En respuesta a <Text style={{ fontWeight: '700' }}>@{post.targetMeta?.authorUsername || post.expand?.replyTo?.expand?.author?.username || 'Usuario'}</Text>
             </Text>
-          </TouchableOpacity>
+          </View>
         )}
 
         {/* Contexto clickeable para Comentarios a Objetos No-Post (Problemas, Partidos, Productos, Vendedores, etc.) */}
