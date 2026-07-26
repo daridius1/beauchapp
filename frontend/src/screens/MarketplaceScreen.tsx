@@ -103,6 +103,16 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
     <View style={styles.container}>
       {/* Search Header */}
       <View style={styles.searchHeader}>
+        {/* Acciones del Header (Arriba de todo) */}
+        <View style={styles.headerActionsRow}>
+          <TouchableOpacity style={styles.mySellerBtn} onPress={handleOpenMySellerProfile}>
+            <Text style={styles.mySellerBtnText}>
+              {mySellerProfile ? '🛍️ Mi Tienda / Perfil de Vendedor' : 'Activar Perfil de Vendedor'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Search Bar */}
         <View style={styles.searchBar}>
           <Feather name="search" size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
           <TextInput
@@ -119,7 +129,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
           )}
         </View>
 
-        {/* Filtros de Categoría y Sub-tag con Selector Modal */}
+        {/* Filtros de Categoría y Etiqueta con Selector Modal */}
         <View style={styles.filtersRow}>
           {/* Categoría Selector Filter */}
           <TouchableOpacity 
@@ -143,7 +153,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
           </TouchableOpacity>
 
-          {/* Sub-tag Selector Filter */}
+          {/* Etiqueta Selector Filter */}
           <TouchableOpacity 
             onPress={() => {
               if (activeTag) {
@@ -157,47 +167,18 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
             <View style={{ pointerEvents: 'none' }}>
               <TextInput
                 style={styles.filterInput}
-                placeholder="Sub-tag"
+                placeholder="Etiqueta"
                 placeholderTextColor={theme.colors.textMuted}
-                value={activeTag ? `#${activeTag}` : ''}
+                value={activeTag || ''}
                 editable={false}
               />
             </View>
           </TouchableOpacity>
         </View>
 
-        {/* Acciones del Header */}
-        <View style={styles.headerActionsRow}>
-          <TouchableOpacity style={styles.mySellerBtn} onPress={handleOpenMySellerProfile}>
-            <Text style={styles.mySellerBtnText}>
-              {mySellerProfile ? '🛍️ Mi Tienda / Perfil de Vendedor' : 'Activar Perfil de Vendedor'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Pestañas de Categoría Principal */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
-          <View style={styles.categoriesRow}>
-            {CATEGORIES.map((cat) => {
-              const isActive = activeCategory === cat.id;
-              return (
-                <TouchableOpacity
-                  key={cat.id}
-                  style={[styles.categoryTab, isActive && styles.categoryTabActive]}
-                  onPress={() => setActiveCategory(cat.id)}
-                >
-                  <Text style={[styles.categoryTabText, isActive && styles.categoryTabTextActive]}>
-                    {cat.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </ScrollView>
-
-        {/* Bar de sub-tags populares */}
+        {/* Bar de etiquetas populares */}
         {popularTags.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
             <View style={styles.tagsBar}>
               {popularTags.map((t) => {
                 const isSelected = activeTag === t;
@@ -208,7 +189,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
                     onPress={() => setActiveTag(isSelected ? undefined : t)}
                   >
                     <Text style={[styles.subTagChipText, isSelected && styles.subTagChipTextActive]}>
-                      #{t}
+                      {t}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -278,8 +259,8 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
 
       <SelectorModal
         visible={showTagModal}
-        title="Filtrar por Sub-tag"
-        placeholder="Buscar sub-tag..."
+        title="Filtrar por Etiqueta"
+        placeholder="Buscar etiqueta..."
         suggestions={popularTags}
         allowCustom={false}
         onSelect={(tagVal) => {
@@ -379,42 +360,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
-  categoriesRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  categoryTab: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-  },
-  categoryTabActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  categoryTabText: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  categoryTabTextActive: {
-    color: '#000000',
-  },
   tagsBar: {
     flexDirection: 'row',
     gap: 6,
     alignItems: 'center',
   },
   subTagChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
   subTagChipActive: {
     borderColor: theme.colors.primary,
@@ -422,7 +379,7 @@ const styles = StyleSheet.create({
   },
   subTagChipText: {
     color: theme.colors.textMuted,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
   },
   subTagChipTextActive: {

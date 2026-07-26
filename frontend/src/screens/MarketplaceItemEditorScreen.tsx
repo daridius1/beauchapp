@@ -264,23 +264,23 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
             </View>
           </View>
 
-          {/* Sub-tags manuales */}
+          {/* Etiquetas (opcional) */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Sub-tags manuales (opcional)</Text>
+            <Text style={styles.inputLabel}>Etiquetas (opcional)</Text>
             <Text style={styles.helpText}>Selecciona o escribe etiquetas para facilitar la búsqueda</Text>
             <TouchableOpacity
               style={styles.addTagBtn}
               onPress={() => setShowTagModal(true)}
             >
               <Feather name="plus" size={14} color={theme.colors.primary} style={{ marginRight: 6 }} />
-              <Text style={styles.addTagBtnText}>Agregar Sub-tag</Text>
+              <Text style={styles.addTagBtnText}>Agregar Etiqueta</Text>
             </TouchableOpacity>
 
             {tags.length > 0 && (
               <View style={styles.tagsContainer}>
                 {tags.map((t) => (
                   <View key={t} style={styles.tagBadge}>
-                    <Text style={styles.tagBadgeText}>#{t}</Text>
+                    <Text style={styles.tagBadgeText}>{t}</Text>
                     <TouchableOpacity onPress={() => handleRemoveTag(t)}>
                       <Feather name="x" size={12} color="#888888" style={{ marginLeft: 4 }} />
                     </TouchableOpacity>
@@ -334,7 +334,7 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
 
       <SelectorModal
         visible={showTagModal}
-        title="Seleccionar Sub-tag"
+        title="Agregar Etiqueta"
         placeholder="Buscar o escribir etiqueta..."
         suggestions={tagSuggestions}
         allowCustom={true}
