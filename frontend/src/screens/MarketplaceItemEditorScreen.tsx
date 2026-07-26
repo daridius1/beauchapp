@@ -164,17 +164,6 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Banner Header */}
-        <View style={styles.headerCard}>
-          <View style={styles.headerTitleRow}>
-            <Feather name="plus-circle" size={22} color={theme.colors.primary} />
-            <Text style={styles.headerTitle}>Publicar Producto o Servicio</Text>
-          </View>
-          <Text style={styles.headerSub}>
-            Publica un producto en tu tienda. Aparecerá automáticamente en el catálogo del Marketplace.
-          </Text>
-        </View>
-
         {/* Formulario */}
         <View style={styles.formCard}>
           {/* Fotos del producto */}
