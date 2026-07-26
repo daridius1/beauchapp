@@ -12,7 +12,7 @@ migrate((app) => {
     updateRule: "user = @request.auth.id",
     deleteRule: "user = @request.auth.id",
     fields: [
-      { name: "id", type: "text", primaryKey: true },
+      { name: "id", type: "text", primaryKey: true, autogeneratePattern: "[a-z0-9]{15}" },
       {
         name: "user",
         type: "relation",
@@ -43,7 +43,7 @@ migrate((app) => {
     updateRule: "user = @request.auth.id",
     deleteRule: "user = @request.auth.id",
     fields: [
-      { name: "id", type: "text", primaryKey: true },
+      { name: "id", type: "text", primaryKey: true, autogeneratePattern: "[a-z0-9]{15}" },
       {
         name: "seller",
         type: "relation",
@@ -76,7 +76,7 @@ migrate((app) => {
     updateRule: "user = @request.auth.id",
     deleteRule: "user = @request.auth.id",
     fields: [
-      { name: "id", type: "text", primaryKey: true },
+      { name: "id", type: "text", primaryKey: true, autogeneratePattern: "[a-z0-9]{15}" },
       {
         name: "seller",
         type: "relation",

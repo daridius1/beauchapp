@@ -152,7 +152,7 @@ export const SellerProfileEditorModal: React.FC<Props> = ({
 
               {/* Notas de Entrega / Ubicación */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Notas de Entrega / Ubicación habitual</Text>
+                <Text style={styles.inputLabel}>Notas de Entrega / Ubicación habitual (opcional)</Text>
                 <TextInput
                   style={styles.input}
                   value={contactNotes}
