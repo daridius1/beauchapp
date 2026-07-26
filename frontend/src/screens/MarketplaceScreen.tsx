@@ -107,7 +107,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.headerActionsRow}>
           <TouchableOpacity style={styles.mySellerBtn} onPress={handleOpenMySellerProfile}>
             <Text style={styles.mySellerBtnText}>
-              {mySellerProfile ? '🛍️ Mi Tienda / Perfil de Vendedor' : 'Activar Perfil de Vendedor'}
+              {mySellerProfile ? 'Perfil de Vendedor' : 'Activar Perfil de Vendedor'}
             </Text>
           </TouchableOpacity>
         </View>
