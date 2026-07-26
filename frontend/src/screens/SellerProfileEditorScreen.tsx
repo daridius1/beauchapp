@@ -125,18 +125,7 @@ export const SellerProfileEditorScreen: React.FC<Props> = ({ route, navigation }
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Banner de Presentación */}
-        <View style={styles.headerCard}>
-          <View style={styles.headerTitleRow}>
-            <Feather name="shopping-bag" size={22} color={theme.colors.primary} />
-            <Text style={styles.headerTitle}>
-              {existingProfile ? 'Editar Perfil de Vendedor' : 'Activar Perfil de Vendedor'}
-            </Text>
-          </View>
-          <Text style={styles.headerSub}>
-            Configura la información de tu tienda, datos de contacto y publica avisos en tu muro de vendedor.
-          </Text>
-        </View>
+
 
         {/* Formulario */}
         <View style={styles.formCard}>
@@ -258,30 +247,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     paddingBottom: 40,
   },
-  headerCard: {
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  headerTitle: {
-    color: theme.colors.text,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  headerSub: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    lineHeight: 16,
-  },
+
   formCard: {
     backgroundColor: theme.colors.cardBg,
     borderRadius: 12,
