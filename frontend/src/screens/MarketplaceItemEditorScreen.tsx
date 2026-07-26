@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { Feather } from '@expo/vector-icons';
 import { marketplaceService, CATEGORIES, MarketplaceItemRecord } from '../services/marketplaceService';
 import { compressImage } from '../utils/imageCompressor';
+import { SelectorModal } from '../components/SelectorModal';
 import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MarketplaceItemEditor'>;
@@ -30,8 +31,10 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
   const [category, setCategory] = useState('comida');
   const [description, setDescription] = useState('');
 
-  const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>(['vegano', 'apuntes', 'calculo', 'brownies', 'tallaM', 'usado', 'nuevo', 'oficial']);
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -40,13 +43,7 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAddTag = () => {
-    const clean = tagInput.trim().replace(/^#/, '').toLowerCase();
-    if (clean && !tags.includes(clean)) {
-      setTags([...tags, clean]);
-      setTagInput('');
-    }
-  };
+
 
   const handleRemoveTag = (tagToRemove: string) => {
     setTags(tags.filter((t) => t !== tagToRemove));
@@ -240,32 +237,19 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
 
           {/* Categoría Principal & Precio */}
           <View style={styles.rowTwo}>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
+            <TouchableOpacity
+              onPress={() => setShowCategoryModal(true)}
+              style={[styles.inputGroup, { flex: 1 }]}
+            >
               <Text style={styles.inputLabel}>Categoría *</Text>
-              <select
-                style={{
-                  backgroundColor: theme.colors.background,
-                  borderRadius: 8,
-                  padding: 10,
-                  color: theme.colors.text,
-                  borderWidth: 1,
-                  borderColor: theme.colors.border,
-                  fontSize: 13,
-                  marginTop: 4,
-                  width: '100%',
-                  outline: 'none',
-                  cursor: 'pointer',
-                } as any}
-                value={category}
-                onChange={(e: any) => setCategory(e.target.value)}
-              >
-                {CATEGORIES.filter((c) => c.id !== 'all').map((c) => (
-                  <option key={c.id} value={c.id} style={{ backgroundColor: '#0c0c0c', color: '#ffffff' }}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </View>
+              <View style={{ pointerEvents: 'none' }}>
+                <TextInput
+                  style={styles.input}
+                  value={CATEGORIES.find((c) => c.id === category)?.label || 'Comida'}
+                  editable={false}
+                />
+              </View>
+            </TouchableOpacity>
 
             <View style={[styles.inputGroup, { flex: 1 }]}>
               <Text style={styles.inputLabel}>Precio (CLP $) *</Text>
@@ -283,20 +267,14 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
           {/* Sub-tags manuales */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Sub-tags manuales (opcional)</Text>
-            <Text style={styles.helpText}>Escribe etiquetas para facilitar la búsqueda (ej: vegano, apuntes)</Text>
-            <View style={styles.tagInputRow}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={tagInput}
-                onChangeText={setTagInput}
-                placeholder="Ej: vegano"
-                placeholderTextColor={theme.colors.textMuted}
-                onSubmitEditing={handleAddTag}
-              />
-              <TouchableOpacity style={styles.addTagBtn} onPress={handleAddTag}>
-                <Text style={styles.addTagBtnText}>+ Agregar</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.helpText}>Selecciona o escribe etiquetas para facilitar la búsqueda</Text>
+            <TouchableOpacity
+              style={styles.addTagBtn}
+              onPress={() => setShowTagModal(true)}
+            >
+              <Feather name="plus" size={14} color={theme.colors.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.addTagBtnText}>Agregar Sub-tag</Text>
+            </TouchableOpacity>
 
             {tags.length > 0 && (
               <View style={styles.tagsContainer}>
@@ -339,6 +317,38 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Modales de Selección con Búsqueda de Texto (Estándar de la Plataforma) */}
+      <SelectorModal
+        visible={showCategoryModal}
+        title="Seleccionar Categoría"
+        placeholder="Buscar categoría..."
+        suggestions={CATEGORIES.filter((c) => c.id !== 'all').map((c) => c.label)}
+        allowCustom={false}
+        onSelect={(label) => {
+          const matched = CATEGORIES.find((c) => c.label.toLowerCase() === label.toLowerCase());
+          if (matched) setCategory(matched.id);
+        }}
+        onClose={() => setShowCategoryModal(false)}
+      />
+
+      <SelectorModal
+        visible={showTagModal}
+        title="Seleccionar Sub-tag"
+        placeholder="Buscar o escribir etiqueta..."
+        suggestions={tagSuggestions}
+        allowCustom={true}
+        onSelect={(tagVal) => {
+          const clean = tagVal.trim().replace(/^#/, '').toLowerCase();
+          if (clean && !tags.includes(clean)) {
+            setTags([...tags, clean]);
+            if (!tagSuggestions.includes(clean)) {
+              setTagSuggestions([...tagSuggestions, clean]);
+            }
+          }
+        }}
+        onClose={() => setShowTagModal(false)}
+      />
     </KeyboardAvoidingView>
   );
 };

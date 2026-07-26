@@ -21,6 +21,7 @@ import {
   SellerProfileRecord,
 } from '../services/marketplaceService';
 import { MarketplaceItemCard } from '../components/marketplace/MarketplaceItemCard';
+import { SelectorModal } from '../components/SelectorModal';
 import { withMinimumDelay } from '../utils/refresh';
 import Toast from 'react-native-toast-message';
 
@@ -33,6 +34,9 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
   const [activeCategory, setActiveCategory] = useState<string>(initialCategory);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeTag, setActiveTag] = useState<string | undefined>(undefined);
+
+  const [showCategoryModal, setShowCategoryModal] = useState<boolean>(false);
+  const [showTagModal, setShowTagModal] = useState<boolean>(false);
 
   const [items, setItems] = useState<MarketplaceItemRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -103,7 +107,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
           <Feather name="search" size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Buscar productos, servicios, polerones, comida..."
+            placeholder="Buscar productos o servicios..."
             placeholderTextColor={theme.colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -118,9 +122,8 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
         {/* Acciones del Header */}
         <View style={styles.headerActionsRow}>
           <TouchableOpacity style={styles.mySellerBtn} onPress={handleOpenMySellerProfile}>
-            <Feather name="shopping-bag" size={14} color={theme.colors.primary} />
             <Text style={styles.mySellerBtnText}>
-              {mySellerProfile ? '🛍️ Mi Tienda / Perfil de Vendedor' : 'Activar Perfil de Vendedor'}
+              {mySellerProfile ? 'Mi Perfil de Vendedor' : 'Activar Perfil de Vendedor'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -207,6 +210,41 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         )}
       </ScrollView>
+
+      {/* Selector Modals para Filtro de Búsqueda con Texto (Estándar de la Plataforma) */}
+      <SelectorModal
+        visible={showCategoryModal}
+        title="Filtrar por Categoría"
+        placeholder="Buscar categoría..."
+        suggestions={CATEGORIES.map((c) => c.label)}
+        allowCustom={false}
+        onSelect={(label) => {
+          if (!label) {
+            setActiveCategory('all');
+          } else {
+            const matched = CATEGORIES.find((c) => c.label.toLowerCase() === label.toLowerCase());
+            setActiveCategory(matched ? matched.id : 'all');
+          }
+        }}
+        onClose={() => setShowCategoryModal(false)}
+      />
+
+      <SelectorModal
+        visible={showTagModal}
+        title="Filtrar por Sub-tag"
+        placeholder="Buscar sub-tag..."
+        suggestions={popularTags}
+        allowCustom={false}
+        onSelect={(tagVal) => {
+          if (!tagVal) {
+            setActiveTag(undefined);
+          } else {
+            const clean = tagVal.trim().replace(/^#/, '').toLowerCase();
+            setActiveTag(clean);
+          }
+        }}
+        onClose={() => setShowTagModal(false)}
+      />
     </View>
   );
 };

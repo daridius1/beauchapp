@@ -319,8 +319,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
               style={styles.viewStoreBtn}
               onPress={() => navigation.navigate('SellerProfile', { sellerProfileId: sellerProfile.id })}
             >
-              <Feather name="shopping-bag" size={15} color={theme.colors.primary} />
-              <Text style={styles.viewStoreBtnText}>🛍️ Ver Tienda / Muro del Vendedor</Text>
+              <Text style={styles.viewStoreBtnText}>Ver Tienda</Text>
               <Feather name="chevron-right" size={16} color={theme.colors.primary} />
             </TouchableOpacity>
           </View>
