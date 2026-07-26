@@ -176,29 +176,18 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Bar de etiquetas populares */}
-        {popularTags.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
-            <View style={styles.tagsBar}>
-              {popularTags.map((t) => {
-                const isSelected = activeTag === t;
-                return (
-                  <TouchableOpacity
-                    key={t}
-                    style={[styles.subTagChip, isSelected && styles.subTagChipActive]}
-                    onPress={() => setActiveTag(isSelected ? undefined : t)}
-                  >
-                    <Text style={[styles.subTagChipText, isSelected && styles.subTagChipTextActive]}>
-                      {t}
-                    </Text>
-                    {isSelected && (
-                      <Feather name="x" size={12} color={theme.colors.primary} style={{ marginLeft: 4 }} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </ScrollView>
+        {/* Chip de Etiqueta Seleccionada (Solo si hay una etiqueta activa) */}
+        {!!activeTag && (
+          <View style={{ marginTop: 10, flexDirection: 'row' }}>
+            <TouchableOpacity
+              style={styles.subTagChipActive}
+              onPress={() => setActiveTag(undefined)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.subTagChipTextActive}>{activeTag}</Text>
+              <Feather name="x" size={12} color={theme.colors.primary} style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
