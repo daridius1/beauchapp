@@ -211,40 +211,40 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
 
         {/* Info Principal */}
         <View style={styles.mainCard}>
-          {/* Badge de Categoría & Estado */}
-          <View style={styles.badgesRow}>
+          {/* Row de Categoría Principal y Tags Extra */}
+          <View style={styles.categoryTagsRow}>
             <View style={[styles.categoryBadge, { borderColor: categoryObj?.color || theme.colors.primary }]}>
               <Text style={[styles.categoryBadgeText, { color: categoryObj?.color || theme.colors.primary }]}>
                 {categoryObj?.label || item.category}
               </Text>
             </View>
 
-            {item.status === 'unavailable' && (
-              <View style={styles.unavailableBadge}>
-                <Text style={styles.unavailableBadgeText}>NO DISPONIBLE</Text>
+            {Array.isArray(item.tags) && item.tags.map((t, idx) => (
+              <View key={idx} style={styles.tagChip}>
+                <Text style={styles.tagChipText}>{t}</Text>
               </View>
-            )}
-            {item.status === 'available' && (
-              <View style={styles.availableBadge}>
-                <Text style={styles.availableBadgeText}>DISPONIBLE</Text>
+            ))}
+          </View>
+
+          {/* Título */}
+          <Text style={styles.title}>{item.title}</Text>
+
+          {/* Precio y Pill de Disponibilidad */}
+          <View style={styles.priceStatusRow}>
+            <Text style={styles.price}>${item.price.toLocaleString('es-CL')}</Text>
+
+            {item.status === 'unavailable' ? (
+              <View style={styles.unavailablePill}>
+                <View style={styles.redDot} />
+                <Text style={styles.unavailablePillText}>No disponible</Text>
+              </View>
+            ) : (
+              <View style={styles.availablePill}>
+                <View style={styles.greenDot} />
+                <Text style={styles.availablePillText}>Disponible</Text>
               </View>
             )}
           </View>
-
-          {/* Título & Precio */}
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.price}>${item.price.toLocaleString('es-CL')}</Text>
-
-          {/* Sub-tags */}
-          {Array.isArray(item.tags) && item.tags.length > 0 && (
-            <View style={styles.tagsRow}>
-              {item.tags.map((t, idx) => (
-                <View key={idx} style={styles.tagChip}>
-                  <Text style={styles.tagChipText}>{t}</Text>
-                </View>
-              ))}
-            </View>
-          )}
 
           {/* Descripción */}
           <Text style={styles.sectionHeader}>Descripción</Text>
@@ -438,31 +438,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  unavailableBadge: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: '#ef4444',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  unavailableBadgeText: {
-    color: '#ef4444',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  availableBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: theme.colors.primary,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  availableBadgeText: {
-    color: theme.colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
+  categoryTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
   },
   title: {
     color: theme.colors.text,
@@ -470,17 +451,60 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 6,
   },
+  priceStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
   price: {
     color: theme.colors.primary,
     fontSize: 22,
     fontWeight: '900',
-    marginBottom: 10,
   },
-  tagsRow: {
+  availablePill: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 12,
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  greenDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10b981',
+  },
+  availablePillText: {
+    color: '#10b981',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  unavailablePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  redDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#ef4444',
+  },
+  unavailablePillText: {
+    color: '#ef4444',
+    fontSize: 11,
+    fontWeight: '700',
   },
   tagChip: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
@@ -556,7 +580,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-
   viewStoreBtn: {
     flexDirection: 'row',
     alignItems: 'center',
