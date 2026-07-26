@@ -173,39 +173,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
     }
   };
 
-  const openWhatsApp = () => {
-    if (!sellerProfile?.wsp_phone) return;
-    const phone = sellerProfile.wsp_phone.replace(/[^0-9]/g, '');
-    Linking.openURL(`https://wa.me/${phone}`);
-  };
 
-  const openInstagram = () => {
-    if (!sellerProfile?.instagram_handle) return;
-    const handle = sellerProfile.instagram_handle.replace(/^@/, '');
-    Linking.openURL(`https://instagram.com/${handle}`);
-  };
-
-  const openTelegram = () => {
-    if (!sellerProfile?.telegram_handle) return;
-    const handle = sellerProfile.telegram_handle.replace(/^@/, '');
-    Linking.openURL(`https://t.me/${handle}`);
-  };
-
-  const openSignal = () => {
-    if (!sellerProfile?.signal_phone) return;
-    const input = sellerProfile.signal_phone.trim().replace(/^@/, '');
-    if (input.includes('.')) {
-      Linking.openURL(`https://signal.me/#eu/${input}`);
-    } else {
-      const phone = input.replace(/[^0-9+]/g, '');
-      Linking.openURL(`https://signal.me/#p/${phone}`);
-    }
-  };
-
-  const openEmail = () => {
-    if (!sellerProfile?.contact_email) return;
-    Linking.openURL(`mailto:${sellerProfile.contact_email}`);
-  };
 
   return (
     <View style={styles.container}>
@@ -323,53 +291,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
               </View>
             </View>
 
-            {/* Canales de Contacto Directo */}
-            <View style={styles.sellerContactRow}>
-              {!!sellerProfile.wsp_phone && (
-                <TouchableOpacity style={styles.wspBtn} onPress={openWhatsApp}>
-                  <Feather name="message-circle" size={14} color="#25D366" />
-                  <Text style={styles.wspBtnText} numberOfLines={1}>WhatsApp</Text>
-                </TouchableOpacity>
-              )}
 
-              {!!sellerProfile.instagram_handle && (
-                <TouchableOpacity style={styles.igBtn} onPress={openInstagram}>
-                  <Feather name="instagram" size={14} color="#E1306C" />
-                  <Text style={styles.igBtnText} numberOfLines={1}>
-                    {sellerProfile.instagram_handle.startsWith('@')
-                      ? sellerProfile.instagram_handle
-                      : `@${sellerProfile.instagram_handle}`}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {!!sellerProfile.telegram_handle && (
-                <TouchableOpacity style={styles.telegramBtn} onPress={openTelegram}>
-                  <Feather name="send" size={14} color="#229ED9" />
-                  <Text style={styles.telegramBtnText} numberOfLines={1}>
-                    {sellerProfile.telegram_handle.startsWith('@')
-                      ? sellerProfile.telegram_handle
-                      : `@${sellerProfile.telegram_handle}`}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {!!sellerProfile.signal_phone && (
-                <TouchableOpacity style={styles.signalBtn} onPress={openSignal}>
-                  <Feather name="shield" size={14} color="#3A76F0" />
-                  <Text style={styles.signalBtnText} numberOfLines={1}>
-                    {sellerProfile.signal_phone.trim()}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {!!sellerProfile.contact_email && (
-                <TouchableOpacity style={styles.emailBtn} onPress={openEmail}>
-                  <Feather name="mail" size={14} color="#8b5cf6" />
-                  <Text style={styles.emailBtnText} numberOfLines={1}>Email</Text>
-                </TouchableOpacity>
-              )}
-            </View>
 
             {/* Botón Destacado: Ver Muro / Tienda del Vendedor */}
             <TouchableOpacity
@@ -634,134 +556,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  sellerContactRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
-    width: '100%',
-  },
-  wspBtn: {
-    minWidth: '47%',
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0c0c0c',
-    borderWidth: 1,
-    borderColor: '#25D366',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 9,
-    gap: 6,
-  },
-  wspBtnText: {
-    color: '#25D366',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  igBtn: {
-    minWidth: '47%',
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0c0c0c',
-    borderWidth: 1,
-    borderColor: '#E1306C',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 9,
-    gap: 6,
-  },
-  igBtnText: {
-    color: '#E1306C',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  telegramBtn: {
-    minWidth: '47%',
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0c0c0c',
-    borderWidth: 1,
-    borderColor: '#229ED9',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 9,
-    gap: 6,
-  },
-  telegramBtnText: {
-    color: '#229ED9',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  signalBtn: {
-    minWidth: '47%',
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0c0c0c',
-    borderWidth: 1,
-    borderColor: '#3A76F0',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 9,
-    gap: 6,
-  },
-  signalBtnText: {
-    color: '#3A76F0',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  emailBtn: {
-    minWidth: '47%',
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0c0c0c',
-    borderWidth: 1,
-    borderColor: '#8b5cf6',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 9,
-    gap: 6,
-  },
-  emailBtnText: {
-    color: '#8b5cf6',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  recBtn: {
-    minWidth: '47%',
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0c0c0c',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 9,
-    gap: 6,
-  },
-  recBtnActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-  },
-  recBtnText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  recBtnTextActive: {
-    color: theme.colors.primary,
-  },
+
   viewStoreBtn: {
     flexDirection: 'row',
     alignItems: 'center',
