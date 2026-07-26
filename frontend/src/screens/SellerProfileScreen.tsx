@@ -21,7 +21,6 @@ import {
   MarketplaceItemRecord,
 } from '../services/marketplaceService';
 import { MarketplaceItemCard } from '../components/marketplace/MarketplaceItemCard';
-import { SellerProfileEditorModal } from '../components/marketplace/SellerProfileEditorModal';
 import { MarketplaceItemEditorModal } from '../components/marketplace/MarketplaceItemEditorModal';
 import Toast from 'react-native-toast-message';
 
@@ -163,16 +162,13 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
         <Text style={styles.emptyTitle}>Tienda no encontrada</Text>
         <Text style={styles.emptySub}>Este usuario no ha activado su perfil de vendedor.</Text>
         {currentUser && (
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => setShowSellerEditor(true)}>
+          <TouchableOpacity
+            style={styles.primaryBtn}
+            onPress={() => navigation.navigate('SellerProfileEditor')}
+          >
             <Text style={styles.primaryBtnText}>Activar Mi Perfil de Vendedor</Text>
           </TouchableOpacity>
         )}
-        <SellerProfileEditorModal
-          visible={showSellerEditor}
-          sellerProfile={null}
-          onSuccess={() => loadData()}
-          onClose={() => setShowSellerEditor(false)}
-        />
       </View>
     );
   }
@@ -266,7 +262,10 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Botones de Administración si es el dueño */}
           {isOwner && (
             <View style={styles.ownerActionsRow}>
-              <TouchableOpacity style={styles.editStoreBtn} onPress={() => setShowSellerEditor(true)}>
+              <TouchableOpacity
+                style={styles.editStoreBtn}
+                onPress={() => navigation.navigate('SellerProfileEditor', { sellerProfileId: sellerProfile.id })}
+              >
                 <Feather name="edit-3" size={14} color={theme.colors.text} />
                 <Text style={styles.editStoreBtnText}>Editar Tienda / Muro</Text>
               </TouchableOpacity>
@@ -314,13 +313,6 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
       </ScrollView>
 
       {/* Modales */}
-      <SellerProfileEditorModal
-        visible={showSellerEditor}
-        sellerProfile={sellerProfile}
-        onSuccess={() => loadData()}
-        onClose={() => setShowSellerEditor(false)}
-      />
-
       <MarketplaceItemEditorModal
         visible={showItemEditor}
         onSuccess={() => loadData()}

@@ -30,6 +30,7 @@ import { LadderPlayerProfileScreen } from './src/screens/LadderPlayerProfileScre
 import { MarketplaceScreen } from './src/screens/MarketplaceScreen';
 import { MarketplaceItemDetailScreen } from './src/screens/MarketplaceItemDetailScreen';
 import { SellerProfileScreen } from './src/screens/SellerProfileScreen';
+import { SellerProfileEditorScreen } from './src/screens/SellerProfileEditorScreen';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -136,6 +137,7 @@ function AppContent() {
       case 'Marketplace': return 'Marketplace';
       case 'MarketplaceItemDetail': return 'Producto';
       case 'SellerProfile': return 'Perfil de Vendedor';
+      case 'SellerProfileEditor': return 'Editar Perfil de Vendedor';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
       case 'LadderMatchDetail':
@@ -231,6 +233,7 @@ function AppContent() {
               Marketplace: 'marketplace',
               MarketplaceItemDetail: 'marketplace/item/:itemId',
               SellerProfile: 'marketplace/seller/:sellerProfileId',
+              SellerProfileEditor: 'marketplace/seller-editor',
             }
           }
         }}
@@ -296,6 +299,7 @@ function AppContent() {
                     <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
                     <Stack.Screen name="MarketplaceItemDetail" component={MarketplaceItemDetailScreen} />
                     <Stack.Screen name="SellerProfile" component={SellerProfileScreen} />
+                    <Stack.Screen name="SellerProfileEditor" component={SellerProfileEditorScreen} />
                     <Stack.Screen name="Settings" component={SettingsScreen} />
                     <Stack.Screen name="NotFound" component={NotFoundScreen} />
                   </Stack.Navigator>

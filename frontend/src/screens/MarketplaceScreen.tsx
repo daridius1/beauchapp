@@ -22,7 +22,6 @@ import {
 } from '../services/marketplaceService';
 import { MarketplaceItemCard } from '../components/marketplace/MarketplaceItemCard';
 import { MarketplaceItemEditorModal } from '../components/marketplace/MarketplaceItemEditorModal';
-import { SellerProfileEditorModal } from '../components/marketplace/SellerProfileEditorModal';
 import { withMinimumDelay } from '../utils/refresh';
 import Toast from 'react-native-toast-message';
 
@@ -91,9 +90,9 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
       Toast.show({
         type: 'info',
         text1: 'Perfil de Vendedor requerido',
-        text2: 'Primero configura tu perfil de vendedor para publicar.',
+        text2: 'Primero activa tu perfil de vendedor para publicar productos.',
       });
-      setShowSellerEditor(true);
+      navigation.navigate('SellerProfileEditor');
       return;
     }
 
@@ -113,7 +112,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
     if (mySellerProfile) {
       navigation.navigate('SellerProfile', { sellerProfileId: mySellerProfile.id });
     } else {
-      setShowSellerEditor(true);
+      navigation.navigate('SellerProfileEditor');
     }
   };
 
@@ -245,13 +244,6 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
         visible={showItemEditor}
         onSuccess={() => loadItems()}
         onClose={() => setShowItemEditor(false)}
-      />
-
-      <SellerProfileEditorModal
-        visible={showSellerEditor}
-        sellerProfile={mySellerProfile}
-        onSuccess={() => loadItems()}
-        onClose={() => setShowSellerEditor(false)}
       />
     </View>
   );

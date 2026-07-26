@@ -28,4 +28,5 @@ export type RootStackParamList = {
   Marketplace: { initialCategory?: string } | undefined;
   MarketplaceItemDetail: { itemId: string };
   SellerProfile: { sellerProfileId?: string; userId?: string };
+  SellerProfileEditor: { sellerProfileId?: string } | undefined;
 };
