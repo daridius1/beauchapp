@@ -99,18 +99,20 @@ export const MarketplaceItemCard: React.FC<Props> = ({ item, onPress }) => {
 
 const styles = StyleSheet.create({
   card: {
+    height: 290,
     backgroundColor: theme.colors.cardBg,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.colors.border,
     overflow: 'hidden',
     marginBottom: 14,
+    justifyContent: 'space-between',
   },
   cardInactive: {
     opacity: 0.7,
   },
   imageContainer: {
-    height: 160,
+    height: 150,
     backgroundColor: '#161616',
     position: 'relative',
     justifyContent: 'center',
@@ -158,14 +160,16 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   content: {
+    flex: 1,
     padding: 10,
+    justifyContent: 'space-between',
   },
   chipsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    height: 22,
     gap: 4,
-    marginBottom: 6,
+    overflow: 'hidden',
   },
   categoryBadge: {
     borderWidth: 1,
@@ -193,9 +197,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: theme.colors.text,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    marginBottom: 6,
+    height: 36,
     lineHeight: 18,
   },
   tagMore: {
@@ -207,7 +211,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 4,
     paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.05)',
