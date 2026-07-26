@@ -16,14 +16,13 @@ export const MarketplaceItemCard: React.FC<Props> = ({ item, onPress }) => {
     ? marketplaceService.getItemImageUrl(item, item.images[0])
     : null;
 
-  const isSold = item.status === 'sold';
-  const isPaused = item.status === 'paused';
+  const isUnavailable = item.status === 'unavailable';
 
   const sellerUser = item.expand?.seller?.expand?.user || item.expand?.user;
 
   return (
     <TouchableOpacity
-      style={[styles.card, (isSold || isPaused) && styles.cardInactive]}
+      style={[styles.card, isUnavailable && styles.cardInactive]}
       activeOpacity={0.8}
       onPress={onPress}
     >
@@ -42,15 +41,10 @@ export const MarketplaceItemCard: React.FC<Props> = ({ item, onPress }) => {
           <Text style={styles.priceText}>${item.price.toLocaleString('es-CL')}</Text>
         </View>
 
-        {/* Status Overlay if Sold or Paused */}
-        {isSold && (
-          <View style={styles.statusOverlaySold}>
-            <Text style={styles.statusTextSold}>VENDIDO</Text>
-          </View>
-        )}
-        {isPaused && !isSold && (
-          <View style={styles.statusOverlayPaused}>
-            <Text style={styles.statusTextPaused}>PAUSADO</Text>
+        {/* Status Overlay if Unavailable */}
+        {isUnavailable && (
+          <View style={styles.statusOverlayUnavailable}>
+            <Text style={styles.statusTextUnavailable}>NO DISPONIBLE</Text>
           </View>
         )}
       </View>
@@ -140,34 +134,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  statusOverlaySold: {
+  statusOverlayUnavailable: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statusTextSold: {
+  statusTextUnavailable: {
     color: '#ef4444',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '900',
-    letterSpacing: 1.5,
-    borderWidth: 2,
+    letterSpacing: 1.2,
+    borderWidth: 1.5,
     borderColor: '#ef4444',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     borderRadius: 4,
-  },
-  statusOverlayPaused: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statusTextPaused: {
-    color: '#f59e0b',
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 1.5,
   },
   content: {
     padding: 10,

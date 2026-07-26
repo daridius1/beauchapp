@@ -22,6 +22,7 @@ import {
   MarketplaceItemRecord,
   CATEGORIES,
 } from '../services/marketplaceService';
+import { DeleteConfirmationModal } from '../components/marketplace/DeleteConfirmationModal';
 import Toast from 'react-native-toast-message';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -39,6 +40,8 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
   const [isRecommended, setIsRecommended] = useState(false);
   const [recommendLoading, setRecommendLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadItem = useCallback(async () => {
     setLoading(true);
@@ -125,7 +128,8 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
     }
   };
 
-  const handleUpdateStatus = async (newStatus: 'available' | 'sold' | 'paused') => {
+  const handleUpdateStatus = async (newStatus: 'available' | 'unavailable') => {
+    if (!item) return;
     setStatusLoading(true);
     try {
       const updated = await marketplaceService.updateItemStatus(item.id, newStatus);
@@ -133,7 +137,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
       Toast.show({
         type: 'success',
         text1: 'Estado actualizado',
-        text2: `El producto fue marcado como ${newStatus === 'sold' ? 'Vendido' : newStatus === 'paused' ? 'Pausado' : 'Disponible'}.`,
+        text2: `El producto fue marcado como ${newStatus === 'available' ? 'Disponible' : 'No disponible'}.`,
       });
     } catch (err: any) {
       Toast.show({
@@ -146,31 +150,27 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
     }
   };
 
-  const handleDeleteItem = () => {
-    Alert.alert('Eliminar Producto', '¿Estás seguro de que deseas eliminar esta publicación del Marketplace?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await marketplaceService.softDeleteItem(item.id);
-            Toast.show({
-              type: 'info',
-              text1: 'Producto eliminado',
-              text2: 'La publicación ha sido removida del Marketplace.',
-            });
-            navigation.goBack();
-          } catch (err: any) {
-            Toast.show({
-              type: 'error',
-              text1: 'Error al eliminar',
-              text2: err.message || 'No se pudo eliminar el producto.',
-            });
-          }
-        },
-      },
-    ]);
+  const handleConfirmDelete = async () => {
+    if (!item) return;
+    setDeleting(true);
+    try {
+      await marketplaceService.softDeleteItem(item.id);
+      Toast.show({
+        type: 'info',
+        text1: 'Producto eliminado',
+        text2: 'La publicación ha sido removida del Marketplace.',
+      });
+      setShowDeleteModal(false);
+      navigation.goBack();
+    } catch (err: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error al eliminar',
+        text2: err.message || 'No se pudo eliminar el producto.',
+      });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const openWhatsApp = () => {
@@ -229,14 +229,14 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
               </Text>
             </View>
 
-            {item.status === 'sold' && (
-              <View style={styles.soldBadge}>
-                <Text style={styles.soldBadgeText}>VENDIDO</Text>
+            {item.status === 'unavailable' && (
+              <View style={styles.unavailableBadge}>
+                <Text style={styles.unavailableBadgeText}>NO DISPONIBLE</Text>
               </View>
             )}
-            {item.status === 'paused' && (
-              <View style={styles.pausedBadge}>
-                <Text style={styles.pausedBadgeText}>PAUSADO</Text>
+            {item.status === 'available' && (
+              <View style={styles.availableBadge}>
+                <Text style={styles.availableBadgeText}>DISPONIBLE</Text>
               </View>
             )}
           </View>
@@ -330,14 +330,14 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
           <View style={styles.ownerPanel}>
             <Text style={styles.sectionHeader}>Administrar Publicación</Text>
             <View style={styles.ownerActionsRow}>
-              {item.status !== 'sold' ? (
+              {item.status === 'available' ? (
                 <TouchableOpacity
-                  style={styles.soldActionBtn}
-                  onPress={() => handleUpdateStatus('sold')}
+                  style={styles.unavailableActionBtn}
+                  onPress={() => handleUpdateStatus('unavailable')}
                   disabled={statusLoading}
                 >
-                  <Feather name="check-circle" size={14} color="#ffffff" />
-                  <Text style={styles.soldActionBtnText}>Marcar como Vendido</Text>
+                  <Feather name="slash" size={14} color="#ffffff" />
+                  <Text style={styles.unavailableActionBtnText}>Marcar como No Disponible</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -345,39 +345,31 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
                   onPress={() => handleUpdateStatus('available')}
                   disabled={statusLoading}
                 >
-                  <Feather name="rotate-ccw" size={14} color="#ffffff" />
+                  <Feather name="check-circle" size={14} color="#ffffff" />
                   <Text style={styles.availableActionBtnText}>Marcar como Disponible</Text>
                 </TouchableOpacity>
               )}
 
-              {item.status !== 'paused' ? (
-                <TouchableOpacity
-                  style={styles.pauseActionBtn}
-                  onPress={() => handleUpdateStatus('paused')}
-                  disabled={statusLoading}
-                >
-                  <Feather name="pause-circle" size={14} color="#ffffff" />
-                  <Text style={styles.pauseActionBtnText}>Pausar</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.availableActionBtn}
-                  onPress={() => handleUpdateStatus('available')}
-                  disabled={statusLoading}
-                >
-                  <Feather name="play-circle" size={14} color="#ffffff" />
-                  <Text style={styles.availableActionBtnText}>Reactivar</Text>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity style={styles.deleteActionBtn} onPress={handleDeleteItem}>
+              <TouchableOpacity
+                style={styles.deleteActionBtn}
+                onPress={() => setShowDeleteModal(true)}
+              >
                 <Feather name="trash-2" size={14} color="#ef4444" />
-                <Text style={styles.deleteActionBtnText}>Eliminar</Text>
+                <Text style={styles.deleteActionBtnText}>Eliminar Producto</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
       </ScrollView>
+
+      {/* Modal de Advertencia Estilo Beauchapp para Eliminar Producto */}
+      <DeleteConfirmationModal
+        visible={showDeleteModal}
+        itemTitle={item.title}
+        deleting={deleting}
+        onConfirm={handleConfirmDelete}
+        onClose={() => setShowDeleteModal(false)}
+      />
     </View>
   );
 };
@@ -467,29 +459,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  soldBadge: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+  unavailableBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
     borderColor: '#ef4444',
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  soldBadgeText: {
+  unavailableBadgeText: {
     color: '#ef4444',
     fontSize: 11,
     fontWeight: '800',
   },
-  pausedBadge: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    borderColor: '#f59e0b',
+  availableBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: theme.colors.primary,
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  pausedBadgeText: {
-    color: '#f59e0b',
+  availableBadgeText: {
+    color: theme.colors.primary,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -657,44 +649,30 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 8,
   },
-  soldActionBtn: {
+  unavailableActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#10b981',
+    backgroundColor: '#ef4444',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 6,
   },
-  soldActionBtnText: {
-    color: '#000000',
+  unavailableActionBtnText: {
+    color: '#ffffff',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   availableActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#3b82f6',
+    backgroundColor: theme.colors.primary,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 6,
   },
   availableActionBtnText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  pauseActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f59e0b',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 6,
-  },
-  pauseActionBtnText: {
     color: '#000000',
     fontSize: 12,
     fontWeight: '800',

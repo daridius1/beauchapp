@@ -28,7 +28,7 @@ export interface MarketplaceItemRecord {
   category: 'comida' | 'ropa' | 'clases' | 'otros';
   tags?: string[];
   images?: string[];
-  status: 'available' | 'sold' | 'paused';
+  status: 'available' | 'unavailable';
   views_count?: number;
   deleted?: boolean;
   created: string;
@@ -273,8 +273,8 @@ export const marketplaceService = {
     });
   },
 
-  // Actualizar estado del producto
-  updateItemStatus: async (itemId: string, status: 'available' | 'sold' | 'paused'): Promise<MarketplaceItemRecord> => {
+  // Actualizar estado del producto (Disponible / No disponible)
+  updateItemStatus: async (itemId: string, status: 'available' | 'unavailable'): Promise<MarketplaceItemRecord> => {
     return await pb.collection('marketplace_items').update<MarketplaceItemRecord>(
       itemId,
       { status },
