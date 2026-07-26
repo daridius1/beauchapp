@@ -328,10 +328,10 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
         suggestions={tagSuggestions}
         allowCustom={true}
         onSelect={(tagVal) => {
-          const clean = tagVal.trim().replace(/^#/, '').toLowerCase();
-          if (clean && !tags.includes(clean)) {
+          const clean = tagVal.trim().replace(/^#/, '');
+          if (clean && !tags.some((t) => t.toLowerCase() === clean.toLowerCase())) {
             setTags([...tags, clean]);
-            if (!tagSuggestions.includes(clean)) {
+            if (!tagSuggestions.some((t) => t.toLowerCase() === clean.toLowerCase())) {
               setTagSuggestions([...tagSuggestions, clean]);
             }
           }

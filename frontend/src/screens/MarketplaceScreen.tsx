@@ -256,8 +256,8 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
         allowCustom={true}
         onSelect={(tagVal) => {
           if (tagVal) {
-            const clean = tagVal.trim().replace(/^#/, '').toLowerCase();
-            if (clean && !activeTags.includes(clean)) {
+            const clean = tagVal.trim().replace(/^#/, '');
+            if (clean && !activeTags.some((t) => t.toLowerCase() === clean.toLowerCase())) {
               setActiveTags((prev) => [...prev, clean]);
             }
           }
