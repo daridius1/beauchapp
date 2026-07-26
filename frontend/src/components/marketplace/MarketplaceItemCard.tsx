@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
 import { MarketplaceItemRecord, CATEGORIES, marketplaceService } from '../../services/marketplaceService';
 import { theme } from '../../theme/theme';
 import { Avatar } from '../Avatar';
-import { Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome } from '@expo/vector-icons';
 
 interface Props {
   item: MarketplaceItemRecord;
@@ -86,7 +86,7 @@ export const MarketplaceItemCard: React.FC<Props> = ({ item, onPress }) => {
             </Text>
             {!!item.expand?.seller?.recommendations_count && (
               <View style={styles.cardRecInline}>
-                <Feather name="thumbs-up" size={10} color={theme.colors.primary} />
+                <FontAwesome name="star" size={10} color="#f59e0b" />
                 <Text style={styles.cardRecText}>{item.expand.seller.recommendations_count}</Text>
               </View>
             )}

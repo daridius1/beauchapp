@@ -16,7 +16,7 @@ import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { Avatar } from '../components/Avatar';
-import { Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome } from '@expo/vector-icons';
 import {
   marketplaceService,
   MarketplaceItemRecord,
@@ -286,10 +286,29 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
         {/* Tarjeta del Vendedor & Botón a su Perfil Dedicado */}
         {sellerProfile && (
           <View style={styles.sellerCard}>
+            {!isOwner && (
+              <TouchableOpacity
+                style={styles.starCornerBtn}
+                onPress={handleToggleRecommend}
+                disabled={recommendLoading}
+                activeOpacity={0.7}
+              >
+                {recommendLoading ? (
+                  <ActivityIndicator size="small" color="#f59e0b" />
+                ) : (
+                  <FontAwesome
+                    name={isRecommended ? 'star' : 'star-o'}
+                    size={22}
+                    color={isRecommended ? '#f59e0b' : '#666666'}
+                  />
+                )}
+              </TouchableOpacity>
+            )}
+
             <Text style={styles.sectionHeader}>Vendedor</Text>
             <View style={styles.sellerHeaderRow}>
               <Avatar user={sellerUser} size={50} />
-              <View style={{ flex: 1, marginLeft: 10, justifyContent: 'center' }}>
+              <View style={{ flex: 1, marginLeft: 10, justifyContent: 'center', paddingRight: !isOwner ? 32 : 0 }}>
                 <Text style={styles.sellerName}>{sellerUser?.name || 'Vendedor'}</Text>
                 <View style={styles.sellerSubRow}>
                   {!!sellerUser?.username && (
@@ -297,7 +316,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
                   )}
                   {!!sellerUser?.username && <Text style={styles.dotSeparator}>·</Text>}
                   <View style={styles.recommendInline}>
-                    <Feather name="thumbs-up" size={11} color={theme.colors.primary} />
+                    <FontAwesome name="star" size={11} color="#f59e0b" style={{ marginRight: 3 }} />
                     <Text style={styles.recommendCount}>{sellerProfile.recommendations_count || 0}</Text>
                   </View>
                 </View>
@@ -348,20 +367,6 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
                 <TouchableOpacity style={styles.emailBtn} onPress={openEmail}>
                   <Feather name="mail" size={14} color="#8b5cf6" />
                   <Text style={styles.emailBtnText} numberOfLines={1}>Email</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Botón de Recomendación (+1) */}
-              {!isOwner && (
-                <TouchableOpacity
-                  style={[styles.recBtn, isRecommended && styles.recBtnActive]}
-                  onPress={handleToggleRecommend}
-                  disabled={recommendLoading}
-                >
-                  <Feather name="thumbs-up" size={14} color={isRecommended ? theme.colors.primary : '#ffffff'} />
-                  <Text style={[styles.recBtnText, isRecommended && styles.recBtnTextActive]} numberOfLines={1}>
-                    {isRecommended ? 'Recomendado (+1)' : 'Recomendar'}
-                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -581,12 +586,20 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   sellerCard: {
+    position: 'relative',
     backgroundColor: theme.colors.cardBg,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.colors.border,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
+  },
+  starCornerBtn: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    zIndex: 10,
+    padding: 6,
   },
   sellerHeaderRow: {
     flexDirection: 'row',
@@ -615,18 +628,11 @@ const styles = StyleSheet.create({
   recommendInline: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-    borderRadius: 12,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    gap: 4,
   },
   recommendCount: {
-    color: theme.colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   sellerContactRow: {
     flexDirection: 'row',
