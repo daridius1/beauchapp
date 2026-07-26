@@ -191,6 +191,9 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
                     <Text style={[styles.subTagChipText, isSelected && styles.subTagChipTextActive]}>
                       {t}
                     </Text>
+                    {isSelected && (
+                      <Feather name="x" size={12} color={theme.colors.primary} style={{ marginLeft: 4 }} />
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -326,7 +329,8 @@ const styles = StyleSheet.create({
   headerActionsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8,
+    marginTop: 2,
+    marginBottom: 10,
   },
   mySellerBtn: {
     flex: 1,
@@ -366,6 +370,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   subTagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 14,
