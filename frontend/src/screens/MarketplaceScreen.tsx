@@ -176,7 +176,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Chip de Etiqueta Seleccionada (Solo si hay una etiqueta activa) */}
+        {/* Chip de Etiqueta Seleccionada */}
         {!!activeTag && (
           <View style={{ marginTop: 10, flexDirection: 'row' }}>
             <TouchableOpacity
@@ -185,7 +185,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
               activeOpacity={0.7}
             >
               <Text style={styles.subTagChipTextActive}>{activeTag}</Text>
-              <Feather name="x" size={12} color={theme.colors.primary} style={{ marginLeft: 6 }} />
+              <Feather name="x" size={12} color="#ffffff" style={{ marginLeft: 6 }} />
             </TouchableOpacity>
           </View>
         )}
@@ -369,8 +369,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
   subTagChipActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   subTagChipText: {
     color: theme.colors.textMuted,
@@ -378,7 +384,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   subTagChipTextActive: {
-    color: theme.colors.primary,
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   scrollContent: {
     padding: theme.spacing.lg,
