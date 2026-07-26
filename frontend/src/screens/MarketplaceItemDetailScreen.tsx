@@ -337,7 +337,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
                   disabled={statusLoading}
                 >
                   <Feather name="slash" size={14} color="#ffffff" />
-                  <Text style={styles.unavailableActionBtnText}>Marcar como No Disponible</Text>
+                  <Text style={styles.unavailableActionBtnText} numberOfLines={1}>Marcar No Disponible</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -345,8 +345,8 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
                   onPress={() => handleUpdateStatus('available')}
                   disabled={statusLoading}
                 >
-                  <Feather name="check-circle" size={14} color="#ffffff" />
-                  <Text style={styles.availableActionBtnText}>Marcar como Disponible</Text>
+                  <Feather name="check-circle" size={14} color="#000000" />
+                  <Text style={styles.availableActionBtnText} numberOfLines={1}>Marcar Disponible</Text>
                 </TouchableOpacity>
               )}
 
@@ -355,7 +355,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
                 onPress={() => setShowDeleteModal(true)}
               >
                 <Feather name="trash-2" size={14} color="#ef4444" />
-                <Text style={styles.deleteActionBtnText}>Eliminar Producto</Text>
+                <Text style={styles.deleteActionBtnText} numberOfLines={1}>Eliminar Producto</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -645,32 +645,37 @@ const styles = StyleSheet.create({
   },
   ownerActionsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: 8,
     marginTop: 8,
+    width: '100%',
   },
   unavailableActionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#ef4444',
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+    gap: 4,
   },
   unavailableActionBtnText: {
     color: '#ffffff',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   availableActionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: theme.colors.primary,
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+    gap: 4,
   },
   availableActionBtnText: {
     color: '#000000',
@@ -678,19 +683,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   deleteActionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
     borderWidth: 1,
     borderColor: '#ef4444',
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+    gap: 4,
   },
   deleteActionBtnText: {
     color: '#ef4444',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });
