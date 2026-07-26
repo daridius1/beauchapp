@@ -109,6 +109,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
       if (sellerProfile) {
         sellerProfile.recommendations_count = res.count;
       }
+      setItem((prev) => (prev ? { ...prev } : null));
 
       Toast.show({
         type: 'success',

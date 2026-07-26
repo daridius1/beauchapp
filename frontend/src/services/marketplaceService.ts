@@ -175,9 +175,18 @@ export const marketplaceService = {
   // Obtener detalle de un producto por ID
   getItemDetail: async (itemId: string): Promise<MarketplaceItemRecord | null> => {
     try {
-      return await pb.collection('marketplace_items').getOne<MarketplaceItemRecord>(itemId, {
+      const record = await pb.collection('marketplace_items').getOne<MarketplaceItemRecord>(itemId, {
         expand: 'seller.user,user',
       });
+
+      if (record.expand?.seller?.id) {
+        const recs = await pb.collection('seller_recommendations').getList(1, 1, {
+          filter: `seller = "${record.expand.seller.id}"`,
+        });
+        record.expand.seller.recommendations_count = recs.totalItems;
+      }
+
+      return record;
     } catch (err) {
       console.error('Error fetching item detail:', err);
       return null;
@@ -235,6 +244,18 @@ export const marketplaceService = {
           );
         }
       }
+
+      // Cargar conteo real y actualizado de recomendaciones para cada vendedor de la lista
+      await Promise.all(
+        finalItems.map(async (item) => {
+          if (item.expand?.seller?.id) {
+            const recs = await pb.collection('seller_recommendations').getList(1, 1, {
+              filter: `seller = "${item.expand.seller.id}"`,
+            });
+            item.expand.seller.recommendations_count = recs.totalItems;
+          }
+        })
+      );
 
       return {
         items: finalItems,
