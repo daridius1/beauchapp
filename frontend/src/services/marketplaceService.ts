@@ -56,7 +56,14 @@ export const marketplaceService = {
         filter: `user = "${userId}"`,
         expand: 'user',
       });
-      return records.items[0] || null;
+      if (records.items.length === 0) return null;
+
+      const profile = records.items[0];
+      const recs = await pb.collection('seller_recommendations').getList(1, 1, {
+        filter: `seller = "${profile.id}"`,
+      });
+      profile.recommendations_count = recs.totalItems;
+      return profile;
     } catch (err) {
       console.error('Error fetching seller profile:', err);
       return null;
@@ -66,9 +73,14 @@ export const marketplaceService = {
   // Obtener Perfil de Vendedor por ID propio del registro de seller_profile
   getSellerProfileById: async (sellerProfileId: string): Promise<SellerProfileRecord | null> => {
     try {
-      return await pb.collection('seller_profiles').getOne<SellerProfileRecord>(sellerProfileId, {
+      const profile = await pb.collection('seller_profiles').getOne<SellerProfileRecord>(sellerProfileId, {
         expand: 'user',
       });
+      const recs = await pb.collection('seller_recommendations').getList(1, 1, {
+        filter: `seller = "${profile.id}"`,
+      });
+      profile.recommendations_count = recs.totalItems;
+      return profile;
     } catch (err) {
       console.error('Error fetching seller profile by ID:', err);
       return null;
@@ -138,25 +150,26 @@ export const marketplaceService = {
       filter: `seller = "${sellerProfileId}" && user = "${user.id}"`,
     });
 
-    const seller = await pb.collection('seller_profiles').getOne<SellerProfileRecord>(sellerProfileId);
-    let count = seller.recommendations_count || 0;
-
+    let isRecommendedNow = false;
     if (existingRecs.items.length > 0) {
       // Eliminar recomendación
       await pb.collection('seller_recommendations').delete(existingRecs.items[0].id);
-      count = Math.max(0, count - 1);
-      await pb.collection('seller_profiles').update(sellerProfileId, { recommendations_count: count });
-      return { isRecommended: false, count };
+      isRecommendedNow = false;
     } else {
       // Crear recomendación
       await pb.collection('seller_recommendations').create({
         seller: sellerProfileId,
         user: user.id,
       });
-      count = count + 1;
-      await pb.collection('seller_profiles').update(sellerProfileId, { recommendations_count: count });
-      return { isRecommended: true, count };
+      isRecommendedNow = true;
     }
+
+    // Calcular el conteo real exacto desde seller_recommendations
+    const allRecs = await pb.collection('seller_recommendations').getList(1, 1, {
+      filter: `seller = "${sellerProfileId}"`,
+    });
+
+    return { isRecommended: isRecommendedNow, count: allRecs.totalItems };
   },
 
   // Obtener detalle de un producto por ID
