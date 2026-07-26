@@ -119,11 +119,58 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
           )}
         </View>
 
+        {/* Filtros de Categoría y Sub-tag con Selector Modal */}
+        <View style={styles.filtersRow}>
+          {/* Categoría Selector Filter */}
+          <TouchableOpacity 
+            onPress={() => {
+              if (activeCategory !== 'all') {
+                setActiveCategory('all');
+              } else {
+                setShowCategoryModal(true);
+              }
+            }}
+            style={{ flex: 1, marginRight: theme.spacing.xs }}
+          >
+            <View style={{ pointerEvents: 'none' }}>
+              <TextInput
+                style={styles.filterInput}
+                placeholder="Categoría"
+                placeholderTextColor={theme.colors.textMuted}
+                value={activeCategory !== 'all' ? (CATEGORIES.find(c => c.id === activeCategory)?.label || activeCategory) : ''}
+                editable={false}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Sub-tag Selector Filter */}
+          <TouchableOpacity 
+            onPress={() => {
+              if (activeTag) {
+                setActiveTag(undefined);
+              } else {
+                setShowTagModal(true);
+              }
+            }}
+            style={{ flex: 1 }}
+          >
+            <View style={{ pointerEvents: 'none' }}>
+              <TextInput
+                style={styles.filterInput}
+                placeholder="Sub-tag"
+                placeholderTextColor={theme.colors.textMuted}
+                value={activeTag ? `#${activeTag}` : ''}
+                editable={false}
+              />
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Acciones del Header */}
         <View style={styles.headerActionsRow}>
           <TouchableOpacity style={styles.mySellerBtn} onPress={handleOpenMySellerProfile}>
             <Text style={styles.mySellerBtnText}>
-              {mySellerProfile ? 'Mi Perfil de Vendedor' : 'Activar Perfil de Vendedor'}
+              {mySellerProfile ? '🛍️ Mi Tienda / Perfil de Vendedor' : 'Activar Perfil de Vendedor'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -276,6 +323,24 @@ const styles = StyleSheet.create({
     flex: 1,
     color: theme.colors.text,
     fontSize: 13,
+  },
+  filtersRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  filterInput: {
+    width: '100%',
+    backgroundColor: theme.colors.cardBg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: '500',
   },
   headerActionsRow: {
     flexDirection: 'row',
