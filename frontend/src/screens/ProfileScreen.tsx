@@ -222,6 +222,10 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
       navigation.push('ProblemDetail', { problemId: targetId });
     } else if (targetType === 'match') {
       navigation.push('LadderMatchDetail', { matchId: targetId });
+    } else if (targetType === 'marketplace_item' || targetType === 'product') {
+      navigation.push('MarketplaceItemDetail', { itemId: targetId });
+    } else if (targetType === 'seller_profile' || targetType === 'seller') {
+      navigation.push('SellerProfile', { sellerProfileId: targetId });
     }
   };
 
