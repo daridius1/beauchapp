@@ -10,6 +10,7 @@ import {
   Linking,
   Modal,
   Clipboard,
+  Image,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
@@ -24,6 +25,7 @@ import {
 } from '../services/marketplaceService';
 import { MarketplaceItemCard } from '../components/marketplace/MarketplaceItemCard';
 import Toast from 'react-native-toast-message';
+import { SIGNAL_LOGO_BASE64 } from '../assets/signalLogo';
 
 interface ContactModalData {
   type: 'whatsapp' | 'instagram' | 'telegram' | 'signal' | 'email';
@@ -364,7 +366,7 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                 onPress={handleOpenSignalModal}
                 activeOpacity={0.7}
               >
-                <MaterialCommunityIcons name="signal-variant" size={16} color="#3A76F0" />
+                <Image source={{ uri: SIGNAL_LOGO_BASE64 }} style={{ width: 16, height: 16, borderRadius: 8 }} />
                 <Text style={styles.contactChipText}>Signal</Text>
               </TouchableOpacity>
             )}
@@ -444,14 +446,20 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
             {/* Header del Modal */}
             <View style={styles.modalHeader}>
               <View style={[styles.modalIconCircle, { backgroundColor: `${activeContactModal?.color}15`, borderColor: activeContactModal?.color }]}>
-                {activeContactModal?.iconFamily === 'FontAwesome' && (
-                  <FontAwesome name={activeContactModal.iconName as any} size={28} color={activeContactModal.color} />
-                )}
-                {activeContactModal?.iconFamily === 'MaterialCommunityIcons' && (
-                  <MaterialCommunityIcons name={activeContactModal.iconName as any} size={28} color={activeContactModal.color} />
-                )}
-                {activeContactModal?.iconFamily === 'Feather' && (
-                  <Feather name={activeContactModal.iconName as any} size={28} color={activeContactModal.color} />
+                {activeContactModal?.type === 'signal' ? (
+                  <Image source={{ uri: SIGNAL_LOGO_BASE64 }} style={{ width: 34, height: 34, borderRadius: 17 }} />
+                ) : (
+                  <>
+                    {activeContactModal?.iconFamily === 'FontAwesome' && (
+                      <FontAwesome name={activeContactModal.iconName as any} size={28} color={activeContactModal.color} />
+                    )}
+                    {activeContactModal?.iconFamily === 'MaterialCommunityIcons' && (
+                      <MaterialCommunityIcons name={activeContactModal.iconName as any} size={28} color={activeContactModal.color} />
+                    )}
+                    {activeContactModal?.iconFamily === 'Feather' && (
+                      <Feather name={activeContactModal.iconName as any} size={28} color={activeContactModal.color} />
+                    )}
+                  </>
                 )}
               </View>
               <Text style={styles.modalTitle}>{activeContactModal?.title}</Text>
