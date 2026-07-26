@@ -395,7 +395,12 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.sellerName}>{sellerUser?.name || 'Vendedor'}</Text>
               <View style={styles.sellerSubRow}>
                 {!!sellerUser?.username && (
-                  <Text style={styles.sellerHandle}>@{sellerUser.username}</Text>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => sellerUser?.id && navigation.navigate('UserProfile', { userId: sellerUser.id })}
+                  >
+                    <Text style={[styles.sellerHandle, { textDecorationLine: 'underline' }]}>@{sellerUser.username}</Text>
+                  </TouchableOpacity>
                 )}
                 {!!sellerUser?.username && <Text style={styles.dotSeparator}>·</Text>}
                 <TouchableOpacity
