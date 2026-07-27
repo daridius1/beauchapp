@@ -212,7 +212,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     return (
       <View style={styles.centerContainer}>
         <Text style={{ color: theme.colors.textMuted }}>Publicación no encontrada.</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
+        <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home')} style={{ marginTop: 20 }}>
           <Text style={{ color: theme.colors.primary }}>Volver</Text>
         </TouchableOpacity>
       </View>

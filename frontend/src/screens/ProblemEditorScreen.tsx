@@ -262,7 +262,11 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
         });
       }
 
-      navigation.goBack();
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('ProblemsList');
+      }
     } catch (err) {
       console.error('Error saving:', err);
       let errorMsg = 'Ocurrió un error al guardar tu contenido.';
@@ -634,7 +638,7 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={styles.footer}>
         <TouchableOpacity 
           style={styles.cancelBtn} 
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ProblemsList')}
           disabled={saving}
         >
           <Text style={styles.cancelBtnText}>Cancelar</Text>

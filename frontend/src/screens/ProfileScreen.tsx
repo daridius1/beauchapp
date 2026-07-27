@@ -246,7 +246,7 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.noPostsText}>Usuario no encontrado.</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Directory')}>
           <Text style={styles.backBtnText}>Volver</Text>
         </TouchableOpacity>
       </View>

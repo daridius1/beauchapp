@@ -233,7 +233,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         {!!(post.actionType === 'reply' || post.replyTo) && (
           <View style={{ marginBottom: 2 }}>
             <Text style={styles.replyContextText}>
-              En respuesta a <Text style={{ fontWeight: '700' }}>@{post.targetMeta?.authorUsername || post.expand?.replyTo?.expand?.author?.username || 'Usuario'}</Text>
+              En respuesta a <Text style={{ fontWeight: '700' }}>@{post.expandedTarget?.expand?.author?.username || post.expand?.replyTo?.expand?.author?.username || post.targetMeta?.authorUsername || 'Usuario'}</Text>
             </Text>
           </View>
         )}

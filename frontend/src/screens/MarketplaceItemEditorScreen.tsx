@@ -145,7 +145,11 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
       });
 
       // Redirigir directamente a la vista de la tienda del vendedor
-      navigation.goBack();
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('Marketplace');
+      }
     } catch (err: any) {
       console.error('Error creating marketplace item:', err);
       Toast.show({

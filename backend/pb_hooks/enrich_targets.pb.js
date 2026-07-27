@@ -9,10 +9,19 @@ console.log("[LOAD] enrich_targets.pb.js hook loaded!");
 
 onRecordEnrich((e) => {
     try {
-        const targetType = e.record.getString("targetType");
-        const targetId = e.record.getString("targetId");
+        let targetType = e.record.getString("targetType");
+        let targetId = e.record.getString("targetId");
+        const replyTo = e.record.getString("replyTo");
 
-        // Solo enriquecer posts que tienen una cita/comentario polimórfico
+        // Si el post es una respuesta pero no tiene targetType/targetId seteado
+        if (!targetType && replyTo) {
+            targetType = "post";
+            targetId = replyTo;
+        } else if (!targetId && replyTo) {
+            targetId = replyTo;
+        }
+
+        // Solo enriquecer posts que tienen una cita, comentario o respuesta
         if (!targetType || !targetId) {
             return e.next();
         }

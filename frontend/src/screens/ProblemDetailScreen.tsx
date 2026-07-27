@@ -260,7 +260,11 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         text1: 'Eliminado',
         text2: isSolution ? 'La pauta ha sido eliminada.' : 'El problema ha sido eliminado.',
       });
-      navigation.goBack();
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('ProblemsList');
+      }
     } catch (err) {
       console.error('Error deleting problem:', err);
       Toast.show({

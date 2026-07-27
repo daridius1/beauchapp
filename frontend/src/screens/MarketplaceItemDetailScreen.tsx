@@ -252,7 +252,11 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
         text2: 'La publicación ha sido removida del Marketplace.',
       });
       setShowDeleteModal(false);
-      navigation.goBack();
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('Marketplace');
+      }
     } catch (err: any) {
       Toast.show({
         type: 'error',

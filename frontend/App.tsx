@@ -109,6 +109,26 @@ function AppContent() {
   const [currentRouteParams, setCurrentRouteParams] = useState<any>({});
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
 
+  // Inyección global de Scroll Defensivo y Viewports PWA para Web/Safari/Chrome
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const styleId = 'beauchapp-pwa-defensive-css';
+      if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.innerHTML = `
+          #root, html, body {
+            height: 100dvh !important;
+            overscroll-behavior-y: contain !important;
+            overscroll-behavior-x: none !important;
+            -webkit-tap-highlight-color: transparent !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+  }, []);
+
   // Mapeo de títulos de pantalla
   const getScreenTitle = (screen: string, params: any) => {
     switch (screen) {
