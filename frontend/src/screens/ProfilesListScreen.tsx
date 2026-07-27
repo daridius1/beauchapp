@@ -255,7 +255,13 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
             {/* Selector 1: Tipo de Perfil */}
             <TouchableOpacity
               style={[styles.filterSelectorBtn, profileType !== 'all' && styles.filterSelectorBtnActive]}
-              onPress={() => setShowTypeModal(true)}
+              onPress={() => {
+                if (profileType !== 'all') {
+                  setProfileType('all');
+                } else {
+                  setShowTypeModal(true);
+                }
+              }}
               activeOpacity={0.7}
             >
               <View style={{ pointerEvents: 'none', flex: 1 }}>
@@ -265,7 +271,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
                 </Text>
               </View>
               <Feather
-                name="chevron-down"
+                name={profileType !== 'all' ? 'x' : 'chevron-down'}
                 size={16}
                 color={profileType !== 'all' ? theme.colors.primary : theme.colors.textMuted}
               />
@@ -274,7 +280,13 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
             {/* Selector 2: Tipo de Organización */}
             <TouchableOpacity
               style={[styles.filterSelectorBtn, orgSubtype !== 'all' && styles.filterSelectorBtnActive]}
-              onPress={() => setShowSubtypeModal(true)}
+              onPress={() => {
+                if (orgSubtype !== 'all') {
+                  setOrgSubtype('all');
+                } else {
+                  setShowSubtypeModal(true);
+                }
+              }}
               activeOpacity={0.7}
             >
               <View style={{ pointerEvents: 'none', flex: 1 }}>
@@ -284,7 +296,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
                 </Text>
               </View>
               <Feather
-                name="chevron-down"
+                name={orgSubtype !== 'all' ? 'x' : 'chevron-down'}
                 size={16}
                 color={orgSubtype !== 'all' ? theme.colors.primary : theme.colors.textMuted}
               />
