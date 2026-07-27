@@ -941,10 +941,12 @@ routerAdd("POST", "/api/admin/generate-link", (e) => {
         return e.json(400, { error: "No se pudo crear la organización inactiva: " + err.message });
     }
 
-    // Obtener la URL base dinámicamente de los headers
+    // Obtener la URL base dinámicamente de los headers o del entorno
+    const envAppUrl = $os.getenv("APP_URL") || $os.getenv("SITE_URL");
     const host = e.requestInfo().headers["host"] || "localhost:8090";
     const protocol = e.requestInfo().headers["x-forwarded-proto"] || "http";
-    const activationUrl = protocol + "://" + host + "/register-org?token=" + userRec.getString("registrationToken");
+    const baseUrl = envAppUrl ? envAppUrl.replace(/\/$/, "") : `${protocol}://${host}`;
+    const activationUrl = `${baseUrl}/register-org?token=${userRec.getString("registrationToken")}`;
 
     return e.json(200, { success: true, link: activationUrl });
 }, $apis.requireSuperuserAuth());
