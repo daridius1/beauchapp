@@ -390,16 +390,28 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           )}
 
           <View style={styles.avatarRow}>
-            <Avatar user={sellerUser} size={70} />
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => sellerUser?.id && navigation.navigate('UserProfile', { userId: sellerUser.id })}
+            >
+              <Avatar user={sellerUser} size={70} />
+            </TouchableOpacity>
+
             <View style={{ flex: 1, marginLeft: 12, justifyContent: 'center', paddingRight: !isOwner && currentUser ? 36 : 0 }}>
-              <Text style={styles.sellerName}>{sellerUser?.name || 'Vendedor'}</Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => sellerUser?.id && navigation.navigate('UserProfile', { userId: sellerUser.id })}
+              >
+                <Text style={styles.sellerName}>{sellerUser?.name || 'Vendedor'}</Text>
+              </TouchableOpacity>
+
               <View style={styles.sellerSubRow}>
                 {!!sellerUser?.username && (
                   <TouchableOpacity
                     activeOpacity={0.7}
                     onPress={() => sellerUser?.id && navigation.navigate('UserProfile', { userId: sellerUser.id })}
                   >
-                    <Text style={[styles.sellerHandle, { textDecorationLine: 'underline' }]}>@{sellerUser.username}</Text>
+                    <Text style={styles.sellerHandle}>@{sellerUser.username}</Text>
                   </TouchableOpacity>
                 )}
                 {!!sellerUser?.username && <Text style={styles.dotSeparator}>·</Text>}
