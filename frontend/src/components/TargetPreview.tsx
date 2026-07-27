@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { Avatar } from './Avatar';
-import { getFileUrl } from '../services/pocketbase';
+import { pb, getFileUrl } from '../services/pocketbase';
 
 export interface TargetPreviewProps {
   targetType?: string;
@@ -20,21 +20,58 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
   expandedTarget,
   onPress,
 }) => {
+  const [fetchedTarget, setFetchedTarget] = useState<any>(null);
+  const [fetchError, setFetchError] = useState(false);
+
+  // Fetch on-demand solo si NO tenemos ni expandedTarget ni targetMeta
+  useEffect(() => {
+    if (!targetType || !targetId) return;
+    if (expandedTarget || targetMeta) return;
+
+    let isMounted = true;
+    const fetchTarget = async () => {
+      try {
+        if (targetType === 'post') {
+          const record = await pb.collection('posts').getOne(targetId, { expand: 'author' });
+          if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'problem') {
+          const record = await pb.collection('problems').getOne(targetId);
+          if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'match') {
+          const record = await pb.collection('ladder_matches').getOne(targetId, { expand: 'ladder,team_red,team_blue' });
+          if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'marketplace_item' || targetType === 'product') {
+          const record = await pb.collection('marketplace_items').getOne(targetId, { expand: 'seller.user' });
+          if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'seller_profile' || targetType === 'seller') {
+          const record = await pb.collection('seller_profiles').getOne(targetId, { expand: 'user' });
+          if (isMounted) setFetchedTarget(record);
+        }
+      } catch (err) {
+        if (isMounted) setFetchError(true);
+      }
+    };
+    fetchTarget();
+    return () => { isMounted = false; };
+  }, [targetType, targetId, expandedTarget, targetMeta]);
+
   if (!targetType || !targetId) {
     return null;
   }
 
-  // El hook del servidor entrega expandedTarget con los datos frescos.
-  // Si expandedTarget._notFound es true, el recurso fue hard-deleted.
-  const resolved = expandedTarget;
-  const notFound = !resolved || resolved._notFound === true;
+  // Prioridad: expandedTarget (server enriched) > fetchedTarget (on-demand) > targetMeta (snapshot/draft)
+  const resolved = expandedTarget || fetchedTarget || targetMeta;
+
+  // Un ítem solo es "eliminado" si el servidor o fetch indica explícitamente _notFound === true o deleted === true
+  const isDeleted = fetchError
+    || (expandedTarget && (expandedTarget._notFound === true || expandedTarget.deleted === true))
+    || (fetchedTarget && (fetchedTarget._notFound === true || fetchedTarget.deleted === true));
 
   const Wrapper = onPress ? TouchableOpacity : View;
   const wrapperProps = onPress ? { activeOpacity: 0.8, onPress: (e: any) => { e.stopPropagation(); onPress(); } } : {};
 
   // 1. RENDERIZADO DE POST CITADO
   if (targetType === 'post') {
-    const isDeleted = notFound || resolved?.deleted === true;
 
     if (isDeleted) {
       return (
@@ -72,7 +109,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
   // 2. RENDERIZADO DE PROBLEMA CITADO
   if (targetType === 'problem') {
-    if (notFound || resolved?.deleted) {
+    if (isDeleted) {
       return (
         <View style={styles.fallbackBox}>
           <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
@@ -102,7 +139,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
   // 3. RENDERIZADO DE PARTIDO CITADO
   if (targetType === 'match') {
-    if (notFound || resolved?.deleted) {
+    if (isDeleted) {
       return (
         <View style={styles.fallbackBox}>
           <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
@@ -161,7 +198,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
   // 4. RENDERIZADO DE PRODUCTO CITADO (MARKETPLACE)
   if (targetType === 'marketplace_item' || targetType === 'product') {
-    if (notFound || resolved?.deleted) {
+    if (isDeleted) {
       return (
         <View style={styles.fallbackBox}>
           <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
@@ -195,7 +232,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
   // 5. RENDERIZADO DE VENDEDOR / TIENDA CITADO
   if (targetType === 'seller_profile' || targetType === 'seller') {
-    if (notFound || resolved?.deleted) {
+    if (isDeleted) {
       return (
         <View style={styles.fallbackBox}>
           <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
