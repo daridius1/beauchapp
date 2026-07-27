@@ -298,7 +298,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
               <View style={{ pointerEvents: 'none' }}>
                 <TextInput
                   style={styles.filterInput}
-                  placeholder="Organización"
+                  placeholder="Tipo de Organización"
                   placeholderTextColor={theme.colors.textMuted}
                   value={profileType === 'organization' && orgSubtype !== 'all' ? getOrgSubtypeLabel() : ''}
                   editable={false}
