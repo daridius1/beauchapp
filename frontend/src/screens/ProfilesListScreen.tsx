@@ -224,15 +224,15 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
       )}
 
-      {/* Header de Búsqueda y Selectores de Filtro */}
+      {/* Header de Búsqueda y Filtros al estilo Problemas */}
       {routeName !== 'FollowList' && (
-        <View style={styles.searchContainer}>
+        <View style={styles.headerFilters}>
           {/* Barra de Búsqueda por Texto */}
           <View style={styles.searchBar}>
             <Feather name="search" size={18} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Buscar perfiles por nombre o @usuario..."
+              placeholder="Buscar perfiles..."
               placeholderTextColor={theme.colors.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -244,17 +244,17 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
                   setProfileType('all');
                   setOrgSubtype('all');
                 }}
+                style={{ marginRight: 8 }}
               >
-                <Feather name="x-circle" size={18} color={theme.colors.textMuted} />
+                <Feather name="x" size={18} color={theme.colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Fila de Selectores de Filtro */}
-          <View style={styles.selectorsRow}>
+          {/* Fila de Filtros horizontales idénticos a los de Problemas */}
+          <View style={[styles.filtersRow, { zIndex: 1 }]}>
             {/* Selector 1: Tipo de Perfil */}
             <TouchableOpacity
-              style={[styles.filterSelectorBtn, profileType !== 'all' && styles.filterSelectorBtnActive]}
               onPress={() => {
                 if (profileType !== 'all') {
                   setProfileType('all');
@@ -262,24 +262,21 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
                   setShowTypeModal(true);
                 }
               }}
-              activeOpacity={0.7}
+              style={{ flex: 1, marginRight: theme.spacing.xs }}
             >
-              <View style={{ pointerEvents: 'none', flex: 1 }}>
-                <Text style={styles.filterLabel}>Tipo de Perfil</Text>
-                <Text style={[styles.filterValueText, profileType !== 'all' && styles.filterValueTextActive]} numberOfLines={1}>
-                  {getProfileTypeLabel()}
-                </Text>
+              <View style={{ pointerEvents: 'none' }}>
+                <TextInput
+                  style={styles.filterInput}
+                  placeholder="Tipo de Perfil"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={profileType === 'all' ? '' : getProfileTypeLabel()}
+                  editable={false}
+                />
               </View>
-              <Feather
-                name={profileType !== 'all' ? 'x' : 'chevron-down'}
-                size={16}
-                color={profileType !== 'all' ? theme.colors.primary : theme.colors.textMuted}
-              />
             </TouchableOpacity>
 
             {/* Selector 2: Tipo de Organización */}
             <TouchableOpacity
-              style={[styles.filterSelectorBtn, orgSubtype !== 'all' && styles.filterSelectorBtnActive]}
               onPress={() => {
                 if (orgSubtype !== 'all') {
                   setOrgSubtype('all');
@@ -287,19 +284,17 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
                   setShowSubtypeModal(true);
                 }
               }}
-              activeOpacity={0.7}
+              style={{ flex: 1 }}
             >
-              <View style={{ pointerEvents: 'none', flex: 1 }}>
-                <Text style={styles.filterLabel}>Organización</Text>
-                <Text style={[styles.filterValueText, orgSubtype !== 'all' && styles.filterValueTextActive]} numberOfLines={1}>
-                  {getOrgSubtypeLabel()}
-                </Text>
+              <View style={{ pointerEvents: 'none' }}>
+                <TextInput
+                  style={styles.filterInput}
+                  placeholder="Organización"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={orgSubtype === 'all' ? '' : getOrgSubtypeLabel()}
+                  editable={false}
+                />
               </View>
-              <Feather
-                name={orgSubtype !== 'all' ? 'x' : 'chevron-down'}
-                size={16}
-                color={orgSubtype !== 'all' ? theme.colors.primary : theme.colors.textMuted}
-              />
             </TouchableOpacity>
           </View>
         </View>
@@ -423,13 +418,10 @@ const styles = StyleSheet.create({
     zIndex: 10,
     alignItems: 'center',
   },
-  searchContainer: {
+  headerFilters: {
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
     backgroundColor: theme.colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
   },
   searchBar: {
     flexDirection: 'row',
@@ -440,6 +432,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    marginBottom: theme.spacing.xs,
   },
   searchInput: {
     flex: 1,
@@ -447,40 +440,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  selectorsRow: {
+  filtersRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.sm,
+    marginTop: 2,
   },
-  filterSelectorBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+  filterInput: {
+    width: '100%',
     backgroundColor: theme.colors.cardBg,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: 12,
+    borderRadius: 8,
+    paddingHorizontal: 8,
     paddingVertical: 8,
-  },
-  filterSelectorBtnActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
-  },
-  filterLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  filterValueText: {
-    fontSize: 13,
-    fontWeight: '600',
     color: theme.colors.text,
-  },
-  filterValueTextActive: {
-    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '500',
   },
   scrollContent: {
     paddingHorizontal: theme.spacing.lg,
