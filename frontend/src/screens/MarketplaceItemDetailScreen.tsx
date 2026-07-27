@@ -142,10 +142,22 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
     });
   };
 
-  if (loading || !item) {
+  if (loading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  if (!item) {
+    return (
+      <View style={styles.centerContainer}>
+        <Feather name="package" size={48} color={theme.colors.textMuted} style={{ marginBottom: 12 }} />
+        <Text style={{ color: theme.colors.text, fontSize: 18, fontWeight: '700', marginBottom: 4 }}>Producto no encontrado</Text>
+        <Text style={{ color: theme.colors.textMuted, fontSize: 13, textAlign: 'center', paddingHorizontal: 32 }}>
+          Este producto ha sido eliminado por el vendedor o ya no está disponible.
+        </Text>
       </View>
     );
   }

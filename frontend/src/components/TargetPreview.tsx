@@ -21,6 +21,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
   onPress,
 }) => {
   const [fetchedTarget, setFetchedTarget] = useState<any>(null);
+  const [notFound, setNotFound] = useState(false);
 
   // Fetch on-demand si no tenemos el objeto record expandido
   useEffect(() => {
@@ -47,7 +48,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
           if (isMounted) setFetchedTarget(record);
         }
       } catch (err) {
-        // Target no encontrado o eliminado
+        if (isMounted) setNotFound(true);
       }
     };
     fetchTarget();
@@ -73,7 +74,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
     const photoUrl = resolved?.photo 
       ? getFileUrl(resolved, resolved.photo)
       : null;
-    const isDeleted = resolved?.deleted === true;
+    const isDeleted = notFound || resolved?.deleted === true;
 
     if (isDeleted) {
       return (
@@ -103,6 +104,15 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
   // 2. RENDERIZADO DE PROBLEMA CITADO
   if (targetType === 'problem') {
+    if (notFound || resolved?.deleted) {
+      return (
+        <View style={styles.fallbackBox}>
+          <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.fallbackText}>Este problema ha sido eliminado.</Text>
+        </View>
+      );
+    }
+
     const title = targetMeta?.title || resolved?.title || 'Problema Académico';
     const subtitle = targetMeta?.subtitle || (resolved?.parent ? 'Pauta' : 'Enunciado');
     const ramo = targetMeta?.ramo || resolved?.ramo;
@@ -124,6 +134,15 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
   // 3. RENDERIZADO DE PARTIDO CITADO
   if (targetType === 'match') {
+    if (notFound || resolved?.deleted) {
+      return (
+        <View style={styles.fallbackBox}>
+          <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.fallbackText}>Este partido ya no está disponible.</Text>
+        </View>
+      );
+    }
+
     const sportName = targetMeta?.sportName || resolved?.expand?.ladder?.name || 'Partido';
     const mode = targetMeta?.mode || resolved?.mode || '1v1';
     const scoreRed = targetMeta?.scoreRed ?? resolved?.score_red ?? 0;
@@ -174,6 +193,15 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
   // 4. RENDERIZADO DE PRODUCTO CITADO (MARKETPLACE)
   if (targetType === 'marketplace_item' || targetType === 'product') {
+    if (notFound || resolved?.deleted) {
+      return (
+        <View style={styles.fallbackBox}>
+          <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.fallbackText}>Este producto ha sido eliminado por el vendedor.</Text>
+        </View>
+      );
+    }
+
     const title = targetMeta?.title || resolved?.title || 'Producto de Marketplace';
     const price = targetMeta?.price ?? resolved?.price;
     const category = targetMeta?.category || resolved?.category || '';
@@ -199,6 +227,14 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
   // 5. RENDERIZADO DE VENDEDOR / TIENDA CITADO
   if (targetType === 'seller_profile' || targetType === 'seller') {
+    if (notFound || resolved?.deleted) {
+      return (
+        <View style={styles.fallbackBox}>
+          <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.fallbackText}>Esta tienda o perfil de vendedor ya no está disponible.</Text>
+        </View>
+      );
+    }
     const sellerName = targetMeta?.sellerName || resolved?.expand?.user?.name || 'Perfil de Vendedor';
     const sellerUsername = targetMeta?.sellerUsername || resolved?.expand?.user?.username || '';
     const bio = targetMeta?.bio || resolved?.bio || '';
