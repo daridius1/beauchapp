@@ -50,30 +50,39 @@ onRecordEnrich((e) => {
             let enriched = {};
 
             if (targetType === "post") {
-                let authorData = null;
-                const authorId = targetRecord.getString("author");
-                if (authorId) {
-                    try {
-                        const authorRecord = $app.findRecordById("users", authorId);
-                        authorData = {
-                            id: authorRecord.id,
-                            name: authorRecord.getString("name"),
-                            username: authorRecord.getString("username"),
-                            avatar: authorRecord.getString("avatar"),
-                            collectionId: authorRecord.collection().id,
-                        };
-                    } catch (err) {}
-                }
+                const isDeleted = targetRecord.getBool("deleted");
+                if (isDeleted) {
+                    enriched = {
+                        id: targetRecord.id,
+                        collectionId: targetRecord.collection().id,
+                        deleted: true,
+                    };
+                } else {
+                    let authorData = null;
+                    const authorId = targetRecord.getString("author");
+                    if (authorId) {
+                        try {
+                            const authorRecord = $app.findRecordById("users", authorId);
+                            authorData = {
+                                id: authorRecord.id,
+                                name: authorRecord.getString("name"),
+                                username: authorRecord.getString("username"),
+                                avatar: authorRecord.getString("avatar"),
+                                collectionId: authorRecord.collection().id,
+                            };
+                        } catch (err) {}
+                    }
 
-                enriched = {
-                    id: targetRecord.id,
-                    collectionId: targetRecord.collection().id,
-                    content: targetRecord.getString("content"),
-                    photo: targetRecord.getString("photo"),
-                    deleted: targetRecord.getBool("deleted"),
-                    created: targetRecord.getString("created"),
-                    expand: authorData ? { author: authorData } : {},
-                };
+                    enriched = {
+                        id: targetRecord.id,
+                        collectionId: targetRecord.collection().id,
+                        content: targetRecord.getString("content"),
+                        photo: targetRecord.getString("photo"),
+                        deleted: false,
+                        created: targetRecord.getString("created"),
+                        expand: authorData ? { author: authorData } : {},
+                    };
+                }
             } else if (targetType === "problem") {
                 enriched = {
                     id: targetRecord.id,
