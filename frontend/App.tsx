@@ -56,8 +56,13 @@ const toastConfig = {
         borderColor: theme.colors.border,
         borderRadius: 8,
         height: 'auto',
-        minHeight: 60,
+        minHeight: 54,
         paddingVertical: 8,
+        shadowColor: 'transparent',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        elevation: 0,
       }}
       contentContainerStyle={{ paddingHorizontal: 15 }}
       text1Style={{
@@ -82,8 +87,13 @@ const toastConfig = {
         borderColor: theme.colors.border,
         borderRadius: 8,
         height: 'auto',
-        minHeight: 60,
+        minHeight: 54,
         paddingVertical: 8,
+        shadowColor: 'transparent',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        elevation: 0,
       }}
       contentContainerStyle={{ paddingHorizontal: 15 }}
       text1Style={{
@@ -97,7 +107,38 @@ const toastConfig = {
         numberOfLines: 3,
       }}
     />
-  )
+  ),
+  info: (props: any) => (
+    <BaseToast
+      {...props}
+      style={{
+        backgroundColor: '#0a0a0a',
+        borderLeftColor: '#3b82f6',
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        borderRadius: 8,
+        height: 'auto',
+        minHeight: 54,
+        paddingVertical: 8,
+        shadowColor: 'transparent',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        elevation: 0,
+      }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#ffffff',
+      }}
+      text2Style={{
+        fontSize: 12,
+        color: '#aaaaaa',
+        numberOfLines: 3,
+      }}
+    />
+  ),
 };
 
 function AppContent() {
