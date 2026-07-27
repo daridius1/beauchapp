@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { Avatar } from './Avatar';
@@ -22,14 +22,19 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 }) => {
   const [fetchedTarget, setFetchedTarget] = useState<any>(null);
   const [notFound, setNotFound] = useState(false);
+  const [fetching, setFetching] = useState(!expandedTarget);
 
   // Fetch on-demand si no tenemos el objeto record expandido
   useEffect(() => {
     if (!targetType || !targetId) return;
-    if (expandedTarget) return; // ya expandido por el query
+    if (expandedTarget) {
+      setFetching(false);
+      return;
+    }
 
     let isMounted = true;
     const fetchTarget = async () => {
+      setFetching(true);
       try {
         if (targetType === 'post') {
           const record = await pb.collection('posts').getOne(targetId, { expand: 'author' });
@@ -49,6 +54,8 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
         }
       } catch (err) {
         if (isMounted) setNotFound(true);
+      } finally {
+        if (isMounted) setFetching(false);
       }
     };
     fetchTarget();
@@ -57,6 +64,15 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
   if (!targetType || !targetId) {
     return null;
+  }
+
+  if (fetching) {
+    return (
+      <View style={styles.fallbackBox}>
+        <ActivityIndicator size="small" color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+        <Text style={styles.fallbackText}>Cargando vista previa...</Text>
+      </View>
+    );
   }
 
   // Usar expandedTarget (del query expand), luego fetchedTarget (on-demand), luego targetMeta (snapshot)
