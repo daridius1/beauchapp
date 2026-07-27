@@ -480,10 +480,10 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     );
   }
 
-  if (!problem) {
+  if (!problem || problem.deleted) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.errorText}>No se pudo cargar el problema.</Text>
+        <Text style={styles.errorText}>Este problema ha sido eliminado o no está disponible.</Text>
       </View>
     );
   }

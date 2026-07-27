@@ -150,7 +150,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
     );
   }
 
-  if (!item) {
+  if (!item || item.deleted) {
     return (
       <View style={styles.centerContainer}>
         <Feather name="package" size={48} color={theme.colors.textMuted} style={{ marginBottom: 12 }} />
