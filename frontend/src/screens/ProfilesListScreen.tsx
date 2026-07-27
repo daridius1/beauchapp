@@ -27,7 +27,7 @@ type Props = NativeStackScreenProps<
 
 const PROFILE_TYPE_SUGGESTIONS = [
   'Todos los perfiles',
-  'Personas (Estudiantes)',
+  'Usuarios',
   'Organizaciones',
 ];
 
@@ -35,7 +35,7 @@ const ORG_SUBTYPE_SUGGESTIONS = [
   'Todas las organizaciones',
   'Comunidades',
   'Centros de Estudiantes',
-  'Equipos y Proyectos',
+  'Equipos',
   'Bandas',
 ];
 
@@ -193,7 +193,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const getProfileTypeLabel = () => {
-    if (profileType === 'student') return 'Personas';
+    if (profileType === 'student') return 'Usuarios';
     if (profileType === 'organization') return 'Organizaciones';
     return 'Todos los perfiles';
   };
@@ -201,7 +201,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   const getOrgSubtypeLabel = () => {
     if (orgSubtype === 'community') return 'Comunidades';
     if (orgSubtype === 'center') return 'Centros';
-    if (orgSubtype === 'team') return 'Equipos y Proyectos';
+    if (orgSubtype === 'team') return 'Equipos';
     if (orgSubtype === 'band') return 'Bandas';
     return 'Todas las orgs';
   };
@@ -379,7 +379,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
         onSelect={(val) => {
           if (!val || val === 'Todos los perfiles') {
             setProfileType('all');
-          } else if (val === 'Personas (Estudiantes)') {
+          } else if (val === 'Usuarios' || val === 'Personas (Estudiantes)') {
             setProfileType('student');
           } else if (val === 'Organizaciones') {
             setProfileType('organization');
@@ -402,7 +402,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
             setOrgSubtype('community');
           } else if (val === 'Centros de Estudiantes') {
             setOrgSubtype('center');
-          } else if (val === 'Equipos y Proyectos') {
+          } else if (val === 'Equipos' || val === 'Equipos y Proyectos') {
             setOrgSubtype('team');
           } else if (val === 'Bandas') {
             setOrgSubtype('band');
