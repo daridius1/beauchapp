@@ -47,13 +47,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
   };
 
 
+  const beauchappsScreens = ['Beauchapps', 'Marketplace', 'ProblemsList', 'LaddersList', 'Tinder'];
+
   const menuItems = [
     { id: 'Home', label: 'Inicio' },
-    { id: 'Marketplace', label: 'Marketplace' },
     { id: 'Directory', label: 'Perfiles' },
-    { id: 'ProblemsList', label: 'Problemas' },
-    { id: 'LaddersList', label: 'Ladders' },
-    ...(user && user.type !== 'organization' ? [{ id: 'Tinder', label: 'Tinder Beauchef' }] : []),
+    { id: 'Beauchapps', label: 'Beauchapps' },
     ...(user ? [{ id: 'Notifications', label: 'Notificaciones' }] : []),
     { id: 'Settings', label: 'Ajustes' },
   ];
@@ -89,15 +88,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
 
       {/* Enlaces de Navegación */}
       <View style={styles.navLinks}>
-        {menuItems.map((item: any) => (
-          <TouchableOpacity
-            key={item.id}
-            style={[
-              styles.navItem,
-              activeScreen === item.id && styles.navItemActive
-            ]}
-            onPress={() => handleLinkPress(item.id)}
-          >
+        {menuItems.map((item: any) => {
+          const isActive = activeScreen === item.id || (item.id === 'Beauchapps' && beauchappsScreens.includes(activeScreen));
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.navItem,
+                isActive && styles.navItemActive
+              ]}
+              onPress={() => handleLinkPress(item.id)}
+            >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
               <Text 
                 style={[
@@ -114,7 +115,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
               )}
             </View>
           </TouchableOpacity>
-        ))}
+          );
+        })}
       </View>
 
       {/* Botón de Salida (Cerrar Sesión) */}

@@ -14,6 +14,7 @@ export type RootStackParamList = {
   ResetPassword: undefined;
   Settings: undefined;
   Directory: undefined;
+  Beauchapps: undefined;
   Students: undefined;
   FollowList: { userId: string; type: 'followers' | 'following' | 'members' | 'recommendations'; username?: string };
   ProblemsList: undefined;

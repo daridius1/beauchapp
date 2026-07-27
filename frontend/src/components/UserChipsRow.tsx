@@ -77,7 +77,7 @@ export const UserChipsRow: React.FC<Props> = ({
           disabled={!onSellerPress}
         >
           <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.sellerChipText]}>
-            🛍️ Marketplace
+            Marketplace
           </Text>
         </TouchableOpacity>
       )}

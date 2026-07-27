@@ -32,6 +32,7 @@ import { MarketplaceItemDetailScreen } from './src/screens/MarketplaceItemDetail
 import { SellerProfileScreen } from './src/screens/SellerProfileScreen';
 import { SellerProfileEditorScreen } from './src/screens/SellerProfileEditorScreen';
 import { MarketplaceItemEditorScreen } from './src/screens/MarketplaceItemEditorScreen';
+import { BeauchappsScreen } from './src/screens/BeauchappsScreen';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -120,6 +121,7 @@ function AppContent() {
       case 'Centers': return 'Centros';
       case 'Teams': return 'Equipos';
       case 'Bands': return 'Bandas';
+      case 'Beauchapps': return 'Beauchapps';
       case 'Settings': return 'Ajustes';
       case 'Directory': return 'Perfiles';
       case 'Students': return 'Personas';
@@ -160,7 +162,7 @@ function AppContent() {
     }
   };
 
-  const showBackButton = currentRouteName !== 'Home' && currentRouteName !== 'Directory';
+  const showBackButton = currentRouteName !== 'Home' && currentRouteName !== 'Directory' && currentRouteName !== 'Beauchapps';
 
   const handleBack = () => {
     // Navegación defensiva anti-bucles para Ladders y Partidos
@@ -219,6 +221,7 @@ function AppContent() {
               Teams: 'teams',
               Bands: 'bands',
               Directory: 'directory',
+              Beauchapps: 'beauchapps',
               UserProfile: 'users/:userId',
               Students: 'students',
               FollowList: 'users/:userId/:type',
@@ -284,6 +287,7 @@ function AppContent() {
                     <Stack.Screen name="Home" component={HomeScreen} />
                     <Stack.Screen name="Profile" component={ProfileScreen} />
                     <Stack.Screen name="Directory" component={DirectoryScreen} />
+                    <Stack.Screen name="Beauchapps" component={BeauchappsScreen} />
                     <Stack.Screen name="Students" component={ProfilesListScreen} />
                     <Stack.Screen name="Communities" component={ProfilesListScreen} />
                     <Stack.Screen name="Centers" component={ProfilesListScreen} />
