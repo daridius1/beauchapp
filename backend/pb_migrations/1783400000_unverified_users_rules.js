@@ -1,10 +1,12 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
   // 1. Eliminar colección org_registration_links si existe (del plan anterior)
-  const orgRegLinks = app.findCollectionByNameOrId("org_registration_links");
-  if (orgRegLinks) {
-    app.delete(orgRegLinks);
-  }
+  try {
+    const orgRegLinks = app.findCollectionByNameOrId("org_registration_links");
+    if (orgRegLinks) {
+      app.delete(orgRegLinks);
+    }
+  } catch (e) {}
 
   // 2. Modificar users
   const users = app.findCollectionByNameOrId("users");

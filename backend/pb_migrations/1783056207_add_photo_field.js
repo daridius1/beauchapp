@@ -1368,8 +1368,7 @@ migrate((app) => {
     "viewRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId"
   }
 ];
-  const collections = app.importCollectionsByMarshaledJSON(JSON.stringify(snapshot));
-  return collections;
+  return app.importCollections(snapshot, false);
 }, (app) => {
   // Downgrade no implementado
 });

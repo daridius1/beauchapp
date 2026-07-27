@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-SERVER="salas@192.168.0.26"
+SERVER="salas@192.168.0.6"
 PROJECT_DIR="~/red-social"
 LOCAL_BUILD_DIR="./frontend/dist"
 
@@ -43,7 +43,7 @@ WantedBy=multi-user.target' | sudo tee /etc/systemd/system/pocketbase.service > 
 
 echo "========================================="
 echo "✅ Despliegue interno completado."
-echo "La app está corriendo en el servidor local en: http://192.168.0.26:8090"
+echo "La app está corriendo en el servidor local en: http://192.168.0.6:8090"
 echo "========================================="
 echo ""
 echo "☁️  Fase Cloudflare Zero Trust (Túnel):"

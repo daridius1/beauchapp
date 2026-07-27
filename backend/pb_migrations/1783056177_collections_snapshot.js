@@ -1350,7 +1350,7 @@ migrate((app) => {
     }
   ];
 
-  return app.importCollectionsByMarshaledJSON(JSON.stringify(snapshot), false);
+  return app.importCollections(snapshot, false);
 }, (app) => {
   return null;
 })
