@@ -20,13 +20,13 @@ export const BeauchappsScreen: React.FC<Props> = ({ navigation }) => {
     },
     {
       id: 'ProblemsList',
-      title: 'Problemas Académicos',
+      title: 'Problemas',
       icon: 'book-open',
       screen: 'ProblemsList',
     },
     {
       id: 'LaddersList',
-      title: 'Ladders Deportivos',
+      title: 'Ladders',
       icon: 'award',
       screen: 'LaddersList',
     },
