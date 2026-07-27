@@ -81,6 +81,13 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   }, [routeName]);
 
+  // Desactivar y limpiar automáticamente el filtro de organización si Tipo de Perfil no es 'organization'
+  useEffect(() => {
+    if (profileType !== 'organization' && orgSubtype !== 'all') {
+      setOrgSubtype('all');
+    }
+  }, [profileType, orgSubtype]);
+
   const fetchProfiles = async (hideLoading = false) => {
     try {
       if (!hideLoading) setLoading(true);
@@ -275,23 +282,25 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
             </TouchableOpacity>
 
-            {/* Selector 2: Tipo de Organización */}
+            {/* Selector 2: Tipo de Organización (Solo activo si Tipo de Perfil es 'organization') */}
             <TouchableOpacity
               onPress={() => {
+                if (profileType !== 'organization') return;
                 if (orgSubtype !== 'all') {
                   setOrgSubtype('all');
                 } else {
                   setShowSubtypeModal(true);
                 }
               }}
-              style={{ flex: 1 }}
+              disabled={profileType !== 'organization'}
+              style={{ flex: 1, opacity: profileType === 'organization' ? 1 : 0.4 }}
             >
               <View style={{ pointerEvents: 'none' }}>
                 <TextInput
                   style={styles.filterInput}
                   placeholder="Organización"
                   placeholderTextColor={theme.colors.textMuted}
-                  value={orgSubtype === 'all' ? '' : getOrgSubtypeLabel()}
+                  value={profileType === 'organization' && orgSubtype !== 'all' ? getOrgSubtypeLabel() : ''}
                   editable={false}
                 />
               </View>
