@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { Avatar } from './Avatar';
-import { pb, getFileUrl } from '../services/pocketbase';
+import { getFileUrl } from '../services/pocketbase';
 
 export interface TargetPreviewProps {
   targetType?: string;
@@ -20,76 +20,20 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
   expandedTarget,
   onPress,
 }) => {
-  const [fetchedTarget, setFetchedTarget] = useState<any>(null);
-  const [notFound, setNotFound] = useState(false);
-  const [fetching, setFetching] = useState(!expandedTarget);
-
-  // Fetch on-demand si no tenemos el objeto record expandido
-  useEffect(() => {
-    if (!targetType || !targetId) return;
-    if (expandedTarget) {
-      setFetching(false);
-      return;
-    }
-
-    let isMounted = true;
-    const fetchTarget = async () => {
-      setFetching(true);
-      try {
-        if (targetType === 'post') {
-          const record = await pb.collection('posts').getOne(targetId, { expand: 'author' });
-          if (isMounted) setFetchedTarget(record);
-        } else if (targetType === 'problem') {
-          const record = await pb.collection('problems').getOne(targetId);
-          if (isMounted) setFetchedTarget(record);
-        } else if (targetType === 'match') {
-          const record = await pb.collection('ladder_matches').getOne(targetId, { expand: 'ladder,team_red,team_blue' });
-          if (isMounted) setFetchedTarget(record);
-        } else if (targetType === 'marketplace_item' || targetType === 'product') {
-          const record = await pb.collection('marketplace_items').getOne(targetId, { expand: 'seller.user' });
-          if (isMounted) setFetchedTarget(record);
-        } else if (targetType === 'seller_profile' || targetType === 'seller') {
-          const record = await pb.collection('seller_profiles').getOne(targetId, { expand: 'user' });
-          if (isMounted) setFetchedTarget(record);
-        }
-      } catch (err) {
-        if (isMounted) setNotFound(true);
-      } finally {
-        if (isMounted) setFetching(false);
-      }
-    };
-    fetchTarget();
-    return () => { isMounted = false; };
-  }, [targetType, targetId, expandedTarget]);
-
   if (!targetType || !targetId) {
     return null;
   }
 
-  if (fetching) {
-    return (
-      <View style={styles.fallbackBox}>
-        <ActivityIndicator size="small" color={theme.colors.textMuted} style={{ marginRight: 6 }} />
-        <Text style={styles.fallbackText}>Cargando vista previa...</Text>
-      </View>
-    );
-  }
-
-  // Usar expandedTarget (del query expand), luego fetchedTarget (on-demand), luego targetMeta (snapshot)
-  const resolved = expandedTarget || fetchedTarget;
+  // El hook del servidor entrega expandedTarget con los datos frescos.
+  // Si expandedTarget._notFound es true, el recurso fue hard-deleted.
+  const resolved = expandedTarget;
+  const notFound = !resolved || resolved._notFound === true;
 
   const Wrapper = onPress ? TouchableOpacity : View;
   const wrapperProps = onPress ? { activeOpacity: 0.8, onPress: (e: any) => { e.stopPropagation(); onPress(); } } : {};
 
   // 1. RENDERIZADO DE POST CITADO
   if (targetType === 'post') {
-    const liveAuthor = resolved?.expand?.author;
-    const authorName = liveAuthor?.name || targetMeta?.authorName || 'Usuario';
-    const authorUsername = liveAuthor?.username || targetMeta?.authorUsername || '';
-    const contentText = resolved ? resolved.content : (targetMeta?.content || '');
-    const photoUrl = resolved?.photo 
-      ? getFileUrl(resolved, resolved.photo)
-      : null;
     const isDeleted = notFound || resolved?.deleted === true;
 
     if (isDeleted) {
@@ -100,6 +44,14 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
         </View>
       );
     }
+
+    const liveAuthor = resolved?.expand?.author;
+    const authorName = liveAuthor?.name || targetMeta?.authorName || 'Usuario';
+    const authorUsername = liveAuthor?.username || targetMeta?.authorUsername || '';
+    const contentText = resolved?.content || targetMeta?.content || '';
+    const photoUrl = resolved?.photo 
+      ? getFileUrl(resolved, resolved.photo)
+      : null;
 
     return (
       <Wrapper {...wrapperProps} style={styles.previewCard}>
@@ -129,10 +81,10 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
       );
     }
 
-    const title = targetMeta?.title || resolved?.title || 'Problema Académico';
-    const subtitle = targetMeta?.subtitle || (resolved?.parent ? 'Pauta' : 'Enunciado');
-    const ramo = targetMeta?.ramo || resolved?.ramo;
-    const instancia = targetMeta?.instancia || resolved?.instancia;
+    const title = resolved?.title || targetMeta?.title || 'Problema Académico';
+    const subtitle = resolved?.parent ? 'Pauta' : (targetMeta?.subtitle || 'Enunciado');
+    const ramo = resolved?.ramo || targetMeta?.ramo;
+    const instancia = resolved?.instancia || targetMeta?.instancia;
 
     return (
       <Wrapper {...wrapperProps} style={styles.previewCardProblem}>
@@ -159,15 +111,15 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
       );
     }
 
-    const sportName = targetMeta?.sportName || resolved?.expand?.ladder?.name || 'Partido';
-    const mode = targetMeta?.mode || resolved?.mode || '1v1';
-    const scoreRed = targetMeta?.scoreRed ?? resolved?.score_red ?? 0;
-    const scoreBlue = targetMeta?.scoreBlue ?? resolved?.score_blue ?? 0;
-    const teamRedNames = targetMeta?.teamRed?.join(' & ') 
-      || resolved?.expand?.team_red?.map((u: any) => u.name).join(' & ')
+    const sportName = resolved?.expand?.ladder?.name || targetMeta?.sportName || 'Partido';
+    const mode = resolved?.mode || targetMeta?.mode || '1v1';
+    const scoreRed = resolved?.score_red ?? targetMeta?.scoreRed ?? 0;
+    const scoreBlue = resolved?.score_blue ?? targetMeta?.scoreBlue ?? 0;
+    const teamRedNames = resolved?.expand?.team_red?.map((u: any) => u.name).join(' & ')
+      || targetMeta?.teamRed?.join(' & ')
       || 'Equipo Rojo';
-    const teamBlueNames = targetMeta?.teamBlue?.join(' & ')
-      || resolved?.expand?.team_blue?.map((u: any) => u.name).join(' & ')
+    const teamBlueNames = resolved?.expand?.team_blue?.map((u: any) => u.name).join(' & ')
+      || targetMeta?.teamBlue?.join(' & ')
       || 'Equipo Azul';
 
     const redWon = scoreRed > scoreBlue;
@@ -218,9 +170,9 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
       );
     }
 
-    const title = targetMeta?.title || resolved?.title || 'Producto de Marketplace';
-    const price = targetMeta?.price ?? resolved?.price;
-    const category = targetMeta?.category || resolved?.category || '';
+    const title = resolved?.title || targetMeta?.title || 'Producto de Marketplace';
+    const price = resolved?.price ?? targetMeta?.price;
+    const category = resolved?.category || targetMeta?.category || '';
 
     return (
       <Wrapper {...wrapperProps} style={styles.previewCardProblem}>
@@ -251,9 +203,10 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
         </View>
       );
     }
-    const sellerName = targetMeta?.sellerName || resolved?.expand?.user?.name || 'Perfil de Vendedor';
-    const sellerUsername = targetMeta?.sellerUsername || resolved?.expand?.user?.username || '';
-    const bio = targetMeta?.bio || resolved?.bio || '';
+
+    const sellerName = resolved?.expand?.user?.name || targetMeta?.sellerName || 'Perfil de Vendedor';
+    const sellerUsername = resolved?.expand?.user?.username || targetMeta?.sellerUsername || '';
+    const bio = resolved?.bio || targetMeta?.bio || '';
 
     return (
       <Wrapper {...wrapperProps} style={styles.previewCardProblem}>

@@ -283,7 +283,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             targetType={post.targetType}
             targetId={post.targetId}
             targetMeta={post.targetMeta}
-            expandedTarget={post.expand?.targetId}
+            expandedTarget={post.expandedTarget}
             onPress={handleDefaultTargetPress}
           />
         )}
