@@ -7,7 +7,9 @@ import { OrganizationMemberRecord } from '../services/organizationService';
 interface Props {
   user: User;
   memberships?: OrganizationMemberRecord[];
+  sellerProfile?: any;
   onOrgPress?: (organizationId: string) => void;
+  onSellerPress?: (sellerProfileId: string) => void;
   size?: 'sm' | 'md';
 }
 
@@ -29,13 +31,20 @@ export const DEPARTMENTS_LIST = [
   { code: 'DIE', label: 'Eléctrica' },
 ];
 
-export const UserChipsRow: React.FC<Props> = ({ user, memberships = [], onOrgPress, size = 'md' }) => {
+export const UserChipsRow: React.FC<Props> = ({
+  user,
+  memberships = [],
+  sellerProfile,
+  onOrgPress,
+  onSellerPress,
+  size = 'md',
+}) => {
   const isSmall = size === 'sm';
 
   const entryYearText = user.entry_year ? `Gen '${user.entry_year.slice(2)}` : null;
   const deptText = user.department ? user.department : null;
 
-  const hasAnyChip = entryYearText || deptText || memberships.length > 0;
+  const hasAnyChip = entryYearText || deptText || memberships.length > 0 || !!sellerProfile;
 
   if (!hasAnyChip) return null;
 
@@ -57,6 +66,20 @@ export const UserChipsRow: React.FC<Props> = ({ user, memberships = [], onOrgPre
             {deptText}
           </Text>
         </View>
+      )}
+
+      {/* Chip de Marketplace / Vendedor */}
+      {!!sellerProfile && (
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.sellerChip]}
+          onPress={onSellerPress ? () => onSellerPress(sellerProfile.id) : undefined}
+          disabled={!onSellerPress}
+        >
+          <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.sellerChipText]}>
+            🛍️ Marketplace
+          </Text>
+        </TouchableOpacity>
       )}
 
       {/* Chips de Organizaciones */}
@@ -121,5 +144,13 @@ const styles = StyleSheet.create({
   },
   deptChipText: {
     color: '#8b5cf6',
+  },
+  // Marketplace / Vendedor (Amber / Gold)
+  sellerChip: {
+    borderColor: '#f59e0b',
+    backgroundColor: '#f59e0b15',
+  },
+  sellerChipText: {
+    color: '#f59e0b',
   },
 });

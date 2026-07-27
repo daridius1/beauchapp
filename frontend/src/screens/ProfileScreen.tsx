@@ -295,25 +295,14 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.profileBio}>{profileUser.description}</Text>
             )}
 
-            {/* Insignias / Chips del usuario (Año, Departamento y Organizaciones) */}
-            {profileUser.type === 'student' && (
-              <UserChipsRow
-                user={profileUser}
-                memberships={studentMemberships}
-                onOrgPress={(orgId) => navigation.push('UserProfile', { userId: orgId })}
-              />
-            )}
-
-            {/* Acceso al Perfil de Vendedor (Solo si la tienda está activada) */}
-            {sellerProfile && (
-              <TouchableOpacity
-                style={styles.sellerProfileBtn}
-                onPress={() => navigation.push('SellerProfile', { sellerProfileId: sellerProfile.id })}
-              >
-                <Feather name="shopping-bag" size={13} color={theme.colors.primary} />
-                <Text style={styles.sellerProfileBtnText}>🛍️ Ver Perfil de Vendedor</Text>
-              </TouchableOpacity>
-            )}
+            {/* Insignias / Chips del usuario (Año, Departamento, Marketplace y Organizaciones) */}
+            <UserChipsRow
+              user={profileUser}
+              memberships={studentMemberships}
+              sellerProfile={sellerProfile}
+              onOrgPress={(orgId) => navigation.push('UserProfile', { userId: orgId })}
+              onSellerPress={(sellerProfileId) => navigation.push('SellerProfile', { sellerProfileId })}
+            />
           </View>
 
           {currentUser && currentUser.id !== targetUserId && currentUser.type !== 'organization' && (
@@ -712,23 +701,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: 'italic',
     marginTop: 4,
-  },
-  sellerProfileBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    gap: 6,
-  },
-  sellerProfileBtnText: {
-    color: theme.colors.primary,
-    fontSize: 12,
-    fontWeight: '700',
   },
 });
