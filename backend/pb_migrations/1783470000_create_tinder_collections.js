@@ -50,7 +50,7 @@ migrate((app) => {
       {
         name: "isActive",
         type: "bool",
-        required: true,
+        required: false,
         default: false,
       },
       {
