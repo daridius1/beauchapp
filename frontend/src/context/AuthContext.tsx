@@ -76,6 +76,10 @@ const getFriendlyErrorMessage = (err: any, defaultMsg: string): string => {
     return 'El usuario o la contraseña son incorrectos. Verifica tus credenciales.';
   }
 
+  if (err.message && err.message.includes("doesn't satisfy the collection requirements")) {
+    return 'Debes verificar tu correo electrónico institucional antes de iniciar sesión. Revisa tu correo del CEC (correo.cec.uchile.cl).';
+  }
+
   return err.message || defaultMsg;
 };
 
@@ -151,10 +155,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       // Solicitar correo de verificación automáticamente tras registro exitoso
-      await pb.collection('users').requestVerification(email);
+      try {
+        await pb.collection('users').requestVerification(email);
+      } catch (verr) {
+        console.error('requestVerification error:', verr);
+      }
 
-      // Auto login después del registro
-      await login(email, password);
+      // Intentar auto login si la cuenta estuviera verificada automáticamente
+      try {
+        await login(email, password);
+      } catch (loginErr: any) {
+        // Si el login falla porque el usuario aún no ha verificado su correo (esperado),
+        // no consideramos que el registro falló. El registro fue exitoso.
+        const msg = loginErr?.message || '';
+        if (msg.includes("doesn't satisfy the collection requirements") || loginErr?.status === 400) {
+          console.log('Registro exitoso. Cuenta pendiente de verificación.');
+          return;
+        }
+        throw loginErr;
+      }
     } catch (err: any) {
       console.error('signup error:', err);
       setError(getFriendlyErrorMessage(err, 'Error al registrarse.'));
