@@ -7,7 +7,7 @@ migrate((app) => {
         // 1. actionType: 'post', 'repost', 'quote', 'reply'
         if (!postsCollection.fields.find((f) => f.name === "actionType")) {
             postsCollection.fields.add(
-                new SchemaField({
+                new Field({
                     name: "actionType",
                     type: "text",
                     required: false,
@@ -18,7 +18,7 @@ migrate((app) => {
         // 2. targetType: 'post', 'problem', 'match', etc.
         if (!postsCollection.fields.find((f) => f.name === "targetType")) {
             postsCollection.fields.add(
-                new SchemaField({
+                new Field({
                     name: "targetType",
                     type: "text",
                     required: false,
@@ -29,7 +29,7 @@ migrate((app) => {
         // 3. targetId: ID del registro citado o respondido
         if (!postsCollection.fields.find((f) => f.name === "targetId")) {
             postsCollection.fields.add(
-                new SchemaField({
+                new Field({
                     name: "targetId",
                     type: "text",
                     required: false,
@@ -40,7 +40,7 @@ migrate((app) => {
         // 4. targetMeta: JSON de respaldo desnormalizado
         if (!postsCollection.fields.find((f) => f.name === "targetMeta")) {
             postsCollection.fields.add(
-                new SchemaField({
+                new Field({
                     name: "targetMeta",
                     type: "json",
                     required: false,

@@ -7,7 +7,7 @@ migrate((app) => {
         const existingModeField = ladderRanks.fields.find((f) => f.name === "mode");
         if (!existingModeField) {
             ladderRanks.fields.add(
-                new SchemaField({
+                new Field({
                     name: "mode",
                     type: "text",
                     required: false,
