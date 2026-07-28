@@ -16,6 +16,7 @@ import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { Feather } from '@expo/vector-icons';
+import { pb } from '../services/pocketbase';
 import { marketplaceService, CATEGORIES, MarketplaceItemRecord } from '../services/marketplaceService';
 import { compressImage } from '../utils/imageCompressor';
 import { SelectorModal } from '../components/SelectorModal';
@@ -42,6 +43,36 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
   const [publishing, setPublishing] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Cargar etiquetas existentes en la base de datos para recomendarlas
+  useEffect(() => {
+    const fetchExistingTags = async () => {
+      try {
+        const records = await pb.collection('marketplace_items').getFullList({
+          filter: 'deleted = false',
+          fields: 'tags',
+        });
+        const existingTags = Array.from(
+          new Set(
+            records
+              .flatMap((r) => (Array.isArray(r.tags) ? r.tags : []))
+              .map((t) => t.trim())
+              .filter(Boolean)
+          )
+        );
+        if (existingTags.length > 0) {
+          const combined = Array.from(
+            new Set([...existingTags, 'vegano', 'apuntes', 'calculo', 'brownies', 'tallaM', 'usado', 'nuevo', 'oficial'])
+          );
+          setTagSuggestions(combined);
+        }
+      } catch (err) {
+        console.error('Error fetching existing marketplace tags:', err);
+      }
+    };
+
+    fetchExistingTags();
+  }, []);
 
 
 
