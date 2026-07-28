@@ -11,7 +11,9 @@ import {
   Modal,
   Clipboard,
   Image,
+  DeviceEventEmitter,
 } from 'react-native';
+import { withMinimumDelay } from '../utils/refresh';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
@@ -127,6 +129,15 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
 
   useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await withMinimumDelay(() => loadData(), 400);
+      setLoading(false);
+    });
+    return () => sub.remove();
   }, [loadData]);
 
   const onRefresh = () => {

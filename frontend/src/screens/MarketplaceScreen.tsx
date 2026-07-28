@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
+  DeviceEventEmitter,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
@@ -70,6 +71,15 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
 
   useEffect(() => {
     loadItems();
+  }, [loadItems]);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await withMinimumDelay(() => loadItems(), 400);
+      setLoading(false);
+    });
+    return () => sub.remove();
   }, [loadItems]);
 
   const onRefresh = () => {

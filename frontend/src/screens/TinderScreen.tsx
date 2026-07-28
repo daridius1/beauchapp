@@ -11,8 +11,10 @@ import {
   Alert, 
   Platform,
   Dimensions,
-  Linking
+  Linking,
+  DeviceEventEmitter
 } from 'react-native';
+import { withMinimumDelay } from '../utils/refresh';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
@@ -237,6 +239,19 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       }
     }
   }, [activeTab, profile?.isActive]);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoadingProfile(true);
+      await withMinimumDelay(async () => {
+        await fetchProfile();
+        if (activeTab === 'discover') await fetchDiscover();
+        if (activeTab === 'matches') await fetchMatches();
+      }, 400);
+      setLoadingProfile(false);
+    });
+    return () => sub.remove();
+  }, [user, activeTab, fetchProfile, fetchDiscover, fetchMatches]);
 
   // Toggle Like Status (Like or Unlike)
   const handleToggleLike = async () => {

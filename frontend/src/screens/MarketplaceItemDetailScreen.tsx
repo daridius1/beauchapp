@@ -10,7 +10,9 @@ import {
   Dimensions,
   Linking,
   Alert,
+  DeviceEventEmitter,
 } from 'react-native';
+import { withMinimumDelay } from '../utils/refresh';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
@@ -74,6 +76,15 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
 
   useEffect(() => {
     loadItem();
+  }, [loadItem]);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await withMinimumDelay(() => loadItem(), 400);
+      setLoading(false);
+    });
+    return () => sub.remove();
   }, [loadItem]);
 
   const handleSendComment = async (content: string, photoFile: File | null) => {

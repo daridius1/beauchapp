@@ -247,6 +247,15 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }, [problemId, user])
   );
 
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await withMinimumDelay(() => fetchDetail(true));
+      setLoading(false);
+    });
+    return () => sub.remove();
+  }, [problemId, user]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await withMinimumDelay(() => fetchDetail(true));
