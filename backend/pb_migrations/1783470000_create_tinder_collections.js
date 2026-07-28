@@ -6,7 +6,7 @@ migrate((app) => {
     type: "base",
     listRule: "@request.auth.id != ''",
     viewRule: "@request.auth.id != ''",
-    createRule: "@request.auth.id != '' && @request.auth.type = 'student' && @request.auth.id = user",
+    createRule: "@request.auth.id != '' && (@request.auth.type = 'student' || @request.auth.type = '' || @request.auth.type = null) && @request.auth.id = user",
     updateRule: "@request.auth.id != '' && @request.auth.id = user",
     deleteRule: "@request.auth.id != '' && @request.auth.id = user",
     fields: [
