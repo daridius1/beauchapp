@@ -261,26 +261,26 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Etiquetas (opcional)</Text>
             <Text style={styles.helpText}>Selecciona o escribe etiquetas para facilitar la búsqueda</Text>
-            <TouchableOpacity
-              style={styles.addTagBtn}
-              onPress={() => setShowTagModal(true)}
-            >
-              <Feather name="plus" size={14} color={theme.colors.primary} style={{ marginRight: 6 }} />
-              <Text style={styles.addTagBtnText}>Agregar Etiqueta</Text>
-            </TouchableOpacity>
 
-            {tags.length > 0 && (
-              <View style={styles.tagsContainer}>
-                {tags.map((t) => (
-                  <View key={t} style={styles.tagBadge}>
-                    <Text style={styles.tagBadgeText}>{t}</Text>
-                    <TouchableOpacity onPress={() => handleRemoveTag(t)}>
-                      <Feather name="x" size={12} color="#888888" style={{ marginLeft: 4 }} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
+            <View style={styles.tagsContainer}>
+              {tags.map((t) => (
+                <View key={t} style={styles.tagBadge}>
+                  <Text style={styles.tagBadgeText}>{t}</Text>
+                  <TouchableOpacity onPress={() => handleRemoveTag(t)}>
+                    <Feather name="x" size={12} color="#888888" style={{ marginLeft: 4 }} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              <TouchableOpacity
+                style={styles.addTagChip}
+                onPress={() => setShowTagModal(true)}
+                activeOpacity={0.7}
+              >
+                <Feather name="plus" size={12} color={theme.colors.primary} style={{ marginRight: 4 }} />
+                <Text style={styles.addTagChipText}>Agregar etiqueta</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Descripción */}
@@ -459,24 +459,12 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
   },
-  addTagBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  addTagBtnText: {
-    color: theme.colors.text,
-    fontSize: 12,
-    fontWeight: '700',
-  },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
     marginTop: 8,
+    alignItems: 'center',
   },
   tagBadge: {
     flexDirection: 'row',
@@ -485,13 +473,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   tagBadgeText: {
     color: theme.colors.textMuted,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
+  },
+  addTagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  addTagChipText: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
   },
   publishBtn: {
     backgroundColor: theme.colors.primary,
