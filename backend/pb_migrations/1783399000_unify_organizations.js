@@ -29,7 +29,7 @@ migrate((app) => {
   }));
 
   // Establecer createRule
-  users.createRule = "@request.body.type = 'student'";
+  users.createRule = "";
   app.save(users);
 
   // 2. Crear organization_members
