@@ -81,8 +81,10 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     const subScroll = DeviceEventEmitter.addListener('onScrollToTop', () => {
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     });
-    const subRefresh = DeviceEventEmitter.addListener('onGlobalRefresh', () => {
-      handleRefresh();
+    const subRefresh = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await fetchLadderData(true);
+      setLoading(false);
     });
     return () => {
       subScroll.remove();

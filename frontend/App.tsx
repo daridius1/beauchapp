@@ -339,7 +339,7 @@ function AppContent() {
                   title={getScreenTitle(currentRouteName, currentRouteParams)} 
                   onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                   onBack={showBackButton ? handleBack : undefined}
-                  onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder'].includes(currentRouteName) ? () => {
+                  onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder'].includes(currentRouteName) ? () => {
                     DeviceEventEmitter.emit('onGlobalRefresh');
                   } : undefined}
                 />
