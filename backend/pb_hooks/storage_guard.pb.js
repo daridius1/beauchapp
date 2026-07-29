@@ -4,17 +4,7 @@
 // Garantiza que NUNCA se guarden imágenes en el disco local del servidor.
 // Si Cloudflare R2 (S3) no está activo, se rechaza la subida con un error explícito.
 
-onRecordCreateRequest((e) => {
-    enforceR2ForFileUploads(e);
-    e.next();
-});
-
-onRecordUpdateRequest((e) => {
-    enforceR2ForFileUploads(e);
-    e.next();
-});
-
-function enforceR2ForFileUploads(e) {
+const enforceR2ForFileUploads = (e) => {
     try {
         const settings = e.app.settings();
         const isR2Active = settings.s3 && settings.s3.enabled;
@@ -31,4 +21,14 @@ function enforceR2ForFileUploads(e) {
         }
         // Ignorar otros errores internos no relacionados a BadRequestError
     }
-}
+};
+
+onRecordCreateRequest((e) => {
+    enforceR2ForFileUploads(e);
+    e.next();
+});
+
+onRecordUpdateRequest((e) => {
+    enforceR2ForFileUploads(e);
+    e.next();
+});
