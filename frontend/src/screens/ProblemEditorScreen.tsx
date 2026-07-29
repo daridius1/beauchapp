@@ -21,6 +21,7 @@ import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import Toast from 'react-native-toast-message';
 import { SelectorModal } from '../components/SelectorModal';
 import * as ImagePicker from 'expo-image-picker';
+import { compressImage } from '../utils/imageCompressor';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProblemEditor'>;
 
@@ -150,8 +151,18 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
       const formData = new FormData();
       if (Platform.OS === 'web') {
         const response = await fetch(asset.uri);
-        const blob = await response.blob();
-        formData.append('file', blob, asset.fileName || 'upload.png');
+        const rawBlob = await response.blob();
+        const mime = rawBlob.type || 'image/png';
+        const rawFile = (asset as any).file && (asset as any).file instanceof File 
+          ? (asset as any).file 
+          : new File([rawBlob], asset.fileName || 'upload.png', { type: mime });
+        
+        try {
+          const compressedBlob = await compressImage(rawFile, false, 'image/webp');
+          formData.append('file', compressedBlob, 'upload.webp');
+        } catch (compressErr) {
+          formData.append('file', rawBlob, asset.fileName || 'upload.png');
+        }
       } else {
         formData.append('file', {
           uri: asset.uri,

@@ -26,6 +26,7 @@ import { Avatar } from '../components/Avatar';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
+import { compressImage } from '../utils/imageCompressor';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_WIDTH = Math.min(SCREEN_WIDTH - 32, 450);
@@ -435,13 +436,23 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
         if (ph.isLocal) {
           if (Platform.OS === 'web') {
             const response = await fetch(ph.uri);
-            const blob = await response.blob();
-            formData.append('photos', blob, ph.file.fileName || 'profile_tinder.jpg');
+            const rawBlob = await response.blob();
+            const mime = rawBlob.type || 'image/jpeg';
+            const rawFile = ph.file && ph.file instanceof File 
+              ? ph.file 
+              : new File([rawBlob], ph.file?.fileName || 'photo.jpg', { type: mime });
+            
+            try {
+              const compressedBlob = await compressImage(rawFile, false, 'image/webp');
+              formData.append('photos', compressedBlob, 'tinder_photo.webp');
+            } catch (compressErr) {
+              formData.append('photos', rawBlob, ph.file?.fileName || 'profile_tinder.jpg');
+            }
           } else {
             formData.append('photos', {
               uri: ph.uri,
-              name: ph.file.fileName || 'profile_tinder.jpg',
-              type: ph.file.mimeType || 'image/jpeg',
+              name: ph.file?.fileName || 'profile_tinder.jpg',
+              type: ph.file?.mimeType || 'image/jpeg',
             } as any);
           }
         } else {
