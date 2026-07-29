@@ -47,3 +47,10 @@
 9. **Directrices de Diseño Plano (Flat Design):**
 - Respetar rigurosamente la regla del diseño plano: prohibido usar sombras (`shadowColor`, `shadowOffset`, `shadowOpacity`, `shadowRadius`, `elevation`) en tarjetas, menús contextuales, botones o barras. Usar bordes sólidos y colores de contraste.
 
+10. **Reporte Transparente en Despliegues (Deploy Notification):**
+- Al realizar cualquier despliegue a producción, DEBES incluir siempre en el resumen para el usuario el estado detallado de la infraestructura:
+  - Dominio activo (`APP_URL`).
+  - Estado del almacenamiento multimedia (si está usando el disco local SSD o Cloudflare R2).
+  - Estado de variables de entorno `.env` e integraciones (Resend, R2, S3).
+
+
