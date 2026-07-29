@@ -47,6 +47,7 @@ onRecordCreateRequest((e) => {
         return e.next();
     } catch (outerErr) {
         console.log("[forum.pb.js] ERROR in posts create hook:", outerErr);
+        throw outerErr;
     }
 }, "posts");
 
