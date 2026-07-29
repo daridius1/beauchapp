@@ -22,7 +22,7 @@ function enforceR2ForFileUploads(e) {
         if (!isR2Active) {
             const uploadedFiles = e.uploadedFiles();
             if (uploadedFiles && Object.keys(uploadedFiles).length > 0) {
-                throw new BadRequestError("El almacenamiento de imágenes (Cloudflare R2) no está configurado. No se permite guardar imágenes en el disco local del servidor.");
+                throw new BadRequestError("Error: El servicio de almacenamiento en la nube de Cloudflare no está disponible en este momento. Por favor inténtalo más tarde.");
             }
         }
     } catch (err) {
