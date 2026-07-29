@@ -53,14 +53,14 @@ export const getFileUrl = (record: any, filename: string, size?: string) => {
     : { ...record, collectionName: record?.collectionName || record?.collectionId || 'posts' };
   
   const r2Url = process.env.EXPO_PUBLIC_R2_URL;
-  if (r2Url) {
+  // Si NO se solicita miniatura (foto HD completa) y hay R2 URL, traer directo del CDN público de R2
+  if (r2Url && !size) {
     const base = r2Url.replace(/\/$/, '');
     const col = recordObj.collectionId || recordObj.collectionName || 'posts';
-    const finalFilename = size ? `thumb_${size}_${filename}` : filename;
-    return `${base}/${col}/${recordObj.id}/${finalFilename}`;
+    return `${base}/${col}/${recordObj.id}/${filename}`;
   }
 
-  // Fallback a proxy de PocketBase si no hay CDN R2 configurado
+  // Si se solicita miniatura (ej: '100x100'), usar el proxy de PocketBase para que las genere lazily en R2 si no existen
   const options = size ? { thumb: size } : undefined;
   return pb.files.getURL(recordObj, filename, options);
 };
