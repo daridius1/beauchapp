@@ -16,6 +16,7 @@ import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { Feather } from '@expo/vector-icons';
 import { marketplaceService, SellerProfileRecord } from '../services/marketplaceService';
+import { SocialInput } from '../components/SocialInput';
 import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SellerProfileEditor'>;
@@ -146,72 +147,55 @@ export const SellerProfileEditorScreen: React.FC<Props> = ({ route, navigation }
           {/* Contacto */}
           <Text style={styles.sectionHeaderTitle}>Contacto</Text>
 
-          {/* WhatsApp */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>WhatsApp</Text>
-            <TextInput
-              style={styles.input}
-              value={wspPhone}
-              onChangeText={setWspPhone}
-              placeholder="+56912345678"
-              placeholderTextColor={theme.colors.textMuted}
-              keyboardType="phone-pad"
-            />
-          </View>
-
           {/* Instagram */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Instagram</Text>
-            <TextInput
-              style={styles.input}
-              value={instagramHandle}
-              onChangeText={setInstagramHandle}
-              placeholder="@tu_usuario"
-              placeholderTextColor={theme.colors.textMuted}
-              autoCapitalize="none"
-            />
-          </View>
+          <SocialInput
+            label="Instagram"
+            type="instagram"
+            value={instagramHandle}
+            onChangeText={setInstagramHandle}
+            placeholder="tu_usuario"
+          />
+
+          {/* WhatsApp */}
+          <SocialInput
+            label="WhatsApp"
+            type="whatsapp"
+            value={wspPhone}
+            onChangeText={setWspPhone}
+            placeholder="+56912345678"
+            showAtPrefix={false}
+            keyboardType="phone-pad"
+          />
 
           {/* Telegram */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Telegram</Text>
-            <TextInput
-              style={styles.input}
-              value={telegramHandle}
-              onChangeText={setTelegramHandle}
-              placeholder="@tu_usuario"
-              placeholderTextColor={theme.colors.textMuted}
-              autoCapitalize="none"
-            />
-          </View>
+          <SocialInput
+            label="Telegram"
+            type="telegram"
+            value={telegramHandle}
+            onChangeText={setTelegramHandle}
+            placeholder="tu_usuario"
+          />
 
           {/* Signal */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Signal</Text>
-            <Text style={styles.helpText}>Formato de usuario Signal (ej: usuario.15)</Text>
-            <TextInput
-              style={styles.input}
-              value={signalPhone}
-              onChangeText={setSignalPhone}
-              placeholder="usuario.15"
-              placeholderTextColor={theme.colors.textMuted}
-              autoCapitalize="none"
-            />
-          </View>
+          <SocialInput
+            label="Signal"
+            type="signal"
+            value={signalPhone}
+            onChangeText={setSignalPhone}
+            placeholder="tu_usuario"
+            showAtPrefix={true}
+          />
 
           {/* Correo Electrónico */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Correo Electrónico</Text>
-            <TextInput
-              style={styles.input}
-              value={contactEmail}
-              onChangeText={setContactEmail}
-              placeholder="ejemplo@domain.com"
-              placeholderTextColor={theme.colors.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
+          <SocialInput
+            label="Correo Electrónico"
+            type="email"
+            value={contactEmail}
+            onChangeText={setContactEmail}
+            placeholder="ejemplo@domain.com"
+            showAtPrefix={false}
+            keyboardType="email-address"
+          />
 
           {/* Botón Guardar */}
           <TouchableOpacity

@@ -40,6 +40,37 @@ export const notificationService = {
   },
 
   /**
+   * Obtiene la cantidad de notificaciones no leídas del usuario
+   */
+  getUnreadCount: async (userId: string): Promise<number> => {
+    try {
+      const res = await pb.collection('notifications').getList(1, 1, {
+        filter: `user = "${userId}" && read = false`,
+      });
+      return res.totalItems;
+    } catch (err) {
+      console.error('Error fetching unread count:', err);
+      return 0;
+    }
+  },
+
+  /**
+   * Marca todas las notificaciones de un usuario como leídas
+   */
+  markAllAsRead: async (userId: string): Promise<void> => {
+    try {
+      const unreads = await pb.collection('notifications').getFullList({
+        filter: `user = "${userId}" && read = false`,
+      });
+      for (const item of unreads) {
+        await pb.collection('notifications').update(item.id, { read: true });
+      }
+    } catch (err) {
+      console.error('Error marking notifications as read:', err);
+    }
+  },
+
+  /**
    * Elimina una notificación por su ID
    */
   deleteNotification: async (notifId: string): Promise<boolean> => {

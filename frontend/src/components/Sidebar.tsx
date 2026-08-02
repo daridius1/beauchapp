@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Animated, Dimensions, Pressable } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
 import { Avatar } from './Avatar';
@@ -13,9 +14,10 @@ interface SidebarProps {
   activeScreen: string;
   onNavigate: (screen: string) => void;
   isDocked?: boolean;
+  hasUnreadNotifications?: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activeScreen, onNavigate, isDocked = false }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activeScreen, onNavigate, isDocked = false, hasUnreadNotifications }) => {
   const { user, logout } = useAuth();
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -46,43 +48,86 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
     if (onClose) onClose();
   };
 
-
   const beauchappsScreens = ['Beauchapps', 'Marketplace', 'ProblemsList', 'LaddersList', 'Tinder'];
 
   const menuItems = [
     { id: 'Home', label: 'Inicio' },
+    { id: 'Activities', label: 'Actividades' },
     { id: 'Directory', label: 'Perfiles' },
     { id: 'Beauchapps', label: 'Beauchapps' },
-    ...(user ? [{ id: 'Notifications', label: 'Notificaciones' }] : []),
-    { id: 'Settings', label: 'Ajustes' },
   ];
 
   const renderSidebarContent = () => (
     <>
-      {/* Encabezado del Perfil */}
+      {/* Encabezado del Perfil con Botones de Icono (Notificaciones y Ajustes) */}
       <View style={styles.header}>
         {user ? (
-          <TouchableOpacity 
-            activeOpacity={0.7}
-            onPress={() => handleLinkPress('Profile')}
-          >
-            <View style={{ marginBottom: theme.spacing.sm }}>
-              <Avatar user={user} size={60} />
-            </View>
-            <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
-            {!!user.username && <Text style={styles.userUsername} numberOfLines={1}>@{user.username}</Text>}
-          </TouchableOpacity>
-        ) : (
-          <View>
-            <Text style={styles.welcomeTitle}>Invitado</Text>
-            <Text style={styles.welcomeSubtitle}>Inicia sesión para ver las novedades de la comunidad.</Text>
+          <View style={styles.profileHeaderRow}>
             <TouchableOpacity 
-              style={styles.loginBtn}
-              onPress={() => handleLinkPress('Login')}
+              activeOpacity={0.7}
+              style={styles.profileClickArea}
+              onPress={() => handleLinkPress('Profile')}
             >
-              <Text style={styles.loginBtnText}>Iniciar Sesión</Text>
+              <Avatar user={user} size={48} />
+              <View style={styles.profileTextWrapper}>
+                <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
+                {!!user.username && <Text style={styles.userUsername} numberOfLines={1}>@{user.username}</Text>}
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.headerIconsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.headerIconBtn,
+                  activeScreen === 'Notifications' && styles.headerIconBtnActive
+                ]}
+                onPress={() => handleLinkPress('Notifications')}
+                activeOpacity={0.75}
+              >
+                <Feather name="bell" size={17} color={activeScreen === 'Notifications' ? theme.colors.primary : '#d1d5db'} />
+                {hasUnreadNotifications && (
+                  <View style={styles.sidebarUnreadDot} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.headerIconBtn,
+                  activeScreen === 'Settings' && styles.headerIconBtnActive
+                ]}
+                onPress={() => handleLinkPress('Settings')}
+                activeOpacity={0.75}
+              >
+                <Feather name="settings" size={17} color={activeScreen === 'Settings' ? theme.colors.primary : '#d1d5db'} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.profileHeaderRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.welcomeTitle}>Invitado</Text>
+              <Text style={styles.welcomeSubtitle}>Inicia sesión para ver novedades.</Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.headerIconBtn,
+                activeScreen === 'Settings' && styles.headerIconBtnActive
+              ]}
+              onPress={() => handleLinkPress('Settings')}
+              activeOpacity={0.75}
+            >
+              <Feather name="settings" size={17} color={activeScreen === 'Settings' ? theme.colors.primary : '#d1d5db'} />
             </TouchableOpacity>
           </View>
+        )}
+
+        {!user && (
+          <TouchableOpacity 
+            style={styles.loginBtn}
+            onPress={() => handleLinkPress('Login')}
+          >
+            <Text style={styles.loginBtnText}>Iniciar Sesión</Text>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -189,9 +234,54 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+  },
+  profileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  profileClickArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  profileTextWrapper: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  headerIconsContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  headerIconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: '#161616',
+    borderWidth: 1,
+    borderColor: '#2d2d2d',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  sidebarUnreadDot: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#ef4444',
+  },
+  headerIconBtnActive: {
+    borderColor: theme.colors.primary,
+    backgroundColor: 'rgba(79, 70, 229, 0.15)',
   },
   avatar: {
     width: 60,
@@ -208,14 +298,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   userName: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700',
     color: theme.colors.text,
   },
   userUsername: {
-    fontSize: 13,
+    fontSize: 12,
     color: theme.colors.textMuted,
-    marginTop: 2,
+    marginTop: 1,
   },
   userEmail: {
     fontSize: 12,

@@ -4,6 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
 import { RootStackParamList } from '../types/navigation';
+import { Feather } from '@expo/vector-icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ResetPassword'>;
 
@@ -13,6 +14,8 @@ export const ResetPasswordScreen: React.FC<Props> = ({ route, navigation }) => {
   
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -70,28 +73,38 @@ export const ResetPasswordScreen: React.FC<Props> = ({ route, navigation }) => {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Nueva Contraseña</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Mínimo 8 caracteres"
-                placeholderTextColor={theme.colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-              />
+              <View style={styles.passwordRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="Mínimo 8 caracteres"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIconBtn}>
+                  <Feather name={showPassword ? "eye-off" : "eye"} size={18} color={theme.colors.textMuted} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Confirmar Contraseña</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Vuelve a escribir la contraseña"
-                placeholderTextColor={theme.colors.textMuted}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                autoCapitalize="none"
-              />
+              <View style={styles.passwordRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="Vuelve a escribir la contraseña"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIconBtn}>
+                  <Feather name={showConfirmPassword ? "eye-off" : "eye"} size={18} color={theme.colors.textMuted} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <TouchableOpacity 
@@ -140,5 +153,15 @@ const styles = StyleSheet.create({
   disabledButton: { opacity: 0.7 },
   submitButtonText: { color: '#000000', fontSize: 15, fontWeight: '600' },
   toggleLink: { alignItems: 'center', marginTop: theme.spacing.lg, paddingVertical: 4 },
-  toggleLinkText: { color: theme.colors.accent, fontSize: 13, fontWeight: '500' }
+  toggleLinkText: { color: theme.colors.accent, fontSize: 13, fontWeight: '500' },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  eyeIconBtn: {
+    paddingLeft: 10,
+    paddingVertical: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });

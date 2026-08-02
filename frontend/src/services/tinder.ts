@@ -11,6 +11,14 @@ export interface TinderProfile {
   whatsapp: string;
   telegram: string;
   signal: string;
+  website?: string;
+  favorite_song?: string;
+  favorite_book?: string;
+  zodiac_sign?: string;
+  favorite_drink?: string;
+  favorite_food?: string;
+  favorite_subject?: string;
+  hobbies?: string;
   expand?: {
     user?: {
       id: string;

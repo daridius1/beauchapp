@@ -33,7 +33,7 @@ onRecordCreateRequest((e) => {
             e.record.set("replyTo", "");
             e.record.set("root", "");
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : "posts");
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : "posts"));
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const targetTags = targetRecord.get("tags") || [];
                 e.record.set("tags", targetTags);
@@ -62,7 +62,7 @@ onRecordAfterCreateSuccess((e) => {
         // Incrementar quoteCount si es una cita
         if (actionType === "quote" && targetId && targetType) {
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : "posts");
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : "posts"));
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const currentQuotes = targetRecord.getInt("quoteCount") || 0;
                 targetRecord.set("quoteCount", currentQuotes + 1);
@@ -76,7 +76,7 @@ onRecordAfterCreateSuccess((e) => {
         // Incrementar commentCount para respuestas a posts o comentarios a entidades
         if (actionType === "comment" && targetId && targetType) {
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : "posts");
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : "posts"));
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const currentCount = targetRecord.getInt("commentCount") || 0;
                 targetRecord.set("commentCount", currentCount + 1);
@@ -100,7 +100,7 @@ onRecordAfterCreateSuccess((e) => {
                         $app.save(parent);
                         console.log(`[forum.pb.js] Incrementado commentCount para ${parentId}: ${currentCount} -> ${currentCount + 1}`);
 
-                        parentId = parent.getString("replyTo");
+                        parentId = parent.getString("replyTo") || (parent.getString("actionType") === "reply" ? parent.getString("targetId") : "");
                     } catch (err) {
                         console.log(`[forum.pb.js] Error actualizando commentCount para ancestro ${parentId}:`, err);
                         break;
@@ -125,7 +125,7 @@ onRecordAfterDeleteSuccess((e) => {
         // Decrementar quoteCount si se elimina una cita
         if (actionType === "quote" && targetId && targetType) {
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : "posts");
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : "posts"));
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const currentQuotes = targetRecord.getInt("quoteCount") || 0;
                 const newQuotes = Math.max(0, currentQuotes - 1);
@@ -140,7 +140,7 @@ onRecordAfterDeleteSuccess((e) => {
         // Decrementar commentCount para respuestas a posts o comentarios a entidades
         if (actionType === "comment" && targetId && targetType) {
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : "posts");
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : "posts"));
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const currentCount = targetRecord.getInt("commentCount") || 0;
                 const newCount = Math.max(0, currentCount - 1);

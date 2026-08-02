@@ -1,17 +1,24 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Beauchapp",
+    "slug": "beauchapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0c0c0c"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "cl.beauchapp.app"
     },
     "android": {
+      "package": "cl.beauchapp.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0c0c0c",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -21,8 +28,8 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "display": "standalone",
-      "themeColor": "#1A1A1A",
-      "backgroundColor": "#1A1A1A",
+      "themeColor": "#0c0c0c",
+      "backgroundColor": "#0c0c0c",
       "name": "Beauchapp",
       "shortName": "Beauchapp"
     },

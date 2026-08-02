@@ -13,6 +13,9 @@ import { OrgChip } from '../components/OrgChip';
 import { UserChipsRow, YEARS_LIST, DEPARTMENTS_LIST } from '../components/UserChipsRow';
 import { User } from '../context/AuthContext';
 import { UserSelectorModal } from '../components/UserSelectorModal';
+import { SocialInput } from '../components/SocialInput';
+import { getSportCode } from '../components/UserChipsRow';
+import { SportIcon } from '../components/SportIcon';
 
 export const SettingsScreen: React.FC = () => {
   const { user, developerMode, setDeveloperMode } = useAuth();
@@ -29,6 +32,19 @@ export const SettingsScreen: React.FC = () => {
   // Insignias / Pins para Estudiantes
   const [entryYear, setEntryYear] = useState(user?.entry_year || '');
   const [department, setDepartment] = useState(user?.department || '');
+
+  // Biografía / Descripción del Perfil Principal
+  const [description, setDescription] = useState(user?.description || '');
+
+  // Redes Sociales y Sitio Web
+  const [instagram, setInstagram] = useState(user?.instagram || '');
+  const [telegram, setTelegram] = useState(user?.telegram || '');
+  const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
+  const [signal, setSignal] = useState(user?.signal || '');
+  const [website, setWebsite] = useState(user?.website || '');
+
+  // Ladder Ranks individuales con toggle por deporte
+  const [myLadderRanks, setMyLadderRanks] = useState<any[]>([]);
 
   // Gestión de Integrantes para Organizaciones
   const [isManagingMembers, setIsManagingMembers] = useState(false);
@@ -47,7 +63,35 @@ export const SettingsScreen: React.FC = () => {
     if (user?.type === 'organization') {
       loadMembers();
     }
+    if (user?.id) {
+      loadMyLadderRanks();
+    }
   }, [user?.id]);
+
+  const loadMyLadderRanks = async () => {
+    if (!user) return;
+    try {
+      const res = await pb.collection('ladder_ranks').getList(1, 20, {
+        filter: `user = "${user.id}"`,
+        expand: 'ladder'
+      });
+      setMyLadderRanks(res.items.map(item => ({
+        ...item,
+        show_on_profile: Boolean(item.show_on_profile)
+      })));
+    } catch (e) {
+      console.log('Error cargando ranks de ladders en ajustes:', e);
+    }
+  };
+
+  const toggleLadderVisibility = (rankId: string) => {
+    setMyLadderRanks(prev => prev.map(r => {
+      if (r.id === rankId) {
+        return { ...r, show_on_profile: !r.show_on_profile };
+      }
+      return r;
+    }));
+  };
 
   const loadMembers = async () => {
     if (!user || user.type !== 'organization') return;
@@ -138,11 +182,31 @@ export const SettingsScreen: React.FC = () => {
         formData.append('department', department.trim());
       }
 
+      formData.append('description', description.trim());
+      formData.append('instagram', instagram.replace(/^@+/, '').trim());
+      formData.append('telegram', telegram.replace(/^@+/, '').trim());
+      formData.append('whatsapp', whatsapp.trim());
+      formData.append('signal', signal.replace(/^@+/, '').trim());
+      formData.append('website', website.trim());
+
       if (avatarFile) {
         formData.append('avatar', avatarFile);
       }
 
       await pb.collection('users').update(user.id, formData);
+
+      // Actualizar visibilidad individual de cada ladder rank
+      for (const rank of myLadderRanks) {
+        try {
+          await pb.collection('ladder_ranks').update(rank.id, {
+            show_on_profile: Boolean(rank.show_on_profile)
+          });
+        } catch (err) {
+          console.error('Error guardando visibilidad de ladder rank:', rank.id, err);
+        }
+      }
+
+      await loadMyLadderRanks();
       await pb.collection('users').authRefresh();
 
       Toast.show({
@@ -418,9 +482,9 @@ export const SettingsScreen: React.FC = () => {
                       <option value="" style={{ backgroundColor: '#0c0c0c', color: theme.colors.textMuted }}>
                         -- Sin generación --
                       </option>
-                      {YEARS_LIST.map((year) => (
-                        <option key={year} value={year} style={{ backgroundColor: '#0c0c0c', color: '#ffffff' }}>
-                          {year}
+                      {YEARS_LIST.map((yr) => (
+                        <option key={yr} value={yr} style={{ backgroundColor: '#0c0c0c', color: '#ffffff' }}>
+                          Gen {yr}
                         </option>
                       ))}
                     </select>
@@ -466,11 +530,123 @@ export const SettingsScreen: React.FC = () => {
                       ...user,
                       entry_year: entryYear,
                       department: department,
+                      instagram,
+                      telegram,
+                      whatsapp,
+                      signal,
                     }}
+                    ladderRanks={myLadderRanks}
                   />
                 </View>
               </>
             )}
+
+            {/* Biografía / Descripción del Perfil */}
+            <View style={{ marginTop: theme.spacing.md, paddingTop: theme.spacing.md, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
+              <Text style={[styles.inputLabel, { fontSize: 14, color: theme.colors.text, marginBottom: 2 }]}>
+                Biografía / Descripción
+              </Text>
+              <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 8 }}>
+                Una breve presentación sobre ti para mostrar en tu perfil principal.
+              </Text>
+              <TextInput
+                style={[styles.input, { height: 80, textAlignVertical: 'top', paddingTop: 10 }]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Escribe una pequeña descripción o frase sobre ti..."
+                placeholderTextColor={theme.colors.textMuted}
+                multiline
+                numberOfLines={3}
+                maxLength={300}
+              />
+            </View>
+
+            {/* Redes Sociales (Aparecen automáticamente en el perfil si no están vacías) */}
+            <View style={{ marginTop: theme.spacing.md, paddingTop: theme.spacing.md, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
+              <Text style={[styles.inputLabel, { fontSize: 14, color: theme.colors.text, marginBottom: 2 }]}>
+                Redes Sociales
+              </Text>
+              <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 12 }}>
+                Las redes que ingreses aparecerán automáticamente como chips en tu perfil.
+              </Text>
+              
+              <SocialInput
+                label="Instagram"
+                type="instagram"
+                value={instagram}
+                onChangeText={setInstagram}
+                placeholder="tu_usuario"
+              />
+              <SocialInput
+                label="WhatsApp"
+                type="whatsapp"
+                value={whatsapp}
+                onChangeText={setWhatsapp}
+                placeholder="+56912345678"
+                showAtPrefix={false}
+                keyboardType="phone-pad"
+              />
+              <SocialInput
+                label="Telegram"
+                type="telegram"
+                value={telegram}
+                onChangeText={setTelegram}
+                placeholder="tu_usuario"
+              />
+              <SocialInput
+                label="Signal"
+                type="signal"
+                value={signal}
+                onChangeText={setSignal}
+                placeholder="tu_usuario"
+                showAtPrefix={true}
+              />
+              <SocialInput
+                label="Página Web"
+                type="website"
+                value={website}
+                onChangeText={setWebsite}
+                placeholder="https://tuweb.cl"
+                showAtPrefix={false}
+                keyboardType="url"
+              />
+
+              {/* Visibilidad de ELO por Deporte / Ladder */}
+              {myLadderRanks.length > 0 && (
+                <View style={{ marginTop: theme.spacing.sm, paddingTop: theme.spacing.md, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
+                  <Text style={[styles.inputLabel, { fontSize: 13, color: theme.colors.text, marginBottom: 2 }]}>
+                    Visibilidad de ELO en tu Perfil
+                  </Text>
+                  <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 10 }}>
+                    Selecciona en qué deportes deseas mostrar tu ELO públicamente:
+                  </Text>
+                  {myLadderRanks.map((rank) => {
+                    const sportName = rank.expand?.ladder?.name || rank.expand?.sport?.name || rank.sportKey || '';
+                    const sportSlug = rank.expand?.ladder?.slug || rank.sportKey || '';
+                    const mode = rank.mode || '1v1';
+                    const is2v2 = mode.includes('2v2');
+                    const eloVal = Math.round(rank.ordinal_rating || rank.rating || rank.points || 1200);
+                    return (
+                      <TouchableOpacity
+                        key={rank.id}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}
+                        onPress={() => toggleLadderVisibility(rank.id)}
+                        activeOpacity={0.7}
+                      >
+                        <Feather name={rank.show_on_profile ? "check-square" : "square"} size={18} color={theme.colors.accent} />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <SportIcon name={sportName} slug={sportSlug} size={15} color={theme.colors.text} />
+                          {is2v2 && <Feather name="users" size={13} color={theme.colors.textMuted} />}
+                        </View>
+                        <Text style={{ color: theme.colors.text, fontSize: 13 }}>
+                          {eloVal} {sportName ? `(${sportName} ${mode})` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
 
             {/* Acciones */}
             <View style={styles.actionsRow}>

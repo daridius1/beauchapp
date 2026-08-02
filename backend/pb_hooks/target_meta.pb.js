@@ -99,6 +99,29 @@ onRecordAfterCreateSuccess((e) => {
             } catch (err) {
                 console.log("[Target Meta] Target match not found:", err);
             }
+        } else if (targetType === "activity") {
+            try {
+                const targetRecord = $app.findRecordById("activities", targetId);
+                let orgName = "Organización";
+                const orgId = targetRecord.getString("organization");
+                if (orgId) {
+                    try {
+                        const orgUser = $app.findRecordById("users", orgId);
+                        orgName = orgUser.getString("name");
+                    } catch (err) {}
+                }
+                meta = {
+                    title: targetRecord.getString("title"),
+                    location: targetRecord.getString("location"),
+                    date: targetRecord.getString("date"),
+                    startTime: targetRecord.getString("start_time"),
+                    endTime: targetRecord.getString("end_time"),
+                    orgName: orgName,
+                    category: targetRecord.getString("category"),
+                };
+            } catch (err) {
+                console.log("[Target Meta] Target activity not found:", err);
+            }
         }
 
         if (meta) {

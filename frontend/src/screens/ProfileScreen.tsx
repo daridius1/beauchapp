@@ -15,6 +15,7 @@ import Toast from 'react-native-toast-message';
 import { organizationService, OrganizationMemberRecord } from '../services/organizationService';
 import { OrgChip } from '../components/OrgChip';
 import { UserChipsRow } from '../components/UserChipsRow';
+import { SocialButtonsRow } from '../components/SocialButtonsRow';
 import { marketplaceService, SellerProfileRecord } from '../services/marketplaceService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile' | 'UserProfile'>;
@@ -48,8 +49,9 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   const [studentMemberships, setStudentMemberships] = useState<OrganizationMemberRecord[]>([]);
   const [orgMembers, setOrgMembers] = useState<OrganizationMemberRecord[]>([]);
 
-  // Estado de Perfil de Vendedor
+  // Estado de Perfil de Vendedor y Ladders
   const [sellerProfile, setSellerProfile] = useState<SellerProfileRecord | null>(null);
+  const [ladderRanks, setLadderRanks] = useState<any[]>([]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -74,6 +76,17 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
         setSellerProfile(sProfile);
       } catch (e) {
         setSellerProfile(null);
+      }
+
+      // Cargar Ranks de Ladders
+      try {
+        const ranksRes = await pb.collection('ladder_ranks').getList(1, 10, {
+          filter: `user = "${targetUserId}"`,
+          expand: 'ladder'
+        });
+        setLadderRanks(ranksRes.items);
+      } catch (e) {
+        setLadderRanks([]);
       }
 
       // 2. Obtener publicaciones del usuario
@@ -277,7 +290,7 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.profileName}>{profileUser.name}</Text>
             {!!profileUser.username && <Text style={styles.profileUsername}>@{profileUser.username}</Text>}
             
-            {profileUser.type === 'organization' ? (
+            {profileUser.type === 'organization' && (
               <View style={styles.orgBadge}>
                 <Text style={styles.orgBadgeText}>
                   {profileUser.subtype === 'center' ? 'Centro de Estudiantes' :
@@ -287,21 +300,36 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                    'Organización'}
                 </Text>
               </View>
-            ) : (
-              <Text style={styles.profileCareer}>Estudiante</Text>
             )}
 
             {!!profileUser.description && (
               <Text style={styles.profileBio}>{profileUser.description}</Text>
             )}
 
-            {/* Insignias / Chips del usuario (Año, Departamento, Marketplace y Organizaciones) */}
+            {/* Insignias / Chips del usuario (Año, Departamento, Ladders y Organizaciones) */}
             <UserChipsRow
               user={profileUser}
               memberships={studentMemberships}
               sellerProfile={sellerProfile}
+              ladderRanks={ladderRanks}
               onOrgPress={(orgId) => navigation.push('UserProfile', { userId: orgId })}
               onSellerPress={(sellerProfileId) => navigation.push('SellerProfile', { sellerProfileId })}
+              onLadderPress={(sportSlug, mode) => {
+                const targetSlug = mode ? `${sportSlug}-${mode}` : sportSlug;
+                navigation.navigate('LadderDetail', { slug: targetSlug });
+              }}
+            />
+
+            {/* Botones de Contacto Directo / Redes Sociales y Marketplace */}
+            <SocialButtonsRow
+              contacts={{
+                instagram: profileUser.instagram,
+                telegram: profileUser.telegram,
+                whatsapp: profileUser.whatsapp,
+                signal: profileUser.signal,
+                email: profileUser.email,
+              }}
+              onMarketplacePress={sellerProfile ? () => navigation.push('SellerProfile', { sellerProfileId: sellerProfile.id }) : undefined}
             />
           </View>
 

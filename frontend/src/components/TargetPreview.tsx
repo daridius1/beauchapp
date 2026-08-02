@@ -46,6 +46,9 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
         } else if (targetType === 'seller_profile' || targetType === 'seller') {
           const record = await pb.collection('seller_profiles').getOne(targetId, { expand: 'user' });
           if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'activity') {
+          const record = await pb.collection('activities').getOne(targetId, { expand: 'organization' });
+          if (isMounted) setFetchedTarget(record);
         }
       } catch (err) {
         if (isMounted) setFetchError(true);
@@ -254,6 +257,44 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
           <Text style={styles.problemSubtitle}>Perfil de Vendedor{sellerUsername ? ` · @${sellerUsername}` : ''}</Text>
           <Text style={styles.problemTitle} numberOfLines={1}>{sellerName}</Text>
           {!!bio && <Text style={{ color: theme.colors.textMuted, fontSize: 11 }} numberOfLines={1}>{bio}</Text>}
+        </View>
+        <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
+      </Wrapper>
+    );
+  }
+
+  // 6. RENDERIZADO DE ACTIVIDAD CITADA
+  if (targetType === 'activity') {
+    if (isDeleted) {
+      return (
+        <View style={styles.fallbackBox}>
+          <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.fallbackText}>Esta actividad ya no está disponible.</Text>
+        </View>
+      );
+    }
+
+    const title = resolved?.title || targetMeta?.title || 'Actividad';
+    const location = resolved?.location || targetMeta?.location || '';
+    const date = resolved?.date || targetMeta?.date || '';
+    const startTime = resolved?.start_time || targetMeta?.startTime || '';
+    const endTime = resolved?.end_time || targetMeta?.endTime || '';
+    const orgName = resolved?.expand?.organization?.name || targetMeta?.orgName || 'Organización';
+    const category = resolved?.category || targetMeta?.category;
+
+    return (
+      <Wrapper {...wrapperProps} style={styles.previewCardProblem}>
+        <View style={[styles.iconBox, { backgroundColor: 'rgba(56, 189, 248, 0.1)' }]}>
+          <Feather name="calendar" size={18} color="#38bdf8" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.problemSubtitle}>
+            📅 {orgName}{category ? ` · ${category}` : ''}
+          </Text>
+          <Text style={styles.problemTitle} numberOfLines={1}>{title}</Text>
+          <Text style={{ color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }}>
+            📍 {location} {date ? `| ${date}` : ''} {startTime ? `(${startTime} - ${endTime})` : ''}
+          </Text>
         </View>
         <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
       </Wrapper>

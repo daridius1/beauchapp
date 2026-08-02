@@ -199,6 +199,7 @@ export const marketplaceService = {
     query?: string;
     tag?: string;
     sellerProfileId?: string;
+    onlyAvailable?: boolean;
     page?: number;
     perPage?: number;
   }): Promise<{ items: MarketplaceItemRecord[]; totalPages: number }> => {
@@ -207,6 +208,13 @@ export const marketplaceService = {
       const perPage = params.perPage || 30;
 
       let filters: string[] = ['deleted = false'];
+
+      // En la vista principal del Marketplace solo se muestran productos disponibles.
+      // En el perfil de vendedor (cuando hay sellerProfileId) se muestran todos (disponibles e indisponibles).
+      const filterOnlyAvailable = params.onlyAvailable !== undefined ? params.onlyAvailable : !params.sellerProfileId;
+      if (filterOnlyAvailable) {
+        filters.push('status = "available"');
+      }
 
       if (params.category && params.category !== 'all') {
         filters.push(`category = "${params.category}"`);

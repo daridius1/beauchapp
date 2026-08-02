@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { theme } from '../../theme/theme';
 import { ladderService } from '../../services/ladderService';
@@ -6,6 +6,7 @@ import { Ladder } from '../../types/ladder';
 import Toast from 'react-native-toast-message';
 import { Feather } from '@expo/vector-icons';
 import { MatchSetupStep, StudentUser } from './MatchSetupStep';
+import { ConfirmExitModal } from '../ConfirmExitModal';
 
 interface Props {
   ladder: Ladder;
@@ -15,6 +16,10 @@ interface Props {
 
 export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, navigation }) => {
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [hasSavedMatch, setHasSavedMatch] = useState<boolean>(false);
+  const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
+  const [pendingAction, setPendingAction] = useState<any>(null);
+
   const [step, setStep] = useState<'setup' | 'live'>('setup');
 
   const [mode, setMode] = useState<'1v1' | '2v2'>(initialMode || '1v1');
@@ -26,6 +31,40 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, na
   const [scoreBlue, setScoreBlue] = useState<number>(0);
   const [initialServer, setInitialServer] = useState<'red' | 'blue'>('red');
   const [pointHistory, setPointHistory] = useState<('red' | 'blue')[]>([]);
+
+  const isNavigatingRef = React.useRef<boolean>(false);
+  const hasUnsavedData = step === 'live' || scoreRed > 0 || scoreBlue > 0 || teamRed.length > 0 || teamBlue.length > 0;
+
+  useEffect(() => {
+    if (!navigation) return;
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (hasSavedMatch || isNavigatingRef.current) {
+        return;
+      }
+
+      if (!hasUnsavedData) {
+        return;
+      }
+
+      e.preventDefault();
+      setPendingAction(e.data.action);
+      setShowExitConfirm(true);
+    });
+
+    return unsubscribe;
+  }, [navigation, hasUnsavedData, hasSavedMatch]);
+
+  const handleConfirmExit = () => {
+    setShowExitConfirm(false);
+    if (pendingAction) {
+      navigation.dispatch(pendingAction);
+    }
+  };
+
+  const handleCancelExit = () => {
+    setShowExitConfirm(false);
+    setPendingAction(null);
+  };
 
   const targetScore = ladder.max_score || 11;
   const isDeuce = scoreRed >= targetScore - 1 && scoreBlue >= targetScore - 1;
@@ -126,6 +165,8 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, na
         text2: `Resultado final: ${scoreRed} - ${scoreBlue}.`,
       });
 
+      isNavigatingRef.current = true;
+      setHasSavedMatch(true);
       if (navigation.replace) {
         navigation.replace('LadderDetail', { slug: ladder.slug });
       } else {
@@ -262,6 +303,12 @@ export const TableTennisArbitrator: React.FC<Props> = ({ ladder, initialMode, na
           )}
         </View>
       )}
+
+      <ConfirmExitModal
+        visible={showExitConfirm}
+        onConfirm={handleConfirmExit}
+        onCancel={handleCancelExit}
+      />
     </ScrollView>
   );
 };

@@ -39,6 +39,8 @@ onRecordEnrich((e) => {
             collectionName = "marketplace_items";
         } else if (targetType === "seller_profile" || targetType === "seller") {
             collectionName = "seller_profiles";
+        } else if (targetType === "activity") {
+            collectionName = "activities";
         }
 
         if (!collectionName) {
@@ -196,6 +198,38 @@ onRecordEnrich((e) => {
                     bio: targetRecord.getString("bio"),
                     deleted: targetRecord.getBool("deleted"),
                     expand: userData ? { user: userData } : {},
+                };
+            } else if (targetType === "activity") {
+                let orgData = null;
+                const orgId = targetRecord.getString("organization");
+                if (orgId) {
+                    try {
+                        const orgUser = $app.findRecordById("users", orgId);
+                        orgData = {
+                            id: orgUser.id,
+                            name: orgUser.getString("name"),
+                            username: orgUser.getString("username"),
+                            avatar: orgUser.getString("avatar"),
+                            chip_text: orgUser.getString("chip_text"),
+                            chip_color: orgUser.getString("chip_color"),
+                            collectionId: orgUser.collection().id,
+                        };
+                    } catch (err) {}
+                }
+
+                enriched = {
+                    id: targetRecord.id,
+                    collectionId: targetRecord.collection().id,
+                    title: targetRecord.getString("title"),
+                    location: targetRecord.getString("location"),
+                    date: targetRecord.getString("date"),
+                    start_time: targetRecord.getString("start_time"),
+                    end_time: targetRecord.getString("end_time"),
+                    category: targetRecord.getString("category"),
+                    banner: targetRecord.getString("banner"),
+                    price: targetRecord.getString("price"),
+                    deleted: targetRecord.getBool("deleted"),
+                    expand: orgData ? { organization: orgData } : {},
                 };
             }
 

@@ -34,6 +34,10 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const items = await notificationService.getNotifications(user.id);
       setNotifications(items);
+
+      // Marcar como leídas
+      await notificationService.markAllAsRead(user.id);
+      DeviceEventEmitter.emit('onNotificationsRead');
     } catch (err: any) {
       console.error('Error fetching notifications:', err);
       Toast.show({
@@ -89,6 +93,8 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       navigation.navigate('PostDetail', { postId: item.relatedId });
     } else if (item.type === 'ladder_match' && item.relatedId) {
       navigation.navigate('LadderMatchDetail', { matchId: item.relatedId });
+    } else if ((item.type === 'activity' || item.type === 'new_activity') && item.relatedId) {
+      navigation.navigate('ActivityDetail', { activityId: item.relatedId });
     }
   };
 
@@ -148,6 +154,8 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
               <Feather name="at-sign" size={16} color="#CCCCCC" />
             </View>
           )}
+
+
         </View>
 
         <View style={styles.cardActions}>

@@ -16,7 +16,7 @@ export type RootStackParamList = {
   Directory: undefined;
   Beauchapps: undefined;
   Students: undefined;
-  FollowList: { userId: string; type: 'followers' | 'following' | 'members' | 'recommendations'; username?: string };
+  FollowList: { userId: string; type: 'followers' | 'following' | 'members' | 'recommendations' | 'attendees'; username?: string; title?: string };
   ProblemsList: undefined;
   ProblemDetail: { problemId: string; type?: 'problem' | 'solution' };
   ProblemEditor: { problemId?: string; answerId?: string; type: 'problem' | 'answer'; initialContent?: string; problemTitle?: string };
@@ -32,4 +32,7 @@ export type RootStackParamList = {
   SellerProfile: { sellerProfileId?: string; userId?: string };
   SellerProfileEditor: { sellerProfileId?: string } | undefined;
   MarketplaceItemEditor: { itemId?: string } | undefined;
+  Activities: { initialTab?: 'following' | 'all' } | undefined;
+  ActivityDetail: { activityId: string };
+  ActivityEditor: undefined;
 };

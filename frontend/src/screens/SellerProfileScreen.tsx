@@ -31,6 +31,7 @@ import { SIGNAL_LOGO_BASE64 } from '../assets/signalLogo';
 import { pb } from '../services/pocketbase';
 import { EntityCommentBox } from '../components/EntityCommentBox';
 import { PostCard } from '../components/PostCard';
+import { SocialButtonsRow } from '../components/SocialButtonsRow';
 
 interface ContactModalData {
   type: 'whatsapp' | 'instagram' | 'telegram' | 'signal' | 'email';
@@ -445,63 +446,16 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Bio de la Tienda */}
           {!!sellerProfile.bio && <Text style={styles.bioText}>{sellerProfile.bio}</Text>}
 
-          {/* Botones de Contacto Directo (Filas de a 2) */}
-          <View style={styles.contactRow}>
-            {!!sellerProfile.wsp_phone && (
-              <TouchableOpacity
-                style={[styles.contactChip, { borderColor: 'rgba(37, 211, 102, 0.3)', backgroundColor: 'rgba(37, 211, 102, 0.08)' }]}
-                onPress={handleOpenWhatsAppModal}
-                activeOpacity={0.7}
-              >
-                <FontAwesome name="whatsapp" size={16} color="#25D366" />
-                <Text style={styles.contactChipText}>WhatsApp</Text>
-              </TouchableOpacity>
-            )}
-
-            {!!sellerProfile.instagram_handle && (
-              <TouchableOpacity
-                style={[styles.contactChip, { borderColor: 'rgba(225, 48, 108, 0.3)', backgroundColor: 'rgba(225, 48, 108, 0.08)' }]}
-                onPress={handleOpenInstagramModal}
-                activeOpacity={0.7}
-              >
-                <Feather name="instagram" size={16} color="#E1306C" />
-                <Text style={styles.contactChipText}>Instagram</Text>
-              </TouchableOpacity>
-            )}
-
-            {!!sellerProfile.telegram_handle && (
-              <TouchableOpacity
-                style={[styles.contactChip, { borderColor: 'rgba(34, 158, 217, 0.3)', backgroundColor: 'rgba(34, 158, 217, 0.08)' }]}
-                onPress={handleOpenTelegramModal}
-                activeOpacity={0.7}
-              >
-                <FontAwesome name="telegram" size={16} color="#229ED9" />
-                <Text style={styles.contactChipText}>Telegram</Text>
-              </TouchableOpacity>
-            )}
-
-            {!!sellerProfile.signal_phone && (
-              <TouchableOpacity
-                style={[styles.contactChip, { borderColor: 'rgba(58, 118, 240, 0.3)', backgroundColor: 'rgba(58, 118, 240, 0.08)' }]}
-                onPress={handleOpenSignalModal}
-                activeOpacity={0.7}
-              >
-                <Image source={{ uri: SIGNAL_LOGO_BASE64 }} style={{ width: 16, height: 16, borderRadius: 8 }} />
-                <Text style={styles.contactChipText}>Signal</Text>
-              </TouchableOpacity>
-            )}
-
-            {!!sellerProfile.contact_email && (
-              <TouchableOpacity
-                style={[styles.contactChip, { borderColor: 'rgba(234, 67, 53, 0.3)', backgroundColor: 'rgba(234, 67, 53, 0.08)' }]}
-                onPress={handleOpenEmailModal}
-                activeOpacity={0.7}
-              >
-                <FontAwesome name="envelope" size={16} color="#ea4335" />
-                <Text style={styles.contactChipText}>Correo</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          {/* Botones de Contacto Directo */}
+          <SocialButtonsRow
+            contacts={{
+              whatsapp: sellerProfile.wsp_phone,
+              instagram: sellerProfile.instagram_handle,
+              telegram: sellerProfile.telegram_handle,
+              signal: sellerProfile.signal_phone,
+              email: sellerProfile.contact_email,
+            }}
+          />
 
           {/* Botones de Administración si es el dueño */}
           {isOwner && (

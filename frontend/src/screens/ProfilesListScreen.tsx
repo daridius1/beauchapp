@@ -123,6 +123,16 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
             .map((item) => item.expand?.user)
             .filter((user) => !!user);
           setProfiles(mappedUsers);
+        } else if (type === 'attendees') {
+          const res = await pb.collection('activity_attendees').getList(1, 200, {
+            filter: `activity = "${userId}"`,
+            expand: 'user',
+            sort: '-created',
+          });
+          const mappedUsers = res.items
+            .map((item) => item.expand?.user)
+            .filter((user) => !!user);
+          setProfiles(mappedUsers);
         } else {
           const isFollowers = type === 'followers';
           const filterStr = isFollowers ? `following = "${userId}"` : `follower = "${userId}"`;
@@ -220,6 +230,8 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
         ? 'Esta cuenta aún no sigue a nadie.'
         : routeParams?.type === 'recommendations'
         ? 'Aún nadie ha recomendado a este vendedor.'
+        : routeParams?.type === 'attendees'
+        ? 'Aún nadie ha confirmado asistencia a esta actividad.'
         : 'Esta organización aún no tiene integrantes registrados.'
       : 'No se encontraron perfiles con los filtros seleccionados.';
 

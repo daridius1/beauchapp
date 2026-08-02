@@ -14,8 +14,8 @@ migrate((app) => {
     tacaTaca.set("name", "Taca Taca Beauchef");
     tacaTaca.set("slug", "taca-taca");
     tacaTaca.set("icon", "activity");
-    tacaTaca.set("description", "Ranking oficial de Taca Taca en la FCFM. Partidos 2v2 a 5 goles.");
-    tacaTaca.set("max_score", 5);
+    tacaTaca.set("description", "Ranking oficial de Taca Taca en la FCFM. Partidos a 10 goles.");
+    tacaTaca.set("max_score", 10);
     tacaTaca.set("allowed_modes", JSON.stringify(["2v2"]));
     tacaTaca.set("is_active", true);
 

@@ -127,7 +127,7 @@ onRecordAfterDeleteSuccess((e) => {
         try {
             const likeAB = $app.findFirstRecordByFilter(
                 "tinder_likes",
-                "user = {:userA} && likedUser = {:userB}",
+                "fromUser = {:userA} && toUser = {:userB}",
                 { userA: userA, userB: userB }
             );
             if (likeAB) {
@@ -140,7 +140,7 @@ onRecordAfterDeleteSuccess((e) => {
         try {
             const likeBA = $app.findFirstRecordByFilter(
                 "tinder_likes",
-                "user = {:userB} && likedUser = {:userA}",
+                "fromUser = {:userB} && toUser = {:userA}",
                 { userA: userA, userB: userB }
             );
             if (likeBA) {

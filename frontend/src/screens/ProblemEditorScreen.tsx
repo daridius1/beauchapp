@@ -614,16 +614,15 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
             onSelect={(val) => {
               const clean = val
                 .trim()
-                .toLowerCase()
-                .replace(/[áäâà]/g, 'a')
-                .replace(/[éëêè]/g, 'e')
-                .replace(/[íïîì]/g, 'i')
-                .replace(/[óöôò]/g, 'o')
-                .replace(/[úüûù]/g, 'u')
-                .replace(/[ñ]/g, 'n')
-                .replace(/[^a-z0-9]/g, '');
+                .replace(/[áäâàÁÄÂÀ]/g, 'a')
+                .replace(/[éëêèÉËÊÈ]/g, 'e')
+                .replace(/[íïîìÍÏÎÌ]/g, 'i')
+                .replace(/[óöôòÓÖÔÒ]/g, 'o')
+                .replace(/[úüûùÚÜÛÙ]/g, 'u')
+                .replace(/[ñÑ]/g, 'n')
+                .replace(/[^a-zA-Z0-9_]/g, '');
               const specialCount = (ramo ? 1 : 0) + (semestre ? 1 : 0) + (instancia ? 1 : 0);
-              if (clean && tags.length + specialCount < 10 && !tags.includes(clean)) {
+              if (clean && tags.length + specialCount < 10 && !tags.some(t => t.toLowerCase() === clean.toLowerCase())) {
                 setTags([...tags, clean]);
               }
             }}

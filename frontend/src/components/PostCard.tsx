@@ -91,6 +91,8 @@ export const PostCard: React.FC<PostCardProps> = ({
       navigation.push('MarketplaceItemDetail', { itemId: post.targetId });
     } else if (post.targetType === 'seller_profile' || post.targetType === 'seller') {
       navigation.push('SellerProfile', { sellerProfileId: post.targetId });
+    } else if (post.targetType === 'activity') {
+      navigation.push('ActivityDetail', { activityId: post.targetId });
     }
   };
 
@@ -245,7 +247,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           </View>
         )}
 
-        {/* Contexto clickeable para Comentarios a Objetos No-Post (Problemas, Partidos, Productos, Vendedores, etc.) */}
+        {/* Contexto clickeable para Comentarios a Objetos No-Post (Problemas, Partidos, Productos, Vendedores, Actividades, etc.) */}
         {!hideTargetContext && post.actionType === 'comment' && !!post.targetType && !!post.targetId && (
           <TouchableOpacity
             activeOpacity={0.7}
@@ -259,14 +261,16 @@ export const PostCard: React.FC<PostCardProps> = ({
                 post.targetType === 'problem' ? 'Problema: ' :
                 post.targetType === 'match' ? 'Partido: ' :
                 (post.targetType === 'marketplace_item' || post.targetType === 'product') ? 'Producto: ' :
-                (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Vendedor: ' : ''
+                (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Vendedor: ' :
+                post.targetType === 'activity' ? 'Actividad: ' : ''
               }
               <Text style={{ fontWeight: '700', textDecorationLine: 'underline' }}>
                 {post.targetMeta?.title || post.targetMeta?.sportName || post.targetMeta?.sellerName || (
                   post.targetType === 'problem' ? 'Ver problema' :
                   post.targetType === 'match' ? 'Ver partido' :
                   (post.targetType === 'marketplace_item' || post.targetType === 'product') ? 'Ver producto' :
-                  (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Ver tienda' : 'Ver detalle'
+                  (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Ver tienda' :
+                  post.targetType === 'activity' ? 'Ver actividad' : 'Ver detalle'
                 )}
               </Text>
             </Text>
@@ -340,16 +344,6 @@ export const PostCard: React.FC<PostCardProps> = ({
             </TouchableOpacity>
           )}
 
-          {!isDeleted && (
-            <TouchableOpacity style={styles.actionBtn} onPress={onRepostPress || handleDefaultQuotePress}>
-              <FontAwesome 
-                name="quote-left" 
-                size={14} 
-                color={theme.colors.textMuted} 
-              />
-            </TouchableOpacity>
-          )}
-
           <TouchableOpacity style={styles.actionBtn} onPress={onPress}>
             <Feather 
               name="message-square" 
@@ -359,6 +353,16 @@ export const PostCard: React.FC<PostCardProps> = ({
             />
             <Text style={styles.actionCount}>{repliesCount}</Text>
           </TouchableOpacity>
+
+          {!isDeleted && (
+            <TouchableOpacity style={styles.actionBtn} onPress={onRepostPress || handleDefaultQuotePress}>
+              <FontAwesome 
+                name="quote-left" 
+                size={14} 
+                color={theme.colors.textMuted} 
+              />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Menú contextual */}

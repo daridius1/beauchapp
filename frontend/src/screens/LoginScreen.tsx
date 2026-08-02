@@ -4,6 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
 import { RootStackParamList } from '../types/navigation';
+import { Feather } from '@expo/vector-icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -14,6 +15,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -303,32 +306,50 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         {!isForgotPassword && (
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Contraseña</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Contraseña"
-              placeholderTextColor={theme.colors.textMuted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            <View style={styles.passwordInputContainer}>
+              <TextInput
+                style={[styles.input, { flex: 1, borderRightWidth: 0, borderTopRightRadius: 0, borderBottomRightRadius: 0 }]}
+                placeholder="Contraseña"
+                placeholderTextColor={theme.colors.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowPassword(!showPassword)}
+                activeOpacity={0.7}
+              >
+                <Feather name={showPassword ? "eye-off" : "eye"} size={18} color={theme.colors.textMuted} />
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
         {!isForgotPassword && isSignUp && (
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Confirmar contraseña</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Vuelve a escribir tu contraseña"
-              placeholderTextColor={theme.colors.textMuted}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            <View style={styles.passwordInputContainer}>
+              <TextInput
+                style={[styles.input, { flex: 1, borderRightWidth: 0, borderTopRightRadius: 0, borderBottomRightRadius: 0 }]}
+                placeholder="Vuelve a escribir tu contraseña"
+                placeholderTextColor={theme.colors.textMuted}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                activeOpacity={0.7}
+              >
+                <Feather name={showConfirmPassword ? "eye-off" : "eye"} size={18} color={theme.colors.textMuted} />
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -547,5 +568,21 @@ const styles = StyleSheet.create({
     color: theme.colors.accent,
     fontSize: 12,
     textAlign: 'center',
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  eyeBtn: {
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderLeftWidth: 0,
+    borderColor: theme.colors.border,
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

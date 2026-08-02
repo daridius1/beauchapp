@@ -22,6 +22,7 @@ import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
 import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import { TinderScreen } from './src/screens/TinderScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
+import { notificationService } from './src/services/notifications';
 import { LaddersListScreen } from './src/screens/LaddersListScreen';
 import { LadderDetailScreen } from './src/screens/LadderDetailScreen';
 import { LadderMatchArbitratorScreen } from './src/screens/LadderMatchArbitratorScreen';
@@ -32,6 +33,9 @@ import { MarketplaceItemDetailScreen } from './src/screens/MarketplaceItemDetail
 import { SellerProfileScreen } from './src/screens/SellerProfileScreen';
 import { SellerProfileEditorScreen } from './src/screens/SellerProfileEditorScreen';
 import { MarketplaceItemEditorScreen } from './src/screens/MarketplaceItemEditorScreen';
+import { ActivitiesScreen } from './src/screens/ActivitiesScreen';
+import { ActivityDetailScreen } from './src/screens/ActivityDetailScreen';
+import { ActivityEditorScreen } from './src/screens/ActivityEditorScreen';
 import { BeauchappsScreen } from './src/screens/BeauchappsScreen';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
@@ -149,10 +153,38 @@ function AppContent() {
   const [currentRouteName, setCurrentRouteName] = useState<string>('Home');
   const [currentRouteParams, setCurrentRouteParams] = useState<any>({});
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState<boolean>(false);
 
-  // Inyección global de Scroll Defensivo y Viewports PWA para Web/Safari/Chrome
+  const checkUnreadNotifications = React.useCallback(async () => {
+    if (!user) {
+      setHasUnreadNotifications(false);
+      return;
+    }
+    try {
+      const count = await notificationService.getUnreadCount(user.id);
+      setHasUnreadNotifications(count > 0);
+    } catch (err) {
+      // ignore
+    }
+  }, [user]);
+
+  useEffect(() => {
+    checkUnreadNotifications();
+    const interval = setInterval(checkUnreadNotifications, 10000);
+    const subRefresh = DeviceEventEmitter.addListener('onGlobalRefresh', checkUnreadNotifications);
+    const subRead = DeviceEventEmitter.addListener('onNotificationsRead', checkUnreadNotifications);
+    return () => {
+      clearInterval(interval);
+      subRefresh.remove();
+      subRead.remove();
+    };
+  }, [checkUnreadNotifications]);
+
+  // Inyección global de Scroll Defensivo, Título Web e Ícono PWA para Web/Safari/Chrome
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.title = 'Beauchapp';
+
       const styleId = 'beauchapp-pwa-defensive-css';
       if (!document.getElementById(styleId)) {
         const style = document.createElement('style');
@@ -167,6 +199,14 @@ function AppContent() {
         `;
         document.head.appendChild(style);
       }
+
+      let faviconLink = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (!faviconLink) {
+        faviconLink = document.createElement('link');
+        faviconLink.rel = 'icon';
+        document.head.appendChild(faviconLink);
+      }
+      faviconLink.href = '/favicon.png';
     }
   }, []);
 
@@ -204,6 +244,9 @@ function AppContent() {
       case 'SellerProfile': return 'Perfil de Vendedor';
       case 'SellerProfileEditor': return 'Editar Perfil de Vendedor';
       case 'MarketplaceItemEditor': return 'Publicar Producto';
+      case 'Activities': return 'Actividades';
+      case 'ActivityDetail': return 'Actividad';
+      case 'ActivityEditor': return 'Nueva Actividad';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
       case 'LadderMatchDetail':
@@ -223,183 +266,186 @@ function AppContent() {
     }
   };
 
-  const showBackButton = currentRouteName !== 'Home' && currentRouteName !== 'Directory' && currentRouteName !== 'Beauchapps';
+  const showBackButton = currentRouteName !== 'Home' && currentRouteName !== 'Directory' && currentRouteName !== 'Beauchapps' && currentRouteName !== 'Activities';
 
   const handleBack = () => {
-    // Navegación defensiva anti-bucles para Ladders y Partidos
-    if (['LadderMatchArbitrator', 'LadderMatchDetail'].includes(currentRouteName)) {
-      const state = navigationRef.getRootState();
-      const routes = state?.routes || [];
-      const prevRoute = routes.length > 1 ? routes[routes.length - 2] : null;
-      if (prevRoute && prevRoute.name === 'LadderDetail') {
-        navigationRef.goBack();
-      } else if (currentRouteParams?.slug) {
-        navigationRef.navigate('LadderDetail', { slug: currentRouteParams.slug });
-      } else {
-        navigationRef.navigate('LaddersList');
-      }
-      return;
-    }
-
-    if (currentRouteName === 'LadderDetail') {
-      navigationRef.navigate('LaddersList');
-      return;
-    }
-
-    if (currentRouteName === 'LaddersList') {
-      navigationRef.navigate('Home');
-      return;
-    }
-
+    // 1. Si hay historial real en la pila de navegación, volvemos limpiamente hacia atrás
     if (navigationRef.canGoBack()) {
       navigationRef.goBack();
+      return;
+    }
+
+    // 2. Si NO hay historial previo (acceso directo por enlace profundo / refresco de página):
+    // Redirigimos jerárquicamente a la pantalla contenedora lógica correspondiente:
+    if (['LadderMatchArbitrator', 'LadderMatchDetail', 'LadderPlayerProfile', 'LadderDetail'].includes(currentRouteName)) {
+      navigationRef.navigate('LaddersList' as never);
+    } else if (['ProblemDetail', 'ProblemEditor'].includes(currentRouteName)) {
+      navigationRef.navigate('ProblemsList' as never);
+    } else if (['MarketplaceItemDetail', 'SellerProfile', 'SellerProfileEditor', 'MarketplaceItemEditor'].includes(currentRouteName)) {
+      navigationRef.navigate('Marketplace' as never);
+    } else if (['LaddersList', 'ProblemsList', 'Marketplace', 'Tinder'].includes(currentRouteName)) {
+      navigationRef.navigate('Beauchapps' as never);
+    } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'FollowList'].includes(currentRouteName)) {
+      navigationRef.navigate('Directory' as never);
+    } else if (['ActivityDetail', 'ActivityEditor'].includes(currentRouteName)) {
+      navigationRef.navigate('Activities' as never);
+    } else if (currentRouteName === 'PostDetail') {
+      navigationRef.navigate('Home' as never);
     } else {
-      if (['ProblemDetail', 'ProblemEditor'].includes(currentRouteName)) {
-        navigationRef.navigate('ProblemsList');
-      } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'FollowList'].includes(currentRouteName)) {
-        navigationRef.navigate('Directory');
-      } else {
-        navigationRef.navigate('Home');
-      }
+      navigationRef.navigate('Home' as never);
     }
   };
 
-  if (!isInitialized) {
-    return null;
-  }
+  if (!isInitialized) return null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
       <NavigationContainer
-        ref={navigationRef}
-        linking={{
-          prefixes: ['https://beauchapp.cl', 'beauchapp://'],
-          config: {
-            screens: {
-              Profile: 'profile',
-              Communities: 'communities',
-              Centers: 'centers',
-              Teams: 'teams',
-              Bands: 'bands',
-              Directory: 'directory',
-              Beauchapps: 'beauchapps',
-              UserProfile: 'users/:userId',
-              Students: 'students',
-              FollowList: 'users/:userId/:type',
-              ProblemsList: 'problems',
-              ProblemDetail: 'problems/:problemId',
-              ProblemEditor: 'problems/editor/:type',
-              Verification: 'verification',
-              VerifyEmail: 'verify',
-              ResetPassword: 'reset-password',
-              Tinder: 'tinder',
-              Notifications: 'notifications',
-              LaddersList: 'ladders',
-              LadderDetail: 'ladders/:slug',
-              LadderMatchArbitrator: 'ladders/:slug/arbitrate',
-              LadderMatchDetail: 'ladders/matches/:matchId',
-              Marketplace: 'marketplace',
-              MarketplaceItemDetail: 'marketplace/item/:itemId',
-              SellerProfile: 'marketplace/seller/:sellerProfileId',
-              SellerProfileEditor: 'marketplace/seller-editor',
-              MarketplaceItemEditor: 'marketplace/item-editor',
+          ref={navigationRef}
+          linking={{
+            prefixes: [
+              'http://localhost:8081',
+              'http://127.0.0.1:8081',
+              'https://beauchapp.cl',
+              'beauchapp://',
+            ],
+            config: {
+              screens: {
+                Home: '',
+                Profile: 'profile',
+                Communities: 'communities',
+                Centers: 'centers',
+                Teams: 'teams',
+                Bands: 'bands',
+                Directory: 'directory',
+                Beauchapps: 'beauchapps',
+                UserProfile: 'users/:userId',
+                Students: 'students',
+                FollowList: 'users/:userId/:type',
+                ProblemsList: 'problems',
+                ProblemDetail: 'problems/:problemId',
+                ProblemEditor: 'problems/editor/:type',
+                Verification: 'verification',
+                VerifyEmail: 'verify',
+                ResetPassword: 'reset-password',
+                Tinder: 'tinder',
+                Notifications: 'notifications',
+                LaddersList: 'ladders',
+                LadderDetail: 'ladders/:slug',
+                LadderMatchArbitrator: 'ladders/:slug/arbitrate',
+                LadderMatchDetail: 'ladders/matches/:matchId',
+                Marketplace: 'marketplace',
+                MarketplaceItemDetail: 'marketplace/item/:itemId',
+                SellerProfile: 'marketplace/seller/:sellerProfileId',
+                SellerProfileEditor: 'marketplace/seller-editor',
+                MarketplaceItemEditor: 'marketplace/item-editor',
+                Activities: 'activities',
+                ActivityDetail: 'activities/:activityId',
+                ActivityEditor: 'activities/editor',
+              }
             }
-          }
-        }}
-        onReady={() => {
-          const currentRoute = navigationRef.getCurrentRoute();
-          if (currentRoute) {
-            setCurrentRouteName(currentRoute.name);
-            setCurrentRouteParams(currentRoute.params || {});
-          }
-        }}
-        onStateChange={async () => {
-          const currentRoute = navigationRef.getCurrentRoute();
-          if (currentRoute) {
-            setCurrentRouteName(currentRoute.name);
-            setCurrentRouteParams(currentRoute.params || {});
-          }
-        }}
-      >
-        <View style={[styles.appContainer, isDesktop && styles.appContainerDesktop]}>
-          {user ? (
-            <View style={{ flex: 1, flexDirection: 'row' }}>
-              {isDesktop && (
-                <Sidebar 
-                  activeScreen={currentRouteName} 
-                  onNavigate={(screen) => {
-                    navigationRef.navigate(screen as never);
-                  }}
-                  isDocked={true}
-                />
-              )}
-              
-              <View style={{ flex: 1, flexDirection: 'column' }}>
-                <Header 
-                  title={getScreenTitle(currentRouteName, currentRouteParams)} 
-                  onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
-                  onBack={showBackButton ? handleBack : undefined}
-                  onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder'].includes(currentRouteName) ? () => {
-                    DeviceEventEmitter.emit('onGlobalRefresh');
-                  } : undefined}
-                />
-                <View style={styles.body}>
-                  <Stack.Navigator screenOptions={{ headerShown: false }}>
-                    <Stack.Screen name="Home" component={HomeScreen} />
-                    <Stack.Screen name="Profile" component={ProfileScreen} />
-                    <Stack.Screen name="Directory" component={DirectoryScreen} />
-                    <Stack.Screen name="Beauchapps" component={BeauchappsScreen} />
-                    <Stack.Screen name="Students" component={ProfilesListScreen} />
-                    <Stack.Screen name="Communities" component={ProfilesListScreen} />
-                    <Stack.Screen name="Centers" component={ProfilesListScreen} />
-                    <Stack.Screen name="Teams" component={ProfilesListScreen} />
-                    <Stack.Screen name="Bands" component={ProfilesListScreen} />
-                    <Stack.Screen name="PostDetail" component={PostDetailScreen} />
-                    <Stack.Screen name="UserProfile" component={ProfileScreen} />
-                    <Stack.Screen name="FollowList" component={ProfilesListScreen} />
-                    <Stack.Screen name="ProblemsList" component={ProblemsListScreen} />
-                    <Stack.Screen name="ProblemDetail" component={ProblemDetailScreen} />
-                    <Stack.Screen name="ProblemEditor" component={ProblemEditorScreen} />
-                    <Stack.Screen name="Tinder" component={TinderScreen} />
-                    <Stack.Screen name="Notifications" component={NotificationsScreen} />
-                    <Stack.Screen name="LaddersList" component={LaddersListScreen} />
-                    <Stack.Screen name="LadderDetail" component={LadderDetailScreen} />
-                    <Stack.Screen name="LadderMatchArbitrator" component={LadderMatchArbitratorScreen} />
-                    <Stack.Screen name="LadderMatchDetail" component={LadderMatchDetailScreen} />
-                    <Stack.Screen name="LadderPlayerProfile" component={LadderPlayerProfileScreen} />
-                    <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
-                    <Stack.Screen name="MarketplaceItemDetail" component={MarketplaceItemDetailScreen} />
-                    <Stack.Screen name="SellerProfile" component={SellerProfileScreen} />
-                    <Stack.Screen name="SellerProfileEditor" component={SellerProfileEditorScreen} />
-                    <Stack.Screen name="MarketplaceItemEditor" component={MarketplaceItemEditorScreen} />
-                    <Stack.Screen name="Settings" component={SettingsScreen} />
-                    <Stack.Screen name="NotFound" component={NotFoundScreen} />
-                  </Stack.Navigator>
+          }}
+          onReady={() => {
+            const currentRoute = navigationRef.getCurrentRoute();
+            if (currentRoute) {
+              setCurrentRouteName(currentRoute.name);
+              setCurrentRouteParams(currentRoute.params || {});
+            }
+          }}
+          onStateChange={async () => {
+            const currentRoute = navigationRef.getCurrentRoute();
+            if (currentRoute) {
+              setCurrentRouteName(currentRoute.name);
+              setCurrentRouteParams(currentRoute.params || {});
+            }
+          }}
+        >
+          <View style={[styles.appContainer, isDesktop && styles.appContainerDesktop]}>
+            {user ? (
+              <View style={{ flex: 1, flexDirection: 'row' }}>
+                {isDesktop && (
+                  <Sidebar 
+                    activeScreen={currentRouteName} 
+                    onNavigate={(screen) => {
+                      navigationRef.navigate(screen as never);
+                    }}
+                    isDocked={true}
+                    hasUnreadNotifications={hasUnreadNotifications}
+                  />
+                )}
+                
+                <View style={{ flex: 1, flexDirection: 'column' }}>
+                  <Header 
+                    title={getScreenTitle(currentRouteName, currentRouteParams)} 
+                    onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
+                    onBack={showBackButton ? handleBack : undefined}
+                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail'].includes(currentRouteName) ? () => {
+                      DeviceEventEmitter.emit('onGlobalRefresh');
+                    } : undefined}
+                    hasUnreadNotifications={hasUnreadNotifications}
+                  />
+                  <View style={styles.body}>
+                    <Stack.Navigator screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="Home" component={HomeScreen} />
+                      <Stack.Screen name="Profile" component={ProfileScreen} />
+                      <Stack.Screen name="Directory" component={DirectoryScreen} />
+                      <Stack.Screen name="Beauchapps" component={BeauchappsScreen} />
+                      <Stack.Screen name="Students" component={ProfilesListScreen} />
+                      <Stack.Screen name="Communities" component={ProfilesListScreen} />
+                      <Stack.Screen name="Centers" component={ProfilesListScreen} />
+                      <Stack.Screen name="Teams" component={ProfilesListScreen} />
+                      <Stack.Screen name="Bands" component={ProfilesListScreen} />
+                      <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+                      <Stack.Screen name="UserProfile" component={ProfileScreen} />
+                      <Stack.Screen name="FollowList" component={ProfilesListScreen} />
+                      <Stack.Screen name="ProblemsList" component={ProblemsListScreen} />
+                      <Stack.Screen name="ProblemDetail" component={ProblemDetailScreen} />
+                      <Stack.Screen name="ProblemEditor" component={ProblemEditorScreen} />
+                      <Stack.Screen name="Tinder" component={TinderScreen} />
+                      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+                      <Stack.Screen name="LaddersList" component={LaddersListScreen} />
+                      <Stack.Screen name="LadderDetail" component={LadderDetailScreen} />
+                      <Stack.Screen name="LadderMatchArbitrator" component={LadderMatchArbitratorScreen} />
+                      <Stack.Screen name="LadderMatchDetail" component={LadderMatchDetailScreen} />
+                      <Stack.Screen name="LadderPlayerProfile" component={LadderPlayerProfileScreen} />
+                      <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
+                      <Stack.Screen name="MarketplaceItemDetail" component={MarketplaceItemDetailScreen} />
+                      <Stack.Screen name="SellerProfile" component={SellerProfileScreen} />
+                      <Stack.Screen name="SellerProfileEditor" component={SellerProfileEditorScreen} />
+                      <Stack.Screen name="MarketplaceItemEditor" component={MarketplaceItemEditorScreen} />
+                      <Stack.Screen name="Activities" component={ActivitiesScreen} />
+                      <Stack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
+                      <Stack.Screen name="ActivityEditor" component={ActivityEditorScreen} />
+                      <Stack.Screen name="Settings" component={SettingsScreen} />
+                      <Stack.Screen name="NotFound" component={NotFoundScreen} />
+                    </Stack.Navigator>
+                  </View>
                 </View>
-              </View>
 
-              {!isDesktop && (
-                <Sidebar 
-                  isOpen={isSidebarOpen} 
-                  onClose={() => setIsSidebarOpen(false)} 
-                  activeScreen={currentRouteName}
-                  onNavigate={(screen) => {
-                    navigationRef.navigate(screen as never);
-                    setIsSidebarOpen(false);
-                  }}
-                  isDocked={false}
-                />
-              )}
-            </View>
-          ) : (
-            <Stack.Navigator screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="Login" component={LoginScreen} />
-              <Stack.Screen name="Verification" component={VerificationScreen} />
-              <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
-              <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-            </Stack.Navigator>
-          )}
-        </View>
+                {!isDesktop && (
+                  <Sidebar 
+                    isOpen={isSidebarOpen} 
+                    onClose={() => setIsSidebarOpen(false)} 
+                    activeScreen={currentRouteName}
+                    onNavigate={(screen) => {
+                      navigationRef.navigate(screen as never);
+                      setIsSidebarOpen(false);
+                    }}
+                    isDocked={false}
+                    hasUnreadNotifications={hasUnreadNotifications}
+                  />
+                )}
+              </View>
+            ) : (
+              <Stack.Navigator screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="Login" component={LoginScreen} />
+                <Stack.Screen name="Verification" component={VerificationScreen} />
+                <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+                <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+              </Stack.Navigator>
+            )}
+          </View>
       </NavigationContainer>
       <Toast config={toastConfig} />
     </SafeAreaView>

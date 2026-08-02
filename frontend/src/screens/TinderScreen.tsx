@@ -23,15 +23,46 @@ import { pb, getFileUrl } from '../services/pocketbase';
 import { tinderService } from '../services/tinder';
 import { theme } from '../theme/theme';
 import { Avatar } from '../components/Avatar';
+import { UserChipsRow } from '../components/UserChipsRow';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
 import { compressImage } from '../utils/imageCompressor';
+import { SIGNAL_LOGO_BASE64 } from '../assets/signalLogo';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_WIDTH = Math.min(SCREEN_WIDTH - 32, 450);
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Tinder'>;
+
+const TinderExtraDetails = ({ profile }: { profile: any }) => {
+  if (!profile) return null;
+  const items = [
+    profile.favorite_song ? { label: 'Canción favorita', val: profile.favorite_song } : null,
+    profile.favorite_book ? { label: 'Libro favorito', val: profile.favorite_book } : null,
+    profile.zodiac_sign ? { label: 'Signo zodiacal', val: profile.zodiac_sign } : null,
+    profile.favorite_drink ? { label: 'Bebida favorita', val: profile.favorite_drink } : null,
+    profile.favorite_food ? { label: 'Comida favorita', val: profile.favorite_food } : null,
+    profile.favorite_subject ? { label: 'Ramo favorito', val: profile.favorite_subject } : null,
+    profile.hobbies ? { label: 'Pasatiempos', val: profile.hobbies } : null,
+  ].filter(Boolean);
+
+  if (items.length === 0) return null;
+
+  return (
+    <View style={styles.extraDetailsList}>
+      <Text style={styles.extraDetailsHeader}>Gustos Personales</Text>
+      {items.map((it: any, idx: number) => (
+        <View key={idx} style={styles.extraDetailRow}>
+          <Text style={styles.extraDetailRowText}>
+            <Text style={{ fontWeight: '700', color: '#e2e8f0' }}>{it.label}: </Text>
+            <Text style={{ color: '#cbd5e1' }}>{it.val}</Text>
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+};
 
 export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
   const { user } = useAuth();
@@ -53,6 +84,15 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
   const [whatsapp, setWhatsapp] = useState('');
   const [telegram, setTelegram] = useState('');
   const [signal, setSignal] = useState('');
+  
+  // Extra optional fields
+  const [favoriteSong, setFavoriteSong] = useState('');
+  const [favoriteBook, setFavoriteBook] = useState('');
+  const [zodiacSign, setZodiacSign] = useState('');
+  const [favoriteDrink, setFavoriteDrink] = useState('');
+  const [favoriteFood, setFavoriteFood] = useState('');
+  const [favoriteSubject, setFavoriteSubject] = useState('');
+  const [hobbies, setHobbies] = useState('');
   
   // Photo management state
   const [photosList, setPhotosList] = useState<any[]>([]);
@@ -86,6 +126,50 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
   // Live preview active photo index in editor tab
   const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0);
 
+  // Ladder ranks and seller profiles cache for candidate users
+  const [userLadderRanksMap, setUserLadderRanksMap] = useState<Record<string, any[]>>({});
+  const [userSellerProfilesMap, setUserSellerProfilesMap] = useState<Record<string, any>>({});
+
+  // Helper to fetch ladder ranks & seller profiles for a list of user IDs
+  const loadUserChipsData = async (targetUserIds: string[]) => {
+    if (!targetUserIds || targetUserIds.length === 0) return;
+    const uniqueIds = Array.from(new Set(targetUserIds.filter(Boolean)));
+    if (uniqueIds.length === 0) return;
+
+    const filterStr = uniqueIds.map((id) => `user = "${id}"`).join(' || ');
+
+    try {
+      const ranksRes = await pb.collection('ladder_ranks').getFullList({
+        filter: `(${filterStr})`,
+        expand: 'ladder',
+      });
+      setUserLadderRanksMap((prev) => {
+        const next = { ...prev };
+        ranksRes.forEach((r: any) => {
+          if (!next[r.user]) {
+            next[r.user] = [r];
+          } else if (!next[r.user].some((existing: any) => existing.id === r.id)) {
+            next[r.user] = [...next[r.user], r];
+          }
+        });
+        return next;
+      });
+    } catch (_) {}
+
+    try {
+      const sellerRes = await pb.collection('seller_profiles').getFullList({
+        filter: `(${filterStr})`,
+      });
+      setUserSellerProfilesMap((prev) => {
+        const next = { ...prev };
+        sellerRes.forEach((s: any) => {
+          next[s.user] = s;
+        });
+        return next;
+      });
+    } catch (_) {}
+  };
+
   // Photo carousels active indexes for matches modals
   const [matchPhotoIndex, setMatchPhotoIndex] = useState(0);
   const [detailPhotoIndex, setDetailPhotoIndex] = useState(0);
@@ -116,6 +200,14 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       setTelegram(res.telegram || '');
       setSignal(res.signal || '');
 
+      setFavoriteSong((res as any).favorite_song || '');
+      setFavoriteBook((res as any).favorite_book || '');
+      setZodiacSign((res as any).zodiac_sign || '');
+      setFavoriteDrink((res as any).favorite_drink || '');
+      setFavoriteFood((res as any).favorite_food || '');
+      setFavoriteSubject((res as any).favorite_subject || '');
+      setHobbies((res as any).hobbies || '');
+
       // Load existing photos
       if (res.photos && Array.isArray(res.photos)) {
         const existing = res.photos.map((ph: string) => ({
@@ -129,16 +221,20 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       }
 
       // Check 24h lockout
-      if (res.isActive && res.activatedAt) {
-        const activatedTime = new Date(res.activatedAt.replace(' ', 'T'));
-        const diffMs = new Date().getTime() - activatedTime.getTime();
-        const diffHours = diffMs / (1000 * 60 * 60);
-        if (diffHours < 24) {
-          setLockoutHoursLeft(parseFloat((24 - diffHours).toFixed(1)));
-        } else {
-          setLockoutHoursLeft(null);
+      if (res.isActive && res.activatedAt && typeof res.activatedAt === 'string') {
+        const dateStr = res.activatedAt.includes('T') ? res.activatedAt : res.activatedAt.replace(' ', 'T');
+        const activatedTime = new Date(dateStr);
+        if (!isNaN(activatedTime.getTime())) {
+          const diffMs = new Date().getTime() - activatedTime.getTime();
+          const diffHours = diffMs / (1000 * 60 * 60);
+          if (diffHours < 24) {
+            setLockoutHoursLeft(parseFloat((24 - diffHours).toFixed(1)));
+          } else {
+            setLockoutHoursLeft(null);
+          }
         }
       }
+      loadUserChipsData([user.id]);
     } catch (err: any) {
       console.error('Error fetching tinder profile:', err);
     } finally {
@@ -177,6 +273,10 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       setLikeRecordIds(likeIdsMap);
       setCurrentIndex(0);
       setActivePhotoIndex(0);
+
+      // Load chips data (ladders & seller profiles)
+      const discoverUserIds = filtered.map((p) => p.user);
+      loadUserChipsData(discoverUserIds);
     } catch (err) {
       console.error('Error fetching tinder discover stack:', err);
     } finally {
@@ -216,6 +316,9 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       });
 
       setMatches(matchedData);
+
+      // Load chips data for matches
+      loadUserChipsData(matchedUserIds);
     } catch (err) {
       console.error('Error fetching tinder matches:', err);
     } finally {
@@ -430,6 +533,14 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       formData.append('whatsapp', whatsapp.trim());
       formData.append('telegram', telegram.trim());
       formData.append('signal', signal.trim());
+
+      formData.append('favorite_song', favoriteSong.trim());
+      formData.append('favorite_book', favoriteBook.trim());
+      formData.append('zodiac_sign', zodiacSign.trim());
+      formData.append('favorite_drink', favoriteDrink.trim());
+      formData.append('favorite_food', favoriteFood.trim());
+      formData.append('favorite_subject', favoriteSubject.trim());
+      formData.append('hobbies', hobbies.trim());
 
       // Send files in order (both existing files to keep and new files to upload)
       for (const ph of photosList) {
@@ -684,11 +795,39 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
 
                   {/* Profile Card details */}
                   <View style={styles.cardDetails}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => activeDiscoverUser?.id && navigation.navigate('UserProfile', { userId: activeDiscoverUser.id })}
+                      style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}
+                    >
                       <Text style={styles.cardName}>{activeDiscoverUser?.name || 'Usuario'}</Text>
-                    </View>
+                    </TouchableOpacity>
                     
-                    {!!activeDiscoverUser?.username && <Text style={styles.cardUsername}>@{activeDiscoverUser.username}</Text>}
+                    {!!activeDiscoverUser?.username && (
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => activeDiscoverUser?.id && navigation.navigate('UserProfile', { userId: activeDiscoverUser.id })}
+                        style={{ alignSelf: 'flex-start', marginVertical: 2 }}
+                      >
+                        <Text style={styles.cardUsername}>@{activeDiscoverUser.username}</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Chips del perfil del usuario (los mismos que en su perfil) */}
+                    {activeDiscoverUser && (
+                      <View style={{ marginVertical: 6, alignItems: 'flex-start' }}>
+                        <UserChipsRow
+                          user={activeDiscoverUser}
+                          ladderRanks={userLadderRanksMap[activeDiscoverUser.id] || []}
+                          sellerProfile={userSellerProfilesMap[activeDiscoverUser.id]}
+                          align="left"
+                          onOrgPress={(orgId) => navigation.navigate('UserProfile', { userId: orgId })}
+                        />
+                      </View>
+                    )}
+
+                    {/* Detalles opcionales (canción, libro, signo, bebida, comida, ramo, pasatiempos) */}
+                    <TinderExtraDetails profile={activeDiscoverProfile} />
                     
                     {activeDiscoverProfile.description ? (
                       <Text style={styles.cardDesc}>{activeDiscoverProfile.description}</Text>
@@ -781,7 +920,20 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                   <Avatar user={item.user} size={50} />
                   <View style={styles.matchCardBody}>
                     <Text style={styles.matchCardName}>{item.user?.name || 'Usuario'}</Text>
-                    {!!item.user?.username && <Text style={styles.matchCardUsername}>@{item.user.username}</Text>}
+                    {!!item.user?.username && (
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          if (item.user?.id) {
+                            navigation.navigate('UserProfile', { userId: item.user.id });
+                          }
+                        }}
+                        style={{ alignSelf: 'flex-start' }}
+                      >
+                        <Text style={styles.matchCardUsername}>@{item.user.username}</Text>
+                      </TouchableOpacity>
+                    )}
                     <Text style={styles.matchCardDesc} numberOfLines={1}>
                       {item.profile.description || 'Sin descripción'}
                     </Text>
@@ -801,6 +953,18 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       )}
 
       {/* --- TAB 3: INLINE PROFILE EDITOR ("MI PERFIL") --- */}
+      {activeTab === 'profile' && !profile && !loadingProfile && (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Feather name="alert-circle" size={48} color={theme.colors.error} />
+          <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '700', marginTop: 12, textAlign: 'center' }}>
+            No se pudo cargar tu perfil de Tinder Beauchef
+          </Text>
+          <TouchableOpacity style={[styles.refreshBtn, { marginTop: 16 }]} onPress={fetchProfile}>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {activeTab === 'profile' && profile && (
         <ScrollView style={styles.profileTabContainer} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
 
@@ -868,6 +1032,30 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                 <Text style={styles.cardName}>{user?.name || 'Tu Nombre'}</Text>
                 {!!user?.username && <Text style={styles.cardUsername}>@{user.username}</Text>}
                 
+                {user && (
+                  <View style={{ marginVertical: 6, alignItems: 'flex-start' }}>
+                    <UserChipsRow
+                      user={user}
+                      ladderRanks={userLadderRanksMap[user.id] || []}
+                      sellerProfile={userSellerProfilesMap[user.id]}
+                      align="left"
+                    />
+                  </View>
+                )}
+
+                {/* Previsualización de detalles opcionales */}
+                <TinderExtraDetails
+                  profile={{
+                    favorite_song: favoriteSong,
+                    favorite_book: favoriteBook,
+                    zodiac_sign: zodiacSign,
+                    favorite_drink: favoriteDrink,
+                    favorite_food: favoriteFood,
+                    favorite_subject: favoriteSubject,
+                    hobbies,
+                  }}
+                />
+
                 {description.trim() ? (
                   <Text style={styles.cardDesc}>{description}</Text>
                 ) : (
@@ -916,55 +1104,186 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
               multiline
             />
 
-            {/* Redes de contacto */}
-            <Text style={styles.fieldLabel}>Redes de Contacto (Solo visibles al hacer Match)</Text>
+            {/* Contacto */}
+            <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Contacto</Text>
             
             <View style={styles.contactRow}>
-              <FontAwesome name="instagram" size={20} color="#E1306C" style={styles.contactIcon} />
-              <TextInput
-                style={[styles.inputField, { flex: 1, marginBottom: 0 }]}
-                placeholder="Instagram (ej. @tu_usuario)"
-                placeholderTextColor={theme.colors.textMuted}
-                value={instagram}
-                onChangeText={setInstagram}
-                autoCapitalize="none"
-              />
+              <Text style={styles.contactLabelText}>Instagram</Text>
+              <View style={styles.contactInputWrapper}>
+                <FontAwesome name="instagram" size={18} color="#E1306C" style={styles.contactIconInside} />
+                <Text style={styles.atBadgeText}>@</Text>
+                <TextInput
+                  style={styles.contactInputInside}
+                  placeholder="tu_usuario"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={instagram.replace(/^@+/, '')}
+                  onChangeText={(text) => setInstagram(text.replace(/^@+/, ''))}
+                  autoCapitalize="none"
+                />
+              </View>
             </View>
 
             <View style={styles.contactRow}>
-              <FontAwesome name="whatsapp" size={20} color="#25D366" style={styles.contactIcon} />
-              <TextInput
-                style={[styles.inputField, { flex: 1, marginBottom: 0 }]}
-                placeholder="WhatsApp (ej. +56912345678)"
-                placeholderTextColor={theme.colors.textMuted}
-                value={whatsapp}
-                onChangeText={setWhatsapp}
-                keyboardType="phone-pad"
-              />
+              <Text style={styles.contactLabelText}>WhatsApp</Text>
+              <View style={styles.contactInputWrapper}>
+                <FontAwesome name="whatsapp" size={18} color="#25D366" style={styles.contactIconInside} />
+                <TextInput
+                  style={styles.contactInputInside}
+                  placeholder="+56912345678"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={whatsapp}
+                  onChangeText={setWhatsapp}
+                  keyboardType="phone-pad"
+                />
+              </View>
             </View>
 
             <View style={styles.contactRow}>
-              <FontAwesome name="paper-plane" size={18} color="#0088cc" style={styles.contactIcon} />
-              <TextInput
-                style={[styles.inputField, { flex: 1, marginBottom: 0 }]}
-                placeholder="Telegram Username"
-                placeholderTextColor={theme.colors.textMuted}
-                value={telegram}
-                onChangeText={setTelegram}
-                autoCapitalize="none"
-              />
+              <Text style={styles.contactLabelText}>Telegram</Text>
+              <View style={styles.contactInputWrapper}>
+                <FontAwesome name="paper-plane" size={16} color="#0088cc" style={styles.contactIconInside} />
+                <Text style={styles.atBadgeText}>@</Text>
+                <TextInput
+                  style={styles.contactInputInside}
+                  placeholder="tu_usuario"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={telegram.replace(/^@+/, '')}
+                  onChangeText={(text) => setTelegram(text.replace(/^@+/, ''))}
+                  autoCapitalize="none"
+                />
+              </View>
             </View>
 
             <View style={styles.contactRow}>
-              <Feather name="message-square" size={20} color="#3a76f0" style={styles.contactIcon} />
-              <TextInput
-                style={[styles.inputField, { flex: 1, marginBottom: 0 }]}
-                placeholder="Signal Username"
-                placeholderTextColor={theme.colors.textMuted}
-                value={signal}
-                onChangeText={setSignal}
-                autoCapitalize="none"
-              />
+              <Text style={styles.contactLabelText}>Signal</Text>
+              <View style={styles.contactInputWrapper}>
+                <Feather name="message-square" size={18} color="#3a76f0" style={styles.contactIconInside} />
+                <Text style={styles.atBadgeText}>@</Text>
+                <TextInput
+                  style={styles.contactInputInside}
+                  placeholder="tu_usuario"
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={signal.replace(/^@+/, '')}
+                  onChangeText={(text) => setSignal(text.replace(/^@+/, ''))}
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            {/* Gustos Personales */}
+            <Text style={[styles.fieldLabel, { marginTop: 24 }]}>Gustos Personales</Text>
+
+            <View style={styles.contactRow}>
+              <Text style={styles.contactLabelText}>Canción Favorita</Text>
+              <View style={styles.contactInputWrapper}>
+                <TextInput
+                  style={styles.contactInputInside}
+                  placeholder=""
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={favoriteSong}
+                  onChangeText={setFavoriteSong}
+                />
+              </View>
+            </View>
+
+            <View style={styles.contactRow}>
+              <Text style={styles.contactLabelText}>Libro Favorito</Text>
+              <View style={styles.contactInputWrapper}>
+                <TextInput
+                  style={styles.contactInputInside}
+                  placeholder=""
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={favoriteBook}
+                  onChangeText={setFavoriteBook}
+                />
+              </View>
+            </View>
+
+            <View style={styles.contactRow}>
+              <Text style={styles.contactLabelText}>Signo Zodiacal</Text>
+              <View style={styles.contactInputWrapper}>
+                <select
+                  value={zodiacSign}
+                  onChange={(e) => setZodiacSign(e.target.value)}
+                  style={{
+                    flex: 1,
+                    width: '100%',
+                    padding: '10px 0',
+                    backgroundColor: 'transparent',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '14px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">Selecciona tu signo...</option>
+                  <option value="Aries">Aries</option>
+                  <option value="Tauro">Tauro</option>
+                  <option value="Géminis">Géminis</option>
+                  <option value="Cáncer">Cáncer</option>
+                  <option value="Leo">Leo</option>
+                  <option value="Virgo">Virgo</option>
+                  <option value="Libra">Libra</option>
+                  <option value="Escorpio">Escorpio</option>
+                  <option value="Sagitario">Sagitario</option>
+                  <option value="Capricornio">Capricornio</option>
+                  <option value="Acuario">Acuario</option>
+                  <option value="Piscis">Piscis</option>
+                </select>
+              </View>
+            </View>
+
+            <View style={styles.contactRow}>
+              <Text style={styles.contactLabelText}>Bebida Favorita</Text>
+              <View style={styles.contactInputWrapper}>
+                <TextInput
+                  style={styles.contactInputInside}
+                  placeholder=""
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={favoriteDrink}
+                  onChangeText={setFavoriteDrink}
+                />
+              </View>
+            </View>
+
+            <View style={styles.contactRow}>
+              <Text style={styles.contactLabelText}>Comida Favorita</Text>
+              <View style={styles.contactInputWrapper}>
+                <TextInput
+                  style={styles.contactInputInside}
+                  placeholder=""
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={favoriteFood}
+                  onChangeText={setFavoriteFood}
+                />
+              </View>
+            </View>
+
+            <View style={styles.contactRow}>
+              <Text style={styles.contactLabelText}>Ramo Favorito</Text>
+              <View style={styles.contactInputWrapper}>
+                <TextInput
+                  style={styles.contactInputInside}
+                  placeholder=""
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={favoriteSubject}
+                  onChangeText={setFavoriteSubject}
+                />
+              </View>
+            </View>
+
+            <View style={styles.contactRow}>
+              <Text style={styles.contactLabelText}>Pasatiempos</Text>
+              <View style={styles.contactInputWrapper}>
+                <TextInput
+                  style={styles.contactInputInside}
+                  placeholder=""
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={hobbies}
+                  onChangeText={setHobbies}
+                />
+              </View>
             </View>
 
             {/* Save Button */}
@@ -1041,8 +1360,31 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                 <View style={styles.matchAvatarsHeart}>
                   <FontAwesome name="heart" size={24} color="#EF4444" />
                 </View>
-                <Avatar user={matchUser} size={84} />
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setShowMatchModal(false);
+                    if (matchUser?.id) {
+                      navigation.navigate('UserProfile', { userId: matchUser.id });
+                    }
+                  }}
+                >
+                  <Avatar user={matchUser} size={84} />
+                </TouchableOpacity>
               </View>
+
+              {/* User Chips Row */}
+              {matchUser && (
+                <View style={{ marginVertical: 8 }}>
+                  <UserChipsRow
+                    user={matchUser}
+                    onOrgPress={(orgId) => {
+                      setShowMatchModal(false);
+                      navigation.navigate('UserProfile', { userId: orgId });
+                    }}
+                  />
+                </View>
+              )}
 
               {/* Match profile photo carousel */}
               {matchProfile?.photos && matchProfile.photos.length > 0 ? (
@@ -1130,7 +1472,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                     style={[styles.unlockedContactItem, { borderColor: '#3a76f0' }]}
                     onPress={() => openSocialLink('signal', matchProfile.signal)}
                   >
-                    <Feather name="message-square" size={22} color="#3a76f0" style={{ marginRight: 10 }} />
+                    <Image source={{ uri: SIGNAL_LOGO_BASE64 }} style={{ width: 22, height: 22, borderRadius: 11, marginRight: 10 }} />
                     <Text style={styles.unlockedContactText}>Signal: {matchProfile.signal}</Text>
                     <Feather name="external-link" size={14} color="#3a76f0" style={{ marginLeft: 'auto' }} />
                   </TouchableOpacity>
@@ -1159,19 +1501,45 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.matchDetailCard}>
             <View style={styles.matchDetailHeader}>
-              <View style={styles.matchDetailHeaderTitleRow}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  setShowMatchDetailModal(false);
+                  if (selectedMatch.user?.id) {
+                    navigation.navigate('UserProfile', { userId: selectedMatch.user.id });
+                  }
+                }}
+                style={styles.matchDetailHeaderTitleRow}
+              >
                 <Avatar user={selectedMatch.user} size={44} />
                 <View style={{ marginLeft: 10 }}>
                   <Text style={styles.matchDetailName}>{selectedMatch.user?.name}</Text>
                   {!!selectedMatch.user?.username && <Text style={styles.matchDetailUsername}>@{selectedMatch.user.username}</Text>}
                 </View>
-              </View>
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => setShowMatchDetailModal(false)}>
                 <Feather name="x" size={24} color={theme.colors.text} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={{ flex: 1, padding: theme.spacing.md }} showsVerticalScrollIndicator={false}>
+              {/* User Profile Chips */}
+              {selectedMatch.user && (
+                <View style={{ marginBottom: theme.spacing.md }}>
+                  <UserChipsRow
+                    user={selectedMatch.user}
+                    onOrgPress={(orgId) => {
+                      setShowMatchDetailModal(false);
+                      navigation.navigate('UserProfile', { userId: orgId });
+                    }}
+                  />
+                </View>
+              )}
+
+              {/* Detalles opcionales */}
+              <TinderExtraDetails profile={selectedMatch.profile} />
+
+              {/* Photos Grid/List */}
               {/* Photos Grid/List */}
               {selectedMatch.profile?.photos && selectedMatch.profile.photos.length > 0 ? (
                 <View style={[styles.cardWrapper, { width: CARD_WIDTH - 32, height: 280, alignSelf: 'center', marginBottom: theme.spacing.md }]}>
@@ -1265,7 +1633,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                     style={[styles.unlockedContactItem, { borderColor: '#3a76f0' }]}
                     onPress={() => openSocialLink('signal', selectedMatch.profile.signal)}
                   >
-                    <Feather name="message-square" size={20} color="#3a76f0" style={{ marginRight: 10 }} />
+                    <Image source={{ uri: SIGNAL_LOGO_BASE64 }} style={{ width: 20, height: 20, borderRadius: 10, marginRight: 10 }} />
                     <Text style={styles.unlockedContactText}>Signal: {selectedMatch.profile.signal}</Text>
                     <Feather name="external-link" size={12} color="#3a76f0" style={{ marginLeft: 'auto' }} />
                   </TouchableOpacity>
@@ -1700,8 +2068,8 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   contactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     marginBottom: theme.spacing.sm,
   },
   contactIcon: {
@@ -1959,5 +2327,56 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
+  },
+  contactInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1f1f1f',
+    borderWidth: 1,
+    borderColor: '#333333',
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: 12,
+  },
+  contactLabelText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  contactIconInside: {
+    marginRight: 8,
+  },
+  atBadgeText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
+    marginRight: 4,
+  },
+  contactInputInside: {
+    flex: 1,
+    color: '#ffffff',
+    fontSize: 14,
+    paddingVertical: 10,
+  },
+  extraDetailsList: {
+    marginVertical: 6,
+    gap: 4,
+  },
+  extraDetailsHeader: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: theme.colors.primary,
+    marginBottom: 4,
+  },
+  extraDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  extraDetailRowText: {
+    fontSize: 12,
+    lineHeight: 18,
+    flex: 1,
   },
 });

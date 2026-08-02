@@ -1,5 +1,5 @@
 {
-  "name": "frontend",
+  "name": "beauchapp-frontend",
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {

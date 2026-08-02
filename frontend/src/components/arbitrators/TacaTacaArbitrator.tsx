@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { theme } from '../../theme/theme';
 import { ladderService } from '../../services/ladderService';
 import { Ladder } from '../../types/ladder';
 import Toast from 'react-native-toast-message';
 import { Feather } from '@expo/vector-icons';
 import { MatchSetupStep, StudentUser } from './MatchSetupStep';
+import { ConfirmExitModal } from '../ConfirmExitModal';
 
 interface Props {
   ladder: Ladder;
@@ -15,6 +16,10 @@ interface Props {
 
 export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, initialMode, navigation }) => {
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [hasSavedMatch, setHasSavedMatch] = useState<boolean>(false);
+  const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
+  const [pendingAction, setPendingAction] = useState<any>(null);
+
   const [step, setStep] = useState<'setup' | 'live'>('setup');
 
   const [mode, setMode] = useState<'1v1' | '2v2'>(initialMode || '1v1');
@@ -26,7 +31,41 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, initialMode, navig
   const [scoreBlue, setScoreBlue] = useState<number>(0);
   const [goalHistory, setGoalHistory] = useState<('red' | 'blue')[]>([]);
 
-  const targetScore = ladder.max_score || 7;
+  const isNavigatingRef = React.useRef<boolean>(false);
+  const hasUnsavedData = step === 'live' || scoreRed > 0 || scoreBlue > 0 || teamRed.length > 0 || teamBlue.length > 0;
+
+  useEffect(() => {
+    if (!navigation) return;
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (hasSavedMatch || isNavigatingRef.current) {
+        return;
+      }
+
+      if (!hasUnsavedData) {
+        return;
+      }
+
+      e.preventDefault();
+      setPendingAction(e.data.action);
+      setShowExitConfirm(true);
+    });
+
+    return unsubscribe;
+  }, [navigation, hasUnsavedData, hasSavedMatch]);
+
+  const handleConfirmExit = () => {
+    setShowExitConfirm(false);
+    if (pendingAction) {
+      navigation.dispatch(pendingAction);
+    }
+  };
+
+  const handleCancelExit = () => {
+    setShowExitConfirm(false);
+    setPendingAction(null);
+  };
+
+  const targetScore = ladder.max_score || 10;
   const isTerminal = scoreRed >= targetScore || scoreBlue >= targetScore;
 
   const handleGoal = (team: 'red' | 'blue') => {
@@ -73,6 +112,8 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, initialMode, navig
         text2: `Resultado final: ${scoreRed} - ${scoreBlue}.`,
       });
 
+      isNavigatingRef.current = true;
+      setHasSavedMatch(true);
       if (navigation.replace) {
         navigation.replace('LadderDetail', { slug: ladder.slug });
       } else {
@@ -89,8 +130,10 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, initialMode, navig
     }
   };
 
-  const redNamesLabel = teamRed.map((p) => p?.name).filter(Boolean).join(', ') || 'Equipo Rojo';
-  const blueNamesLabel = teamBlue.map((p) => p?.name).filter(Boolean).join(', ') || 'Equipo Azul';
+  const redPlayers = teamRed.map((p) => p?.name).filter(Boolean);
+  const bluePlayers = teamBlue.map((p) => p?.name).filter(Boolean);
+  const redNamesLabel = redPlayers.join(', ') || 'Equipo Rojo';
+  const blueNamesLabel = bluePlayers.join(', ') || 'Equipo Azul';
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -116,7 +159,23 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, initialMode, navig
               onPress={() => handleGoal('red')}
               disabled={isTerminal}
             >
-              <Text style={styles.redLabel} numberOfLines={1}>{redNamesLabel}</Text>
+              <View style={styles.cardNamesContainer}>
+                {redPlayers.length > 0 ? (
+                  redPlayers.map((name, index) => (
+                    <React.Fragment key={index}>
+                      {index > 0 && (
+                        <View style={styles.nameSeparatorRow}>
+                          <View style={styles.nameDotRed} />
+                        </View>
+                      )}
+                      <Text style={styles.redLabel} numberOfLines={1}>{name}</Text>
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Text style={styles.redLabel} numberOfLines={1}>Equipo Rojo</Text>
+                )}
+              </View>
+
               <Text style={styles.scoreValRed}>{scoreRed}</Text>
             </TouchableOpacity>
 
@@ -127,7 +186,23 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, initialMode, navig
               onPress={() => handleGoal('blue')}
               disabled={isTerminal}
             >
-              <Text style={styles.blueLabel} numberOfLines={1}>{blueNamesLabel}</Text>
+              <View style={styles.cardNamesContainer}>
+                {bluePlayers.length > 0 ? (
+                  bluePlayers.map((name, index) => (
+                    <React.Fragment key={index}>
+                      {index > 0 && (
+                        <View style={styles.nameSeparatorRow}>
+                          <View style={styles.nameDotBlue} />
+                        </View>
+                      )}
+                      <Text style={styles.blueLabel} numberOfLines={1}>{name}</Text>
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Text style={styles.blueLabel} numberOfLines={1}>Equipo Azul</Text>
+                )}
+              </View>
+
               <Text style={styles.scoreValBlue}>{scoreBlue}</Text>
             </TouchableOpacity>
           </View>
@@ -151,6 +226,12 @@ export const TacaTacaArbitrator: React.FC<Props> = ({ ladder, initialMode, navig
           )}
         </View>
       )}
+
+      <ConfirmExitModal
+        visible={showExitConfirm}
+        onConfirm={handleConfirmExit}
+        onCancel={handleCancelExit}
+      />
     </ScrollView>
   );
 };
@@ -189,6 +270,33 @@ const styles = StyleSheet.create({
   },
   squareScoreCardBlue: {
     borderColor: 'rgba(56, 189, 248, 0.4)',
+  },
+  cardNamesContainer: {
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 4,
+  },
+  nameSeparatorRow: {
+    height: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 2,
+  },
+  nameDotRed: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#ff4444',
+    opacity: 0.6,
+  },
+  nameDotBlue: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#38bdf8',
+    opacity: 0.6,
   },
   redLabel: {
     fontSize: 12,

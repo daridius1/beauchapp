@@ -216,16 +216,15 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const addTag = (text: string) => {
     const clean = text
-      .toLowerCase()
-      .replace(/[áäâà]/g, 'a')
-      .replace(/[éëêè]/g, 'e')
-      .replace(/[íïîì]/g, 'i')
-      .replace(/[óöôò]/g, 'o')
-      .replace(/[úüûù]/g, 'u')
-      .replace(/[ñ]/g, 'n')
-      .replace(/[^a-z0-9]/g, '')
+      .replace(/[áäâàÁÄÂÀ]/g, 'a')
+      .replace(/[éëêèÉËÊÈ]/g, 'e')
+      .replace(/[íïîìÍÏÎÌ]/g, 'i')
+      .replace(/[óöôòÓÖÔÒ]/g, 'o')
+      .replace(/[úüûùÚÜÛÙ]/g, 'u')
+      .replace(/[ñÑ]/g, 'n')
+      .replace(/[^a-zA-Z0-9_]/g, '')
       .trim();
-    if (clean && tags.length < 10 && clean.length <= 15 && !tags.includes(clean)) {
+    if (clean && tags.length < 10 && clean.length <= 15 && !tags.some(t => t.toLowerCase() === clean.toLowerCase())) {
       setTags([...tags, clean]);
     }
     setTagInput('');
@@ -249,16 +248,15 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       let finalTags = [...tags];
       const pendingTag = tagInput
-        .toLowerCase()
-        .replace(/[áäâà]/g, 'a')
-        .replace(/[éëêè]/g, 'e')
-        .replace(/[íïîì]/g, 'i')
-        .replace(/[óöôò]/g, 'o')
-        .replace(/[úüûù]/g, 'u')
-        .replace(/[ñ]/g, 'n')
-        .replace(/[^a-z0-9]/g, '')
+        .replace(/[áäâàÁÄÂÀ]/g, 'a')
+        .replace(/[éëêèÉËÊÈ]/g, 'e')
+        .replace(/[íïîìÍÏÎÌ]/g, 'i')
+        .replace(/[óöôòÓÖÔÒ]/g, 'o')
+        .replace(/[úüûùÚÜÛÙ]/g, 'u')
+        .replace(/[ñÑ]/g, 'n')
+        .replace(/[^a-zA-Z0-9_]/g, '')
         .trim();
-      if (pendingTag && finalTags.length < 10 && pendingTag.length <= 15 && !finalTags.includes(pendingTag)) {
+      if (pendingTag && finalTags.length < 10 && pendingTag.length <= 15 && !finalTags.some(t => t.toLowerCase() === pendingTag.toLowerCase())) {
         finalTags.push(pendingTag);
       }
 

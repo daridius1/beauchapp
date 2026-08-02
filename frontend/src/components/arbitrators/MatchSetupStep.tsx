@@ -167,21 +167,13 @@ export const MatchSetupStep: React.FC<Props> = ({
         <View style={styles.modeSelector}>
           <TouchableOpacity
             style={[styles.modeTab, mode === '1v1' && styles.modeTabActive]}
-            onPress={() => {
-              onChangeMode('1v1');
-              setTeamRed([]);
-              setTeamBlue([]);
-            }}
+            onPress={() => onChangeMode('1v1')}
           >
             <Text style={[styles.modeTabText, mode === '1v1' && styles.modeTabTextActive]}>1 vs 1</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.modeTab, mode === '2v2' && styles.modeTabActive]}
-            onPress={() => {
-              onChangeMode('2v2');
-              setTeamRed([]);
-              setTeamBlue([]);
-            }}
+            onPress={() => onChangeMode('2v2')}
           >
             <Text style={[styles.modeTabText, mode === '2v2' && styles.modeTabTextActive]}>2 vs 2</Text>
           </TouchableOpacity>

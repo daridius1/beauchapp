@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Animated } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Animated, Platform } from 'react-native';
 import { theme } from '../../theme/theme';
 import { ladderService } from '../../services/ladderService';
 import { Ladder } from '../../types/ladder';
@@ -9,6 +9,7 @@ import { Avatar } from '../Avatar';
 import Toast from 'react-native-toast-message';
 import { Feather } from '@expo/vector-icons';
 import { MatchSetupStep, StudentUser } from './MatchSetupStep';
+import { ConfirmExitModal } from '../ConfirmExitModal';
 
 interface Props {
   ladder: Ladder;
@@ -31,6 +32,9 @@ interface HistorySnap {
 export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const { user: currentUser } = useAuth();
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [hasSavedMatch, setHasSavedMatch] = useState<boolean>(false);
+  const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
+  const [pendingAction, setPendingAction] = useState<any>(null);
 
   const [step, setStep] = useState<'setup' | 'live'>('setup');
 
@@ -44,6 +48,40 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const [rallies, setRallies] = useState<RallyRecord[]>([]);
 
   const [undoStack, setUndoStack] = useState<HistorySnap[]>([]);
+
+  const isNavigatingRef = React.useRef<boolean>(false);
+  const hasUnsavedData = step === 'live' || scoreRed > 0 || scoreBlue > 0 || playerRed.length > 0 || playerBlue.length > 0;
+
+  useEffect(() => {
+    if (!navigation) return;
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (hasSavedMatch || isNavigatingRef.current) {
+        return;
+      }
+
+      if (!hasUnsavedData) {
+        return;
+      }
+
+      e.preventDefault();
+      setPendingAction(e.data.action);
+      setShowExitConfirm(true);
+    });
+
+    return unsubscribe;
+  }, [navigation, hasUnsavedData, hasSavedMatch]);
+
+  const handleConfirmExit = () => {
+    setShowExitConfirm(false);
+    if (pendingAction) {
+      navigation.dispatch(pendingAction);
+    }
+  };
+
+  const handleCancelExit = () => {
+    setShowExitConfirm(false);
+    setPendingAction(null);
+  };
 
   const targetScore = 30;
 
@@ -71,27 +109,44 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
   const handleSigue = () => {
     if (isTerminal) return;
+
     saveSnap();
-    const nextTurn = activeTurn === 'red' ? 'blue' : 'red';
-    setAccumulator((prev) => prev + 1);
-    setActiveTurn(nextTurn);
+
+    if (activeTurn === 'red') {
+      setScoreRed((prev) => prev + accumulator);
+      setActiveTurn('blue');
+    } else {
+      setScoreBlue((prev) => prev + accumulator);
+      setActiveTurn('red');
+    }
+
+    setRallies((prev) => [
+      ...prev,
+      {
+        team: activeTurn,
+        points: accumulator,
+      },
+    ]);
+
+    setAccumulator(1);
   };
 
   const handlePierde = () => {
     if (isTerminal) return;
+
     saveSnap();
 
     const winner = activeTurn === 'red' ? 'blue' : 'red';
-    const pozo = accumulator;
+    
+    setRallies((prev) => [
+      ...prev,
+      {
+        team: winner,
+        points: 0,
+      },
+    ]);
 
-    if (winner === 'blue') {
-      setScoreBlue((prev) => prev + pozo);
-    } else {
-      setScoreRed((prev) => prev + pozo);
-    }
-
-    setRallies((prev) => [...prev, { team: winner, points: pozo }]);
-    setAccumulator(1);
+    setAccumulator((prev) => prev + 1);
     setActiveTurn(winner);
   };
 
@@ -128,6 +183,8 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         text2: `Resultado final: ${scoreRed} - ${scoreBlue}.`,
       });
 
+      isNavigatingRef.current = true;
+      setHasSavedMatch(true);
       if (navigation.replace) {
         navigation.replace('LadderDetail', { slug: ladder.slug });
       } else {
@@ -232,6 +289,12 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
           )}
         </View>
       )}
+
+      <ConfirmExitModal
+        visible={showExitConfirm}
+        onConfirm={handleConfirmExit}
+        onCancel={handleCancelExit}
+      />
     </ScrollView>
   );
 };

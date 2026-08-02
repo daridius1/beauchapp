@@ -16,6 +16,11 @@ export interface User {
   chip_color?: string;
   entry_year?: string;
   department?: string;
+  instagram?: string;
+  telegram?: string;
+  whatsapp?: string;
+  signal?: string;
+  website?: string;
 }
 
 interface AuthContextType {

@@ -10,9 +10,10 @@ interface HeaderProps {
   onTitlePress?: () => void;
   onRefresh?: () => void;
   rightComponent?: React.ReactNode;
+  hasUnreadNotifications?: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, onTitlePress, onRefresh, rightComponent }) => {
+export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, onTitlePress, onRefresh, rightComponent, hasUnreadNotifications }) => {
   const titleOpacity = useRef(new Animated.Value(1)).current;
   const titleTranslateY = useRef(new Animated.Value(0)).current;
 
@@ -82,6 +83,9 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar, onBack, 
               <View style={styles.hamburgerLine} />
               <View style={[styles.hamburgerLine, { marginVertical: 4 }]} />
               <View style={styles.hamburgerLine} />
+              {hasUnreadNotifications && (
+                <View style={styles.headerUnreadDot} />
+              )}
             </View>
           </TouchableOpacity>
         ) : (
@@ -157,12 +161,24 @@ const styles = StyleSheet.create({
     height: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   hamburgerLine: {
     width: 20,
     height: 2.5,
     backgroundColor: theme.colors.text,
     borderRadius: 1.25,
+  },
+  headerUnreadDot: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ef4444',
+    borderWidth: 1.5,
+    borderColor: theme.colors.cardBg,
   },
   headerTitleContainer: {
     position: 'absolute',
