@@ -18,7 +18,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
+
   const [localError, setLocalError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [hasSentResetEmail, setHasSentResetEmail] = useState(false);
@@ -85,8 +85,12 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       }
       identity += '@ing.uchile.cl';
     } else {
-      if (identity.includes('@') && !identity.endsWith('@ing.uchile.cl')) {
-        setLocalError('Si usas correo, debe ser @ing.uchile.cl');
+      // Login: solo aceptar correo institucional
+      if (!identity.includes('@')) {
+        identity += '@ing.uchile.cl';
+      }
+      if (!identity.endsWith('@ing.uchile.cl')) {
+        setLocalError('Debes usar tu correo @ing.uchile.cl');
         return;
       }
     }
@@ -102,10 +106,6 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       setLocalError('El nombre es requerido.');
       return;
     }
-    if (isSignUp && (!username || username.trim().length < 3)) {
-      setLocalError('El nombre de usuario es requerido y debe tener al menos 3 caracteres.');
-      return;
-    }
 
     try {
       if (isForgotPassword) {
@@ -113,7 +113,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         setHasSentResetEmail(true);
         setResendCooldown(60);
       } else if (isSignUp) {
-        await signup(identity, password, name.trim(), username.trim().toLowerCase());
+        await signup(identity, password, name.trim());
         navigation.reset({
           index: 0,
           routes: [{ name: 'Verification' }],
@@ -147,7 +147,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setPassword('');
     setConfirmPassword('');
     setName('');
-    setUsername('');
+
     setSuccessMessage(null);
     setHasSentResetEmail(false);
   };
@@ -249,20 +249,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
-        {!isForgotPassword && isSignUp && (
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Usuario</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="jperez99"
-              placeholderTextColor={theme.colors.textMuted}
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-        )}
+
 
         {isSignUp || isForgotPassword ? (
           <View style={styles.inputGroup}>
@@ -289,17 +276,20 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ) : (
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Correo o Usuario</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="jperez99 o juan@ing.uchile.cl"
-              placeholderTextColor={theme.colors.textMuted}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            <Text style={styles.label}>Correo institucional</Text>
+            <View style={styles.emailContainer}>
+              <TextInput
+                style={styles.emailPrefixInput}
+                placeholder="tu.usuario"
+                placeholderTextColor={theme.colors.textMuted}
+                value={email}
+                onChangeText={handleEmailChange}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Text style={styles.inlineEmailSuffix}>@ing.uchile.cl</Text>
+            </View>
           </View>
         )}
 

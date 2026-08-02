@@ -147,10 +147,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signup = async (email: string, password: string, name: string, username: string) => {
+  const signup = async (email: string, password: string, name: string) => {
     setLoading(true);
     setError(null);
     try {
+      const username = email.split('@')[0];
       await pb.collection('users').create({
         email,
         password,

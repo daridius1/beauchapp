@@ -55,7 +55,11 @@ onRecordCreateRequest((e) => {
         throw new BadRequestError("Acceso denegado. Solo se permiten correos con el dominio @ing.uchile.cl");
     }
     
-    console.log("[DEBUG] Student record checks passed. Proceeding with e.next()...");
+    // Derivar username del prefijo del correo institucional para estudiantes
+    const emailPrefix = email.split("@")[0];
+    e.record.set("username", emailPrefix);
+
+    console.log("[DEBUG] Student record checks passed. Username set to:", emailPrefix, ". Proceeding with e.next()...");
     return e.next();
 }, "users");
 
