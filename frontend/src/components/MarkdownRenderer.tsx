@@ -166,7 +166,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, hei
               if (!contentDiv) return;
 
               var doMeasure = function() {
-                const height = Math.ceil(contentDiv.getBoundingClientRect().height);
+                var rectH = contentDiv.getBoundingClientRect().height;
+                var scrollH = contentDiv.scrollHeight || 0;
+                var bodyH = document.body ? document.body.scrollHeight : 0;
+                var docH = document.documentElement ? document.documentElement.scrollHeight : 0;
+                var height = Math.max(Math.ceil(rectH), scrollH, bodyH, docH) + 16;
                 if (window.parent) {
                   window.parent.postMessage({ type: 'markdown-height', id: '${rendererId}', height: height }, '*');
                 }

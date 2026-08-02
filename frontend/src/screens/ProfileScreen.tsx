@@ -327,7 +327,6 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                 telegram: profileUser.telegram,
                 whatsapp: profileUser.whatsapp,
                 signal: profileUser.signal,
-                email: profileUser.email,
               }}
               onMarketplacePress={sellerProfile ? () => navigation.push('SellerProfile', { sellerProfileId: sellerProfile.id }) : undefined}
             />
