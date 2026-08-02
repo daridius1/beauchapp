@@ -1,4 +1,9 @@
+import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Linking, StyleProp, ViewStyle } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { User } from '../context/AuthContext';
+import { OrganizationMemberRecord } from '../services/organizationService';
+import { SportIcon } from './SportIcon';
 
 interface Props {
   user: User;
