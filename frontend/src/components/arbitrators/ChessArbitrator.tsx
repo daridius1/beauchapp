@@ -148,15 +148,17 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
   if (step === 'setup') {
     return (
-      <MatchSetupStep
-        mode="1v1"
-        showModeSelector={false}
-        teamRed={playerRed}
-        setTeamRed={setPlayerRed}
-        teamBlue={playerBlue}
-        setTeamBlue={setPlayerBlue}
-        onStartMatch={handleStartMatch}
-      />
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+        <MatchSetupStep
+          mode="1v1"
+          showModeSelector={false}
+          teamRed={playerRed}
+          setTeamRed={setPlayerRed}
+          teamBlue={playerBlue}
+          setTeamBlue={setPlayerBlue}
+          onStartMatch={handleStartMatch}
+        />
+      </ScrollView>
     );
   }
 
