@@ -19,6 +19,8 @@ interface Props {
   mode: '1v1' | '2v2';
   onChangeMode?: (mode: '1v1' | '2v2') => void;
   showModeSelector?: boolean;
+  redLabelText?: string;
+  blueLabelText?: string;
   teamRed: StudentUser[];
   setTeamRed: (team: StudentUser[]) => void;
   teamBlue: StudentUser[];
@@ -30,6 +32,8 @@ export const MatchSetupStep: React.FC<Props> = ({
   mode,
   onChangeMode,
   showModeSelector = true,
+  redLabelText = 'EQUIPO ROJO',
+  blueLabelText = 'EQUIPO AZUL',
   teamRed,
   setTeamRed,
   teamBlue,
@@ -184,7 +188,7 @@ export const MatchSetupStep: React.FC<Props> = ({
         <View style={styles.playersGrid}>
           {/* Rojo */}
           <View style={styles.playerBox}>
-            <Text style={styles.redLabel}>EQUIPO ROJO</Text>
+            <Text style={styles.redLabel}>{redLabelText}</Text>
             {Array.from({ length: maxSlots }).map((_, idx) => {
               const player = teamRed[idx];
               return (
@@ -212,7 +216,7 @@ export const MatchSetupStep: React.FC<Props> = ({
 
           {/* Azul */}
           <View style={styles.playerBox}>
-            <Text style={styles.blueLabel}>EQUIPO AZUL</Text>
+            <Text style={styles.blueLabel}>{blueLabelText}</Text>
             {Array.from({ length: maxSlots }).map((_, idx) => {
               const player = teamBlue[idx];
               return (
@@ -263,7 +267,7 @@ export const MatchSetupStep: React.FC<Props> = ({
 
       <UserSelectorModal
         visible={!!activeSlot}
-        title={activeSlot?.team === 'red' ? 'Seleccionar Jugador Rojo' : 'Seleccionar Jugador Azul'}
+        title={activeSlot?.team === 'red' ? `Seleccionar (${redLabelText})` : `Seleccionar (${blueLabelText})`}
         placeholder="Buscar por nombre o @username..."
         excludeUserIds={[...teamRed, ...teamBlue].map(p => p?.id).filter(Boolean) as string[]}
         onSelect={handleSelectPlayer}

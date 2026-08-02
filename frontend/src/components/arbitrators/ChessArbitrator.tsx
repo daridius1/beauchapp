@@ -152,6 +152,8 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         <MatchSetupStep
           mode="1v1"
           showModeSelector={false}
+          redLabelText="PIEZAS BLANCAS"
+          blueLabelText="PIEZAS NEGRAS"
           teamRed={playerRed}
           setTeamRed={setPlayerRed}
           teamBlue={playerBlue}
@@ -173,18 +175,14 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header de Disciplina */}
         <View style={styles.header}>
-          <View style={styles.titleRow}>
-            <MaterialCommunityIcons name="chess-king" size={24} color="#38bdf8" />
-            <Text style={styles.titleText}>Arbitraje de Ajedrez</Text>
-          </View>
-          <Text style={styles.subtitleText}>Selecciona el resultado oficial de la partida</Text>
+          <Text style={styles.titleText}>Arbitraje de Ajedrez</Text>
         </View>
 
         {/* Tarjetas de Jugadores */}
         <View style={styles.playersOverview}>
           <View style={[styles.playerCard, styles.playerRedCard]}>
             <Avatar size={44} user={playerRed[0]} />
-            <Text style={styles.playerRoleText}>Piezas Blancas</Text>
+            <Text style={styles.playerRoleText}>Blancas</Text>
             <Text style={styles.playerNameText} numberOfLines={1}>{nameRed}</Text>
           </View>
 
@@ -192,7 +190,7 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
           <View style={[styles.playerCard, styles.playerBlueCard]}>
             <Avatar size={44} user={playerBlue[0]} />
-            <Text style={styles.playerRoleText}>Piezas Negras</Text>
+            <Text style={styles.playerRoleText}>Negras</Text>
             <Text style={styles.playerNameText} numberOfLines={1}>{nameBlue}</Text>
           </View>
         </View>
@@ -210,20 +208,12 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             ]}
             onPress={() => setSelectedResult('red_win')}
           >
-            <MaterialCommunityIcons
-              name="crown"
-              size={22}
-              color={selectedResult === 'red_win' ? '#ef4444' : theme.colors.textMuted}
-            />
             <View style={styles.resultOptionTextCol}>
               <Text style={[styles.resultOptionTitle, selectedResult === 'red_win' && { color: '#ef4444' }]}>
-                Victoria de {nameRed}
+                Victoria Blancas ({nameRed})
               </Text>
-              <Text style={styles.resultOptionSub}>Marcador: 1 - 0 (Blancas)</Text>
+              <Text style={styles.resultOptionSub}>1 - 0</Text>
             </View>
-            {selectedResult === 'red_win' && (
-              <Feather name="check-circle" size={20} color="#ef4444" />
-            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -234,20 +224,12 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             ]}
             onPress={() => setSelectedResult('draw')}
           >
-            <MaterialCommunityIcons
-              name="handshake-outline"
-              size={22}
-              color={selectedResult === 'draw' ? '#facc15' : theme.colors.textMuted}
-            />
             <View style={styles.resultOptionTextCol}>
               <Text style={[styles.resultOptionTitle, selectedResult === 'draw' && { color: '#facc15' }]}>
                 Empate / Tablas
               </Text>
-              <Text style={styles.resultOptionSub}>Marcador: 1 - 1 (Empate técnico)</Text>
+              <Text style={styles.resultOptionSub}>1 - 1</Text>
             </View>
-            {selectedResult === 'draw' && (
-              <Feather name="check-circle" size={20} color="#facc15" />
-            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -258,20 +240,12 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             ]}
             onPress={() => setSelectedResult('blue_win')}
           >
-            <MaterialCommunityIcons
-              name="crown"
-              size={22}
-              color={selectedResult === 'blue_win' ? '#3b82f6' : theme.colors.textMuted}
-            />
             <View style={styles.resultOptionTextCol}>
               <Text style={[styles.resultOptionTitle, selectedResult === 'blue_win' && { color: '#3b82f6' }]}>
-                Victoria de {nameBlue}
+                Victoria Negras ({nameBlue})
               </Text>
-              <Text style={styles.resultOptionSub}>Marcador: 0 - 1 (Negras)</Text>
+              <Text style={styles.resultOptionSub}>0 - 1</Text>
             </View>
-            {selectedResult === 'blue_win' && (
-              <Feather name="check-circle" size={20} color="#3b82f6" />
-            )}
           </TouchableOpacity>
         </View>
 
@@ -286,10 +260,7 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             {submitting ? (
               <ActivityIndicator color="#000000" size="small" />
             ) : (
-              <>
-                <Feather name="check" size={18} color="#000000" />
-                <Text style={styles.saveBtnText}>Guardar y Enviar Partido</Text>
-              </>
+              <Text style={styles.saveBtnText}>Guardar Partido</Text>
             )}
           </TouchableOpacity>
 
