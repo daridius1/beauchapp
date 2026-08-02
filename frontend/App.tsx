@@ -213,7 +213,6 @@ function AppContent() {
             width: 100% !important;
             box-sizing: border-box !important;
             padding-top: env(safe-area-inset-top, 0px) !important;
-            padding-bottom: env(safe-area-inset-bottom, 0px) !important;
             padding-left: env(safe-area-inset-left, 0px) !important;
             padding-right: env(safe-area-inset-right, 0px) !important;
           }
