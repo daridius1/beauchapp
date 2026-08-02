@@ -34,6 +34,13 @@ export const LADDER_GROUPS: SportGroup[] = [
       { id: '1v1', label: '1v1', slug: 'tiptap' },
     ],
   },
+  {
+    groupSlug: 'ajedrez',
+    groupName: 'Ajedrez',
+    categories: [
+      { id: '1v1', label: '1v1', slug: 'ajedrez' },
+    ],
+  },
 ];
 
 export const getSportGroup = (slugInput: string): { group: SportGroup; activeCategory: CategoryOption } => {
