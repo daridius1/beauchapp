@@ -180,7 +180,7 @@ function AppContent() {
     };
   }, [checkUnreadNotifications]);
 
-  // Inyección global de Scroll Defensivo, Título Web e Ícono PWA para Web/Safari/Chrome
+  // Inyección global de Scroll Defensivo, Safe Area Insets iOS, Título Web e Ícono PWA para Web/Safari/Chrome
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       document.title = 'Beauchapp';
@@ -190,11 +190,35 @@ function AppContent() {
         const style = document.createElement('style');
         style.id = styleId;
         style.innerHTML = `
-          #root, html, body {
+          html {
+            height: 100% !important;
             height: 100dvh !important;
+            height: -webkit-fill-available !important;
+          }
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+            min-height: 100% !important;
+            min-height: 100dvh !important;
+            min-height: -webkit-fill-available !important;
+            overflow: hidden !important;
+            background-color: #0c0c0c !important;
             overscroll-behavior-y: contain !important;
             overscroll-behavior-x: none !important;
             -webkit-tap-highlight-color: transparent !important;
+          }
+          #root {
+            display: flex !important;
+            flex-direction: column !important;
+            height: 100% !important;
+            height: 100dvh !important;
+            height: -webkit-fill-available !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            padding-top: env(safe-area-inset-top, 0px) !important;
+            padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+            padding-left: env(safe-area-inset-left, 0px) !important;
+            padding-right: env(safe-area-inset-right, 0px) !important;
           }
         `;
         document.head.appendChild(style);
