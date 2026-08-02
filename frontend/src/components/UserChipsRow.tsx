@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { User } from '../context/AuthContext';
 import { OrganizationMemberRecord } from '../services/organizationService';
 import { SportIcon } from './SportIcon';
+import { OrgChip } from './OrgChip';
 
 interface Props {
   user: User;
