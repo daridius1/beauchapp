@@ -193,14 +193,12 @@ function AppContent() {
           html {
             height: 100% !important;
             height: 100dvh !important;
-            height: -webkit-fill-available !important;
           }
           body {
             margin: 0 !important;
             padding: 0 !important;
             min-height: 100% !important;
             min-height: 100dvh !important;
-            min-height: -webkit-fill-available !important;
             overflow: hidden !important;
             background-color: #0c0c0c !important;
             overscroll-behavior-y: contain !important;
@@ -212,7 +210,6 @@ function AppContent() {
             flex-direction: column !important;
             height: 100% !important;
             height: 100dvh !important;
-            height: -webkit-fill-available !important;
             width: 100% !important;
             box-sizing: border-box !important;
             padding-top: env(safe-area-inset-top, 0px) !important;
