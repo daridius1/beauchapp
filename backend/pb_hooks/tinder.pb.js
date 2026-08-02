@@ -24,14 +24,14 @@ onRecordEnrich((e) => {
             try {
                 const match = $app.findFirstRecordByFilter(
                     "tinder_matches",
-                    "userA = {:idA} && userB = {:idB}",
+                    "userA = {:idA} && userB = {:idB} && (status != 'unmatched' || status = '')",
                     { idA: idA, idB: idB }
                 );
                 if (match) {
                     hasMatch = true;
                 }
             } catch (err) {
-                // Sin match
+                // Sin match activo
             }
         }
 
@@ -117,11 +117,11 @@ onRecordAfterCreateSuccess((e) => {
     }
 }, "tinder_likes");
 
-// 17. Tinder Beauchef: Limpieza de likes al deshacer un match (eliminar likes de ambos lados)
-onRecordAfterDeleteSuccess((e) => {
+// 17. Tinder Beauchef: Limpieza de likes al deshacer un match (al eliminar o al marcar como 'unmatched')
+function deleteReciprocalLikes(matchRecord) {
     try {
-        const userA = e.record.getString("userA");
-        const userB = e.record.getString("userB");
+        const userA = matchRecord.getString("userA");
+        const userB = matchRecord.getString("userB");
 
         // 1. Eliminar like de userA a userB
         try {
@@ -149,7 +149,23 @@ onRecordAfterDeleteSuccess((e) => {
             }
         } catch (err) {}
     } catch (err) {
-        console.log("[Tinder Match] Error cleaning up likes after match delete:", err.message || err);
+        console.log("[Tinder Match] Error cleaning up likes:", err.message || err);
     }
+}
+
+onRecordAfterUpdateSuccess((e) => {
+    try {
+        const status = e.record.getString("status");
+        if (status === "unmatched") {
+            deleteReciprocalLikes(e.record);
+        }
+    } catch (err) {
+        console.log("[Tinder Match] Error in onRecordAfterUpdateSuccess:", err.message || err);
+    }
+    return e.next();
+}, "tinder_matches");
+
+onRecordAfterDeleteSuccess((e) => {
+    deleteReciprocalLikes(e.record);
 }, "tinder_matches");
 

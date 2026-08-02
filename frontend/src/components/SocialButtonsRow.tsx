@@ -11,6 +11,7 @@ export interface SocialContactData {
   whatsapp?: string;
   signal?: string;
   email?: string;
+  website?: string;
 }
 
 interface Props {
@@ -21,7 +22,7 @@ interface Props {
 
 export const SocialButtonsRow: React.FC<Props> = ({ contacts, onMarketplacePress, style }) => {
   const [activeModal, setActiveModal] = useState<{
-    type: 'whatsapp' | 'instagram' | 'telegram' | 'signal' | 'email';
+    type: 'whatsapp' | 'instagram' | 'telegram' | 'signal' | 'email' | 'website';
     title: string;
     value: string;
     actionUrl: string;
@@ -37,9 +38,9 @@ export const SocialButtonsRow: React.FC<Props> = ({ contacts, onMarketplacePress
     }
   };
 
-  const { instagram, telegram, whatsapp, signal, email } = contacts;
+  const { instagram, telegram, whatsapp, signal, email, website } = contacts;
 
-  const hasAnyContact = !!instagram || !!telegram || !!whatsapp || !!signal || !!email || !!onMarketplacePress;
+  const hasAnyContact = !!instagram || !!telegram || !!whatsapp || !!signal || !!email || !!website || !!onMarketplacePress;
   if (!hasAnyContact) return null;
 
   return (
@@ -148,6 +149,31 @@ export const SocialButtonsRow: React.FC<Props> = ({ contacts, onMarketplacePress
           }}
         >
           <FontAwesome name="envelope" size={18} color="#EA4335" />
+        </TouchableOpacity>
+      )}
+
+      {/* Botón Sitio Web */}
+      {!!website && (
+        <TouchableOpacity
+          style={[styles.contactSquareBtn, { borderColor: 'rgba(59, 130, 246, 0.3)', backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}
+          activeOpacity={0.7}
+          onPress={() => {
+            let url = website.trim();
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+              url = `https://${url}`;
+            }
+            setActiveModal({
+              type: 'website',
+              title: 'Sitio Web',
+              value: website.trim(),
+              actionUrl: url,
+              iconName: 'globe',
+              iconFamily: 'Feather',
+              color: '#3b82f6',
+            });
+          }}
+        >
+          <Feather name="globe" size={18} color="#3b82f6" />
         </TouchableOpacity>
       )}
 

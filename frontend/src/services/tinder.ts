@@ -167,6 +167,27 @@ export const tinderService = {
   },
 
   /**
+   * Deshace un match actualizando su estado a 'unmatched' y registrando quién lo deshizo
+   */
+  unmatch: async (matchId: string, currentUserId: string): Promise<boolean> => {
+    try {
+      await pb.collection('tinder_matches').update(matchId, {
+        status: 'unmatched',
+        unmatchedBy: currentUserId,
+      });
+      return true;
+    } catch (err) {
+      console.error('Error unmatching:', err);
+      try {
+        await pb.collection('tinder_matches').delete(matchId);
+        return true;
+      } catch (dErr) {
+        throw err;
+      }
+    }
+  },
+
+  /**
    * Elimina un match por su ID
    */
   deleteMatch: async (matchId: string): Promise<boolean> => {

@@ -300,19 +300,33 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
 
       // Query tinder_profiles for matches to get descriptions & verified contact handles
       let profileFilter = matchedUserIds.map(id => `user = "${id}"`).join(' || ');
-      const profilesRes = await pb.collection('tinder_profiles').getFullList({
-        filter: `(${profileFilter})`,
-        expand: 'user'
+      let profilesRes: any[] = [];
+      try {
+        profilesRes = await pb.collection('tinder_profiles').getFullList({
+          filter: `(${profileFilter})`,
+          expand: 'user'
+        });
+      } catch (pErr) {}
+
+      // Map matches with their profile & status details
+      const matchedData = matchesRes.map(m => {
+        const otherUserId = m.userA === user.id ? m.userB : m.userA;
+        const profile = profilesRes.find(p => p.user === otherUserId);
+        const matchedUserObj = profile?.expand?.user || (m.userA === user.id ? m.expand?.userB : m.expand?.userA);
+        return {
+          profile: profile || {},
+          user: matchedUserObj,
+          matchId: m.id,
+          status: m.status || 'active',
+          unmatchedBy: m.unmatchedBy,
+        };
       });
 
-      // Map profiles with their user details
-      const matchedData = profilesRes.map(p => {
-        const matchedUserObj = p.expand?.user;
-        return {
-          profile: p,
-          user: matchedUserObj,
-          matchId: matchesRes.find(m => m.userA === matchedUserObj.id || m.userB === matchedUserObj.id)?.id
-        };
+      // Sort: active matches first, unmatched matches at the bottom
+      matchedData.sort((a, b) => {
+        if (a.status === 'active' && b.status !== 'active') return -1;
+        if (a.status !== 'active' && b.status === 'active') return 1;
+        return 0;
       });
 
       setMatches(matchedData);
@@ -619,34 +633,21 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const performUnmatch = async (matchId: string) => {
     if (!selectedMatch || !user) return;
-    const targetUserId = selectedMatch.user.id;
     try {
-      // 1. Delete match record
-      await tinderService.deleteMatch(matchId);
-      
-      // 2. Delete tinder_likes record from current user to target user
-      try {
-        const like = await tinderService.getLikeBetweenUsers(user.id, targetUserId);
-        if (like) {
-          await tinderService.deleteLike(like.id);
-        }
-      } catch (_) {
-        // Like not found or already deleted
-      }
+      // 1. Mark match as unmatched (triggers backend hook to delete reciprocal likes)
+      await tinderService.unmatch(matchId, user.id);
 
       Toast.show({
         type: 'success',
         text1: 'Match deshecho',
-        text2: 'El match ha sido eliminado.'
+        text2: 'Se han eliminado los likes recíprocos de ambos usuarios.'
       });
 
       // Close modals
       setShowUnmatchConfirmModal(false);
       setShowMatchDetailModal(false);
       
-      // Switch tab to discover and reload
-      setActiveTab('discover');
-      fetchDiscover();
+      // Reload matches list so it displays as 'Match deshecho'
       fetchMatches();
     } catch (err) {
       Toast.show({
@@ -907,40 +908,52 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
             <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
           ) : matches.length > 0 ? (
             <ScrollView contentContainerStyle={styles.matchesScroll} showsVerticalScrollIndicator={false}>
-              {matches.map((item, idx) => (
-                <TouchableOpacity 
-                  key={idx}
-                  style={styles.matchCard}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    setSelectedMatch(item);
-                    setShowMatchDetailModal(true);
-                  }}
-                >
-                  <Avatar user={item.user} size={50} />
-                  <View style={styles.matchCardBody}>
-                    <Text style={styles.matchCardName}>{item.user?.name || 'Usuario'}</Text>
-                    {!!item.user?.username && (
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          if (item.user?.id) {
-                            navigation.navigate('UserProfile', { userId: item.user.id });
-                          }
-                        }}
-                        style={{ alignSelf: 'flex-start' }}
-                      >
-                        <Text style={styles.matchCardUsername}>@{item.user.username}</Text>
-                      </TouchableOpacity>
-                    )}
-                    <Text style={styles.matchCardDesc} numberOfLines={1}>
-                      {item.profile.description || 'Sin descripción'}
-                    </Text>
-                  </View>
-                  <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
-                </TouchableOpacity>
-              ))}
+              {matches.map((item, idx) => {
+                const isUnmatched = item.status === 'unmatched';
+                return (
+                  <TouchableOpacity 
+                    key={idx}
+                    style={[styles.matchCard, isUnmatched && { opacity: 0.6, borderColor: 'rgba(255,255,255,0.05)' }]}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setSelectedMatch(item);
+                      setShowMatchDetailModal(true);
+                    }}
+                  >
+                    <Avatar user={item.user} size={50} />
+                    <View style={styles.matchCardBody}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[styles.matchCardName, isUnmatched && { color: theme.colors.textMuted }]}>
+                          {item.user?.name || 'Usuario'}
+                        </Text>
+                        {isUnmatched && (
+                          <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+                            <Text style={{ color: '#f87171', fontSize: 10, fontWeight: '700' }}>Match deshecho</Text>
+                          </View>
+                        )}
+                      </View>
+                      {!!item.user?.username && (
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            if (item.user?.id) {
+                              navigation.navigate('UserProfile', { userId: item.user.id });
+                            }
+                          }}
+                          style={{ alignSelf: 'flex-start' }}
+                        >
+                          <Text style={styles.matchCardUsername}>@{item.user.username}</Text>
+                        </TouchableOpacity>
+                      )}
+                      <Text style={styles.matchCardDesc} numberOfLines={1}>
+                        {isUnmatched ? 'Este match fue deshecho' : (item.profile?.description || 'Sin descripción')}
+                      </Text>
+                    </View>
+                    <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           ) : (
             <View style={styles.emptyDiscoverBox}>
@@ -1594,67 +1607,78 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
 
               {/* Contact Networks */}
               <Text style={styles.matchSectionLabel}>Contacto</Text>
-              <View style={{ gap: theme.spacing.sm, marginTop: theme.spacing.xs }}>
-                {!!selectedMatch.profile.instagram && (
-                  <TouchableOpacity 
-                    style={[styles.unlockedContactItem, { borderColor: '#E1306C' }]}
-                    onPress={() => openSocialLink('instagram', selectedMatch.profile.instagram)}
-                  >
-                    <FontAwesome name="instagram" size={20} color="#E1306C" style={{ marginRight: 10 }} />
-                    <Text style={styles.unlockedContactText}>@{selectedMatch.profile.instagram}</Text>
-                    <Feather name="external-link" size={12} color="#E1306C" style={{ marginLeft: 'auto' }} />
-                  </TouchableOpacity>
-                )}
-
-                {!!selectedMatch.profile.whatsapp && (
-                  <TouchableOpacity 
-                    style={[styles.unlockedContactItem, { borderColor: '#25D366' }]}
-                    onPress={() => openSocialLink('whatsapp', selectedMatch.profile.whatsapp)}
-                  >
-                    <FontAwesome name="whatsapp" size={20} color="#25D366" style={{ marginRight: 10 }} />
-                    <Text style={styles.unlockedContactText}>{selectedMatch.profile.whatsapp}</Text>
-                    <Feather name="external-link" size={12} color="#25D366" style={{ marginLeft: 'auto' }} />
-                  </TouchableOpacity>
-                )}
-
-                {!!selectedMatch.profile.telegram && (
-                  <TouchableOpacity 
-                    style={[styles.unlockedContactItem, { borderColor: '#0088cc' }]}
-                    onPress={() => openSocialLink('telegram', selectedMatch.profile.telegram)}
-                  >
-                    <FontAwesome name="paper-plane" size={18} color="#0088cc" style={{ marginRight: 10 }} />
-                    <Text style={styles.unlockedContactText}>Telegram</Text>
-                    <Feather name="external-link" size={12} color="#0088cc" style={{ marginLeft: 'auto' }} />
-                  </TouchableOpacity>
-                )}
-
-                {!!selectedMatch.profile.signal && (
-                  <TouchableOpacity 
-                    style={[styles.unlockedContactItem, { borderColor: '#3a76f0' }]}
-                    onPress={() => openSocialLink('signal', selectedMatch.profile.signal)}
-                  >
-                    <Image source={{ uri: SIGNAL_LOGO_BASE64 }} style={{ width: 20, height: 20, borderRadius: 10, marginRight: 10 }} />
-                    <Text style={styles.unlockedContactText}>Signal: {selectedMatch.profile.signal}</Text>
-                    <Feather name="external-link" size={12} color="#3a76f0" style={{ marginLeft: 'auto' }} />
-                  </TouchableOpacity>
-                )}
-
-                {!selectedMatch.profile.instagram && !selectedMatch.profile.whatsapp && !selectedMatch.profile.telegram && !selectedMatch.profile.signal && (
-                  <Text style={{ fontStyle: 'italic', color: '#606060', fontSize: 13 }}>
-                    No especificó datos de contacto.
+              {selectedMatch.status === 'unmatched' ? (
+                <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)', borderRadius: 10, padding: 14, marginTop: 8 }}>
+                  <Text style={{ color: '#f87171', fontSize: 13, fontWeight: '700', marginBottom: 4 }}>Match deshecho</Text>
+                  <Text style={{ color: theme.colors.textMuted, fontSize: 12, lineHeight: 18 }}>
+                    Este match ha sido deshecho. Se eliminaron los likes recíprocos y los datos de contacto ya no están disponibles.
                   </Text>
-                )}
-              </View>
+                </View>
+              ) : (
+                <>
+                  <View style={{ gap: theme.spacing.sm, marginTop: theme.spacing.xs }}>
+                    {!!selectedMatch.profile.instagram && (
+                      <TouchableOpacity 
+                        style={[styles.unlockedContactItem, { borderColor: '#E1306C' }]}
+                        onPress={() => openSocialLink('instagram', selectedMatch.profile.instagram)}
+                      >
+                        <FontAwesome name="instagram" size={22} color="#E1306C" style={{ marginRight: 10 }} />
+                        <Text style={styles.unlockedContactText}>@{selectedMatch.profile.instagram}</Text>
+                        <Feather name="external-link" size={14} color="#E1306C" style={{ marginLeft: 'auto' }} />
+                      </TouchableOpacity>
+                    )}
 
-              <View style={{ height: 20 }} />
-              
-              <TouchableOpacity
-                style={styles.unmatchBtn}
-                onPress={() => handleUnmatch(selectedMatch.matchId)}
-              >
-                <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
-                <Text style={styles.unmatchBtnText}>Deshacer Match</Text>
-              </TouchableOpacity>
+                    {!!selectedMatch.profile.whatsapp && (
+                      <TouchableOpacity 
+                        style={[styles.unlockedContactItem, { borderColor: '#25D366' }]}
+                        onPress={() => openSocialLink('whatsapp', selectedMatch.profile.whatsapp)}
+                      >
+                        <FontAwesome name="whatsapp" size={22} color="#25D366" style={{ marginRight: 10 }} />
+                        <Text style={styles.unlockedContactText}>WhatsApp: {selectedMatch.profile.whatsapp}</Text>
+                        <Feather name="external-link" size={14} color="#25D366" style={{ marginLeft: 'auto' }} />
+                      </TouchableOpacity>
+                    )}
+
+                    {!!selectedMatch.profile.telegram && (
+                      <TouchableOpacity 
+                        style={[styles.unlockedContactItem, { borderColor: '#0088cc' }]}
+                        onPress={() => openSocialLink('telegram', selectedMatch.profile.telegram)}
+                      >
+                        <FontAwesome name="paper-plane" size={18} color="#0088cc" style={{ marginRight: 10 }} />
+                        <Text style={styles.unlockedContactText}>Telegram</Text>
+                        <Feather name="external-link" size={12} color="#0088cc" style={{ marginLeft: 'auto' }} />
+                      </TouchableOpacity>
+                    )}
+
+                    {!!selectedMatch.profile.signal && (
+                      <TouchableOpacity 
+                        style={[styles.unlockedContactItem, { borderColor: '#3a76f0' }]}
+                        onPress={() => openSocialLink('signal', selectedMatch.profile.signal)}
+                      >
+                        <Image source={{ uri: SIGNAL_LOGO_BASE64 }} style={{ width: 20, height: 20, borderRadius: 10, marginRight: 10 }} />
+                        <Text style={styles.unlockedContactText}>Signal: {selectedMatch.profile.signal}</Text>
+                        <Feather name="external-link" size={12} color="#3a76f0" style={{ marginLeft: 'auto' }} />
+                      </TouchableOpacity>
+                    )}
+
+                    {!selectedMatch.profile.instagram && !selectedMatch.profile.whatsapp && !selectedMatch.profile.telegram && !selectedMatch.profile.signal && (
+                      <Text style={{ fontStyle: 'italic', color: '#606060', fontSize: 13 }}>
+                        No especificó datos de contacto.
+                      </Text>
+                    )}
+                  </View>
+
+                  <View style={{ height: 20 }} />
+                  
+                  <TouchableOpacity
+                    style={styles.unmatchBtn}
+                    onPress={() => handleUnmatch(selectedMatch.matchId)}
+                  >
+                    <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
+                    <Text style={styles.unmatchBtnText}>Deshacer Match</Text>
+                  </TouchableOpacity>
+                </>
+              )}
 
               <View style={{ height: 40 }} />
             </ScrollView>

@@ -104,25 +104,7 @@ export const UserChipsRow: React.FC<Props> = ({
         </View>
       )}
 
-      {/* Pin de Sitio Web */}
-      {!!user.website && (
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => {
-            let url = user.website!.trim();
-            if (!url.startsWith('http://') && !url.startsWith('https://')) {
-              url = `https://${url}`;
-            }
-            Linking.openURL(url).catch(() => {});
-          }}
-          style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.websiteChip, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
-        >
-          <Feather name="globe" size={isSmall ? 10 : 12} color="#3b82f6" />
-          <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.websiteChipText]}>
-            Web
-          </Text>
-        </TouchableOpacity>
-      )}
+
 
       {/* Chips de ELO / Ladders (1v1 es limpio, 2v2 muestra ícono de duos/colaboración) */}
       {validLadderRanks.map((rank) => {

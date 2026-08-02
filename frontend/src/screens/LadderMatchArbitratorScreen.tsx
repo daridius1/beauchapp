@@ -9,6 +9,7 @@ import { RootStackParamList } from '../types/navigation';
 import { TacaTacaArbitrator } from '../components/arbitrators/TacaTacaArbitrator';
 import { TableTennisArbitrator } from '../components/arbitrators/TableTennisArbitrator';
 import { TipTapArbitrator } from '../components/arbitrators/TipTapArbitrator';
+import { ChessArbitrator } from '../components/arbitrators/ChessArbitrator';
 
 type ArbitratorScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LadderMatchArbitrator'>;
 type ArbitratorScreenRouteProp = RouteProp<RootStackParamList, 'LadderMatchArbitrator'>;
@@ -66,6 +67,10 @@ export const LadderMatchArbitratorScreen: React.FC<Props> = ({ navigation, route
 
   if (ladder.slug.startsWith('tiptap')) {
     return <TipTapArbitrator ladder={ladder} navigation={navigation} />;
+  }
+
+  if (ladder.slug.startsWith('ajedrez') || ladder.slug.startsWith('chess')) {
+    return <ChessArbitrator ladder={ladder} navigation={navigation} />;
   }
 
   // Fallback por defecto: Taca Taca

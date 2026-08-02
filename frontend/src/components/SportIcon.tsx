@@ -46,6 +46,10 @@ export const SportIcon: React.FC<Props> = ({ name, slug, size = 13, color = '#38
     return <MaterialCommunityIcons name="circle-outline" size={size + 1} color={color} style={style} />;
   }
 
+  if (str.includes('ajedrez') || str.includes('chess')) {
+    return <MaterialCommunityIcons name="chess-king" size={size + 2} color={color} style={style} />;
+  }
+
   if (str.includes('pádel') || str.includes('padel')) {
     return <MaterialCommunityIcons name="tennis-ball" size={size} color={color} style={style} />;
   }
