@@ -580,7 +580,14 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 onPress={(problem.author && !problem.deleted) ? () => navigation.push('UserProfile', { userId: problem.author }) : undefined}
                 disabled={!problem.author || problem.deleted}
               >
-                <Text style={styles.authorName}>{problemAuthor?.name || (problem.deleted ? 'Usuario Anónimo' : 'Usuario')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+                  <Text style={styles.authorName}>{problemAuthor?.name || (problem.deleted ? 'Usuario Anónimo' : 'Usuario')}</Text>
+                  {problemAuthor?.karma !== undefined && problemAuthor?.karma !== null && !problem.deleted && (
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.textMuted }}>
+                      • Karma {problemAuthor.karma}
+                    </Text>
+                  )}
+                </View>
                 {!!problemAuthor?.username && <Text style={styles.authorHandle}>@{problemAuthor.username}</Text>}
               </TouchableOpacity>
               <Text style={styles.dateText}>{formatDate(problem.created)}</Text>
@@ -767,7 +774,14 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     <View style={styles.answerHeader}>
                       <Avatar user={ansAuthor} size={30} />
                       <View style={styles.answerMeta}>
-                        <Text style={styles.answerAuthorName}>{ansAuthor?.name || 'Usuario'}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+                          <Text style={styles.answerAuthorName}>{ansAuthor?.name || 'Usuario'}</Text>
+                          {ansAuthor?.karma !== undefined && ansAuthor?.karma !== null && (
+                            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.colors.textMuted }}>
+                              • Karma {ansAuthor.karma}
+                            </Text>
+                          )}
+                        </View>
                         {!!ansAuthor?.username && <Text style={styles.answerAuthorHandle}>@{ansAuthor.username}</Text>}
                       </View>
                       <Text style={styles.answerDate}>{formatDate(ans.created)}</Text>

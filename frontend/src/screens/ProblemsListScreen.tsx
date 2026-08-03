@@ -434,7 +434,14 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={styles.cardHeader}>
                   <Avatar user={author} size={30} />
                   <View style={styles.authorMeta}>
-                    <Text style={styles.authorName} numberOfLines={1}>{author?.name || (prob.deleted ? 'Usuario Anónimo' : 'Usuario')}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+                      <Text style={styles.authorName} numberOfLines={1}>{author?.name || (prob.deleted ? 'Usuario Anónimo' : 'Usuario')}</Text>
+                      {author?.karma !== undefined && author?.karma !== null && !prob.deleted && (
+                        <Text style={{ fontSize: 11, fontWeight: '600', color: theme.colors.textMuted }}>
+                          • Karma {author.karma}
+                        </Text>
+                      )}
+                    </View>
                     {!!author?.username && <Text style={styles.authorHandle}>@{author.username}</Text>}
                   </View>
                 </View>
