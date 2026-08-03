@@ -119,10 +119,14 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 
   const renderItem = ({ item }: { item: any }) => {
     const sender = item.expand?.sender;
+    const isUnread = !item.read;
 
     return (
       <TouchableOpacity 
-        style={styles.notificationCard}
+        style={[
+          styles.notificationCard,
+          isUnread && styles.notificationCardUnread,
+        ]}
         onPress={() => handleNotificationPress(item)}
         activeOpacity={0.7}
       >
@@ -137,25 +141,16 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 
           <View style={styles.cardContent}>
             <View style={styles.titleRow}>
-              <Text style={styles.titleText}>{item.title}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                {isUnread && <View style={styles.unreadDot} />}
+                <Text style={[styles.titleText, isUnread && styles.titleTextUnread]} numberOfLines={1}>
+                  {item.title}
+                </Text>
+              </View>
               <Text style={styles.timeText}>{formatTime(item.created)}</Text>
             </View>
-            <Text style={styles.bodyText}>{item.body}</Text>
+            <Text style={[styles.bodyText, isUnread && styles.bodyTextUnread]}>{item.body}</Text>
           </View>
-
-          {item.type === 'match' && (
-            <View style={styles.typeBadge}>
-              <FontAwesome name="heart" size={16} color="#EF4444" />
-            </View>
-          )}
-
-          {item.type === 'mention' && (
-            <View style={[styles.typeBadge, { backgroundColor: 'rgba(255, 255, 255, 0.05)', borderColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1 }]}>
-              <Feather name="at-sign" size={16} color="#CCCCCC" />
-            </View>
-          )}
-
-
         </View>
 
         <View style={styles.cardActions}>
@@ -231,6 +226,18 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.md,
   },
+  notificationCardUnread: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.primary,
+  },
+  unreadDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: theme.colors.primary,
+    marginRight: 6,
+  },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -250,15 +257,18 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'baseline',
+    alignItems: 'center',
     marginBottom: 4,
   },
   titleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.textMuted,
+  },
+  titleTextUnread: {
     fontSize: 15,
-    fontWeight: '700',
-    color: theme.colors.text,
-    flex: 1,
-    marginRight: 8,
+    fontWeight: '800',
+    color: '#ffffff',
   },
   timeText: {
     fontSize: 11,
@@ -269,14 +279,8 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     lineHeight: 18,
   },
-  typeBadge: {
-    marginLeft: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  bodyTextUnread: {
+    color: theme.colors.text,
   },
   cardActions: {
     flexDirection: 'row',
