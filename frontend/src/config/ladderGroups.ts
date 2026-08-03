@@ -13,7 +13,7 @@ export interface SportGroup {
 export const LADDER_GROUPS: SportGroup[] = [
   {
     groupSlug: 'karma',
-    groupName: 'Ranking de Karma',
+    groupName: 'Karma',
     categories: [
       { id: 'karma', label: 'Karma', slug: 'karma' },
     ],

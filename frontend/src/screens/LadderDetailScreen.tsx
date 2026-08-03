@@ -51,7 +51,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       await withMinimumDelay(async () => {
         if (isKarmaLadder) {
-          navigation.setParams({ name: 'Ranking de Karma' });
+          navigation.setParams({ name: 'Karma' });
           const res = await pb.collection('users').getList(1, 100, {
             sort: '-karma',
             filter: 'type != "organization"'

@@ -91,12 +91,16 @@ export const UserChipsRow: React.FC<Props> = ({
     ]}>
       {/* Pin de Karma */}
       {showKarma && (
-        <View style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.karmaChip, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
-          <Feather name="award" size={isSmall ? 11 : 12} color="#f59e0b" />
+        <TouchableOpacity
+          style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.karmaChip]}
+          onPress={onLadderPress ? () => onLadderPress('karma') : undefined}
+          disabled={!onLadderPress}
+          activeOpacity={0.7}
+        >
           <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.karmaChipText]}>
-            {karmaVal > 0 ? `+${karmaVal}` : karmaVal} Karma
+            Karma {karmaVal}
           </Text>
-        </View>
+        </TouchableOpacity>
       )}
 
       {/* Pin de Año de Ingreso (Generación) */}
