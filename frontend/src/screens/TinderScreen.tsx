@@ -126,9 +126,10 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
   // Live preview active photo index in editor tab
   const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0);
 
-  // Ladder ranks and seller profiles cache for candidate users
+  // Ladder ranks, seller profiles and organization memberships cache for candidate users
   const [userLadderRanksMap, setUserLadderRanksMap] = useState<Record<string, any[]>>({});
   const [userSellerProfilesMap, setUserSellerProfilesMap] = useState<Record<string, any>>({});
+  const [userMembershipsMap, setUserMembershipsMap] = useState<Record<string, any[]>>({});
 
   // Helper to fetch ladder ranks & seller profiles for a list of user IDs
   const loadUserChipsData = async (targetUserIds: string[]) => {
@@ -164,6 +165,24 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
         const next = { ...prev };
         sellerRes.forEach((s: any) => {
           next[s.user] = s;
+        });
+        return next;
+      });
+    } catch (_) {}
+
+    try {
+      const membershipsRes = await pb.collection('organization_members').getFullList({
+        filter: `(${filterStr}) && status = "active"`,
+        expand: 'organization',
+      });
+      setUserMembershipsMap((prev) => {
+        const next = { ...prev };
+        membershipsRes.forEach((m: any) => {
+          if (!next[m.user]) {
+            next[m.user] = [m];
+          } else if (!next[m.user].some((existing: any) => existing.id === m.id)) {
+            next[m.user] = [...next[m.user], m];
+          }
         });
         return next;
       });
@@ -819,6 +838,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                       <View style={{ marginVertical: 6, alignItems: 'flex-start' }}>
                         <UserChipsRow
                           user={activeDiscoverUser}
+                          memberships={userMembershipsMap[activeDiscoverUser.id] || []}
                           ladderRanks={userLadderRanksMap[activeDiscoverUser.id] || []}
                           sellerProfile={userSellerProfilesMap[activeDiscoverUser.id]}
                           align="left"
@@ -1061,6 +1081,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                   <View style={{ marginVertical: 6, alignItems: 'flex-start' }}>
                     <UserChipsRow
                       user={user}
+                      memberships={userMembershipsMap[user.id] || []}
                       ladderRanks={userLadderRanksMap[user.id] || []}
                       sellerProfile={userSellerProfilesMap[user.id]}
                       align="left"
@@ -1391,6 +1412,9 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                 <View style={{ marginVertical: 8 }}>
                   <UserChipsRow
                     user={matchUser}
+                    memberships={userMembershipsMap[matchUser.id] || []}
+                    ladderRanks={userLadderRanksMap[matchUser.id] || []}
+                    sellerProfile={userSellerProfilesMap[matchUser.id]}
                     onOrgPress={(orgId) => {
                       setShowMatchModal(false);
                       navigation.navigate('UserProfile', { userId: orgId });
@@ -1541,6 +1565,9 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                 <View style={{ marginBottom: theme.spacing.md }}>
                   <UserChipsRow
                     user={selectedMatch.user}
+                    memberships={userMembershipsMap[selectedMatch.user.id] || []}
+                    ladderRanks={userLadderRanksMap[selectedMatch.user.id] || []}
+                    sellerProfile={userSellerProfilesMap[selectedMatch.user.id]}
                     onOrgPress={(orgId) => {
                       setShowMatchDetailModal(false);
                       navigation.navigate('UserProfile', { userId: orgId });
