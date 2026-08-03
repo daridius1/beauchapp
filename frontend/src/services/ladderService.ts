@@ -140,6 +140,18 @@ export const ladderService = {
     return record;
   },
 
+  createMatch: async (data: any): Promise<LadderMatch> => {
+    return await ladderService.submitArbitratedMatch({
+      ladderId: data.ladder || data.ladderId,
+      mode: data.mode || '1v1',
+      teamRed: data.team_red || data.teamRed || [],
+      teamBlue: data.team_blue || data.teamBlue || [],
+      scoreRed: data.score_red ?? data.scoreRed ?? 0,
+      scoreBlue: data.score_blue ?? data.scoreBlue ?? 0,
+      goalHistory: data.goal_history ? (typeof data.goal_history === 'string' ? JSON.parse(data.goal_history) : data.goal_history) : [],
+    });
+  },
+
   // Responder a la confirmación de un partido (Aceptar / Rechazar)
   respondToMatchConfirmation: async (matchId: string, decision: 'accepted' | 'rejected'): Promise<LadderMatch> => {
     const user = pb.authStore.model;

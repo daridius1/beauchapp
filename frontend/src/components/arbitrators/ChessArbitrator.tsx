@@ -100,26 +100,14 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
       const teamRedIds = playerRed.map((p) => p.id);
       const teamBlueIds = playerBlue.map((p) => p.id);
 
-      const status = 'pending_confirmation';
-      const initialConfirmations: Record<string, 'pending' | 'accepted'> = {};
-      [...teamRedIds, ...teamBlueIds].forEach((uid) => {
-        if (uid === currentUser.id) {
-          initialConfirmations[uid] = 'accepted';
-        } else {
-          initialConfirmations[uid] = 'pending';
-        }
-      });
-
-      await ladderService.createMatch({
-        ladder: ladder.id,
+      await ladderService.submitArbitratedMatch({
+        ladderId: ladder.id,
         mode: '1v1',
-        team_red: teamRedIds,
-        team_blue: teamBlueIds,
-        score_red: scoreRed,
-        score_blue: scoreBlue,
-        arbiter: currentUser.id,
-        status: status,
-        confirmations: JSON.stringify(initialConfirmations),
+        teamRed: teamRedIds,
+        teamBlue: teamBlueIds,
+        scoreRed,
+        scoreBlue,
+        goalHistory: [],
       });
 
       setHasSavedMatch(true);
