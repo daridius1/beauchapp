@@ -85,13 +85,14 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       }
       identity += '@ing.uchile.cl';
     } else {
-      // Login: solo aceptar correo institucional
-      if (!identity.includes('@')) {
-        identity += '@ing.uchile.cl';
-      }
-      if (!identity.endsWith('@ing.uchile.cl')) {
-        setLocalError('Debes usar tu correo @ing.uchile.cl');
-        return;
+      // Login: Aceptar nombre de usuario (sin @) o correo institucional (con @)
+      if (identity.includes('@')) {
+        const parts = identity.split('@');
+        const domain = parts[parts.length - 1].toLowerCase();
+        if (domain !== 'ing.uchile.cl' && !domain.includes('.')) {
+          setLocalError('Debes usar tu correo institucional @ing.uchile.cl o tu nombre de usuario');
+          return;
+        }
       }
     }
     if (!isForgotPassword && (!password || password.length < 8)) {
