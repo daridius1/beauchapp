@@ -76,7 +76,7 @@ export const UserChipsRow: React.FC<Props> = ({
   // Filtrar ladders que tengan show_on_profile en true
   const validLadderRanks = ladderRanks.filter(r => r.show_on_profile !== false && (r.ordinal_rating || r.rating || r.points || r.mu));
 
-  const showKarma = user.type !== 'organization' && user.show_karma_on_profile !== false;
+  const showKarma = user.type !== 'organization' && Boolean(user.show_karma_on_profile);
   const karmaVal = user.karma || 0;
 
   const hasAnyChip = entryYearText || deptText || showKarma || memberships.length > 0 || !!sellerProfile || validLadderRanks.length > 0;

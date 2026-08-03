@@ -2,18 +2,13 @@
 
 // Hook para cálculo automático de Karma en el módulo de Problemas y Pautas
 
-console.log("[LOAD] karma.pb.js hook loaded!");
-
 function recalculateUserKarma(userId) {
     if (!userId) return;
     try {
-        // 1. Obtener problemas y pautas activos creados por este usuario
-        const authorProblems = $app.findRecordsByFilter(
+        // Consulta directa usando dbx.hashExp para 100% de confiabilidad
+        const authorProblems = $app.findAllRecords(
             "problems",
-            `author = "${userId}" && deleted = false`,
-            "",
-            5000,
-            0
+            $dbx.hashExp({ "author": userId })
         );
 
         if (!authorProblems || authorProblems.length === 0) {
@@ -29,17 +24,16 @@ function recalculateUserKarma(userId) {
 
         for (let i = 0; i < authorProblems.length; i++) {
             const prob = authorProblems[i];
+            // Omitir si la publicación fue eliminada
+            if (prob.getBool("deleted")) continue;
+
             const isPauta = Boolean(prob.getString("parent"));
 
-            // Obtener todas las calificaciones asociadas a esta publicación
             let ratings = [];
             try {
-                ratings = $app.findRecordsByFilter(
+                ratings = $app.findAllRecords(
                     "problem_ratings",
-                    `problem = "${prob.id}"`,
-                    "",
-                    5000,
-                    0
+                    $dbx.hashExp({ "problem": prob.id })
                 );
             } catch (rErr) {}
 
@@ -74,7 +68,7 @@ function recalculateUserKarma(userId) {
     }
 }
 
-// Hook al crear o actualizar una calificación en problem_ratings
+// Hook al crear una calificación en problem_ratings
 onRecordAfterCreateSuccess((e) => {
     try {
         const problemId = e.record.getString("problem");
@@ -88,6 +82,7 @@ onRecordAfterCreateSuccess((e) => {
     }
 }, "problem_ratings");
 
+// Hook al actualizar una calificación en problem_ratings
 onRecordAfterUpdateSuccess((e) => {
     try {
         const problemId = e.record.getString("problem");
@@ -101,6 +96,7 @@ onRecordAfterUpdateSuccess((e) => {
     }
 }, "problem_ratings");
 
+// Hook al borrar una calificación en problem_ratings
 onRecordAfterDeleteSuccess((e) => {
     try {
         const problemId = e.record.getString("problem");
@@ -114,13 +110,22 @@ onRecordAfterDeleteSuccess((e) => {
     }
 }, "problem_ratings");
 
-// Hook si se elimina un problema o pauta
+// Hook si se marca como borrado o restaura un problema o pauta
 onRecordAfterUpdateSuccess((e) => {
     try {
-        const isDeleted = e.record.getBool("deleted");
         const authorId = e.record.getString("author");
-        if (isDeleted && authorId) {
+        if (authorId) {
             recalculateUserKarma(authorId);
         }
     } catch (err) {}
 }, "problems");
+
+// Recálculo inicial de todos los usuarios al iniciar servidor
+try {
+    const allUsers = $app.findAllRecords("users");
+    for (let uIdx = 0; uIdx < allUsers.length; uIdx++) {
+        recalculateUserKarma(allUsers[uIdx].id);
+    }
+} catch (bootErr) {
+    console.log("[karma.pb.js] Error en recálculo inicial:", bootErr);
+}

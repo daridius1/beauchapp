@@ -32,7 +32,7 @@ export const SettingsScreen: React.FC = () => {
   // Insignias / Pins para Estudiantes
   const [entryYear, setEntryYear] = useState(user?.entry_year || '');
   const [department, setDepartment] = useState(user?.department || '');
-  const [showKarmaOnProfile, setShowKarmaOnProfile] = useState(user?.show_karma_on_profile !== false);
+  const [showKarmaOnProfile, setShowKarmaOnProfile] = useState(Boolean(user?.show_karma_on_profile));
 
   // Biografía / Descripción del Perfil Principal
   const [description, setDescription] = useState(user?.description || '');
