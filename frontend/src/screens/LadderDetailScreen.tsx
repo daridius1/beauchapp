@@ -31,6 +31,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [activeCategory, setActiveCategory] = useState<CategoryOption>(sportGroupInfo.activeCategory);
 
   const isKarmaLadder = slug === 'karma' || sportGroupInfo.group.groupSlug === 'karma';
+  const [ladder, setLadder] = useState<Ladder | null>(null);
   const [karmaUsers, setKarmaUsers] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<LadderRank[]>([]);
   const [matches, setMatches] = useState<LadderMatch[]>([]);
@@ -137,13 +138,6 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           />
         }
       >
-        <View style={styles.karmaHeaderCard}>
-          <Text style={styles.karmaHeaderTitle}>🎖️ Ranking de Karma</Text>
-          <Text style={styles.karmaHeaderSub}>
-            Estudiantes destacados por sus aportes de problemas y pautas a la comunidad.
-          </Text>
-        </View>
-
         <View style={styles.sectionContainer}>
           {karmaUsers.length === 0 ? (
             <View style={styles.emptyContainer}>

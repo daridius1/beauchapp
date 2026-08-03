@@ -89,7 +89,7 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.listContainer}>
         {displayedGroups.map((group) => {
           const isKarma = group.groupSlug === 'karma';
-          const categoriesLabel = isKarma ? 'Comunidad y Aporte' : group.categories.map((c) => c.label).join(' / ');
+          const categoriesLabel = isKarma ? '' : group.categories.map((c) => c.label).join(' / ');
           const defaultSlug = group.categories[0].slug;
 
           return (
@@ -100,11 +100,8 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
               onPress={() => navigation.navigate('LadderDetail', { slug: defaultSlug, name: group.groupName })}
             >
               <View style={styles.rowMain}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  {isKarma && <Text style={{ fontSize: 16 }}>🎖️</Text>}
-                  <Text style={styles.ladderName}>{group.groupName}</Text>
-                </View>
-                <Text style={styles.categoriesText}>{categoriesLabel}</Text>
+                <Text style={styles.ladderName}>{group.groupName}</Text>
+                {categoriesLabel ? <Text style={styles.categoriesText}>{categoriesLabel}</Text> : null}
               </View>
 
               <Feather name="chevron-right" color={theme.colors.textMuted} size={22} />
