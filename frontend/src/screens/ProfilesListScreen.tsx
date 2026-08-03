@@ -33,6 +33,7 @@ const PROFILE_TYPE_SUGGESTIONS = [
 
 const ORG_SUBTYPE_SUGGESTIONS = [
   'Todas las organizaciones',
+  'Organizaciones',
   'Comunidades',
   'Centros de Estudiantes',
   'Equipos',
@@ -50,7 +51,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // Filtros de Selectores
   const [profileType, setProfileType] = useState<'all' | 'student' | 'organization'>('all');
-  const [orgSubtype, setOrgSubtype] = useState<'all' | 'community' | 'center' | 'team' | 'band'>('all');
+  const [orgSubtype, setOrgSubtype] = useState<'all' | 'community' | 'center' | 'team' | 'band' | 'organization'>('all');
 
   // Modales de Selección
   const [showTypeModal, setShowTypeModal] = useState(false);
@@ -209,6 +210,7 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const getOrgSubtypeLabel = () => {
+    if (orgSubtype === 'organization') return 'Organización';
     if (orgSubtype === 'community') return 'Comunidades';
     if (orgSubtype === 'center') return 'Centros';
     if (orgSubtype === 'team') return 'Equipos';
@@ -364,6 +366,8 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
                           ? 'Comunidad'
                           : profile.subtype === 'band'
                           ? 'Banda'
+                          : profile.subtype === 'organization'
+                          ? 'Organización'
                           : 'Org'}
                       </Text>
                     </View>
@@ -410,6 +414,8 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
         onSelect={(val) => {
           if (!val || val === 'Todas las organizaciones') {
             setOrgSubtype('all');
+          } else if (val === 'Organizaciones' || val === 'Organización') {
+            setOrgSubtype('organization');
           } else if (val === 'Comunidades') {
             setOrgSubtype('community');
           } else if (val === 'Centros de Estudiantes') {

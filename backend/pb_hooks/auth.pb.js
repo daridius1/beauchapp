@@ -164,6 +164,7 @@ routerAdd("GET", "/register-org", (e) => {
     else if (subtype === "team") subtypeText = "Equipo Oficial";
     else if (subtype === "community") subtypeText = "Comunidad libre";
     else if (subtype === "band") subtypeText = "Banda / Grupo Musical";
+    else if (subtype === "organization") subtypeText = "Organización";
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -749,6 +750,7 @@ routerAdd("GET", "/admin/generate-link", (e) => {
                     <option value="team">Equipo Oficial</option>
                     <option value="community">Comunidad libre</option>
                     <option value="band">Banda / Grupo Musical</option>
+                    <option value="organization">Organización</option>
                 </select>
             </div>
             <button type="submit" class="btn">Generar Enlace</button>
@@ -917,7 +919,7 @@ routerAdd("POST", "/api/admin/generate-link", (e) => {
     const body = e.requestInfo().body;
     const subtype = body.subtype || "";
 
-    if (subtype !== "center" && subtype !== "team" && subtype !== "community" && subtype !== "band") {
+    if (subtype !== "center" && subtype !== "team" && subtype !== "community" && subtype !== "band" && subtype !== "organization") {
         return e.json(400, { error: "El subtipo no es válido." });
     }
 

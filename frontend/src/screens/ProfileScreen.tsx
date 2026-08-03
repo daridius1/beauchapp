@@ -297,6 +297,7 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                    profileUser.subtype === 'team' ? 'Equipo Oficial' :
                    profileUser.subtype === 'community' ? 'Comunidad libre' :
                    profileUser.subtype === 'band' ? 'Banda / Grupo Musical' :
+                   profileUser.subtype === 'organization' ? 'Organización' :
                    'Organización'}
                 </Text>
               </View>
