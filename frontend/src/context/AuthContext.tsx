@@ -35,6 +35,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string, username: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   clearError: () => void;
   requestVerification: (email: string) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
@@ -196,6 +197,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
+  const refreshUser = async () => {
+    if (!pb.authStore.model?.id) return;
+    try {
+      const updated = await pb.collection('users').getOne(pb.authStore.model.id);
+      setUser(updated as unknown as User);
+      pb.authStore.save(pb.authStore.token, updated);
+    } catch (_) {}
+  };
+
   const clearError = () => {
     setError(null);
   };
@@ -221,7 +231,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await pb.collection('users').requestPasswordReset(email);
     } catch (err: any) {
       console.error('requestPasswordReset error:', err);
-      setError(getFriendlyErrorMessage(err, 'Error al solicitar restablecimiento de contraseña.'));
+      setError(getFriendlyErrorMessage(err, 'Error al solicitar recuperación de contraseña.'));
       throw err;
     } finally {
       setLoading(false);
@@ -235,7 +245,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await pb.collection('users').confirmPasswordReset(token, password, passwordConfirm);
     } catch (err: any) {
       console.error('confirmPasswordReset error:', err);
-      setError(getFriendlyErrorMessage(err, 'Error al restablecer contraseña.'));
+      setError(getFriendlyErrorMessage(err, 'Error al restablecer la contraseña. Token inválido o expirado.'));
       throw err;
     } finally {
       setLoading(false);
@@ -249,7 +259,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await pb.collection('users').confirmVerification(token);
     } catch (err: any) {
       console.error('confirmVerification error:', err);
-      setError(getFriendlyErrorMessage(err, 'Error al confirmar verificación.'));
+      setError(getFriendlyErrorMessage(err, 'Error al verificar la cuenta. Token inválido o expirado.'));
       throw err;
     } finally {
       setLoading(false);
@@ -268,6 +278,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         signup,
         logout,
+        refreshUser,
         clearError,
         requestVerification,
         requestPasswordReset,

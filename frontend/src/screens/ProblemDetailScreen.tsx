@@ -56,7 +56,7 @@ const renderContentBlocks = (contentStr: string) => {
 
 export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { problemId } = route.params;
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   
   const [problem, setProblem] = useState<any>(null);
   const [answers, setAnswers] = useState<any[]>([]);
@@ -383,6 +383,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
       // Actualizamos silenciosamente en background para sincronizar con la DB
       fetchDetail(true);
+      if (refreshUser) refreshUser();
     } catch (err) {
       console.error('Error submitting rating:', err);
       // Rollback Optimistic Update

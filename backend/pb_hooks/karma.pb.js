@@ -2,7 +2,7 @@
 
 // Hook para cálculo automático de Karma en el módulo de Problemas y Pautas
 
-function recalculateUserKarma(userId) {
+globalThis.recalculateUserKarma = function(userId) {
     if (!userId) return;
     try {
         // Consulta directa usando dbx.hashExp para 100% de confiabilidad
@@ -66,7 +66,7 @@ function recalculateUserKarma(userId) {
     } catch (err) {
         console.log(`[karma.pb.js] Error recalculando karma para ${userId}:`, err);
     }
-}
+};
 
 // Hook al crear una calificación en problem_ratings
 onRecordAfterCreateSuccess((e) => {
@@ -75,7 +75,7 @@ onRecordAfterCreateSuccess((e) => {
         if (problemId) {
             const prob = $app.findRecordById("problems", problemId);
             const authorId = prob.getString("author");
-            recalculateUserKarma(authorId);
+            globalThis.recalculateUserKarma(authorId);
         }
     } catch (err) {
         console.log("[karma.pb.js] Error en onRecordAfterCreateSuccess:", err);
@@ -89,7 +89,7 @@ onRecordAfterUpdateSuccess((e) => {
         if (problemId) {
             const prob = $app.findRecordById("problems", problemId);
             const authorId = prob.getString("author");
-            recalculateUserKarma(authorId);
+            globalThis.recalculateUserKarma(authorId);
         }
     } catch (err) {
         console.log("[karma.pb.js] Error en onRecordAfterUpdateSuccess:", err);
@@ -103,7 +103,7 @@ onRecordAfterDeleteSuccess((e) => {
         if (problemId) {
             const prob = $app.findRecordById("problems", problemId);
             const authorId = prob.getString("author");
-            recalculateUserKarma(authorId);
+            globalThis.recalculateUserKarma(authorId);
         }
     } catch (err) {
         console.log("[karma.pb.js] Error en onRecordAfterDeleteSuccess:", err);
@@ -115,7 +115,7 @@ onRecordAfterUpdateSuccess((e) => {
     try {
         const authorId = e.record.getString("author");
         if (authorId) {
-            recalculateUserKarma(authorId);
+            globalThis.recalculateUserKarma(authorId);
         }
     } catch (err) {}
 }, "problems");
@@ -124,7 +124,7 @@ onRecordAfterUpdateSuccess((e) => {
 try {
     const allUsers = $app.findAllRecords("users");
     for (let uIdx = 0; uIdx < allUsers.length; uIdx++) {
-        recalculateUserKarma(allUsers[uIdx].id);
+        globalThis.recalculateUserKarma(allUsers[uIdx].id);
     }
 } catch (bootErr) {
     console.log("[karma.pb.js] Error en recálculo inicial:", bootErr);
