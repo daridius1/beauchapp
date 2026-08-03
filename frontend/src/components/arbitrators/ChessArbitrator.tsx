@@ -93,8 +93,8 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         scoreRed = 0;
         scoreBlue = 1;
       } else if (selectedResult === 'draw') {
-        scoreRed = 1;
-        scoreBlue = 1;
+        scoreRed = 0.5;
+        scoreBlue = 0.5;
       }
 
       const teamRedIds = playerRed.map((p) => p.id);
@@ -146,6 +146,9 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const nameRed = playerRed[0]?.name || 'Jugador 1';
   const nameBlue = playerBlue[0]?.name || 'Jugador 2';
 
+  const userRedObj = playerRed[0] ? { id: playerRed[0].id, collectionId: '_pb_users_auth_', avatar: playerRed[0].avatar, name: playerRed[0].name, username: playerRed[0].username } : null;
+  const userBlueObj = playerBlue[0] ? { id: playerBlue[0].id, collectionId: '_pb_users_auth_', avatar: playerBlue[0].avatar, name: playerBlue[0].name, username: playerBlue[0].username } : null;
+
   if (step === 'setup') {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -173,68 +176,59 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Tarjetas de Jugadores */}
-        <View style={styles.playersOverview}>
-          <View style={[styles.playerCard, styles.playerRedCard]}>
-            <Avatar size={44} user={playerRed[0]} />
-            <Text style={styles.playerRoleText}>Blancas</Text>
-            <Text style={styles.playerNameText} numberOfLines={1}>{nameRed}</Text>
-          </View>
-
-          <Text style={styles.vsText}>VS</Text>
-
-          <View style={[styles.playerCard, styles.playerBlueCard]}>
-            <Avatar size={44} user={playerBlue[0]} />
-            <Text style={styles.playerRoleText}>Negras</Text>
-            <Text style={styles.playerNameText} numberOfLines={1}>{nameBlue}</Text>
-          </View>
-        </View>
-
-        {/* Botones de Resultado */}
-        <View style={styles.resultsContainer}>
-          <Text style={styles.sectionLabel}>RESULTADO DE LA PARTIDA</Text>
-
+        {/* Fila de 3 Botones Cuadrados: Blancas / Empate / Negras */}
+        <View style={styles.chessButtonsRow}>
+          {/* Botón 1: Blancas (Fondo blanco, texto negro, avatar, sin elementos rojos) */}
           <TouchableOpacity
             activeOpacity={0.8}
             style={[
-              styles.resultOptionBtn,
-              selectedResult === 'red_win' && styles.resultOptionRedActive,
+              styles.chessSquareCard,
+              styles.whiteCard,
+              selectedResult === 'red_win' && styles.whiteCardSelected,
             ]}
             onPress={() => setSelectedResult('red_win')}
           >
-            <Text style={[styles.resultOptionTitle, selectedResult === 'red_win' && { color: '#ef4444' }]}>
-              Blancas ({nameRed})
-            </Text>
+            <Avatar size={46} user={userRedObj} />
+            <Text style={styles.whiteRoleText}>Blancas</Text>
+            <Text style={styles.whiteNameText} numberOfLines={1}>{nameRed}</Text>
           </TouchableOpacity>
 
+          {/* Botón 2: Empate (Fondo gris) */}
           <TouchableOpacity
             activeOpacity={0.8}
             style={[
-              styles.resultOptionBtn,
-              selectedResult === 'draw' && styles.resultOptionDrawActive,
+              styles.chessSquareCard,
+              styles.drawCard,
+              selectedResult === 'draw' && styles.drawCardSelected,
             ]}
             onPress={() => setSelectedResult('draw')}
           >
-            <Text style={[styles.resultOptionTitle, selectedResult === 'draw' && { color: '#facc15' }]}>
-              Empate
-            </Text>
+            <MaterialCommunityIcons 
+              name="handshake-outline" 
+              size={34} 
+              color={selectedResult === 'draw' ? '#facc15' : '#a3a3a3'} 
+            />
+            <Text style={[styles.drawRoleText, selectedResult === 'draw' && { color: '#facc15' }]}>Empate</Text>
+            <Text style={styles.drawSubText}>½ - ½</Text>
           </TouchableOpacity>
 
+          {/* Botón 3: Negras (Fondo negro, texto blanco) */}
           <TouchableOpacity
             activeOpacity={0.8}
             style={[
-              styles.resultOptionBtn,
-              selectedResult === 'blue_win' && styles.resultOptionBlueActive,
+              styles.chessSquareCard,
+              styles.blackCard,
+              selectedResult === 'blue_win' && styles.blackCardSelected,
             ]}
             onPress={() => setSelectedResult('blue_win')}
           >
-            <Text style={[styles.resultOptionTitle, selectedResult === 'blue_win' && { color: '#3b82f6' }]}>
-              Negras ({nameBlue})
-            </Text>
+            <Avatar size={46} user={userBlueObj} />
+            <Text style={styles.blackRoleText}>Negras</Text>
+            <Text style={styles.blackNameText} numberOfLines={1}>{nameBlue}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Acciones */}
+        {/* Acciones: Único Botón de Guardar Partido */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={[styles.saveBtn, (!selectedResult || submitting) && styles.saveBtnDisabled]}
@@ -247,14 +241,6 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             ) : (
               <Text style={styles.saveBtnText}>Guardar Partido</Text>
             )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={() => setStep('setup')}
-            disabled={submitting}
-          >
-            <Text style={styles.cancelBtnText}>Volver a Selección de Jugadores</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -269,114 +255,88 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: theme.spacing.md,
+    paddingTop: theme.spacing.lg,
   },
-  header: {
-    marginBottom: theme.spacing.lg,
-    alignItems: 'center',
-  },
-  titleRow: {
+  chessButtonsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  titleText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: theme.colors.text,
-  },
-  subtitleText: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-  },
-  playersOverview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 10,
     marginBottom: theme.spacing.xl,
   },
-  playerCard: {
+  chessSquareCard: {
     flex: 1,
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    padding: theme.spacing.md,
+    aspectRatio: 0.85,
+    borderRadius: 12,
+    borderWidth: 2,
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
   },
-  playerRedCard: {
-    borderColor: 'rgba(239, 68, 68, 0.4)',
+  whiteCard: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e5e5',
   },
-  playerBlueCard: {
-    borderColor: 'rgba(59, 130, 246, 0.4)',
+  whiteCardSelected: {
+    borderColor: '#10b981',
+    borderWidth: 3,
   },
-  playerRoleText: {
+  whiteRoleText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: theme.colors.textMuted,
-    marginTop: 6,
+    fontWeight: '800',
+    color: '#666666',
+    marginTop: 8,
     textTransform: 'uppercase',
   },
-  playerNameText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: theme.colors.text,
+  whiteNameText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#000000',
     marginTop: 2,
+    textAlign: 'center',
   },
-  vsText: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: theme.colors.textMuted,
-    marginHorizontal: 10,
+  drawCard: {
+    backgroundColor: '#222222',
+    borderColor: '#333333',
   },
-  resultsContainer: {
-    marginBottom: theme.spacing.xl,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: theme.colors.textMuted,
-    letterSpacing: 1,
-    marginBottom: 10,
-  },
-  resultOptionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: 14,
-    marginBottom: 10,
-    gap: 12,
-  },
-  resultOptionRedActive: {
-    borderColor: '#ef4444',
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-  },
-  resultOptionDrawActive: {
+  drawCardSelected: {
     borderColor: '#facc15',
-    backgroundColor: 'rgba(250, 204, 21, 0.08)',
+    borderWidth: 3,
   },
-  resultOptionBlueActive: {
-    borderColor: '#3b82f6',
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+  drawRoleText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginTop: 8,
   },
-  resultOptionTextCol: {
-    flex: 1,
-  },
-  resultOptionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: theme.colors.text,
-  },
-  resultOptionSub: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
+  drawSubText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#a3a3a3',
     marginTop: 2,
+  },
+  blackCard: {
+    backgroundColor: '#121212',
+    borderColor: '#333333',
+  },
+  blackCardSelected: {
+    borderColor: '#38bdf8',
+    borderWidth: 3,
+  },
+  blackRoleText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#a3a3a3',
+    marginTop: 8,
+    textTransform: 'uppercase',
+  },
+  blackNameText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginTop: 2,
+    textAlign: 'center',
   },
   actionsContainer: {
-    gap: 10,
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.sm,
   },
   saveBtn: {
     flexDirection: 'row',
@@ -385,22 +345,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.md,
     paddingVertical: 14,
-    gap: 8,
   },
   saveBtnDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   saveBtnText: {
     color: '#000000',
     fontSize: 15,
-    fontWeight: '700',
-  },
-  cancelBtn: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  cancelBtnText: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
+    fontWeight: '800',
   },
 });
