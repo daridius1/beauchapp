@@ -199,6 +199,7 @@ export const ladderService = {
 async function updateRanksForMatch(match: LadderMatch) {
   const ladderId = match.ladder;
   const matchMode = match.mode || '1v1';
+  const isDrawMatch = match.score_red === match.score_blue;
   const redWon = match.score_red > match.score_blue;
   const blueWon = match.score_blue > match.score_red;
 
@@ -212,7 +213,7 @@ async function updateRanksForMatch(match: LadderMatch) {
       });
 
       let rankRecord = records.items[0];
-      const deltaElo = isWinner ? 16 : -10;
+      const deltaElo = isDrawMatch ? 0 : (isWinner ? 16 : -10);
 
       if (rankRecord) {
         const rawElo = rankRecord.ordinal_rating;
@@ -220,7 +221,8 @@ async function updateRanksForMatch(match: LadderMatch) {
         await pb.collection('ladder_ranks').update(rankRecord.id, {
           matches_played: (rankRecord.matches_played || 0) + 1,
           wins: (rankRecord.wins || 0) + (isWinner ? 1 : 0),
-          losses: (rankRecord.losses || 0) + (isWinner ? 0 : 1),
+          draws: (rankRecord.draws || 0) + (isDrawMatch ? 1 : 0),
+          losses: (rankRecord.losses || 0) + (!isWinner && !isDrawMatch ? 1 : 0),
           ordinal_rating: Math.max(100, currentElo + deltaElo),
         });
       } else {
@@ -230,7 +232,8 @@ async function updateRanksForMatch(match: LadderMatch) {
           mode: matchMode,
           matches_played: 1,
           wins: isWinner ? 1 : 0,
-          losses: isWinner ? 0 : 1,
+          draws: isDrawMatch ? 1 : 0,
+          losses: !isWinner && !isDrawMatch ? 1 : 0,
           ordinal_rating: Math.max(100, 1200 + deltaElo),
         });
       }
