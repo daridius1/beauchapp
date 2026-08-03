@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, DeviceEventEmitter, Platform } from 'react-native';
 import { theme } from '../theme/theme';
 import { ladderService } from '../services/ladderService';
+import { pb } from '../services/pocketbase';
 import { Ladder, LadderRank, LadderMatch } from '../types/ladder';
 import { withMinimumDelay } from '../utils/refresh';
 import { Avatar } from '../components/Avatar';
@@ -29,7 +30,8 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const sportGroupInfo = getSportGroup(slug);
   const [activeCategory, setActiveCategory] = useState<CategoryOption>(sportGroupInfo.activeCategory);
 
-  const [ladder, setLadder] = useState<Ladder | null>(null);
+  const isKarmaLadder = slug === 'karma' || sportGroupInfo.group.groupSlug === 'karma';
+  const [karmaUsers, setKarmaUsers] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<LadderRank[]>([]);
   const [matches, setMatches] = useState<LadderMatch[]>([]);
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'matches' | 'my_matches'>('leaderboard');
@@ -47,6 +49,16 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
     try {
       await withMinimumDelay(async () => {
+        if (isKarmaLadder) {
+          navigation.setParams({ name: 'Ranking de Karma' });
+          const res = await pb.collection('users').getList(1, 100, {
+            sort: '-karma',
+            filter: 'type != "organization"'
+          });
+          setKarmaUsers(res.items);
+          return;
+        }
+
         const ladderData = await ladderService.getLadderBySlug(sportGroupInfo.group.groupSlug);
         setLadder(ladderData);
         
@@ -107,6 +119,90 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
+    );
+  }
+
+  if (isKarmaLadder) {
+    return (
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
+      >
+        <View style={styles.karmaHeaderCard}>
+          <Text style={styles.karmaHeaderTitle}>🎖️ Ranking de Karma</Text>
+          <Text style={styles.karmaHeaderSub}>
+            Estudiantes destacados por sus aportes de problemas y pautas a la comunidad.
+          </Text>
+        </View>
+
+        <View style={styles.sectionContainer}>
+          {karmaUsers.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No hay usuarios registrados en el ranking de Karma.</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.tableHeaderRow}>
+                <Text style={styles.thPos}>POS</Text>
+                <Text style={styles.thName}>USUARIO</Text>
+                <Text style={styles.thScore}>KARMA</Text>
+              </View>
+
+              {karmaUsers.map((u, index) => {
+                const position = index + 1;
+                const medal = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : null;
+                const avatarUser = {
+                  id: u.id,
+                  collectionId: '_pb_users_auth_',
+                  avatar: u.avatar,
+                  name: u.name,
+                  username: u.username
+                };
+
+                return (
+                  <TouchableOpacity
+                    key={u.id}
+                    style={styles.rankRow}
+                    activeOpacity={0.7}
+                    onPress={() => navigation.navigate('UserProfile', { userId: u.id })}
+                  >
+                    <View style={{ width: 28, alignItems: 'center', justifyContent: 'center', marginRight: theme.spacing.sm }}>
+                      {medal ? (
+                        <Text style={{ fontSize: 16 }}>{medal}</Text>
+                      ) : (
+                        <Text style={styles.rankPosNumber}>{position}</Text>
+                      )}
+                    </View>
+
+                    <Avatar user={avatarUser} size={34} />
+
+                    <View style={styles.rankInfo}>
+                      <Text style={styles.rankUserName} numberOfLines={1}>
+                        {u.name || u.username || 'Alumno FCFM'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.karmaScoreBadge}>
+                      <Text style={styles.karmaScoreText}>
+                        {u.karma > 0 ? `+${u.karma}` : u.karma || 0}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </>
+          )}
+        </View>
+      </ScrollView>
     );
   }
 
@@ -759,11 +855,42 @@ const styles = StyleSheet.create({
     color: '#ff4444',
   },
   scoreDash: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: theme.colors.textMuted,
-    marginHorizontal: 4,
-    textAlign: 'center',
+    marginHorizontal: 2,
+  },
+  karmaHeaderCard: {
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 12,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  karmaHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  karmaHeaderSub: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    lineHeight: 18,
+  },
+  karmaScoreBadge: {
+    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(234, 179, 8, 0.4)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  karmaScoreText: {
+    color: '#eab308',
+    fontSize: 13,
+    fontWeight: '800',
   },
   scoreNumBlue: {
     minWidth: 20,

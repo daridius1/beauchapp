@@ -12,6 +12,13 @@ export interface SportGroup {
 
 export const LADDER_GROUPS: SportGroup[] = [
   {
+    groupSlug: 'karma',
+    groupName: 'Ranking de Karma',
+    categories: [
+      { id: 'karma', label: 'Karma', slug: 'karma' },
+    ],
+  },
+  {
     groupSlug: 'tenis-de-mesa',
     groupName: 'Tenis de Mesa',
     categories: [
