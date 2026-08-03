@@ -488,6 +488,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     textAlign: 'center',
     marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.md,
     paddingHorizontal: theme.spacing.md,
     lineHeight: 20,
   },
