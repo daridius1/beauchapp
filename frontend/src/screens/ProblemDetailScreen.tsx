@@ -383,7 +383,6 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
       // Actualizamos silenciosamente en background para sincronizar con la DB
       fetchDetail(true);
-      if (refreshUser) refreshUser();
     } catch (err) {
       console.error('Error submitting rating:', err);
       // Rollback Optimistic Update
