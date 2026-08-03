@@ -583,7 +583,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
                   <Text style={styles.authorName}>{problemAuthor?.name || (problem.deleted ? 'Usuario Anónimo' : 'Usuario')}</Text>
                   {problemAuthor?.karma !== undefined && problemAuthor?.karma !== null && !problem.deleted && (
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.textMuted }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#eab308' }}>
                       • Karma {problemAuthor.karma}
                     </Text>
                   )}
@@ -777,7 +777,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
                           <Text style={styles.answerAuthorName}>{ansAuthor?.name || 'Usuario'}</Text>
                           {ansAuthor?.karma !== undefined && ansAuthor?.karma !== null && (
-                            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.colors.textMuted }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#eab308' }}>
                               • Karma {ansAuthor.karma}
                             </Text>
                           )}

@@ -437,7 +437,7 @@ export const ProblemsListScreen: React.FC<Props> = ({ navigation }) => {
                     <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
                       <Text style={styles.authorName} numberOfLines={1}>{author?.name || (prob.deleted ? 'Usuario Anónimo' : 'Usuario')}</Text>
                       {author?.karma !== undefined && author?.karma !== null && !prob.deleted && (
-                        <Text style={{ fontSize: 11, fontWeight: '600', color: theme.colors.textMuted }}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#eab308' }}>
                           • Karma {author.karma}
                         </Text>
                       )}
