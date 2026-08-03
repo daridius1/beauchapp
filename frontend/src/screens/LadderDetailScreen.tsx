@@ -138,6 +138,10 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           />
         }
       >
+        <Text style={styles.karmaExplanationText}>
+          El karma se obtiene aportando contenido en la sección de Problemas y recibiendo buenas evaluaciones por parte de la comunidad, tanto en la calidad de los enunciados como de las pautas publicadas.
+        </Text>
+
         <View style={styles.sectionContainer}>
           {karmaUsers.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -853,16 +857,11 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
-  karmaHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  karmaHeaderSub: {
+  karmaExplanationText: {
     fontSize: 13,
     color: theme.colors.textMuted,
-    lineHeight: 18,
+    lineHeight: 19,
+    marginBottom: theme.spacing.md,
   },
   karmaScoreBadge: {
     backgroundColor: 'rgba(234, 179, 8, 0.15)',
