@@ -149,24 +149,6 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const userRedObj = playerRed[0] ? { id: playerRed[0].id, collectionId: '_pb_users_auth_', avatar: playerRed[0].avatar, name: playerRed[0].name, username: playerRed[0].username } : null;
   const userBlueObj = playerBlue[0] ? { id: playerBlue[0].id, collectionId: '_pb_users_auth_', avatar: playerBlue[0].avatar, name: playerBlue[0].name, username: playerBlue[0].username } : null;
 
-  if (step === 'setup') {
-    return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-        <MatchSetupStep
-          mode="1v1"
-          showModeSelector={false}
-          redLabelText="PIEZAS BLANCAS"
-          blueLabelText="PIEZAS NEGRAS"
-          teamRed={playerRed}
-          setTeamRed={setPlayerRed}
-          teamBlue={playerBlue}
-          setTeamBlue={setPlayerBlue}
-          onStartMatch={handleStartMatch}
-        />
-      </ScrollView>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <ConfirmExitModal
@@ -175,78 +157,94 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         onCancel={handleCancelExit}
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Fila de 3 Botones Cuadrados: Blancas / Empate / Negras */}
-        <View style={styles.chessButtonsRow}>
-          {/* Botón 1: Blancas (Fondo blanco, texto negro, avatar con borde gris, sin nada rojo) */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={[
-              styles.chessSquareCard,
-              styles.whiteCard,
-              selectedResult === 'red_win' && styles.cardSelectedGreen,
-            ]}
-            onPress={() => setSelectedResult('red_win')}
-          >
-            <View style={styles.avatarBorderWhiteCard}>
-              <Avatar size={44} user={userRedObj} />
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+        {step === 'setup' ? (
+          <MatchSetupStep
+            mode="1v1"
+            showModeSelector={false}
+            redLabelText="PIEZAS BLANCAS"
+            blueLabelText="PIEZAS NEGRAS"
+            teamRed={playerRed}
+            setTeamRed={setPlayerRed}
+            teamBlue={playerBlue}
+            setTeamBlue={setPlayerBlue}
+            onStartMatch={handleStartMatch}
+          />
+        ) : (
+          <>
+            {/* Fila de 3 Botones Cuadrados: Blancas / Empate / Negras */}
+            <View style={styles.chessButtonsRow}>
+              {/* Botón 1: Blancas (Fondo blanco, texto negro, avatar con borde gris, sin nada rojo) */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={[
+                  styles.chessSquareCard,
+                  styles.whiteCard,
+                  selectedResult === 'red_win' && styles.cardSelectedGreen,
+                ]}
+                onPress={() => setSelectedResult('red_win')}
+              >
+                <View style={styles.avatarBorderWhiteCard}>
+                  <Avatar size={44} user={userRedObj} />
+                </View>
+                <Text style={styles.whiteRoleText}>Blancas</Text>
+                <Text style={styles.whiteNameText} numberOfLines={1}>{nameRed}</Text>
+              </TouchableOpacity>
+
+              {/* Botón 2: Empate (Fondo gris) */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={[
+                  styles.chessSquareCard,
+                  styles.drawCard,
+                  selectedResult === 'draw' && styles.cardSelectedGreen,
+                ]}
+                onPress={() => setSelectedResult('draw')}
+              >
+                <MaterialCommunityIcons 
+                  name="handshake-outline" 
+                  size={34} 
+                  color={selectedResult === 'draw' ? '#10b981' : '#a3a3a3'} 
+                />
+                <Text style={[styles.drawRoleText, selectedResult === 'draw' && { color: '#10b981' }]}>Empate</Text>
+                <Text style={styles.drawSubText}>½ - ½</Text>
+              </TouchableOpacity>
+
+              {/* Botón 3: Negras (Fondo negro, texto blanco) */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={[
+                  styles.chessSquareCard,
+                  styles.blackCard,
+                  selectedResult === 'blue_win' && styles.cardSelectedGreen,
+                ]}
+                onPress={() => setSelectedResult('blue_win')}
+              >
+                <View style={styles.avatarBorderBlackCard}>
+                  <Avatar size={44} user={userBlueObj} />
+                </View>
+                <Text style={styles.blackRoleText}>Negras</Text>
+                <Text style={styles.blackNameText} numberOfLines={1}>{nameBlue}</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.whiteRoleText}>Blancas</Text>
-            <Text style={styles.whiteNameText} numberOfLines={1}>{nameRed}</Text>
-          </TouchableOpacity>
 
-          {/* Botón 2: Empate (Fondo gris) */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={[
-              styles.chessSquareCard,
-              styles.drawCard,
-              selectedResult === 'draw' && styles.cardSelectedGreen,
-            ]}
-            onPress={() => setSelectedResult('draw')}
-          >
-            <MaterialCommunityIcons 
-              name="handshake-outline" 
-              size={34} 
-              color={selectedResult === 'draw' ? '#10b981' : '#a3a3a3'} 
-            />
-            <Text style={[styles.drawRoleText, selectedResult === 'draw' && { color: '#10b981' }]}>Empate</Text>
-            <Text style={styles.drawSubText}>½ - ½</Text>
-          </TouchableOpacity>
-
-          {/* Botón 3: Negras (Fondo negro, texto blanco) */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={[
-              styles.chessSquareCard,
-              styles.blackCard,
-              selectedResult === 'blue_win' && styles.cardSelectedGreen,
-            ]}
-            onPress={() => setSelectedResult('blue_win')}
-          >
-            <View style={styles.avatarBorderBlackCard}>
-              <Avatar size={44} user={userBlueObj} />
+            {/* Acciones: Único Botón de Guardar Partido */}
+            <View style={styles.actionsContainer}>
+              <TouchableOpacity
+                style={[styles.saveBtn, (!selectedResult || submitting) && styles.saveBtnDisabled]}
+                activeOpacity={0.8}
+                onPress={handleSaveMatch}
+                disabled={!selectedResult || submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#000000" size="small" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Guardar Partido</Text>
+                )}
+              </TouchableOpacity>
             </View>
-            <Text style={styles.blackRoleText}>Negras</Text>
-            <Text style={styles.blackNameText} numberOfLines={1}>{nameBlue}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Acciones: Único Botón de Guardar Partido */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={[styles.saveBtn, (!selectedResult || submitting) && styles.saveBtnDisabled]}
-            activeOpacity={0.8}
-            onPress={handleSaveMatch}
-            disabled={!selectedResult || submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#000000" size="small" />
-            ) : (
-              <Text style={styles.saveBtnText}>Guardar Partido</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );
