@@ -728,15 +728,23 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       {activeTab === 'discover' && (
         <View style={{ flex: 1 }}>
           {!profile?.isActive ? (
-            // If inactive: show simple activation notice
+            // If inactive: show simple activation notice with big activate button
             <View style={styles.emptyDiscoverBox}>
-              <FontAwesome name="heart-o" size={44} color="#525252" style={{ marginBottom: 12 }} />
+              <FontAwesome name="heart-o" size={44} color="#EF4444" style={{ marginBottom: 12 }} />
               <Text style={styles.emptyDiscoverText}>Tinder Beauchef está desactivado</Text>
               <Text style={styles.emptyDiscoverSub}>
-                Activa tu cuenta en la pestaña "Mi Perfil" para empezar a ver personas de la facultad.
+                Activa tu cuenta para empezar a ver y conectar con personas de la facultad.
               </Text>
-              <TouchableOpacity style={styles.refreshBtn} onPress={() => setActiveTab('profile')}>
-                <Text style={styles.refreshBtnText}>Configurar Mi Perfil</Text>
+              <TouchableOpacity 
+                style={styles.bigActivateBtn} 
+                onPress={() => handleToggleActive(true)}
+                disabled={savingProfile}
+              >
+                {savingProfile ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <Text style={styles.bigActivateBtnText}>🔥 Activar Tinder Beauchef</Text>
+                )}
               </TouchableOpacity>
             </View>
           ) : loadingDiscover ? (
@@ -993,6 +1001,18 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                 <Feather name="clock" size={14} color={theme.colors.primary} />
                 <Text style={styles.ruleItemText}>Una vez que lo actives, no podrás desactivarlo por 24 horas.</Text>
               </View>
+
+              <TouchableOpacity
+                style={styles.bigActivateBtn}
+                onPress={() => handleToggleActive(true)}
+                disabled={savingProfile}
+              >
+                {savingProfile ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <Text style={styles.bigActivateBtnText}>🔥 Activar Tinder Beauchef</Text>
+                )}
+              </TouchableOpacity>
             </View>
           )}
 
@@ -1313,20 +1333,16 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Activation switch box at the bottom */}
-          <View style={[styles.activationStatusBox, profile.isActive && styles.activationStatusBoxActive, { marginTop: theme.spacing.lg }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.activationStatusTitle}>
-                {profile.isActive ? '🟢 Tinder Beauchef Activo' : '🔴 Tinder Beauchef Desactivado'}
-              </Text>
-              <Text style={styles.activationStatusDesc}>
-                {profile.isActive 
-                  ? 'Tu perfil es visible para otros estudiantes de la facultad en la sección Descubrir.'
-                  : 'Tu perfil está completamente oculto. Actívalo para participar en Tinder Beauchef.'}
-              </Text>
-            </View>
+          {/* Activation switch box at the bottom (shows deactivate button when active) */}
+          {profile.isActive && (
+            <View style={[styles.activationStatusBox, styles.activationStatusBoxActive, { marginTop: theme.spacing.lg }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.activationStatusTitle}>🟢 Tinder Beauchef Activo</Text>
+                <Text style={styles.activationStatusDesc}>
+                  Tu perfil es visible para otros estudiantes de la facultad en la sección Descubrir.
+                </Text>
+              </View>
 
-            {profile.isActive ? (
               <TouchableOpacity
                 style={[styles.statusToggleBtn, styles.statusToggleBtnDeactivate, lockoutHoursLeft !== null && { opacity: 0.5 }]}
                 onPress={() => handleToggleActive(false)}
@@ -1336,16 +1352,8 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                   {lockoutHoursLeft !== null ? `Bloqueado (${lockoutHoursLeft}h)` : 'Desactivar'}
                 </Text>
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.statusToggleBtn, styles.statusToggleBtnActivate]}
-                onPress={() => handleToggleActive(true)}
-                disabled={savingProfile}
-              >
-                <Text style={styles.statusToggleBtnText}>Activar</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+            </View>
+          )}
         </ScrollView>
       )}
 
@@ -2003,10 +2011,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#111',
     borderWidth: 1,
     borderColor: '#222',
-    borderRadius: 10,
+    borderRadius: 12,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
     gap: 10,
+  },
+  bigActivateBtn: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+    width: '100%',
+  },
+  bigActivateBtnText: {
+    color: '#000000',
+    fontSize: 15,
+    fontWeight: '800',
   },
   ruleTitle: {
     color: theme.colors.text,
