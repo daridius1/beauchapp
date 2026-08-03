@@ -6,7 +6,7 @@ import { Ladder } from '../types/ladder';
 import { withMinimumDelay } from '../utils/refresh';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { LADDER_GROUPS } from '../config/ladderGroups';
 
@@ -91,21 +91,28 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
           const categoriesLabel = group.categories.map((c) => c.label).join(' / ');
           const defaultSlug = group.categories[0].slug;
 
+          let iconName = 'trophy-outline';
+          if (group.groupSlug.includes('ajedrez')) iconName = 'chess-pawn';
+          else if (group.groupSlug.includes('ping-pong') || group.groupSlug.includes('tenis-de-mesa')) iconName = 'table-tennis';
+          else if (group.groupSlug.includes('taca-taca')) iconName = 'soccer-field';
+
           return (
             <TouchableOpacity
               key={group.groupSlug}
-              style={styles.ladderRow}
+              style={styles.ladderRowCard}
               activeOpacity={0.7}
               onPress={() => navigation.navigate('LadderDetail', { slug: defaultSlug, name: group.groupName })}
             >
-              <View style={styles.rowHeaderRow}>
-                <Text style={styles.ladderName}>{group.groupName}</Text>
-                <View style={styles.modeBadge}>
-                  <Text style={styles.modeBadgeText}>{categoriesLabel}</Text>
-                </View>
+              <View style={styles.iconCircle}>
+                <MaterialCommunityIcons name={iconName as any} size={24} color={theme.colors.primary} />
               </View>
 
-              <Feather name="chevron-right" color={theme.colors.textMuted} size={18} />
+              <View style={styles.rowMain}>
+                <Text style={styles.ladderName}>{group.groupName}</Text>
+                <Text style={styles.categoriesText}>{categoriesLabel}</Text>
+              </View>
+
+              <Feather name="chevron-right" color={theme.colors.textMuted} size={22} />
             </TouchableOpacity>
           );
         })}
@@ -128,48 +135,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  listContainer: {},
-  ladderRow: {
-    backgroundColor: 'transparent',
-    paddingVertical: 14,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+  listContainer: {
+    gap: 12,
+  },
+  ladderRowCard: {
+    backgroundColor: theme.colors.cardBg,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   rowMain: {
     flex: 1,
     marginRight: theme.spacing.sm,
   },
-  rowHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 3,
-  },
   ladderName: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
     color: theme.colors.text,
+    marginBottom: 2,
   },
-  modeBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  modeBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: theme.colors.textMuted,
-  },
-  description: {
+  categoriesText: {
     fontSize: 12,
+    fontWeight: '600',
     color: theme.colors.textMuted,
-    lineHeight: 16,
   },
 });

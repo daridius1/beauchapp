@@ -258,6 +258,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
               const isRedWinner = m.score_red > m.score_blue;
               const isBlueWinner = m.score_blue > m.score_red;
+              const isDraw = m.score_red === m.score_blue;
 
               return (
                 <TouchableOpacity
@@ -266,10 +267,31 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     styles.matchCard,
                     isRedWinner && styles.matchCardRedWon,
                     isBlueWinner && styles.matchCardBlueWon,
+                    isDraw && styles.matchCardDraw,
                   ]}
                   activeOpacity={0.7}
                   onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id, slug: activeCategory.slug, name: sportGroupInfo.group.groupName })}
                 >
+                  {/* Chip Indicador de Resultado General */}
+                  <View style={styles.outcomeChipRow}>
+                    {isRedWinner ? (
+                      <View style={styles.redWinChip}>
+                        <Feather name="award" size={10} color="#ff4444" style={{ marginRight: 4 }} />
+                        <Text style={styles.redWinChipText}>VICTORIA LADO ROJO</Text>
+                      </View>
+                    ) : isBlueWinner ? (
+                      <View style={styles.blueWinChip}>
+                        <Feather name="award" size={10} color="#38bdf8" style={{ marginRight: 4 }} />
+                        <Text style={styles.blueWinChipText}>VICTORIA LADO AZUL</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.drawChip}>
+                        <Feather name="minus-circle" size={10} color="#facc15" style={{ marginRight: 4 }} />
+                        <Text style={styles.drawChipText}>EMPATE</Text>
+                      </View>
+                    )}
+                  </View>
+
                   <View style={styles.matchCardMain}>
                     {/* Integrantes Equipo Rojo */}
                     <View style={{ flex: 1, justifyContent: 'center' }}>
@@ -576,28 +598,50 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   matchCardRedWon: Platform.OS === 'web' ? ({
-    backgroundImage: 'linear-gradient(to top, rgba(255, 68, 68, 0.22) 0%, rgba(255, 68, 68, 0.04) 60%, transparent 100%)',
-    borderBottomWidth: 3,
-    borderBottomColor: '#ff4444',
-    borderTopWidth: 3,
-    borderTopColor: theme.colors.border,
+    backgroundImage: 'linear-gradient(to right, rgba(255, 68, 68, 0.15) 0%, rgba(255, 68, 68, 0.02) 60%, transparent 100%)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff4444',
   } as any) : {
-    borderBottomWidth: 3,
-    borderBottomColor: '#ff4444',
-    borderTopWidth: 3,
-    borderTopColor: theme.colors.border,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff4444',
+    backgroundColor: 'rgba(255, 68, 68, 0.05)',
   },
   matchCardBlueWon: Platform.OS === 'web' ? ({
-    backgroundImage: 'linear-gradient(to top, rgba(56, 189, 248, 0.22) 0%, rgba(56, 189, 248, 0.04) 60%, transparent 100%)',
-    borderBottomWidth: 3,
-    borderBottomColor: '#38bdf8',
-    borderTopWidth: 3,
-    borderTopColor: theme.colors.border,
+    backgroundImage: 'linear-gradient(to right, rgba(56, 189, 248, 0.15) 0%, rgba(56, 189, 248, 0.02) 60%, transparent 100%)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#38bdf8',
   } as any) : {
-    borderBottomWidth: 3,
-    borderBottomColor: '#38bdf8',
-    borderTopWidth: 3,
-    borderTopColor: theme.colors.border,
+    borderLeftWidth: 4,
+    borderLeftColor: '#38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.05)',
+  },
+  redWinChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 68, 68, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  redWinChipText: {
+    color: '#ff4444',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  blueWinChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  blueWinChipText: {
+    color: '#38bdf8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   matchCardPlayerWon: Platform.OS === 'web' ? ({
     backgroundImage: 'linear-gradient(to right, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.02) 60%, transparent 100%)',
