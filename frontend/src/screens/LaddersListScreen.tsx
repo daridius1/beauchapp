@@ -97,7 +97,7 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
               key={group.groupSlug}
               style={styles.ladderFlatRow}
               activeOpacity={0.7}
-              onPress={() => navigation.navigate('LadderDetail', { slug: defaultSlug, name: group.groupName })}
+              onPress={() => navigation.push('LadderDetail', { slug: defaultSlug, name: group.groupName })}
             >
               <View style={styles.rowMain}>
                 <Text style={styles.ladderName}>{group.groupName}</Text>

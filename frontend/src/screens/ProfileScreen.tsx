@@ -317,7 +317,7 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
               onSellerPress={(sellerProfileId) => navigation.push('SellerProfile', { sellerProfileId })}
               onLadderPress={(sportSlug, mode) => {
                 const targetSlug = mode ? `${sportSlug}-${mode}` : sportSlug;
-                navigation.navigate('LadderDetail', { slug: targetSlug });
+                navigation.push('LadderDetail', { slug: targetSlug });
               }}
             />
 
