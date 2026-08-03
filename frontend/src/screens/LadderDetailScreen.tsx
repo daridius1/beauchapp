@@ -153,7 +153,6 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
               {karmaUsers.map((u, index) => {
                 const position = index + 1;
-                const medal = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : null;
                 const avatarUser = {
                   id: u.id,
                   collectionId: '_pb_users_auth_',
@@ -169,13 +168,9 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     activeOpacity={0.7}
                     onPress={() => navigation.navigate('UserProfile', { userId: u.id })}
                   >
-                    <View style={{ width: 28, alignItems: 'center', justifyContent: 'center', marginRight: theme.spacing.sm }}>
-                      {medal ? (
-                        <Text style={{ fontSize: 16 }}>{medal}</Text>
-                      ) : (
-                        <Text style={styles.rankPosNumber}>{position}</Text>
-                      )}
-                    </View>
+                    <Text style={[styles.rankPosNumber, position <= 3 && styles.rankPosTop]}>
+                      {position}
+                    </Text>
 
                     <Avatar user={avatarUser} size={34} />
 
@@ -185,11 +180,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                       </Text>
                     </View>
 
-                    <View style={styles.karmaScoreBadge}>
-                      <Text style={styles.karmaScoreText}>
-                        {u.karma > 0 ? `+${u.karma}` : u.karma || 0}
-                      </Text>
-                    </View>
+                    <Text style={styles.ratingScore}>{u.karma || 0}</Text>
                   </TouchableOpacity>
                 );
               })}
