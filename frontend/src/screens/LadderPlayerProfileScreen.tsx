@@ -188,25 +188,21 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
         />
       }
     >
-      {/* Banner Principal del Jugador */}
-      <View style={styles.playerHeaderBox}>
+      {/* Banner Principal del Jugador (Clickable hacia perfil principal) */}
+      <TouchableOpacity
+        style={styles.playerHeaderBox}
+        activeOpacity={0.7}
+        onPress={() => navigation.navigate('UserProfile', { userId: playerUser.id })}
+      >
         <Avatar user={avatarUser} size={64} />
         <View style={styles.playerMainInfo}>
           <Text style={styles.playerName}>{playerUser.name || 'Alumno FCFM'}</Text>
           {!!playerUser.username && (
             <Text style={styles.playerUsername}>@{playerUser.username}</Text>
           )}
-          
-          <TouchableOpacity
-            style={styles.mainProfileBtn}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('UserProfile', { userId: playerUser.id })}
-          >
-            <Feather name="user" color={theme.colors.text} size={13} style={{ marginRight: 5 }} />
-            <Text style={styles.mainProfileBtnText}>Ver Perfil Principal</Text>
-          </TouchableOpacity>
         </View>
-      </View>
+        <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
+      </TouchableOpacity>
 
       {/* Tarjetas de Resumen ELO / Puesto / Rendimiento */}
       <View style={styles.statsCardsRow}>
@@ -291,20 +287,52 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
             const year = String(createdDate.getFullYear()).slice(-2);
             const formattedDate = `${day}/${month}/${year}`;
 
-            const isRedWinner = m.score_red > m.score_blue;
-            const isBlueWinner = m.score_blue > m.score_red;
+            const isPending = m.status === 'pending_confirmation' || m.status === 'disputed';
+            const inRed = m.team_red.includes(userId);
+            const isDraw = m.score_red === m.score_blue;
+            const playerWon = isDraw ? false : (inRed ? m.score_red > m.score_blue : m.score_blue > m.score_red);
+            const playerLost = isDraw ? false : !playerWon;
 
             return (
               <TouchableOpacity
                 key={m.id}
                 style={[
                   styles.matchCard,
-                  isRedWinner && styles.matchCardRedWon,
-                  isBlueWinner && styles.matchCardBlueWon,
+                  !isPending && playerWon && styles.matchCardPlayerWon,
+                  !isPending && isDraw && styles.matchCardDraw,
+                  !isPending && playerLost && styles.matchCardPlayerLost,
+                  isPending && styles.matchCardPending,
                 ]}
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id, slug: ladder.slug, name: ladder.name })}
               >
+                {/* Chip Indicador de Resultado Personal */}
+                <View style={styles.outcomeChipRow}>
+                  {isPending ? (
+                    <View style={styles.pendingChip}>
+                      <Feather name="clock" size={10} color="#ffaa00" style={{ marginRight: 4 }} />
+                      <Text style={styles.pendingChipText}>
+                        {m.status === 'disputed' ? 'Disputado (Rechazado)' : 'Pendiente de confirmación'}
+                      </Text>
+                    </View>
+                  ) : playerWon ? (
+                    <View style={styles.winChip}>
+                      <Feather name="check-circle" size={10} color="#10b981" style={{ marginRight: 4 }} />
+                      <Text style={styles.winChipText}>VICTORIA</Text>
+                    </View>
+                  ) : isDraw ? (
+                    <View style={styles.drawChip}>
+                      <Feather name="minus-circle" size={10} color="#facc15" style={{ marginRight: 4 }} />
+                      <Text style={styles.drawChipText}>EMPATE</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.lossChip}>
+                      <Feather name="x-circle" size={10} color="#9ca3af" style={{ marginRight: 4 }} />
+                      <Text style={styles.lossChipText}>DERROTA</Text>
+                    </View>
+                  )}
+                </View>
+
                 <View style={styles.matchCardMain}>
                   {/* Integrantes Equipo Rojo */}
                   <View style={{ flex: 1, justifyContent: 'center' }}>
@@ -503,29 +531,97 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 8,
   },
-  matchCardRedWon: Platform.OS === 'web' ? ({
-    backgroundImage: 'linear-gradient(to top, rgba(255, 68, 68, 0.22) 0%, rgba(255, 68, 68, 0.04) 60%, transparent 100%)',
-    borderBottomWidth: 3,
-    borderBottomColor: '#ff4444',
-    borderTopWidth: 3,
-    borderTopColor: theme.colors.border,
+  matchCardPlayerWon: Platform.OS === 'web' ? ({
+    backgroundImage: 'linear-gradient(to right, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.02) 60%, transparent 100%)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#10b981',
   } as any) : {
-    borderBottomWidth: 3,
-    borderBottomColor: '#ff4444',
-    borderTopWidth: 3,
-    borderTopColor: theme.colors.border,
+    borderLeftWidth: 4,
+    borderLeftColor: '#10b981',
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
   },
-  matchCardBlueWon: Platform.OS === 'web' ? ({
-    backgroundImage: 'linear-gradient(to top, rgba(56, 189, 248, 0.22) 0%, rgba(56, 189, 248, 0.04) 60%, transparent 100%)',
-    borderBottomWidth: 3,
-    borderBottomColor: '#38bdf8',
-    borderTopWidth: 3,
-    borderTopColor: theme.colors.border,
+  matchCardDraw: Platform.OS === 'web' ? ({
+    backgroundImage: 'linear-gradient(to right, rgba(250, 204, 21, 0.15) 0%, rgba(250, 204, 21, 0.02) 60%, transparent 100%)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#facc15',
   } as any) : {
-    borderBottomWidth: 3,
-    borderBottomColor: '#38bdf8',
-    borderTopWidth: 3,
-    borderTopColor: theme.colors.border,
+    borderLeftWidth: 4,
+    borderLeftColor: '#facc15',
+    backgroundColor: 'rgba(250, 204, 21, 0.04)',
+  },
+  matchCardPlayerLost: Platform.OS === 'web' ? ({
+    backgroundImage: 'linear-gradient(to right, rgba(100, 116, 139, 0.15) 0%, rgba(100, 116, 139, 0.02) 60%, transparent 100%)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#4b5563',
+  } as any) : {
+    borderLeftWidth: 4,
+    borderLeftColor: '#4b5563',
+    backgroundColor: 'rgba(75, 85, 99, 0.06)',
+  },
+  matchCardPending: {
+    borderColor: '#ffaa00',
+    borderWidth: 1,
+    backgroundColor: 'rgba(255, 170, 0, 0.04)',
+  },
+  outcomeChipRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  winChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  winChipText: {
+    color: '#10b981',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  drawChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(250, 204, 21, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  drawChipText: {
+    color: '#facc15',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  lossChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(156, 163, 175, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  lossChipText: {
+    color: '#9ca3af',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  pendingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 170, 0, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  pendingChipText: {
+    color: '#ffaa00',
+    fontSize: 10,
+    fontWeight: '700',
   },
   matchDateFooter: {
     alignItems: 'center',

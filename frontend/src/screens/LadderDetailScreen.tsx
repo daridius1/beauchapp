@@ -335,32 +335,51 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               const year = String(createdDate.getFullYear()).slice(-2);
               const formattedDate = `${day}/${month}/${year}`;
 
-              const isRedWinner = m.score_red > m.score_blue;
-              const isBlueWinner = m.score_blue > m.score_red;
               const isPending = m.status === 'pending_confirmation' || m.status === 'disputed';
+              const inRed = user ? ((m.team_red || []).includes(user.id) || (m.expand?.team_red || []).some((u: any) => u.id === user.id)) : false;
+              const isDraw = m.score_red === m.score_blue;
+              const userWon = isDraw ? false : (inRed ? m.score_red > m.score_blue : m.score_blue > m.score_red);
+              const userLost = isDraw ? false : !userWon;
 
               return (
                 <TouchableOpacity
                   key={m.id}
                   style={[
                     styles.matchCard,
-                    isRedWinner && m.status === 'confirmed' && styles.matchCardRedWon,
-                    isBlueWinner && m.status === 'confirmed' && styles.matchCardBlueWon,
+                    !isPending && userWon && styles.matchCardPlayerWon,
+                    !isPending && isDraw && styles.matchCardDraw,
+                    !isPending && userLost && styles.matchCardPlayerLost,
                     isPending && styles.matchCardPending,
                   ]}
                   activeOpacity={0.7}
                   onPress={() => navigation.navigate('LadderMatchDetail', { matchId: m.id, slug: activeCategory.slug, name: sportGroupInfo.group.groupName })}
                 >
-                  {isPending && (
-                    <View style={styles.pendingBadgeRow}>
+                  {/* Chip Indicador de Resultado Personal */}
+                  <View style={styles.outcomeChipRow}>
+                    {isPending ? (
                       <View style={styles.pendingChip}>
                         <Feather name="clock" size={10} color="#ffaa00" style={{ marginRight: 4 }} />
                         <Text style={styles.pendingChipText}>
                           {m.status === 'disputed' ? 'Disputado (Rechazado)' : 'Pendiente de confirmación'}
                         </Text>
                       </View>
-                    </View>
-                  )}
+                    ) : userWon ? (
+                      <View style={styles.winChip}>
+                        <Feather name="check-circle" size={10} color="#10b981" style={{ marginRight: 4 }} />
+                        <Text style={styles.winChipText}>VICTORIA</Text>
+                      </View>
+                    ) : isDraw ? (
+                      <View style={styles.drawChip}>
+                        <Feather name="minus-circle" size={10} color="#facc15" style={{ marginRight: 4 }} />
+                        <Text style={styles.drawChipText}>EMPATE</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.lossChip}>
+                        <Feather name="x-circle" size={10} color="#9ca3af" style={{ marginRight: 4 }} />
+                        <Text style={styles.lossChipText}>DERROTA</Text>
+                      </View>
+                    )}
+                  </View>
 
                   <View style={styles.matchCardMain}>
                     {/* Integrantes Equipo Rojo */}
@@ -579,6 +598,80 @@ const styles = StyleSheet.create({
     borderBottomColor: '#38bdf8',
     borderTopWidth: 3,
     borderTopColor: theme.colors.border,
+  },
+  matchCardPlayerWon: Platform.OS === 'web' ? ({
+    backgroundImage: 'linear-gradient(to right, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.02) 60%, transparent 100%)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#10b981',
+  } as any) : {
+    borderLeftWidth: 4,
+    borderLeftColor: '#10b981',
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+  },
+  matchCardDraw: Platform.OS === 'web' ? ({
+    backgroundImage: 'linear-gradient(to right, rgba(250, 204, 21, 0.15) 0%, rgba(250, 204, 21, 0.02) 60%, transparent 100%)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#facc15',
+  } as any) : {
+    borderLeftWidth: 4,
+    borderLeftColor: '#facc15',
+    backgroundColor: 'rgba(250, 204, 21, 0.04)',
+  },
+  matchCardPlayerLost: Platform.OS === 'web' ? ({
+    backgroundImage: 'linear-gradient(to right, rgba(100, 116, 139, 0.15) 0%, rgba(100, 116, 139, 0.02) 60%, transparent 100%)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#4b5563',
+  } as any) : {
+    borderLeftWidth: 4,
+    borderLeftColor: '#4b5563',
+    backgroundColor: 'rgba(75, 85, 99, 0.06)',
+  },
+  outcomeChipRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  winChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  winChipText: {
+    color: '#10b981',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  drawChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(250, 204, 21, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  drawChipText: {
+    color: '#facc15',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  lossChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(156, 163, 175, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  lossChipText: {
+    color: '#9ca3af',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   matchDateFooter: {
     alignItems: 'center',
