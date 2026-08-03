@@ -60,11 +60,22 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchData(!!ladder);
-    }, [userId, slug, !!ladder])
-  );
+  const scrollViewRef = React.useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const subScroll = DeviceEventEmitter.addListener('onScrollToTop', () => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    });
+    const subRefresh = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await fetchData(true);
+      setLoading(false);
+    });
+    return () => {
+      subScroll.remove();
+      subRefresh.remove();
+    };
+  }, [userId, slug]);
 
   const handleRefresh = () => {
     setRefreshing(true);

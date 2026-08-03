@@ -92,8 +92,22 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
     }
   };
 
+  const scrollViewRef = React.useRef<ScrollView>(null);
+
   useEffect(() => {
     fetchMatch();
+    const subScroll = DeviceEventEmitter.addListener('onScrollToTop', () => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    });
+    const subRefresh = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await fetchMatch(true);
+      setLoading(false);
+    });
+    return () => {
+      subScroll.remove();
+      subRefresh.remove();
+    };
   }, [matchId]);
 
   const handleRespondMatch = async (decision: 'accepted' | 'rejected') => {
@@ -245,6 +259,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
 
   return (
     <ScrollView
+      ref={scrollViewRef}
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       refreshControl={

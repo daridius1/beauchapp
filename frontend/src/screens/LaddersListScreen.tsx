@@ -91,22 +91,13 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
           const categoriesLabel = group.categories.map((c) => c.label).join(' / ');
           const defaultSlug = group.categories[0].slug;
 
-          let iconName = 'trophy-outline';
-          if (group.groupSlug.includes('ajedrez')) iconName = 'chess-pawn';
-          else if (group.groupSlug.includes('ping-pong') || group.groupSlug.includes('tenis-de-mesa')) iconName = 'table-tennis';
-          else if (group.groupSlug.includes('taca-taca')) iconName = 'soccer-field';
-
           return (
             <TouchableOpacity
               key={group.groupSlug}
-              style={styles.ladderRowCard}
+              style={styles.ladderFlatRow}
               activeOpacity={0.7}
               onPress={() => navigation.navigate('LadderDetail', { slug: defaultSlug, name: group.groupName })}
             >
-              <View style={styles.iconCircle}>
-                <MaterialCommunityIcons name={iconName as any} size={24} color={theme.colors.primary} />
-              </View>
-
               <View style={styles.rowMain}>
                 <Text style={styles.ladderName}>{group.groupName}</Text>
                 <Text style={styles.categoriesText}>{categoriesLabel}</Text>
@@ -135,30 +126,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  listContainer: {
-    gap: 12,
-  },
-  ladderRowCard: {
-    backgroundColor: theme.colors.cardBg,
+  listContainer: {},
+  ladderFlatRow: {
+    backgroundColor: 'transparent',
     paddingVertical: 18,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
   },
   rowMain: {
     flex: 1,
@@ -168,11 +145,11 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     color: theme.colors.text,
-    marginBottom: 2,
   },
   categoriesText: {
     fontSize: 12,
     fontWeight: '600',
     color: theme.colors.textMuted,
+    marginTop: 3,
   },
 });

@@ -118,7 +118,11 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         text2: 'El resultado ha sido enviado para confirmación.',
       });
 
-      navigation.goBack();
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('LadderDetail', { slug: ladder.slug });
+      }
     } catch (err: any) {
       console.error('Error saving chess match:', err);
       Toast.show({
