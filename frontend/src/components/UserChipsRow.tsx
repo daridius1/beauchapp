@@ -76,7 +76,10 @@ export const UserChipsRow: React.FC<Props> = ({
   // Filtrar ladders que tengan show_on_profile en true
   const validLadderRanks = ladderRanks.filter(r => r.show_on_profile !== false && (r.ordinal_rating || r.rating || r.points || r.mu));
 
-  const hasAnyChip = entryYearText || deptText || memberships.length > 0 || !!sellerProfile || validLadderRanks.length > 0;
+  const showKarma = user.type !== 'organization' && user.show_karma_on_profile !== false;
+  const karmaVal = user.karma || 0;
+
+  const hasAnyChip = entryYearText || deptText || showKarma || memberships.length > 0 || !!sellerProfile || validLadderRanks.length > 0;
 
   if (!hasAnyChip) return null;
 
@@ -86,6 +89,16 @@ export const UserChipsRow: React.FC<Props> = ({
       align === 'left' && { justifyContent: 'flex-start' },
       style
     ]}>
+      {/* Pin de Karma */}
+      {showKarma && (
+        <View style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.karmaChip, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+          <Feather name="award" size={isSmall ? 11 : 12} color="#f59e0b" />
+          <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.karmaChipText]}>
+            {karmaVal > 0 ? `+${karmaVal}` : karmaVal} Karma
+          </Text>
+        </View>
+      )}
+
       {/* Pin de Año de Ingreso (Generación) */}
       {!!entryYearText && (
         <View style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.yearChip]}>
@@ -208,5 +221,12 @@ const styles = StyleSheet.create({
   },
   websiteChipText: {
     color: '#3b82f6',
+  },
+  karmaChip: {
+    borderColor: '#f59e0b',
+    backgroundColor: '#f59e0b15',
+  },
+  karmaChipText: {
+    color: '#f59e0b',
   },
 });

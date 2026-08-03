@@ -32,6 +32,7 @@ export const SettingsScreen: React.FC = () => {
   // Insignias / Pins para Estudiantes
   const [entryYear, setEntryYear] = useState(user?.entry_year || '');
   const [department, setDepartment] = useState(user?.department || '');
+  const [showKarmaOnProfile, setShowKarmaOnProfile] = useState(user?.show_karma_on_profile !== false);
 
   // Biografía / Descripción del Perfil Principal
   const [description, setDescription] = useState(user?.description || '');
@@ -181,6 +182,7 @@ export const SettingsScreen: React.FC = () => {
       } else {
         formData.append('entry_year', entryYear.trim());
         formData.append('department', department.trim());
+        formData.append('show_karma_on_profile', String(showKarmaOnProfile));
       }
 
       formData.append('description', description.trim());
@@ -523,22 +525,35 @@ export const SettingsScreen: React.FC = () => {
                   </View>
                 </View>
 
-                {/* Previsualización de Pins */}
-                <View style={styles.chipPreviewContainer}>
-                  <Text style={styles.inputLabel}>Insignias en tu perfil:</Text>
-                  <UserChipsRow
-                    user={{
-                      ...user,
-                      entry_year: entryYear,
-                      department: department,
-                      instagram,
-                      telegram,
-                      whatsapp,
-                      signal,
-                    }}
-                    ladderRanks={myLadderRanks}
-                  />
-                </View>
+                  {/* Option toggle for Karma */}
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 4 }}
+                    onPress={() => setShowKarmaOnProfile(!showKarmaOnProfile)}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name={showKarmaOnProfile ? "check-square" : "square"} size={18} color={theme.colors.primary} />
+                    <Text style={{ color: theme.colors.text, fontSize: 13, fontWeight: '600' }}>
+                      Mostrar insignia de Karma en mi perfil
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Previsualización de Pins */}
+                  <View style={styles.chipPreviewContainer}>
+                    <Text style={styles.inputLabel}>Insignias en tu perfil:</Text>
+                    <UserChipsRow
+                      user={{
+                        ...user,
+                        entry_year: entryYear,
+                        department: department,
+                        show_karma_on_profile: showKarmaOnProfile,
+                        instagram,
+                        telegram,
+                        whatsapp,
+                        signal,
+                      }}
+                      ladderRanks={myLadderRanks}
+                    />
+                  </View>
               </>
             )}
 

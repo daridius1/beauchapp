@@ -21,6 +21,8 @@ export interface User {
   whatsapp?: string;
   signal?: string;
   website?: string;
+  karma?: number;
+  show_karma_on_profile?: boolean;
 }
 
 interface AuthContextType {
