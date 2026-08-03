@@ -728,23 +728,15 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       {activeTab === 'discover' && (
         <View style={{ flex: 1 }}>
           {!profile?.isActive ? (
-            // If inactive: show simple activation notice with big activate button
+            // If inactive: show notice with button to configure profile tab
             <View style={styles.emptyDiscoverBox}>
-              <FontAwesome name="heart-o" size={44} color="#EF4444" style={{ marginBottom: 12 }} />
+              <FontAwesome name="heart-o" size={44} color="#525252" style={{ marginBottom: 12 }} />
               <Text style={styles.emptyDiscoverText}>Tinder Beauchef está desactivado</Text>
               <Text style={styles.emptyDiscoverSub}>
-                Activa tu cuenta para empezar a ver y conectar con personas de la facultad.
+                Activa tu cuenta en la pestaña "Mi Perfil" para empezar a ver personas de la facultad.
               </Text>
-              <TouchableOpacity 
-                style={styles.bigActivateBtn} 
-                onPress={() => handleToggleActive(true)}
-                disabled={savingProfile}
-              >
-                {savingProfile ? (
-                  <ActivityIndicator color="#000" />
-                ) : (
-                  <Text style={styles.bigActivateBtnText}>🔥 Activar Tinder Beauchef</Text>
-                )}
+              <TouchableOpacity style={styles.refreshBtn} onPress={() => setActiveTab('profile')}>
+                <Text style={styles.refreshBtnText}>Configurar Mi Perfil</Text>
               </TouchableOpacity>
             </View>
           ) : loadingDiscover ? (
@@ -992,7 +984,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Guidelines box when inactive */}
           {!profile.isActive && (
             <View style={styles.inlineRuleBox}>
-              <Text style={styles.ruleTitle}>❤️ Reglas de Tinder Beauchef</Text>
+              <Text style={styles.ruleTitle}>Reglas de Tinder Beauchef</Text>
               <View style={styles.ruleItem}>
                 <Feather name="shield" size={14} color={theme.colors.primary} />
                 <Text style={styles.ruleItemText}>Tus datos de contacto estarán 100% ocultos hasta hacer match mutuo.</Text>
@@ -1010,7 +1002,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                 {savingProfile ? (
                   <ActivityIndicator color="#000" />
                 ) : (
-                  <Text style={styles.bigActivateBtnText}>🔥 Activar Tinder Beauchef</Text>
+                  <Text style={styles.bigActivateBtnText}>Activar Tinder Beauchef</Text>
                 )}
               </TouchableOpacity>
             </View>
