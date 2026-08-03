@@ -178,17 +178,19 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Fila de 3 Botones Cuadrados: Blancas / Empate / Negras */}
         <View style={styles.chessButtonsRow}>
-          {/* Botón 1: Blancas (Fondo blanco, texto negro, avatar, sin elementos rojos) */}
+          {/* Botón 1: Blancas (Fondo blanco, texto negro, avatar con borde gris, sin nada rojo) */}
           <TouchableOpacity
             activeOpacity={0.8}
             style={[
               styles.chessSquareCard,
               styles.whiteCard,
-              selectedResult === 'red_win' && styles.whiteCardSelected,
+              selectedResult === 'red_win' && styles.cardSelectedGreen,
             ]}
             onPress={() => setSelectedResult('red_win')}
           >
-            <Avatar size={46} user={userRedObj} />
+            <View style={styles.avatarBorderWhiteCard}>
+              <Avatar size={44} user={userRedObj} />
+            </View>
             <Text style={styles.whiteRoleText}>Blancas</Text>
             <Text style={styles.whiteNameText} numberOfLines={1}>{nameRed}</Text>
           </TouchableOpacity>
@@ -199,16 +201,16 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             style={[
               styles.chessSquareCard,
               styles.drawCard,
-              selectedResult === 'draw' && styles.drawCardSelected,
+              selectedResult === 'draw' && styles.cardSelectedGreen,
             ]}
             onPress={() => setSelectedResult('draw')}
           >
             <MaterialCommunityIcons 
               name="handshake-outline" 
               size={34} 
-              color={selectedResult === 'draw' ? '#facc15' : '#a3a3a3'} 
+              color={selectedResult === 'draw' ? '#10b981' : '#a3a3a3'} 
             />
-            <Text style={[styles.drawRoleText, selectedResult === 'draw' && { color: '#facc15' }]}>Empate</Text>
+            <Text style={[styles.drawRoleText, selectedResult === 'draw' && { color: '#10b981' }]}>Empate</Text>
             <Text style={styles.drawSubText}>½ - ½</Text>
           </TouchableOpacity>
 
@@ -218,11 +220,13 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             style={[
               styles.chessSquareCard,
               styles.blackCard,
-              selectedResult === 'blue_win' && styles.blackCardSelected,
+              selectedResult === 'blue_win' && styles.cardSelectedGreen,
             ]}
             onPress={() => setSelectedResult('blue_win')}
           >
-            <Avatar size={46} user={userBlueObj} />
+            <View style={styles.avatarBorderBlackCard}>
+              <Avatar size={44} user={userBlueObj} />
+            </View>
             <Text style={styles.blackRoleText}>Negras</Text>
             <Text style={styles.blackNameText} numberOfLines={1}>{nameBlue}</Text>
           </TouchableOpacity>
@@ -271,13 +275,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 8,
   },
+  cardSelectedGreen: {
+    borderColor: '#10b981',
+  },
+  avatarBorderWhiteCard: {
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: '#9ca3af', // Borde gris neutro claro
+    padding: 1,
+  },
+  avatarBorderBlackCard: {
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: '#4b5563', // Borde gris neutro oscuro
+    padding: 1,
+  },
   whiteCard: {
     backgroundColor: '#ffffff',
     borderColor: '#e5e5e5',
-  },
-  whiteCardSelected: {
-    borderColor: '#10b981',
-    borderWidth: 3,
   },
   whiteRoleText: {
     fontSize: 11,
@@ -297,10 +312,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#222222',
     borderColor: '#333333',
   },
-  drawCardSelected: {
-    borderColor: '#facc15',
-    borderWidth: 3,
-  },
   drawRoleText: {
     fontSize: 13,
     fontWeight: '800',
@@ -316,10 +327,6 @@ const styles = StyleSheet.create({
   blackCard: {
     backgroundColor: '#121212',
     borderColor: '#333333',
-  },
-  blackCardSelected: {
-    borderColor: '#38bdf8',
-    borderWidth: 3,
   },
   blackRoleText: {
     fontSize: 11,
