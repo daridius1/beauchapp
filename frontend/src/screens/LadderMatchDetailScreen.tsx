@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform, RefreshControl } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform, RefreshControl, DeviceEventEmitter } from 'react-native';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { ladderService } from '../services/ladderService';
