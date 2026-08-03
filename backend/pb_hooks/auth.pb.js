@@ -531,6 +531,38 @@ routerAdd("POST", "/api/register-organization", (e) => {
 
 // 10. Servir la vista del generador de enlaces (para administradores)
 routerAdd("GET", "/admin/generate-link", (e) => {
+    let subtypeOptionsHtml = "";
+    const subtypeLabels = {
+        "center": "Centro de Estudiantes",
+        "team": "Equipo Oficial",
+        "community": "Comunidad libre",
+        "band": "Banda / Grupo Musical",
+        "organization": "Organización"
+    };
+
+    try {
+        const usersCol = $app.findCollectionByNameOrId("users");
+        const subtypeField = usersCol.fields.getByName("subtype");
+        if (subtypeField && subtypeField.values) {
+            subtypeField.values.forEach((val) => {
+                const label = subtypeLabels[val] || (val.charAt(0).toUpperCase() + val.slice(1));
+                subtypeOptionsHtml += `<option value="${val}">${label}</option>`;
+            });
+        }
+    } catch (err) {
+        console.log("[auth.pb.js] Error leyendo opciones de subtype de la DB:", err);
+    }
+
+    if (!subtypeOptionsHtml) {
+        subtypeOptionsHtml = `
+            <option value="center">Centro de Estudiantes</option>
+            <option value="team">Equipo Oficial</option>
+            <option value="community">Comunidad libre</option>
+            <option value="band">Banda / Grupo Musical</option>
+            <option value="organization">Organización</option>
+        `;
+    }
+
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="es">
@@ -746,11 +778,7 @@ routerAdd("GET", "/admin/generate-link", (e) => {
             <div class="form-group">
                 <label for="subtype">Subtipo de Organización</label>
                 <select id="subtype" required>
-                    <option value="center">Centro de Estudiantes</option>
-                    <option value="team">Equipo Oficial</option>
-                    <option value="community">Comunidad libre</option>
-                    <option value="band">Banda / Grupo Musical</option>
-                    <option value="organization">Organización</option>
+                    ${subtypeOptionsHtml}
                 </select>
             </div>
             <button type="submit" class="btn">Generar Enlace</button>
@@ -919,7 +947,16 @@ routerAdd("POST", "/api/admin/generate-link", (e) => {
     const body = e.requestInfo().body;
     const subtype = body.subtype || "";
 
-    if (subtype !== "center" && subtype !== "team" && subtype !== "community" && subtype !== "band" && subtype !== "organization") {
+    let validSubtypes = ["center", "team", "community", "band", "organization"];
+    try {
+        const usersCol = $app.findCollectionByNameOrId("users");
+        const subtypeField = usersCol.fields.getByName("subtype");
+        if (subtypeField && subtypeField.values && subtypeField.values.length > 0) {
+            validSubtypes = subtypeField.values;
+        }
+    } catch (err) {}
+
+    if (!validSubtypes.includes(subtype)) {
         return e.json(400, { error: "El subtipo no es válido." });
     }
 
