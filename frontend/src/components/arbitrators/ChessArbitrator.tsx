@@ -173,11 +173,6 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header de Disciplina */}
-        <View style={styles.header}>
-          <Text style={styles.titleText}>Arbitraje de Ajedrez</Text>
-        </View>
-
         {/* Tarjetas de Jugadores */}
         <View style={styles.playersOverview}>
           <View style={[styles.playerCard, styles.playerRedCard]}>
@@ -199,7 +194,6 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
         <View style={styles.resultsContainer}>
           <Text style={styles.sectionLabel}>RESULTADO DE LA PARTIDA</Text>
 
-          {/* Opciones 1v1 */}
           <TouchableOpacity
             activeOpacity={0.8}
             style={[
@@ -208,12 +202,9 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             ]}
             onPress={() => setSelectedResult('red_win')}
           >
-            <View style={styles.resultOptionTextCol}>
-              <Text style={[styles.resultOptionTitle, selectedResult === 'red_win' && { color: '#ef4444' }]}>
-                Victoria Blancas ({nameRed})
-              </Text>
-              <Text style={styles.resultOptionSub}>1 - 0</Text>
-            </View>
+            <Text style={[styles.resultOptionTitle, selectedResult === 'red_win' && { color: '#ef4444' }]}>
+              Blancas ({nameRed})
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -224,12 +215,9 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             ]}
             onPress={() => setSelectedResult('draw')}
           >
-            <View style={styles.resultOptionTextCol}>
-              <Text style={[styles.resultOptionTitle, selectedResult === 'draw' && { color: '#facc15' }]}>
-                Empate / Tablas
-              </Text>
-              <Text style={styles.resultOptionSub}>1 - 1</Text>
-            </View>
+            <Text style={[styles.resultOptionTitle, selectedResult === 'draw' && { color: '#facc15' }]}>
+              Empate
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -240,12 +228,9 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
             ]}
             onPress={() => setSelectedResult('blue_win')}
           >
-            <View style={styles.resultOptionTextCol}>
-              <Text style={[styles.resultOptionTitle, selectedResult === 'blue_win' && { color: '#3b82f6' }]}>
-                Victoria Negras ({nameBlue})
-              </Text>
-              <Text style={styles.resultOptionSub}>0 - 1</Text>
-            </View>
+            <Text style={[styles.resultOptionTitle, selectedResult === 'blue_win' && { color: '#3b82f6' }]}>
+              Negras ({nameBlue})
+            </Text>
           </TouchableOpacity>
         </View>
 
