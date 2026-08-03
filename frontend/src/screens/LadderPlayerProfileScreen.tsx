@@ -96,52 +96,70 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
 
   const totalMatches = playerMatches.length;
   let totalWins = 0;
+  let totalDraws = 0;
+  let totalLosses = 0;
   let redMatches = 0;
   let redWins = 0;
+  let redDraws = 0;
+  let redLosses = 0;
   let blueMatches = 0;
   let blueWins = 0;
+  let blueDraws = 0;
+  let blueLosses = 0;
 
   playerMatches.forEach((m) => {
     const isRed = m.team_red.includes(userId);
     const isBlue = m.team_blue.includes(userId);
 
+    const isDraw = m.score_red === m.score_blue;
     const redWon = m.score_red > m.score_blue;
     const blueWon = m.score_blue > m.score_red;
 
     if (isRed) {
       redMatches++;
-      if (redWon) {
+      if (isDraw) {
+        redDraws++;
+        totalDraws++;
+      } else if (redWon) {
         redWins++;
         totalWins++;
+      } else {
+        redLosses++;
+        totalLosses++;
       }
     } else if (isBlue) {
       blueMatches++;
-      if (blueWon) {
+      if (isDraw) {
+        blueDraws++;
+        totalDraws++;
+      } else if (blueWon) {
         blueWins++;
         totalWins++;
+      } else {
+        blueLosses++;
+        totalLosses++;
       }
     }
   });
 
-  const totalLosses = totalMatches - totalWins;
-  const winrate = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0;
+  const winrate = totalMatches > 0 ? Math.round(((totalWins + 0.5 * totalDraws) / totalMatches) * 100) : 0;
 
   // Racha actual
-  let streakType: 'win' | 'loss' | 'none' = 'none';
+  let streakType: 'win' | 'loss' | 'draw' | 'none' = 'none';
   let streakCount = 0;
 
   for (let i = 0; i < playerMatches.length; i++) {
     const m = playerMatches[i];
     const isRed = m.team_red.includes(userId);
+    const isDraw = m.score_red === m.score_blue;
     const won = isRed ? m.score_red > m.score_blue : m.score_blue > m.score_red;
+    const resultType: 'win' | 'loss' | 'draw' = isDraw ? 'draw' : (won ? 'win' : 'loss');
 
     if (i === 0) {
-      streakType = won ? 'win' : 'loss';
+      streakType = resultType;
       streakCount = 1;
     } else {
-      const currentWon = won;
-      const lastType = streakType === 'win';
-      if (currentWon === lastType) {
+      if (resultType === streakType) {
         streakCount++;
       } else {
         break;
@@ -217,7 +235,9 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Partidos Totales:</Text>
           <Text style={styles.detailValue}>
-            {totalMatches} PJ ({totalWins}V - {totalLosses}D)
+            {totalDraws > 0
+              ? `${totalMatches} PJ (${totalWins}V - ${totalDraws}E - ${totalLosses}D)`
+              : `${totalMatches} PJ (${totalWins}V - ${totalLosses}D)`}
           </Text>
         </View>
 
@@ -226,6 +246,8 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
           <Text style={styles.detailValue}>
             {streakType === 'win'
               ? `${streakCount} V consecutivas`
+              : streakType === 'draw'
+              ? `${streakCount} E consecutivos`
               : streakType === 'loss'
               ? `${streakCount} D consecutivas`
               : 'Sin partidos'}
@@ -235,16 +257,20 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
         <View style={styles.divider} />
 
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabelRed}>Lado Rojo:</Text>
+          <Text style={styles.detailLabelRed}>Lado Rojo / Blancas:</Text>
           <Text style={styles.detailValue}>
-            {redMatches} PJ ({redWins}V - {redMatches - redWins}D)
+            {redDraws > 0
+              ? `${redMatches} PJ (${redWins}V - ${redDraws}E - ${redLosses}D)`
+              : `${redMatches} PJ (${redWins}V - ${redLosses}D)`}
           </Text>
         </View>
 
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabelBlue}>Lado Azul:</Text>
+          <Text style={styles.detailLabelBlue}>Lado Azul / Negras:</Text>
           <Text style={styles.detailValue}>
-            {blueMatches} PJ ({blueWins}V - {blueMatches - blueWins}D)
+            {blueDraws > 0
+              ? `${blueMatches} PJ (${blueWins}V - ${blueDraws}E - ${blueLosses}D)`
+              : `${blueMatches} PJ (${blueWins}V - ${blueLosses}D)`}
           </Text>
         </View>
       </View>
