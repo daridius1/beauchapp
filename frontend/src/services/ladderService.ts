@@ -206,14 +206,41 @@ async function updateRanksForMatch(match: LadderMatch) {
   const redPlayers = match.team_red || [];
   const bluePlayers = match.team_blue || [];
 
-  const updatePlayerRank = async (userId: string, isWinner: boolean) => {
+  // Obtener el ELO medio de cada equipo para la fórmula de expectativa FIDE
+  const getAverageElo = async (playerIds: string[]): Promise<number> => {
+    if (playerIds.length === 0) return 1200;
+    let sum = 0;
+    for (const id of playerIds) {
+      const records = await pb.collection('ladder_ranks').getList(1, 1, {
+        filter: `ladder = "${ladderId}" && user = "${id}" && mode = "${matchMode}"`,
+      });
+      const raw = records.items[0]?.ordinal_rating;
+      sum += typeof raw === 'number' && raw > 100 ? raw : 1200;
+    }
+    return sum / playerIds.length;
+  };
+
+  const avgEloRed = await getAverageElo(redPlayers);
+  const avgEloBlue = await getAverageElo(bluePlayers);
+
+  // Expectativa de puntos según diferencia de ELO
+  const expectedRed = 1 / (1 + Math.pow(10, (avgEloBlue - avgEloRed) / 400));
+  const expectedBlue = 1 - expectedRed;
+
+  const scoreRedActual = isDrawMatch ? 0.5 : (redWon ? 1 : 0);
+  const scoreBlueActual = isDrawMatch ? 0.5 : (blueWon ? 1 : 0);
+
+  const K = 32;
+  const deltaEloRed = Math.round(K * (scoreRedActual - expectedRed));
+  const deltaEloBlue = Math.round(K * (scoreBlueActual - expectedBlue));
+
+  const updatePlayerRank = async (userId: string, isWinner: boolean, deltaElo: number) => {
     try {
       const records = await pb.collection('ladder_ranks').getList(1, 1, {
         filter: `ladder = "${ladderId}" && user = "${userId}" && mode = "${matchMode}"`,
       });
 
       let rankRecord = records.items[0];
-      const deltaElo = isDrawMatch ? 0 : (isWinner ? 16 : -10);
 
       if (rankRecord) {
         const rawElo = rankRecord.ordinal_rating;
@@ -243,10 +270,10 @@ async function updateRanksForMatch(match: LadderMatch) {
   };
 
   for (const pid of redPlayers) {
-    await updatePlayerRank(pid, redWon);
+    await updatePlayerRank(pid, redWon, deltaEloRed);
   }
 
   for (const pid of bluePlayers) {
-    await updatePlayerRank(pid, blueWon);
+    await updatePlayerRank(pid, blueWon, deltaEloBlue);
   }
 }
