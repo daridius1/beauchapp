@@ -112,23 +112,8 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
 
     saveSnap();
 
-    if (activeTurn === 'red') {
-      setScoreRed((prev) => prev + accumulator);
-      setActiveTurn('blue');
-    } else {
-      setScoreBlue((prev) => prev + accumulator);
-      setActiveTurn('red');
-    }
-
-    setRallies((prev) => [
-      ...prev,
-      {
-        team: activeTurn,
-        points: accumulator,
-      },
-    ]);
-
-    setAccumulator(1);
+    setAccumulator((prev) => prev + 1);
+    setActiveTurn((prev) => (prev === 'red' ? 'blue' : 'red'));
   };
 
   const handlePierde = () => {
@@ -137,16 +122,23 @@ export const TipTapArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
     saveSnap();
 
     const winner = activeTurn === 'red' ? 'blue' : 'red';
-    
+    const potPoints = accumulator;
+
+    if (winner === 'red') {
+      setScoreRed((prev) => prev + potPoints);
+    } else {
+      setScoreBlue((prev) => prev + potPoints);
+    }
+
     setRallies((prev) => [
       ...prev,
       {
         team: winner,
-        points: 0,
+        points: potPoints,
       },
     ]);
 
-    setAccumulator((prev) => prev + 1);
+    setAccumulator(1);
     setActiveTurn(winner);
   };
 
