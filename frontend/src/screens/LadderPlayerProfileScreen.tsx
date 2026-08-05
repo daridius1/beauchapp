@@ -62,6 +62,12 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
 
   const scrollViewRef = React.useRef<ScrollView>(null);
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchData(!!playerUser && !!ladder);
+    }, [userId, slug])
+  );
+
   useEffect(() => {
     const subScroll = DeviceEventEmitter.addListener('onScrollToTop', () => {
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
