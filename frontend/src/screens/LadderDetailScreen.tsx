@@ -241,8 +241,8 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           activeOpacity={0.8}
           onPress={() => navigation.navigate('LadderMatchArbitrator', {
             slug: activeCategory.slug,
-            mode: activeCategory.id as any,
-            initialMode: activeCategory.id as any,
+            mode: activeCategory.id,
+            initialMode: activeCategory.id,
             name: sportGroupInfo.group.groupName
           })}
         >

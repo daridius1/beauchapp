@@ -1,7 +1,21 @@
-import PocketBase from 'pocketbase';
+import PocketBase, { AsyncAuthStore } from 'pocketbase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+
+const AUTH_STORAGE_KEY = 'pb_auth';
+
+// En web, el SDK usa por defecto LocalAuthStore (window.localStorage), que ya persiste
+// la sesión entre recargas. En nativo (iOS/Android) no hay backing store por defecto,
+// así que la sesión se perdía en cada reinicio del proceso — se respalda con AsyncStorage.
+const nativeAuthStore = Platform.OS === 'web'
+  ? undefined
+  : new AsyncAuthStore({
+      save: async (serialized) => AsyncStorage.setItem(AUTH_STORAGE_KEY, serialized),
+      clear: async () => AsyncStorage.removeItem(AUTH_STORAGE_KEY),
+      initial: AsyncStorage.getItem(AUTH_STORAGE_KEY),
+    });
 
 const getBackendUrl = () => {
   // 1. Prioridad: Variable de entorno (útil para producción y setups manuales)
@@ -31,9 +45,8 @@ const getBackendUrl = () => {
 };
 
 const POCKETBASE_URL = getBackendUrl();
-console.log('PocketBase URL:', POCKETBASE_URL);
 
-export const pb = new PocketBase(getBackendUrl());
+export const pb = new PocketBase(POCKETBASE_URL, nativeAuthStore);
 
 pb.autoCancellation(false);
 

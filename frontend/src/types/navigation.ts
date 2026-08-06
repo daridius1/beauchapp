@@ -24,7 +24,7 @@ export type RootStackParamList = {
   Notifications: undefined;
   LaddersList: undefined;
   LadderDetail: { slug: string; name?: string };
-  LadderMatchArbitrator: { slug: string; name?: string };
+  LadderMatchArbitrator: { slug: string; name?: string; mode?: string; initialMode?: string };
   LadderMatchDetail: { matchId: string; slug?: string; name?: string };
   LadderPlayerProfile: { userId: string; slug: string; name?: string };
   Marketplace: { initialCategory?: string } | undefined;

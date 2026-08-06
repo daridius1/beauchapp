@@ -385,7 +385,7 @@ export const ActivityDetailScreen = ({ route, navigation }: any) => {
               currentUser={user}
               hideTargetContext={true}
               onPress={() => navigation.push('PostDetail', { postId: comment.id })}
-              onAuthorPress={(authorId) => navigation.navigate('UserProfile', { userId: authorId })}
+              onAuthorPress={() => navigation.navigate('UserProfile', { userId: comment.author })}
             />
           ))}
         </View>

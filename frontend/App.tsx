@@ -3,6 +3,7 @@ import { StyleSheet, View, SafeAreaView, Platform, StatusBar, useWindowDimension
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -164,7 +165,7 @@ function AppContent() {
       const count = await notificationService.getUnreadCount(user.id);
       setHasUnreadNotifications(count > 0);
     } catch (err) {
-      // ignore
+      console.warn('Error checking unread notifications:', err);
     }
   }, [user]);
 
@@ -474,9 +475,11 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

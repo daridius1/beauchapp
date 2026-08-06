@@ -81,7 +81,7 @@ export const SettingsScreen: React.FC = () => {
         show_on_profile: Boolean(item.show_on_profile)
       })));
     } catch (e) {
-      console.log('Error cargando ranks de ladders en ajustes:', e);
+      console.warn('Error cargando ranks de ladders en ajustes:', e);
     }
   };
 

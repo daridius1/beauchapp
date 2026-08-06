@@ -33,7 +33,7 @@ interface AuthContextType {
   developerMode: boolean;
   setDeveloperMode: (enabled: boolean) => void;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string, username: string) => Promise<void>;
+  signup: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   clearError: () => void;
@@ -178,7 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // no consideramos que el registro falló. El registro fue exitoso.
         const msg = loginErr?.message || '';
         if (msg.includes("doesn't satisfy the collection requirements") || loginErr?.status === 400) {
-          console.log('Registro exitoso. Cuenta pendiente de verificación.');
+          // Registro exitoso; cuenta pendiente de verificación (login rechazado a propósito).
           return;
         }
         throw loginErr;
@@ -203,7 +203,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const updated = await pb.collection('users').getOne(pb.authStore.model.id);
       setUser(updated as unknown as User);
       pb.authStore.save(pb.authStore.token, updated);
-    } catch (_) {}
+    } catch (err) {
+      console.warn('Error refreshing user:', err);
+    }
   };
 
   const clearError = () => {
