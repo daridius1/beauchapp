@@ -2,6 +2,8 @@
 
 Esta guía define las reglas de diseño para Beauchapp con el fin de evitar el "estilo promedio de IA" (sombras pesadas, gradientes coloridos, esquinas muy redondeadas) y lograr una interfaz limpia, funcional y utilitaria inspirada en productos como GitHub, Linear y Notion.
 
+> Ver [`PRINCIPLES.md`](./PRINCIPLES.md) para el porqué de fondo detrás de estas reglas (recursos del servidor, PWA, compatibilidad Safari/Chrome).
+
 ---
 
 ## 1. Filosofía de Diseño

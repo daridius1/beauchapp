@@ -44,3 +44,14 @@ npm run web
 # o bien
 npx expo start --web
 ```
+
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [`SETUP.md`](./SETUP.md) | Guía de setup detallada (local y producción), variables de entorno |
+| [`PRINCIPLES.md`](./PRINCIPLES.md) | Principios de ingeniería: por qué el código es como es (recursos, R2, datos sensibles, PWA) |
+| [`DESIGN.md`](./DESIGN.md) | Guía de diseño visual y UX |
+| [`SECURITY_AND_MAINTENANCE.md`](./SECURITY_AND_MAINTENANCE.md) | Reglas de seguridad, caveats técnicos, incidentes pasados |
+| [`DEPLOY.md`](./DEPLOY.md) | Cómo desplegar a producción — manual y para agentes de IA |
+| [`.agents/AGENTS.md`](./.agents/AGENTS.md) | Reglas operativas para agentes de IA trabajando en este repo |

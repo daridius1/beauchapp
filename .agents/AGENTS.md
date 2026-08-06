@@ -1,5 +1,7 @@
 # Reglas del Proyecto Beauchapp
 
+0. **Lectura obligatoria antes de cualquier tarea no trivial:** [`PRINCIPLES.md`](../PRINCIPLES.md) (por qué el código es como es: recursos del servidor, R2, datos sensibles, PWA) y, si la tarea implica desplegar, [`DEPLOY.md`](../DEPLOY.md) (checklist e instrucciones específicas para agentes de IA). Las reglas de este archivo son operativas/puntuales; las de `PRINCIPLES.md` son el criterio de fondo para decidir cómo implementar algo cuando no hay una regla explícita que lo cubra.
+
 1. **Verificar siempre con la versión moderna:** Antes de proponer o implementar cualquier código, configuración o decisión de diseño (especialmente relacionada a la base de datos o PocketBase), DEBES investigar en internet cómo se hace en la última versión estable (actualmente PocketBase v0.25+). NO asumas que la sintaxis antigua sigue siendo válida, ya que PocketBase introduce cambios mayores entre versiones (ej. hooks JS, migraciones JS, estructuración de configuraciones, etc).
 
 2. **Archivos de prueba:** Si necesitas crear scripts de prueba (archivos temporales de JavaScript, tests de configuración, comprobaciones a la base de datos, etc.), DEBES guardarlos dentro de una carpeta dedicada a pruebas (ej. `/home/betty/beauchapp/tests/` o similar). NUNCA debes dejar scripts de prueba sueltos en carpetas importantes como `pb_hooks`, `pb_migrations` o la raíz del proyecto.
@@ -47,10 +49,5 @@
 9. **Directrices de Diseño Plano (Flat Design):**
 - Respetar rigurosamente la regla del diseño plano: prohibido usar sombras (`shadowColor`, `shadowOffset`, `shadowOpacity`, `shadowRadius`, `elevation`) en tarjetas, menús contextuales, botones o barras. Usar bordes sólidos y colores de contraste.
 
-10. **Reporte Transparente en Despliegues (Deploy Notification):**
-- Al realizar cualquier despliegue a producción, DEBES incluir siempre en el resumen para el usuario el estado detallado de la infraestructura:
-  - Dominio activo (`APP_URL`).
-  - Estado del almacenamiento multimedia (si está usando el disco local SSD o Cloudflare R2).
-  - Estado de variables de entorno `.env` e integraciones (Resend, R2, S3).
-
+10. **Despliegues:** Ver [`DEPLOY.md`](../DEPLOY.md) para el procedimiento completo y las reglas específicas para agentes de IA (nunca desplegar sin confirmación explícita en el momento, correr el checklist antes, nunca hardcodear `DEPLOY_SERVER`). Resumen de lo no-negociable: al realizar cualquier despliegue a producción, DEBES incluir siempre en el resumen para el usuario el estado detallado de la infraestructura — dominio activo (`APP_URL`), estado del almacenamiento multimedia (disco local vs. Cloudflare R2) y estado de variables de entorno `.env` e integraciones (Resend, R2, S3).
 

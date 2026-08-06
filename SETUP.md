@@ -1,5 +1,7 @@
 # Beauchapp — Guía de Setup
 
+> Para desplegar a un servidor ya existente (no la primera vez), usa [`DEPLOY.md`](./DEPLOY.md) en vez de la sección de producción de abajo. Para entender las decisiones de arquitectura detrás de este setup (por qué R2, por qué SQLite, etc.), ver [`PRINCIPLES.md`](./PRINCIPLES.md).
+
 ## Requisitos Previos
 
 | Herramienta | Versión mínima | Verificar con |
