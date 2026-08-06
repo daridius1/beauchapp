@@ -81,36 +81,40 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     try {
       if (!hideLoading) setLoading(true);
 
-      // 1. Obtener datos del problema
-      const probRes = await pb.collection('problems').getOne(problemId, {
-        expand: 'author,parent'
-      });
-      setProblem(probRes);
-
-      // 2. Obtener respuestas/pautas (problems con parent = problemId)
-      const ansRes = await pb.collection('problems').getList(1, 100, {
-        filter: `parent = "${problemId}"`,
-        sort: '-created',
-        expand: 'author'
-      });
-      setAnswers(ansRes.items);
-
-      // 2.5. Obtener comentarios polimórficos dirigidos a este problema o pauta
-      try {
-        const commentsRes = await pb.collection('posts').getList(1, 50, {
+      // Las 4 consultas son independientes entre sí (solo dependen de problemId), en paralelo.
+      const [probResult, ansResult, commentsResult, ratingsResult] = await Promise.allSettled([
+        pb.collection('problems').getOne(problemId, { expand: 'author,parent' }),
+        pb.collection('problems').getList(1, 100, {
+          filter: `parent = "${problemId}"`,
+          sort: '-created',
+          expand: 'author'
+        }),
+        pb.collection('posts').getList(1, 50, {
           filter: `targetType = "problem" && targetId = "${problemId}" && actionType = "comment" && deleted = false`,
           sort: '+created',
           expand: 'author'
-        });
-        setComments(commentsRes.items);
-      } catch (err) {
-        console.error('Error fetching problem comments:', err);
+        }),
+        pb.collection('problem_ratings').getFullList({
+          filter: `problem = "${problemId}" || problem.parent = "${problemId}"`
+        }),
+      ]);
+
+      if (probResult.status !== 'fulfilled') throw probResult.reason;
+      const probRes = probResult.value;
+      setProblem(probRes);
+
+      if (ansResult.status !== 'fulfilled') throw ansResult.reason;
+      const ansRes = ansResult.value;
+      setAnswers(ansRes.items);
+
+      if (commentsResult.status === 'fulfilled') {
+        setComments(commentsResult.value.items);
+      } else {
+        console.error('Error fetching problem comments:', commentsResult.reason);
       }
 
-      // 3. Obtener calificaciones (del problema y de las respuestas)
-      const ratingsRes = await pb.collection('problem_ratings').getFullList({
-        filter: `problem = "${problemId}" || problem.parent = "${problemId}"`
-      });
+      if (ratingsResult.status !== 'fulfilled') throw ratingsResult.reason;
+      const ratingsRes = ratingsResult.value;
 
       let sumRating = 0;
       let ratingCount = 0;

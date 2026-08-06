@@ -29,7 +29,29 @@ export interface TinderProfile {
   };
 }
 
+export interface DiscoverProfile extends TinderProfile {
+  isLiked: boolean;
+  likeId: string | null;
+}
+
 export const tinderService = {
+  /**
+   * Obtiene el feed de descubrimiento ya armado por el servidor: perfiles activos,
+   * ya excluidos los que ya hicieron match conmigo, y ya marcados si les di like o no.
+   * Reemplaza 3 consultas secuenciales (perfiles activos + mis matches + mis likes) por 1.
+   */
+  getDiscoverFeed: async (): Promise<DiscoverProfile[]> => {
+    try {
+      const res = await pb.send<{ profiles: DiscoverProfile[] }>('/api/tinder/discover', {
+        method: 'GET',
+      });
+      return res.profiles || [];
+    } catch (err) {
+      console.error('Error fetching discover feed:', err);
+      throw err;
+    }
+  },
+
   /**
    * Obtiene el perfil de Tinder de un usuario por su ID de usuario
    */

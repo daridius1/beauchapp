@@ -49,16 +49,21 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
     setLoading(true);
     try {
       await withMinimumDelay(async () => {
-        const res = await marketplaceService.getMarketplaceItems({
-          category: activeCategory,
-          query: searchQuery,
-          tag: activeTags.join(','),
-        });
-        setItems(res.items);
+        // Los items del marketplace y el perfil de vendedor propio son independientes, en paralelo.
+        const [itemsResult, profileResult] = await Promise.allSettled([
+          marketplaceService.getMarketplaceItems({
+            category: activeCategory,
+            query: searchQuery,
+            tag: activeTags.join(','),
+          }),
+          currentUser ? marketplaceService.getSellerProfile(currentUser.id) : Promise.resolve(null),
+        ]);
+
+        if (itemsResult.status !== 'fulfilled') throw itemsResult.reason;
+        setItems(itemsResult.value.items);
 
         if (currentUser) {
-          const profile = await marketplaceService.getSellerProfile(currentUser.id);
-          setMySellerProfile(profile);
+          setMySellerProfile(profileResult.status === 'fulfilled' ? profileResult.value : null);
         }
       }, 300);
     } catch (err) {

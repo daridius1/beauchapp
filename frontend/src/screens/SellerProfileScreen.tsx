@@ -97,27 +97,23 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
       setSellerProfile(profile);
 
       if (profile) {
-        // Cargar recomendación
-        const recStatus = await marketplaceService.hasUserRecommended(profile.id);
-        setIsRecommended(recStatus);
-
-        // Cargar productos del vendedor
-        const res = await marketplaceService.getMarketplaceItems({
-          sellerProfileId: profile.id,
-          perPage: 50,
-        });
-        setItems(res.items);
-
-        // Cargar comentarios del muro del vendedor
-        try {
-          const commentsRes = await pb.collection('posts').getList(1, 50, {
+        // Las 3 son independientes entre sí, solo dependen de profile.id (ya resuelto).
+        const [recResult, itemsResult, commentsResult] = await Promise.allSettled([
+          marketplaceService.hasUserRecommended(profile.id),
+          marketplaceService.getMarketplaceItems({ sellerProfileId: profile.id, perPage: 50 }),
+          pb.collection('posts').getList(1, 50, {
             filter: `targetType = "seller_profile" && targetId = "${profile.id}" && actionType = "comment" && deleted = false`,
             sort: '+created',
             expand: 'author',
-          });
-          setComments(commentsRes.items);
-        } catch (err) {
-          console.error('Error loading seller wall comments:', err);
+          }),
+        ]);
+
+        setIsRecommended(recResult.status === 'fulfilled' ? recResult.value : false);
+        setItems(itemsResult.status === 'fulfilled' ? itemsResult.value.items : []);
+        if (commentsResult.status === 'fulfilled') {
+          setComments(commentsResult.value.items);
+        } else {
+          console.error('Error loading seller wall comments:', commentsResult.reason);
         }
       }
     } catch (err) {

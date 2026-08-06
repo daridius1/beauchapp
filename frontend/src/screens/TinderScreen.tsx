@@ -105,6 +105,8 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
   const [userMembershipsMap, setUserMembershipsMap] = useState<Record<string, any[]>>({});
 
   // Helper to fetch ladder ranks & seller profiles for a list of user IDs
+  // Las 3 colecciones son independientes entre sí, así que se piden en paralelo
+  // (antes eran 3 `await` en cadena, uno tras otro, sin motivo).
   const loadUserChipsData = async (targetUserIds: string[]) => {
     if (!targetUserIds || targetUserIds.length === 0) return;
     const uniqueIds = Array.from(new Set(targetUserIds.filter(Boolean)));
@@ -112,11 +114,22 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
 
     const filterStr = uniqueIds.map((id) => `user = "${id}"`).join(' || ');
 
-    try {
-      const ranksRes = await pb.collection('ladder_ranks').getFullList({
+    const [ranksResult, sellerResult, membershipsResult] = await Promise.allSettled([
+      pb.collection('ladder_ranks').getFullList({
         filter: `(${filterStr})`,
         expand: 'ladder',
-      });
+      }),
+      pb.collection('seller_profiles').getFullList({
+        filter: `(${filterStr})`,
+      }),
+      pb.collection('organization_members').getFullList({
+        filter: `(${filterStr}) && status = "active"`,
+        expand: 'organization',
+      }),
+    ]);
+
+    if (ranksResult.status === 'fulfilled') {
+      const ranksRes = ranksResult.value;
       setUserLadderRanksMap((prev) => {
         const next = { ...prev };
         ranksRes.forEach((r: any) => {
@@ -128,12 +141,10 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
         });
         return next;
       });
-    } catch (_) {}
+    }
 
-    try {
-      const sellerRes = await pb.collection('seller_profiles').getFullList({
-        filter: `(${filterStr})`,
-      });
+    if (sellerResult.status === 'fulfilled') {
+      const sellerRes = sellerResult.value;
       setUserSellerProfilesMap((prev) => {
         const next = { ...prev };
         sellerRes.forEach((s: any) => {
@@ -141,13 +152,10 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
         });
         return next;
       });
-    } catch (_) {}
+    }
 
-    try {
-      const membershipsRes = await pb.collection('organization_members').getFullList({
-        filter: `(${filterStr}) && status = "active"`,
-        expand: 'organization',
-      });
+    if (membershipsResult.status === 'fulfilled') {
+      const membershipsRes = membershipsResult.value;
       setUserMembershipsMap((prev) => {
         const next = { ...prev };
         membershipsRes.forEach((m: any) => {
@@ -159,7 +167,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
         });
         return next;
       });
-    } catch (_) {}
+    }
   };
 
   // Photo carousels active indexes for matches modals
@@ -175,6 +183,9 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
     if (!user) return;
     try {
       setLoadingProfile(true);
+      // loadUserChipsData no depende del perfil (solo de user.id), así que arranca
+      // en paralelo de una vez en vez de esperar a que el perfil termine de procesarse.
+      const chipsPromise = loadUserChipsData([user.id]);
       let res = await tinderService.getProfileByUserId(user.id);
       if (!res) {
         // Auto-create a base tinder profile if they don't have one
@@ -226,7 +237,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
           }
         }
       }
-      loadUserChipsData([user.id]);
+      await chipsPromise;
     } catch (err: any) {
       console.error('Error fetching tinder profile:', err);
     } finally {
@@ -234,31 +245,26 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
-  // Fetch Discover stack (looping loop)
+  // Fetch Discover stack (looping loop).
+  // El servidor ya arma esto en una sola respuesta (perfiles activos, ya excluidos los
+  // matcheados, ya marcados si les di like) — antes eran 3 requests secuenciales
+  // (perfiles + matches + likes) más el filtrado hecho a mano acá. Ver
+  // backend/pb_hooks/tinder.pb.js (ruta "18. Feed de descubrimiento").
   const fetchDiscover = async () => {
     if (!user) return;
     try {
       setLoadingDiscover(true);
-      
-      // Get all active profiles except self
-      const res = await tinderService.getFullActiveProfiles(user.id);
 
-      // Get all matches we have (to exclude from Discover)
-      const matchesRes = await tinderService.getMatchesList(user.id);
-      const matchedUserIds = new Set(matchesRes.map(m => m.userA === user.id ? m.userB : m.userA));
-
-      // Get all likes we have sent (so we can check who we already liked)
-      const likesRes = await tinderService.getLikesList(user.id);
+      const filtered = await tinderService.getDiscoverFeed();
 
       const likedIds = new Set<string>();
       const likeIdsMap = new Map<string, string>();
-      likesRes.forEach(l => {
-        likedIds.add(l.toUser);
-        likeIdsMap.set(l.toUser, l.id);
+      filtered.forEach((p) => {
+        if (p.isLiked && p.likeId) {
+          likedIds.add(p.user);
+          likeIdsMap.set(p.user, p.likeId);
+        }
       });
-
-      // Filter out matches from discover list
-      const filtered = res.filter(p => !matchedUserIds.has(p.user));
 
       setDiscoverProfiles(filtered);
       setLikedUserIds(likedIds);
@@ -266,7 +272,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       setCurrentIndex(0);
       setActivePhotoIndex(0);
 
-      // Load chips data (ladders & seller profiles)
+      // Load chips data (ladders & seller profiles) — independiente del feed, en paralelo.
       const discoverUserIds = filtered.map((p) => p.user);
       loadUserChipsData(discoverUserIds);
     } catch (err) {
@@ -290,15 +296,21 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
         return;
       }
 
-      // Query tinder_profiles for matches to get descriptions & verified contact handles
+      // Query tinder_profiles for matches to get descriptions & verified contact handles.
+      // Se lanza en paralelo con loadUserChipsData: ambas solo dependen de matchedUserIds,
+      // no una de la otra.
       let profileFilter = matchedUserIds.map(id => `user = "${id}"`).join(' || ');
       let profilesRes: any[] = [];
-      try {
-        profilesRes = await pb.collection('tinder_profiles').getFullList({
+      const [profilesSettled] = await Promise.allSettled([
+        pb.collection('tinder_profiles').getFullList({
           filter: `(${profileFilter})`,
           expand: 'user'
-        });
-      } catch (pErr) {}
+        }),
+        loadUserChipsData(matchedUserIds),
+      ]);
+      if (profilesSettled.status === 'fulfilled') {
+        profilesRes = profilesSettled.value;
+      }
 
       // Map matches with their profile & status details
       const matchedData = matchesRes.map(m => {
@@ -322,9 +334,6 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       });
 
       setMatches(matchedData);
-
-      // Load chips data for matches
-      loadUserChipsData(matchedUserIds);
     } catch (err) {
       console.error('Error fetching tinder matches:', err);
     } finally {

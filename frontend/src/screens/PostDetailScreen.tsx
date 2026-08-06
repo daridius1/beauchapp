@@ -54,19 +54,36 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   }, [photo]);
 
+  // Todos los posts de un hilo comparten el mismo campo `root` (mantenido por forum.pb.js),
+  // así que en vez de un getOne() por cada nivel de profundidad, se trae todo el hilo en una
+  // sola consulta y se reconstruye la cadena de ancestros en memoria.
   const fetchAncestors = async (post: any) => {
-    const path = [];
-    let curr = (post.actionType === 'reply' && post.targetType === 'post' ? post.targetId : null) || post.replyTo;
-    while (curr) {
-      try {
-        const parent = await pb.collection('posts').getOne(curr, { expand: 'author,replyTo.author' });
-        path.unshift(parent);
-        curr = (parent.actionType === 'reply' && parent.targetType === 'post' ? parent.targetId : null) || parent.replyTo;
-      } catch (e) {
-        break; // Parent might be deleted
+    const startParentId = (post.actionType === 'reply' && post.targetType === 'post' ? post.targetId : null) || post.replyTo;
+    if (!startParentId) return [];
+
+    const rootId = post.root || startParentId;
+    try {
+      const res = await pb.collection('posts').getList(1, 200, {
+        filter: `(id = "${rootId}" || root = "${rootId}")`,
+        expand: 'author,replyTo.author',
+      });
+      const byId: Record<string, any> = {};
+      res.items.forEach((p: any) => { byId[p.id] = p; });
+
+      const path: any[] = [];
+      let currId: string | null = startParentId;
+      const visited = new Set<string>();
+      while (currId && byId[currId] && !visited.has(currId)) {
+        visited.add(currId);
+        const p = byId[currId];
+        path.unshift(p);
+        currId = (p.actionType === 'reply' && p.targetType === 'post' ? p.targetId : null) || p.replyTo || null;
       }
+      return path;
+    } catch (err) {
+      console.error('Error fetching ancestors', err);
+      return [];
     }
-    return path;
   };
 
   const fetchChildren = async (parentId: string, pageNum = 1, isLoadMore = false) => {
@@ -94,13 +111,16 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const fetchData = async (hideLoading = false) => {
     if (!hideLoading) setLoading(true);
     try {
-      const postRes = await pb.collection('posts').getOne(postId, { expand: 'author,replyTo.author' });
+      // fetchChildren solo depende de postId (ya conocido), así que corre en paralelo con
+      // el post principal + sus ancestros (que sí dependen uno del otro, en cadena).
+      const [postRes] = await Promise.all([
+        pb.collection('posts').getOne(postId, { expand: 'author,replyTo.author' }),
+        fetchChildren(postId, 1, false),
+      ]);
       setMainPost(postRes);
-      
+
       const path = await fetchAncestors(postRes);
       setThreadPath(path);
-      
-      await fetchChildren(postId, 1, false);
     } catch (err) {
       console.error('Error fetching post details', err);
     } finally {

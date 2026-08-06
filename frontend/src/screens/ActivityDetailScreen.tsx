@@ -40,7 +40,19 @@ export const ActivityDetailScreen = ({ route, navigation }: any) => {
     try {
       if (!hideLoading) setLoading(true);
 
-      const actData = await activityService.getActivityById(targetActivityId);
+      // Las 3 solo dependen de targetActivityId/user.id (conocidos de antemano), en paralelo.
+      const [actResult, interResult, commentsResult] = await Promise.allSettled([
+        activityService.getActivityById(targetActivityId),
+        user?.id ? activityService.checkUserInteractions(targetActivityId, user.id) : Promise.resolve(null),
+        pb.collection('posts').getList(1, 50, {
+          filter: `targetType = "activity" && targetId = "${targetActivityId}" && deleted = false`,
+          sort: 'created',
+          expand: 'author,replyTo.author',
+        }),
+      ]);
+
+      if (actResult.status !== 'fulfilled') throw actResult.reason;
+      const actData = actResult.value;
       if (!actData) {
         setLoading(false);
         return;
@@ -61,25 +73,24 @@ export const ActivityDetailScreen = ({ route, navigation }: any) => {
         );
       }
 
-      // Cargar estado de interacciones del usuario
+      // Estado de interacciones del usuario
       if (user?.id) {
-        const inter = await activityService.checkUserInteractions(targetActivityId, user.id);
-        setLiked(inter.liked);
-        setLikeRecordId(inter.likeRecordId);
-        setAttending(inter.attending);
-        setAttendeeRecordId(inter.attendeeRecordId);
+        if (interResult.status === 'fulfilled' && interResult.value) {
+          const inter = interResult.value;
+          setLiked(inter.liked);
+          setLikeRecordId(inter.likeRecordId);
+          setAttending(inter.attending);
+          setAttendeeRecordId(inter.attendeeRecordId);
+        } else if (interResult.status === 'rejected') {
+          console.error('Error cargando interacciones de actividad:', interResult.reason);
+        }
       }
 
-      // Cargar comentarios polimórficos vinculados a la actividad
-      try {
-        const commentsRes = await pb.collection('posts').getList(1, 50, {
-          filter: `targetType = "activity" && targetId = "${targetActivityId}" && deleted = false`,
-          sort: 'created',
-          expand: 'author,replyTo.author',
-        });
-        setComments(commentsRes.items);
-      } catch (err) {
-        console.error('Error cargando comentarios de actividad:', err);
+      // Comentarios polimórficos vinculados a la actividad
+      if (commentsResult.status === 'fulfilled') {
+        setComments(commentsResult.value.items);
+      } else {
+        console.error('Error cargando comentarios de actividad:', commentsResult.reason);
       }
     } catch (err) {
       console.error('Error al cargar detalle de actividad:', err);

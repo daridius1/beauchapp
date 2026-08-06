@@ -65,66 +65,67 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
     if (!targetUserId) return;
     try {
       if (!hideLoading) setLoading(true);
-      
-      // 1. Obtener datos del usuario del perfil
-      const userRes = await pb.collection('users').getOne(targetUserId);
+
+      // Todo lo de abajo depende únicamente de targetUserId (y currentUser.id para
+      // isFollowing) — nada depende del contenido de userRes salvo el ramaje
+      // estudiante/organización de más abajo. Antes esto eran ~6-9 `await` en cadena,
+      // uno tras otro; ahora se piden todos en paralelo en una sola tanda.
+      const checkIsFollowing = !!currentUser && currentUser.id !== targetUserId;
+
+      const [userResult, sellerResult, ranksResult, postsResult, followersResult, isFollowingResult] =
+        await Promise.allSettled([
+          pb.collection('users').getOne(targetUserId),
+          marketplaceService.getSellerProfile(targetUserId),
+          pb.collection('ladder_ranks').getList(1, 10, {
+            filter: `user = "${targetUserId}"`,
+            expand: 'ladder'
+          }),
+          pb.collection('posts').getList(1, 50, {
+            filter: `author = "${targetUserId}" && deleted = false`,
+            sort: '-created',
+            expand: 'author,replyTo.author'
+          }),
+          pb.collection('follows').getList(1, 1, {
+            filter: `following = "${targetUserId}"`
+          }),
+          checkIsFollowing
+            ? pb.collection('follows').getList(1, 1, {
+                filter: `follower = "${currentUser!.id}" && following = "${targetUserId}"`
+              })
+            : Promise.resolve(null),
+        ]);
+
+      if (userResult.status !== 'fulfilled') {
+        throw userResult.reason;
+      }
+      const userRes = userResult.value;
       setProfileUser(userRes);
 
-      // Cargar Perfil de Vendedor si existe
-      try {
-        const sProfile = await marketplaceService.getSellerProfile(targetUserId);
-        setSellerProfile(sProfile);
-      } catch (e) {
-        setSellerProfile(null);
-      }
+      setSellerProfile(sellerResult.status === 'fulfilled' ? sellerResult.value : null);
+      setLadderRanks(ranksResult.status === 'fulfilled' ? ranksResult.value.items : []);
+      setPosts(postsResult.status === 'fulfilled' ? postsResult.value.items : []);
+      setFollowersCount(followersResult.status === 'fulfilled' ? followersResult.value.totalItems : 0);
+      setIsFollowing(
+        checkIsFollowing && isFollowingResult.status === 'fulfilled' && isFollowingResult.value
+          ? isFollowingResult.value.totalItems > 0
+          : false
+      );
 
-      // Cargar Ranks de Ladders
-      try {
-        const ranksRes = await pb.collection('ladder_ranks').getList(1, 10, {
-          filter: `user = "${targetUserId}"`,
-          expand: 'ladder'
-        });
-        setLadderRanks(ranksRes.items);
-      } catch (e) {
-        setLadderRanks([]);
-      }
-
-      // 2. Obtener publicaciones del usuario
-      const postsRes = await pb.collection('posts').getList(1, 50, {
-        filter: `author = "${targetUserId}" && deleted = false`,
-        sort: '-created',
-        expand: 'author,replyTo.author'
-      });
-      setPosts(postsRes.items);
-
-      // 3. Obtener contadores de seguidores/siguiendo
-      const followersRes = await pb.collection('follows').getList(1, 1, {
-        filter: `following = "${targetUserId}"`
-      });
-      setFollowersCount(followersRes.totalItems);
-
+      // Esta parte sí depende de userRes.type (recién disponible), así que va después —
+      // pero sus dos posibles ramas también se piden en paralelo entre sí.
       if (userRes.type === 'student') {
-        const followingRes = await pb.collection('follows').getList(1, 1, {
-          filter: `follower = "${targetUserId}"`
-        });
-        setFollowingCount(followingRes.totalItems);
-
-        const membershipsData = await organizationService.getStudentMemberships(targetUserId);
-        setStudentMemberships(membershipsData);
+        const [followingResult, membershipsResult] = await Promise.allSettled([
+          pb.collection('follows').getList(1, 1, {
+            filter: `follower = "${targetUserId}"`
+          }),
+          organizationService.getStudentMemberships(targetUserId),
+        ]);
+        setFollowingCount(followingResult.status === 'fulfilled' ? followingResult.value.totalItems : 0);
+        setStudentMemberships(membershipsResult.status === 'fulfilled' ? membershipsResult.value : []);
       } else {
         setFollowingCount(0);
         const membersData = await organizationService.getOrganizationMembers(targetUserId);
         setOrgMembers(membersData);
-      }
-
-      // 4. Verificar si el usuario actual sigue a este perfil
-      if (currentUser && currentUser.id !== targetUserId) {
-        const isFollowingRes = await pb.collection('follows').getList(1, 1, {
-          filter: `follower = "${currentUser.id}" && following = "${targetUserId}"`
-        });
-        setIsFollowing(isFollowingRes.totalItems > 0);
-      } else {
-        setIsFollowing(false);
       }
     } catch (err) {
       console.error('Error fetching profile and posts', err);

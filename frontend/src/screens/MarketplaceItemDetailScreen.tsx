@@ -48,24 +48,29 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
   const loadItem = useCallback(async () => {
     setLoading(true);
     try {
-      const record = await marketplaceService.getItemDetail(itemId);
+      // El item y los comentarios solo dependen de itemId (conocido de antemano), en paralelo.
+      const [itemResult, commentsResult] = await Promise.allSettled([
+        marketplaceService.getItemDetail(itemId),
+        pb.collection('posts').getList(1, 50, {
+          filter: `targetType = "marketplace_item" && targetId = "${itemId}" && actionType = "comment" && deleted = false`,
+          sort: '+created',
+          expand: 'author',
+        }),
+      ]);
+
+      if (itemResult.status !== 'fulfilled') throw itemResult.reason;
+      const record = itemResult.value;
       setItem(record);
+
+      if (commentsResult.status === 'fulfilled') {
+        setComments(commentsResult.value.items);
+      } else {
+        console.error('Error loading item comments:', commentsResult.reason);
+      }
 
       if (record?.expand?.seller?.id) {
         const isRec = await marketplaceService.hasUserRecommended(record.expand.seller.id);
         setIsRecommended(isRec);
-      }
-
-      // Cargar comentarios dirigidos a este producto
-      try {
-        const commentsRes = await pb.collection('posts').getList(1, 50, {
-          filter: `targetType = "marketplace_item" && targetId = "${itemId}" && actionType = "comment" && deleted = false`,
-          sort: '+created',
-          expand: 'author',
-        });
-        setComments(commentsRes.items);
-      } catch (err) {
-        console.error('Error loading item comments:', err);
       }
     } catch (err) {
       console.error('Error fetching item detail:', err);

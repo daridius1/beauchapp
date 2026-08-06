@@ -182,3 +182,98 @@ onRecordAfterDeleteSuccess((e) => {
         console.error("[Tinder Match] Error cleaning up likes on delete:", err.message || err);
     }
 }, "tinder_matches");
+
+// 18. Tinder Beauchef: Feed de descubrimiento pre-armado en el servidor.
+// Antes el frontend hacía 3 consultas secuenciales (perfiles activos, mis matches, mis likes)
+// solo para poder filtrar/marcar los perfiles a mostrar. Esta ruta hace ese trabajo acá y
+// devuelve una sola respuesta lista para renderizar (perfiles ya filtrados por match, ya
+// marcados como "ya di like", con el usuario ya expandido) — 1 request en vez de 3.
+// Las "chips" (ladder_ranks/seller_profiles/organization_members) se siguen pidiendo aparte
+// desde el cliente (en paralelo, no acá) porque son independientes de este feed.
+routerAdd("GET", "/api/tinder/discover", (e) => {
+    try {
+        const currentUserId = e.auth.id;
+
+        const profiles = $app.findRecordsByFilter(
+            "tinder_profiles",
+            "isActive = true && user != {:me}",
+            "-created", 200, 0,
+            { me: currentUserId }
+        );
+
+        const matches = $app.findRecordsByFilter(
+            "tinder_matches",
+            "userA = {:me} || userB = {:me}",
+            "-created", 500, 0,
+            { me: currentUserId }
+        );
+        const matchedUserIds = {};
+        matches.forEach((m) => {
+            const a = m.getString("userA");
+            const b = m.getString("userB");
+            matchedUserIds[a === currentUserId ? b : a] = true;
+        });
+
+        const myLikes = $app.findRecordsByFilter(
+            "tinder_likes",
+            "fromUser = {:me} && liked = true",
+            "-created", 500, 0,
+            { me: currentUserId }
+        );
+        const likeIdByUser = {};
+        myLikes.forEach((l) => {
+            likeIdByUser[l.getString("toUser")] = l.id;
+        });
+
+        const visibleProfiles = profiles.filter((p) => !matchedUserIds[p.getString("user")]);
+        const userIds = visibleProfiles.map((p) => p.getString("user"));
+
+        let usersById = {};
+        if (userIds.length > 0) {
+            const idFilter = userIds.map((id) => `id = "${id}"`).join(" || ");
+            const users = $app.findRecordsByFilter("users", `(${idFilter})`, "-created", userIds.length, 0);
+            users.forEach((u) => {
+                usersById[u.id] = {
+                    id: u.id,
+                    name: u.getString("name"),
+                    username: u.getString("username"),
+                    avatar: u.getString("avatar"),
+                    collectionId: u.collection().id,
+                    collectionName: "users",
+                };
+            });
+        }
+
+        const result = visibleProfiles.map((p) => {
+            const userId = p.getString("user");
+            return {
+                id: p.id,
+                user: userId,
+                description: p.getString("description"),
+                isActive: p.getBool("isActive"),
+                photos: p.get("photos") || [],
+                instagram: p.getString("instagram"),
+                whatsapp: p.getString("whatsapp"),
+                telegram: p.getString("telegram"),
+                signal: p.getString("signal"),
+                favorite_song: p.getString("favorite_song"),
+                favorite_book: p.getString("favorite_book"),
+                zodiac_sign: p.getString("zodiac_sign"),
+                favorite_drink: p.getString("favorite_drink"),
+                favorite_food: p.getString("favorite_food"),
+                favorite_subject: p.getString("favorite_subject"),
+                hobbies: p.getString("hobbies"),
+                collectionId: p.collection().id,
+                collectionName: "tinder_profiles",
+                expand: { user: usersById[userId] || null },
+                isLiked: !!likeIdByUser[userId],
+                likeId: likeIdByUser[userId] || null,
+            };
+        });
+
+        return e.json(200, { profiles: result });
+    } catch (err) {
+        console.error("[Tinder Discover Route] Error:", err.message || err);
+        return e.json(500, { error: "No se pudo cargar el feed de descubrimiento." });
+    }
+}, $apis.requireAuth("users"));

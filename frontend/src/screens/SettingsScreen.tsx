@@ -198,16 +198,19 @@ export const SettingsScreen: React.FC = () => {
 
       await pb.collection('users').update(user.id, formData);
 
-      // Actualizar visibilidad individual de cada ladder rank
-      for (const rank of myLadderRanks) {
-        try {
-          await pb.collection('ladder_ranks').update(rank.id, {
+      // Actualizar visibilidad individual de cada ladder rank (en paralelo, son independientes entre sí)
+      const rankUpdates = await Promise.allSettled(
+        myLadderRanks.map((rank) =>
+          pb.collection('ladder_ranks').update(rank.id, {
             show_on_profile: Boolean(rank.show_on_profile)
-          });
-        } catch (err) {
-          console.error('Error guardando visibilidad de ladder rank:', rank.id, err);
+          })
+        )
+      );
+      rankUpdates.forEach((res, i) => {
+        if (res.status === 'rejected') {
+          console.error('Error guardando visibilidad de ladder rank:', myLadderRanks[i].id, res.reason);
         }
-      }
+      });
 
       await loadMyLadderRanks();
       await pb.collection('users').authRefresh();

@@ -58,12 +58,7 @@ export const marketplaceService = {
       });
       if (records.items.length === 0) return null;
 
-      const profile = records.items[0];
-      const recs = await pb.collection('seller_recommendations').getList(1, 1, {
-        filter: `seller = "${profile.id}"`,
-      });
-      profile.recommendations_count = recs.totalItems;
-      return profile;
+      return records.items[0];
     } catch (err) {
       console.error('Error fetching seller profile:', err);
       return null;
@@ -73,14 +68,9 @@ export const marketplaceService = {
   // Obtener Perfil de Vendedor por ID propio del registro de seller_profile
   getSellerProfileById: async (sellerProfileId: string): Promise<SellerProfileRecord | null> => {
     try {
-      const profile = await pb.collection('seller_profiles').getOne<SellerProfileRecord>(sellerProfileId, {
+      return await pb.collection('seller_profiles').getOne<SellerProfileRecord>(sellerProfileId, {
         expand: 'user',
       });
-      const recs = await pb.collection('seller_recommendations').getList(1, 1, {
-        filter: `seller = "${profile.id}"`,
-      });
-      profile.recommendations_count = recs.totalItems;
-      return profile;
     } catch (err) {
       console.error('Error fetching seller profile by ID:', err);
       return null;
@@ -164,29 +154,19 @@ export const marketplaceService = {
       isRecommendedNow = true;
     }
 
-    // Calcular el conteo real exacto desde seller_recommendations
-    const allRecs = await pb.collection('seller_recommendations').getList(1, 1, {
-      filter: `seller = "${sellerProfileId}"`,
-    });
+    // recommendations_count ya quedó actualizado por el hook del servidor (síncrono, antes
+    // de esta respuesta), así que basta con leerlo del propio seller_profile.
+    const updatedProfile = await pb.collection('seller_profiles').getOne<SellerProfileRecord>(sellerProfileId);
 
-    return { isRecommended: isRecommendedNow, count: allRecs.totalItems };
+    return { isRecommended: isRecommendedNow, count: updatedProfile.recommendations_count || 0 };
   },
 
   // Obtener detalle de un producto por ID
   getItemDetail: async (itemId: string): Promise<MarketplaceItemRecord | null> => {
     try {
-      const record = await pb.collection('marketplace_items').getOne<MarketplaceItemRecord>(itemId, {
+      return await pb.collection('marketplace_items').getOne<MarketplaceItemRecord>(itemId, {
         expand: 'seller.user,user',
       });
-
-      if (record.expand?.seller?.id) {
-        const recs = await pb.collection('seller_recommendations').getList(1, 1, {
-          filter: `seller = "${record.expand.seller.id}"`,
-        });
-        record.expand.seller.recommendations_count = recs.totalItems;
-      }
-
-      return record;
     } catch (err) {
       console.error('Error fetching item detail:', err);
       return null;
@@ -253,17 +233,8 @@ export const marketplaceService = {
         }
       }
 
-      // Cargar conteo real y actualizado de recomendaciones para cada vendedor de la lista
-      await Promise.all(
-        finalItems.map(async (item) => {
-          if (item.expand?.seller?.id) {
-            const recs = await pb.collection('seller_recommendations').getList(1, 1, {
-              filter: `seller = "${item.expand.seller.id}"`,
-            });
-            item.expand.seller.recommendations_count = recs.totalItems;
-          }
-        })
-      );
+      // recommendations_count ya viene listo en cada seller_profile expandido (mantenido
+      // por el hook del servidor), sin necesidad de una consulta extra por vendedor.
 
       return {
         items: finalItems,
