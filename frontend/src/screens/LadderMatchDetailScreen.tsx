@@ -65,24 +65,32 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
     if (!hideLoading) setLoading(true);
     try {
       await withMinimumDelay(async () => {
-        const data = await ladderService.getMatchById(matchId);
-        setMatch(data);
-        if (data?.expand?.ladder) {
-          navigation.setParams({
-            slug: data.expand.ladder.slug,
-            name: data.expand.ladder.name,
-          });
-        }
-
-        try {
-          const commentsRes = await pb.collection('posts').getList(1, 50, {
+        const [matchResult, commentsResult] = await Promise.allSettled([
+          ladderService.getMatchById(matchId),
+          pb.collection('posts').getList(1, 50, {
             filter: `targetType = "match" && targetId = "${matchId}" && actionType = "comment" && deleted = false`,
             sort: '+created',
             expand: 'author'
-          });
-          setComments(commentsRes.items);
-        } catch (err) {
-          console.error('Error fetching match comments:', err);
+          }),
+        ]);
+
+        if (matchResult.status === 'fulfilled') {
+          const data = matchResult.value;
+          setMatch(data);
+          if (data?.expand?.ladder) {
+            navigation.setParams({
+              slug: data.expand.ladder.slug,
+              name: data.expand.ladder.name,
+            });
+          }
+        } else {
+          console.error('Error fetching match details:', matchResult.reason);
+        }
+
+        if (commentsResult.status === 'fulfilled') {
+          setComments(commentsResult.value.items);
+        } else {
+          console.error('Error fetching match comments:', commentsResult.reason);
         }
       }, 400);
     } catch (err) {

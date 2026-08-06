@@ -34,8 +34,10 @@ export const ImagePicker: React.FC<Props> = ({ onImageReady, value }) => {
 
     setIsCompressing(true);
     try {
-      const compressedBlob = await compressImage(file);
-      const compressedFile = new File([compressedBlob], file.name.replace(/\.[^/.]+$/, "") + ".webp", { type: 'image/webp' });
+      // JPEG (no WebP): PocketBase 0.25.9 usa disintegration/imaging para generar thumbs,
+      // que no sabe decodificar WebP como origen y sirve el original completo en silencio.
+      const compressedBlob = await compressImage(file, false, 'image/jpeg');
+      const compressedFile = new File([compressedBlob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: 'image/jpeg' });
       
       // Generate preview
       const previewUrl = URL.createObjectURL(compressedFile);

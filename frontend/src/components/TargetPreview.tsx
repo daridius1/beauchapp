@@ -89,8 +89,8 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
     const authorName = liveAuthor?.name || targetMeta?.authorName || 'Usuario';
     const authorUsername = liveAuthor?.username || targetMeta?.authorUsername || '';
     const contentText = resolved?.content || targetMeta?.content || '';
-    const photoUrl = resolved?.photo 
-      ? getFileUrl(resolved, resolved.photo)
+    const photoUrl = resolved?.photo
+      ? getFileUrl(resolved, resolved.photo, '300x300')
       : null;
 
     return (

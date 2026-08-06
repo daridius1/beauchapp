@@ -181,8 +181,8 @@ export const activityService = {
   /**
    * Helper para obtener la URL de la imagen de portada de la actividad.
    */
-  getBannerUrl(record: ActivityRecord): string | null {
+  getBannerUrl(record: ActivityRecord, size?: string): string | null {
     if (!record || !record.banner) return null;
-    return getFileUrl(record, record.banner);
+    return getFileUrl(record, record.banner, size);
   }
 };

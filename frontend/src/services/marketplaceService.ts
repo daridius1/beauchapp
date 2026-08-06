@@ -313,7 +313,7 @@ export const marketplaceService = {
   },
 
   // Obtener URL de imagen de producto
-  getItemImageUrl: (item: MarketplaceItemRecord, filename: string): string => {
-    return getFileUrl(item, filename);
+  getItemImageUrl: (item: MarketplaceItemRecord, filename: string, size?: string): string => {
+    return getFileUrl(item, filename, size);
   },
 };

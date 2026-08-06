@@ -13,7 +13,7 @@ interface Props {
 export const MarketplaceItemCard: React.FC<Props> = ({ item, onPress }) => {
   const categoryObj = CATEGORIES.find((c) => c.id === item.category);
   const mainImage = item.images && item.images.length > 0
-    ? marketplaceService.getItemImageUrl(item, item.images[0])
+    ? marketplaceService.getItemImageUrl(item, item.images[0], '300x300')
     : null;
 
   const isUnavailable = item.status === 'unavailable';

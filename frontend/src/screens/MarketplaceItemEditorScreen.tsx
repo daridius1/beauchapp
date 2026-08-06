@@ -100,11 +100,13 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
 
       for (const file of files) {
         if (!file.type.startsWith('image/')) continue;
-        const compressedBlob = await compressImage(file);
+        // JPEG (no WebP): PocketBase 0.25.9 usa disintegration/imaging para generar thumbs,
+        // que no sabe decodificar WebP como origen y sirve el original completo en silencio.
+        const compressedBlob = await compressImage(file, false, 'image/jpeg');
         const compressedFile = new File(
           [compressedBlob],
-          file.name.replace(/\.[^/.]+$/, '') + '.webp',
-          { type: 'image/webp' }
+          file.name.replace(/\.[^/.]+$/, '') + '.jpg',
+          { type: 'image/jpeg' }
         );
         newFiles.push(compressedFile);
         newPreviews.push(URL.createObjectURL(compressedFile));

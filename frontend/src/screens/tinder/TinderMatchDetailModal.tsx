@@ -78,7 +78,7 @@ export const TinderMatchDetailModal: React.FC<TinderMatchDetailModalProps> = ({
               <View style={[styles.profileCard, { height: '100%' }]}>
                 <View style={[styles.cardImageWrapper, { height: '100%' }]}>
                   <Image
-                    source={{ uri: getFileUrl(selectedMatch.profile, selectedMatch.profile.photos[detailPhotoIndex % selectedMatch.profile.photos.length]) }}
+                    source={{ uri: getFileUrl(selectedMatch.profile, selectedMatch.profile.photos[detailPhotoIndex % selectedMatch.profile.photos.length], '800x0') }}
                     style={styles.cardImage}
                   />
 

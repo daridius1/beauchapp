@@ -186,7 +186,11 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
 
   const imageUrls =
     item.images && item.images.length > 0
-      ? item.images.map((img) => marketplaceService.getItemImageUrl(item, img))
+      ? item.images.map((img) => marketplaceService.getItemImageUrl(item, img, '800x0'))
+      : [];
+  const thumbUrls =
+    item.images && item.images.length > 0
+      ? item.images.map((img) => marketplaceService.getItemImageUrl(item, img, '300x300'))
       : [];
 
   const handleToggleRecommend = async () => {
@@ -308,7 +312,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
                     ]}
                     onPress={() => setActiveImageIndex(idx)}
                   >
-                    <Image source={{ uri: url }} style={styles.thumbImage} />
+                    <Image source={{ uri: thumbUrls[idx] }} style={styles.thumbImage} />
                   </TouchableOpacity>
                 ))}
               </View>

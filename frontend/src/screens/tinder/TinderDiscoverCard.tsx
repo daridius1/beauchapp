@@ -51,7 +51,7 @@ export const TinderDiscoverCard: React.FC<TinderDiscoverCardProps> = ({
             {activePhotos.length > 0 ? (
               <>
                 <Image
-                  source={{ uri: getFileUrl(activeDiscoverProfile, activePhotos[activePhotoIndex]) }}
+                  source={{ uri: getFileUrl(activeDiscoverProfile, activePhotos[activePhotoIndex], '800x0') }}
                   style={styles.cardImage}
                 />
 

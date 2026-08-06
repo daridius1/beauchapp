@@ -26,7 +26,7 @@ import { UserChipsRow } from '../components/UserChipsRow';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
-import { compressImage } from '../utils/imageCompressor';
+import { compressImage, compressImageNative } from '../utils/imageCompressor';
 import { styles } from './tinder/TinderScreen.styles';
 import { TinderExtraDetails } from './tinder/TinderExtraDetails';
 import { TinderRulesPanel } from './tinder/TinderRulesPanel';
@@ -214,7 +214,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       // Load existing photos
       if (res.photos && Array.isArray(res.photos)) {
         const existing = res.photos.map((ph: string) => ({
-          uri: getFileUrl(res, ph),
+          uri: getFileUrl(res, ph, '400x0'),
           isLocal: false,
           name: ph
         }));
@@ -569,17 +569,34 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
               : new File([rawBlob], ph.file?.fileName || 'photo.jpg', { type: mime });
             
             try {
-              const compressedBlob = await compressImage(rawFile, false, 'image/webp');
-              formData.append('photos', compressedBlob, 'tinder_photo.webp');
+              // JPEG (no WebP): PocketBase 0.25.9 usa disintegration/imaging para generar thumbs,
+              // que no sabe decodificar WebP como origen y sirve el original completo en silencio.
+              const compressedBlob = await compressImage(rawFile, false, 'image/jpeg');
+              formData.append('photos', compressedBlob, 'tinder_photo.jpg');
             } catch (compressErr) {
               formData.append('photos', rawBlob, ph.file?.fileName || 'profile_tinder.jpg');
             }
           } else {
-            formData.append('photos', {
-              uri: ph.uri,
-              name: ph.file?.fileName || 'profile_tinder.jpg',
-              type: ph.file?.mimeType || 'image/jpeg',
-            } as any);
+            try {
+              const compressed = await compressImageNative(
+                ph.uri,
+                ph.file?.width || 0,
+                ph.file?.height || 0,
+                false,
+                'image/jpeg'
+              );
+              formData.append('photos', {
+                uri: compressed.uri,
+                name: 'tinder_photo.jpg',
+                type: 'image/jpeg',
+              } as any);
+            } catch (compressErr) {
+              formData.append('photos', {
+                uri: ph.uri,
+                name: ph.file?.fileName || 'profile_tinder.jpg',
+                type: ph.file?.mimeType || 'image/jpeg',
+              } as any);
+            }
           }
         } else {
           // Keep existing photo by appending its name as string

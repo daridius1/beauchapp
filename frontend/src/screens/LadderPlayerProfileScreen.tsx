@@ -36,19 +36,21 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
     if (!hideLoading) setLoading(true);
     try {
       await withMinimumDelay(async () => {
-        const ladderData = await ladderService.getLadderBySlug(slug);
+        const [ladderData, userData] = await Promise.all([
+          ladderService.getLadderBySlug(slug),
+          ladderService.getUserById(userId),
+        ]);
         setLadder(ladderData);
         if (ladderData?.name) {
           navigation.setParams({ name: ladderData.name });
         }
+        setPlayerUser(userData);
 
-        const [userData, ranksData, matchesData] = await Promise.all([
-          ladderService.getUserById(userId),
+        const [ranksData, matchesData] = await Promise.all([
           ladderService.getLadderLeaderboard(ladderData.id, sportGroupInfo.activeCategory.id),
           ladderService.getPlayerMatchesInLadder(ladderData.id, userId, sportGroupInfo.activeCategory.id),
         ]);
 
-        setPlayerUser(userData);
         setLeaderboard(ranksData);
         setPlayerMatches(matchesData);
       }, 400);

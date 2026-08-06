@@ -1,3 +1,5 @@
+import { manipulateAsync, SaveFormat, Action } from 'expo-image-manipulator';
+
 // Detect WebP canvas export support (cached once)
 let _webpSupported: boolean | null = null;
 function supportsWebpExport(): boolean {
@@ -104,5 +106,45 @@ export async function compressImage(
       img.onerror = (err) => reject(err);
     };
     reader.onerror = (err) => reject(err);
+  });
+}
+
+// Equivalente nativo de compressImage (Canvas/DOM no existen en iOS/Android).
+// A diferencia de la versión web, no reintenta con calidad/dimensión menor
+// comparando el tamaño resultante en bytes — usa un límite de dimensión y una
+// calidad fijos en una sola pasada, suficiente para acotar el peso del archivo.
+export async function compressImageNative(
+  uri: string,
+  originalWidth: number,
+  originalHeight: number,
+  cropToSquare: boolean = false,
+  format: 'image/jpeg' | 'image/webp' = 'image/jpeg'
+): Promise<{ uri: string; width: number; height: number }> {
+  const actions: Action[] = [];
+  let width = originalWidth;
+  let height = originalHeight;
+
+  if (cropToSquare && width !== height) {
+    const minDim = Math.min(width, height);
+    actions.push({
+      crop: {
+        originX: (width - minDim) / 2,
+        originY: (height - minDim) / 2,
+        width: minDim,
+        height: minDim,
+      },
+    });
+    width = minDim;
+    height = minDim;
+  }
+
+  const MAX_DIM = 1200;
+  if (width > MAX_DIM || height > MAX_DIM) {
+    actions.push(width >= height ? { resize: { width: MAX_DIM } } : { resize: { height: MAX_DIM } });
+  }
+
+  return manipulateAsync(uri, actions, {
+    compress: 0.7,
+    format: format === 'image/webp' ? SaveFormat.WEBP : SaveFormat.JPEG,
   });
 }
