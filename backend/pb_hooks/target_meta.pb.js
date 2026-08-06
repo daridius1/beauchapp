@@ -11,8 +11,10 @@ onRecordCreate((e) => {
     return e.next();
 }, "posts");
 
-// Auto-generar snapshot `targetMeta` para citas/reposts al crear una publicación
-onRecordAfterCreateSuccess((e) => {
+// Auto-generar snapshot `targetMeta` para citas/reposts al crear una publicación.
+// Sync (onRecordCreateRequest, antes de e.next()) en vez de onRecordAfterCreateSuccess (async)
+// para que targetMeta ya esté poblado si el frontend navega inmediatamente al post recién creado.
+onRecordCreateRequest((e) => {
     try {
         const post = e.record;
         const targetType = post.getString("targetType");
@@ -20,7 +22,7 @@ onRecordAfterCreateSuccess((e) => {
         const existingMetaStr = post.getString("targetMeta");
 
         if (!targetType || !targetId || (existingMetaStr && existingMetaStr !== "{}" && existingMetaStr !== "null")) {
-            return;
+            return e.next();
         }
 
         let meta = null;
@@ -51,7 +53,7 @@ onRecordAfterCreateSuccess((e) => {
                     created: targetRecord.getString("created"),
                 };
             } catch (err) {
-                console.log("[Target Meta] Target post not found:", err);
+                console.error("[Target Meta] Target post not found:", err);
             }
         } else if (targetType === "problem") {
             try {
@@ -64,7 +66,7 @@ onRecordAfterCreateSuccess((e) => {
                     instancia: targetRecord.getString("instancia"),
                 };
             } catch (err) {
-                console.log("[Target Meta] Target problem not found:", err);
+                console.error("[Target Meta] Target problem not found:", err);
             }
         } else if (targetType === "match") {
             try {
@@ -97,7 +99,7 @@ onRecordAfterCreateSuccess((e) => {
                     teamBlue: teamBlue,
                 };
             } catch (err) {
-                console.log("[Target Meta] Target match not found:", err);
+                console.error("[Target Meta] Target match not found:", err);
             }
         } else if (targetType === "activity") {
             try {
@@ -120,16 +122,17 @@ onRecordAfterCreateSuccess((e) => {
                     category: targetRecord.getString("category"),
                 };
             } catch (err) {
-                console.log("[Target Meta] Target activity not found:", err);
+                console.error("[Target Meta] Target activity not found:", err);
             }
         }
 
         if (meta) {
+            // No hace falta $app.save(post) aparte: e.next() persiste el post con targetMeta
+            // ya incluido, como parte de la misma request de creación.
             post.set("targetMeta", meta);
-            $app.save(post);
-            console.log("[Target Meta] Auto-poblado targetMeta para post", post.id, "targetType:", targetType);
         }
     } catch (err) {
-        console.log("[Target Meta] Error en hook onRecordAfterCreateSuccess:", err);
+        console.error("[Target Meta] Error en hook onRecordCreateRequest:", err);
     }
+    return e.next();
 }, "posts");

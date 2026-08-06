@@ -1,6 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // 17. Notificaciones: Auto-crear notificaciones cuando ocurre un match en Tinder Beauchef
+// (Queda async/onRecordAfterCreateSuccess a propósito: es puramente informativo y el match
+// en tinder_matches en sí ya se crea de forma síncrona en tinder.pb.js.)
 onRecordAfterCreateSuccess((e) => {
     try {
         const match = e.record;
@@ -36,10 +38,8 @@ onRecordAfterCreateSuccess((e) => {
         notifB.set("read", false);
         notifB.set("relatedId", match.id);
         $app.save(notifB);
-
-        console.log("[Notifications] Match notifications created successfully for match", match.id);
     } catch (err) {
-        console.log("[Notifications] Error creating match notifications:", err.message || err);
+        console.error("[Notifications] Error creating match notifications:", err.message || err);
     }
 }, "tinder_matches");
 
@@ -54,7 +54,7 @@ onRecordAfterCreateSuccess((e) => {
         try {
             orgUser = $app.findRecordById("users", orgId);
         } catch (err) {
-            console.log("[Notifications] Organization user not found:", orgId);
+            console.error("[Notifications] Organization user not found:", orgId);
             return;
         }
 
@@ -82,10 +82,8 @@ onRecordAfterCreateSuccess((e) => {
 
             $app.save(notif);
         }
-
-        console.log("[Notifications] Activity notifications created for", follows.length, "followers of org", orgId);
     } catch (err) {
-        console.log("[Notifications] Error creating activity notifications:", err.message || err);
+        console.error("[Notifications] Error creating activity notifications:", err.message || err);
     }
 }, "activities");
 

@@ -5,8 +5,6 @@
 // actualizados del recurso citado, eliminando la necesidad de requests adicionales
 // del frontend.
 
-console.log("[LOAD] enrich_targets.pb.js hook loaded!");
-
 onRecordEnrich((e) => {
     try {
         let targetType = e.record.getString("targetType");
@@ -239,7 +237,7 @@ onRecordEnrich((e) => {
             e.record.set("expandedTarget", { _notFound: true });
         }
     } catch (outerErr) {
-        console.log("[enrich_targets.pb.js] Error:", outerErr);
+        console.error("[enrich_targets.pb.js] Error:", outerErr);
     }
 
     return e.next();

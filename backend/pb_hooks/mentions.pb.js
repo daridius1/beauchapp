@@ -1,29 +1,26 @@
 /// <reference path="../pb_data/types.d.ts" />
-console.log("[LOAD] mentions.pb.js hook file has been read and loaded by PocketBase!");
+
+// Lógica pura (testeada en lib/__tests__/mentions.test.js vía `node --test`).
+// Nota: require() se llama dentro del hook (no una sola vez a nivel de archivo) porque el
+// runtime JSVM de PocketBase no conserva referencias a `const`/`function` de nivel de archivo
+// dentro de closures registrados via onRecordCreate/Update/Delete (produce
+// "ReferenceError: ... is not defined" en tiempo de ejecución real, aunque el archivo cargue
+// sin error). Mismo patrón ya usado en ladders.pb.js.
 
 onRecordAfterCreateSuccess((e) => {
     try {
+        const { parseMentions } = require(`${__hooks}/lib/mentions.js`);
         const post = e.record;
         const content = post.getString("content");
         const authorId = post.getString("author");
-
-        console.log("[Mentions Hook] Triggered for post ID:", post.id, "content:", content, "author:", authorId);
 
         if (!content) {
             return;
         }
 
-        // Regex to match mentions: @username (only preceded by start of line or space to avoid email match)
-        const regex = /(?:^|\s)@([a-zA-Z0-9_-]{3,20})\b/g;
-        let match;
-        const mentionedUsernames = new Set();
-        while ((match = regex.exec(content)) !== null) {
-            mentionedUsernames.add(match[1].toLowerCase());
-        }
+        const mentionedUsernames = parseMentions(content);
 
-        console.log("[Mentions Hook] Mentioned usernames parsed:", JSON.stringify(Array.from(mentionedUsernames)));
-
-        if (mentionedUsernames.size === 0) {
+        if (mentionedUsernames.length === 0) {
             return;
         }
 
@@ -35,9 +32,8 @@ onRecordAfterCreateSuccess((e) => {
         mentionedUsernames.forEach((username) => {
             try {
                 // Find user by username
-                const targetUser = $app.findFirstRecordByFilter("users", `username = "${username}"`);
-                console.log("[Mentions Hook] Target user search for", username, ":", targetUser ? targetUser.id : "null");
-                
+                const targetUser = $app.findFirstRecordByFilter("users", "username = {:username}", { username: username });
+
                 if (targetUser && targetUser.id !== authorId) {
                     // Create notification
                     const notif = new Record(notifCollection);
@@ -49,15 +45,12 @@ onRecordAfterCreateSuccess((e) => {
                     notif.set("read", false);
                     notif.set("relatedId", post.id);
                     $app.save(notif);
-                    console.log("[Mentions Hook] Notification created successfully for " + username + " (ID: " + targetUser.id + ") in post " + post.id);
-                } else if (targetUser && targetUser.id === authorId) {
-                    console.log("[Mentions Hook] Skipped notification: self-mention for", username);
                 }
             } catch (userErr) {
-                console.log("[Mentions Hook] Error processing mention for " + username + ":", userErr.message || userErr);
+                console.error("[Mentions Hook] Error processing mention for " + username + ":", userErr.message || userErr);
             }
         });
     } catch (err) {
-        console.log("[Mentions Hook] Outer error processing mentions:", err.message || err);
+        console.error("[Mentions Hook] Outer error processing mentions:", err.message || err);
     }
 }, "posts");

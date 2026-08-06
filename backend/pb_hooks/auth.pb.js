@@ -3,10 +3,7 @@
 // 1. Filtro de exclusividad universitaria
 // Interceptar el registro de usuarios para validar el correo institucional @ing.uchile.cl
 onRecordCreateRequest((e) => {
-    console.log("[DEBUG] onRecordCreateRequest hook triggered for users");
     const type = e.record.getString("type");
-    console.log("[DEBUG] Record type:", type);
-    console.log("[DEBUG] Is superuser auth:", e.hasSuperuserAuth());
 
     // Helper para generar token localmente (evita problemas de aislamiento en Goja)
     const generateTokenLocal = () => {
@@ -16,27 +13,17 @@ onRecordCreateRequest((e) => {
     if (type === "organization") {
         // Only superusers (admins) can create an organization
         if (!e.hasSuperuserAuth()) {
-            console.log("[DEBUG] Blocked: No superuser auth!");
             throw new BadRequestError("No tienes permisos para crear una cuenta de organización.");
         }
         // If not verified, generate token and expiration
-        try {
-            if (!e.record.getBool("verified")) {
-                const token = generateTokenLocal();
-                console.log("[DEBUG] Trying to set registrationToken to:", token);
-                e.record.set("registrationToken", token);
-                
-                const oneWeekLater = new Date();
-                oneWeekLater.setDate(oneWeekLater.getDate() + 7);
-                console.log("[DEBUG] Trying to set tokenExpiresAt to:", oneWeekLater.toISOString());
-                e.record.set("tokenExpiresAt", oneWeekLater.toISOString());
-                console.log("[DEBUG] Generated activation token successfully:", token);
-            }
-        } catch (err) {
-            console.log("[DEBUG] Exception setting token fields:", err.message);
-            throw err;
+        if (!e.record.getBool("verified")) {
+            const token = generateTokenLocal();
+            e.record.set("registrationToken", token);
+
+            const oneWeekLater = new Date();
+            oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+            e.record.set("tokenExpiresAt", oneWeekLater.toISOString());
         }
-        console.log("[DEBUG] Organization record checks passed. Proceeding with e.next()...");
         return e.next();
     }
 
@@ -50,16 +37,15 @@ onRecordCreateRequest((e) => {
     if (!email) {
         throw new BadRequestError("El correo electrónico es requerido para estudiantes.");
     }
-    
+
     if (!email.endsWith("@ing.uchile.cl")) {
         throw new BadRequestError("Acceso denegado. Solo se permiten correos con el dominio @ing.uchile.cl");
     }
-    
+
     // Derivar username del prefijo del correo institucional para estudiantes
     const emailPrefix = email.split("@")[0];
     e.record.set("username", emailPrefix);
 
-    console.log("[DEBUG] Student record checks passed. Username set to:", emailPrefix, ". Proceeding with e.next()...");
     return e.next();
 }, "users");
 
@@ -116,7 +102,9 @@ onRecordCreateRequest((e) => {
     try {
         const existing = $app.findRecordsByFilter(
             "organization_members",
-            `organization = "${orgId}" && user = "${userId}"`
+            "organization = {:orgId} && user = {:userId}",
+            "-created", 1, 0,
+            { orgId: orgId, userId: userId }
         );
         if (existing && existing.length > 0) {
             throw new ApiError(400, "El usuario ya participa en esta organización.");
@@ -550,7 +538,7 @@ routerAdd("GET", "/admin/generate-link", (e) => {
             });
         }
     } catch (err) {
-        console.log("[auth.pb.js] Error leyendo opciones de subtype de la DB:", err);
+        console.error("[auth.pb.js] Error leyendo opciones de subtype de la DB:", err);
     }
 
     if (!subtypeOptionsHtml) {

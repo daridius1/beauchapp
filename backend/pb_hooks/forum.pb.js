@@ -2,8 +2,6 @@
 
 // Hook para administración de árbol de posts (replyTo / root), citas polimórficas (quote), conteo de citas (quoteCount) y comentarios a objetos no-post (comment)
 
-console.log("[LOAD] forum.pb.js hook loaded!");
-
 onRecordCreateRequest((e) => {
     try {
         const actionType = e.record.getString("actionType");
@@ -25,7 +23,7 @@ onRecordCreateRequest((e) => {
                 let rootId = parent.getString("root") || parent.id;
                 e.record.set("root", rootId);
             } catch (err) {
-                console.log("[forum.pb.js] Error buscando root:", err);
+                console.error("[forum.pb.js] Error buscando root:", err);
             }
         } 
         // 2. Manejo de Comentarios Polimórficos a Objetos No-Post (Problemas, Partidos, etc.)
@@ -38,7 +36,7 @@ onRecordCreateRequest((e) => {
                 const targetTags = targetRecord.get("tags") || [];
                 e.record.set("tags", targetTags);
             } catch (err) {
-                console.log(`[forum.pb.js] Error buscando tags de ${targetType} ${targetId}:`, err);
+                console.error(`[forum.pb.js] Error buscando tags de ${targetType} ${targetId}:`, err);
             }
         }
 
@@ -53,9 +51,8 @@ onRecordCreateRequest((e) => {
                 const currentQuotes = targetRecord.getInt("quoteCount") || 0;
                 targetRecord.set("quoteCount", currentQuotes + 1);
                 $app.save(targetRecord);
-                console.log(`[forum.pb.js] Sync incrementado quoteCount para ${targetType} ${targetId}: ${currentQuotes} -> ${currentQuotes + 1}`);
             } catch (err) {
-                console.log(`[forum.pb.js] Error incrementando quoteCount para ${targetType} ${targetId}:`, err);
+                console.error(`[forum.pb.js] Error incrementando quoteCount para ${targetType} ${targetId}:`, err);
             }
         } else if (actionType === "comment" && targetId && targetType) {
             try {
@@ -64,9 +61,8 @@ onRecordCreateRequest((e) => {
                 const currentCount = targetRecord.getInt("commentCount") || 0;
                 targetRecord.set("commentCount", currentCount + 1);
                 $app.save(targetRecord);
-                console.log(`[forum.pb.js] Sync incrementado commentCount para ${targetType} ${targetId}: ${currentCount} -> ${currentCount + 1}`);
             } catch (err) {
-                console.log(`[forum.pb.js] Error incrementando commentCount para ${targetType} ${targetId}:`, err);
+                console.error(`[forum.pb.js] Error incrementando commentCount para ${targetType} ${targetId}:`, err);
             }
         } else {
             let parentId = targetId || replyTo;
@@ -81,11 +77,10 @@ onRecordCreateRequest((e) => {
                         const currentCount = parent.getInt("commentCount") || 0;
                         parent.set("commentCount", currentCount + 1);
                         $app.save(parent);
-                        console.log(`[forum.pb.js] Sync incrementado commentCount para ${parentId}: ${currentCount} -> ${currentCount + 1}`);
 
                         parentId = parent.getString("replyTo") || (parent.getString("actionType") === "reply" ? parent.getString("targetId") : "");
                     } catch (err) {
-                        console.log(`[forum.pb.js] Error actualizando commentCount para ancestro ${parentId}:`, err);
+                        console.error(`[forum.pb.js] Error actualizando commentCount para ancestro ${parentId}:`, err);
                         break;
                     }
                     depth++;
@@ -95,7 +90,7 @@ onRecordCreateRequest((e) => {
 
         return e.next();
     } catch (outerErr) {
-        console.log("[forum.pb.js] ERROR in posts create hook:", outerErr);
+        console.error("[forum.pb.js] ERROR in posts create hook:", outerErr);
         throw outerErr;
     }
 }, "posts");
@@ -117,9 +112,8 @@ onRecordDeleteRequest((e) => {
                 const newQuotes = Math.max(0, currentQuotes - 1);
                 targetRecord.set("quoteCount", newQuotes);
                 $app.save(targetRecord);
-                console.log(`[forum.pb.js] Sync decrementado quoteCount para ${targetType} ${targetId}: ${currentQuotes} -> ${newQuotes}`);
             } catch (err) {
-                console.log(`[forum.pb.js] Error decrementando quoteCount para ${targetType} ${targetId}:`, err);
+                console.error(`[forum.pb.js] Error decrementando quoteCount para ${targetType} ${targetId}:`, err);
             }
         } else if (actionType === "comment" && targetId && targetType) {
             try {
@@ -129,9 +123,8 @@ onRecordDeleteRequest((e) => {
                 const newCount = Math.max(0, currentCount - 1);
                 targetRecord.set("commentCount", newCount);
                 $app.save(targetRecord);
-                console.log(`[forum.pb.js] Sync decrementado commentCount para ${targetType} ${targetId}: ${currentCount} -> ${newCount}`);
             } catch (err) {
-                console.log(`[forum.pb.js] Error decrementando commentCount para ${targetType} ${targetId}:`, err);
+                console.error(`[forum.pb.js] Error decrementando commentCount para ${targetType} ${targetId}:`, err);
             }
         } else {
             let parentId = targetId || replyTo;
@@ -147,11 +140,10 @@ onRecordDeleteRequest((e) => {
                         const newCount = Math.max(0, currentCount - 1);
                         parent.set("commentCount", newCount);
                         $app.save(parent);
-                        console.log(`[forum.pb.js] Sync decrementado commentCount para ${parentId}: ${currentCount} -> ${newCount}`);
 
                         parentId = parent.getString("replyTo");
                     } catch (err) {
-                        console.log(`[forum.pb.js] Error decrementando commentCount para ancestro ${parentId}:`, err);
+                        console.error(`[forum.pb.js] Error decrementando commentCount para ancestro ${parentId}:`, err);
                         break;
                     }
                     depth++;
@@ -160,7 +152,7 @@ onRecordDeleteRequest((e) => {
         }
         return e.next();
     } catch (err) {
-        console.log("[forum.pb.js] Error in onRecordDeleteRequest:", err);
+        console.error("[forum.pb.js] Error in onRecordDeleteRequest:", err);
     }
 }, "posts");
 

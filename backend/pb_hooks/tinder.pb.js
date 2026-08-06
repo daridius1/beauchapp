@@ -1,6 +1,5 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-
 // 14. Tinder Beauchef: Protejo datos de contacto (Redacción de seguridad)
 onRecordEnrich((e) => {
     try {
@@ -43,7 +42,7 @@ onRecordEnrich((e) => {
             e.record.set("signal", "");
         }
     } catch (err) {
-        console.log("[Tinder Security] Error enriching profile:", err);
+        console.error("[Tinder Security] Error enriching profile:", err);
     }
     return e.next();
 }, "tinder_profiles");
@@ -72,12 +71,14 @@ onRecordUpdateRequest((e) => {
     return e.next();
 }, "tinder_profiles");
 
-// 16. Tinder Beauchef: Detección y creación automática de Matches
-onRecordAfterCreateSuccess((e) => {
+// 16. Tinder Beauchef: Detección y creación automática de Matches.
+// Sync (onRecordCreateRequest, antes de e.next()) en vez de onRecordAfterCreateSuccess (async)
+// para que un chequeo inmediato de "¿hubo match?" tras dar like ya lo encuentre.
+onRecordCreateRequest((e) => {
     try {
         const like = e.record;
         if (!like.getBool("liked")) {
-            return; // Los pases no gatillan matches
+            return e.next(); // Los pases no gatillan matches
         }
 
         const fromUser = like.getString("fromUser");
@@ -110,62 +111,74 @@ onRecordAfterCreateSuccess((e) => {
             match.set("userB", userB);
 
             $app.save(match);
-            console.log("[Tinder Match] Match creado exitosamente entre", userA, "y", userB);
         }
     } catch (err) {
-        console.log("[Tinder Match] Error al procesar match:", err);
+        console.error("[Tinder Match] Error al procesar match:", err);
     }
+    return e.next();
 }, "tinder_likes");
 
-// 17. Tinder Beauchef: Limpieza de likes al deshacer un match (al eliminar o al marcar como 'unmatched')
-function deleteReciprocalLikes(matchRecord) {
+// 17. Tinder Beauchef: Limpieza de likes al deshacer un match (al eliminar o al marcar como
+// 'unmatched'). NOTA: la lógica está duplicada en los dos callbacks de abajo (en vez de
+// compartirse vía una función de nivel de archivo) porque el runtime JSVM de PocketBase no
+// conserva referencias a `function`/`const` de nivel de archivo dentro de closures
+// registrados vía onRecordAfterUpdateSuccess/onRecordAfterDeleteSuccess (produce
+// "ReferenceError: ... is not defined" en tiempo de ejecución real, aunque el archivo cargue
+// sin error).
+onRecordAfterUpdateSuccess((e) => {
     try {
-        const userA = matchRecord.getString("userA");
-        const userB = matchRecord.getString("userB");
+        const status = e.record.getString("status");
+        if (status === "unmatched") {
+            const userA = e.record.getString("userA");
+            const userB = e.record.getString("userB");
 
-        // 1. Eliminar like de userA a userB
+            try {
+                const likeAB = $app.findFirstRecordByFilter(
+                    "tinder_likes",
+                    "fromUser = {:userA} && toUser = {:userB}",
+                    { userA: userA, userB: userB }
+                );
+                if (likeAB) $app.delete(likeAB);
+            } catch (err) {}
+
+            try {
+                const likeBA = $app.findFirstRecordByFilter(
+                    "tinder_likes",
+                    "fromUser = {:userB} && toUser = {:userA}",
+                    { userA: userA, userB: userB }
+                );
+                if (likeBA) $app.delete(likeBA);
+            } catch (err) {}
+        }
+    } catch (err) {
+        console.error("[Tinder Match] Error in onRecordAfterUpdateSuccess:", err.message || err);
+    }
+    return e.next();
+}, "tinder_matches");
+
+onRecordAfterDeleteSuccess((e) => {
+    try {
+        const userA = e.record.getString("userA");
+        const userB = e.record.getString("userB");
+
         try {
             const likeAB = $app.findFirstRecordByFilter(
                 "tinder_likes",
                 "fromUser = {:userA} && toUser = {:userB}",
                 { userA: userA, userB: userB }
             );
-            if (likeAB) {
-                $app.delete(likeAB);
-                console.log("[Tinder Match] Deleted like from", userA, "to", userB);
-            }
+            if (likeAB) $app.delete(likeAB);
         } catch (err) {}
 
-        // 2. Eliminar like de userB a userA
         try {
             const likeBA = $app.findFirstRecordByFilter(
                 "tinder_likes",
                 "fromUser = {:userB} && toUser = {:userA}",
                 { userA: userA, userB: userB }
             );
-            if (likeBA) {
-                $app.delete(likeBA);
-                console.log("[Tinder Match] Deleted like from", userB, "to", userA);
-            }
+            if (likeBA) $app.delete(likeBA);
         } catch (err) {}
     } catch (err) {
-        console.log("[Tinder Match] Error cleaning up likes:", err.message || err);
+        console.error("[Tinder Match] Error cleaning up likes on delete:", err.message || err);
     }
-}
-
-onRecordAfterUpdateSuccess((e) => {
-    try {
-        const status = e.record.getString("status");
-        if (status === "unmatched") {
-            deleteReciprocalLikes(e.record);
-        }
-    } catch (err) {
-        console.log("[Tinder Match] Error in onRecordAfterUpdateSuccess:", err.message || err);
-    }
-    return e.next();
 }, "tinder_matches");
-
-onRecordAfterDeleteSuccess((e) => {
-    deleteReciprocalLikes(e.record);
-}, "tinder_matches");
-
