@@ -12,10 +12,18 @@ Beauchapp es un proyecto comunitario universitario, sin fines de lucro, mantenid
 
 **Regla general:** si un cómputo se puede hacer en el cliente (navegador/dispositivo del usuario) en vez del servidor, se hace en el cliente. El servidor es el recurso compartido y escaso; el dispositivo de cada usuario es un recurso que ya está pagado y es proporcional a la cantidad de usuarios.
 
-- **Compresión de imágenes en el cliente, nunca en el servidor.** `frontend/src/utils/imageCompressor.ts` redimensiona y comprime a WebP (con fallback a JPEG si el navegador no soporta exportar WebP) *antes* de subir el archivo, apuntando a ~250KB con reducción progresiva de dimensiones. El servidor jamás recibe ni procesa la imagen original de alta resolución.
+- **Compresión de imágenes en el cliente, nunca en el servidor.** `frontend/src/utils/imageCompressor.ts` (web, basado en Canvas) y su equivalente `compressImageNative` (nativo/iOS/Android, basado en `expo-image-manipulator`, ya que Canvas/DOM no existen fuera del navegador) redimensionan y comprimen la imagen *antes* de subirla, con reducción progresiva de dimensiones apuntando a ~250KB en la versión web. El servidor jamás recibe ni procesa la imagen original de alta resolución. El formato de salida (WebP vs. JPEG) no es arbitrario — ver el punto sobre thumbnails en la sección 2.
 - **Sin cálculos pesados en hooks de request.** Cualquier lógica que corra sincrónicamente en un hook de PocketBase (`onRecordCreateRequest`, `onRecordUpdate`, etc.) bloquea al único hilo de escritura de SQLite. Evita recorrer colecciones completas, hacer joins manuales costosos, o recalcular agregados desde cero en cada escritura.
   - **Caso de estudio (lección real, no teórica):** el sistema de Karma originalmente recalculaba el karma completo de un usuario (recorriendo todos sus problemas y todas las calificaciones de cada uno) en **cada** creación/edición/borrado de una calificación, más un cron cada 5 minutos que repetía el recorrido completo para *todos* los usuarios. Se corrigió a un modelo incremental (sumar/restar el delta de karma que aporta esa única calificación) con un cron de reconciliación una vez al día, paginado. Antes de agregar un contador/agregado nuevo, pregúntate: ¿esto puede mantenerse por delta, o realmente necesito recorrer todo cada vez?
+  - **El mismo patrón ya se replicó varias veces** y es el default esperado para cualquier contador derivado de una relación: `activities.pb.js` mantiene `like_count`/`attendee_count` sobre `activity_likes`/`activity_attendees`, `forum.pb.js` mantiene `commentCount`/`quoteCount` sobre `posts`, y `marketplace.pb.js` mantiene `recommendations_count` sobre `seller_recommendations`. Los tres siguen la misma forma: `onRecordCreateRequest`/`onRecordDeleteRequest` (síncrono, antes de que salga la respuesta HTTP) que suman/restan 1 al campo del registro relacionado vía `$app.findRecordById` + `.set()` + `$app.save()`, con `Math.max(0, ...)` al restar. Si vas a mostrar un conteo derivado de una relación (likes, recomendaciones, comentarios, lo que sea), replica este patrón — no lo recalcules leyendo la relación completa en cada request.
 - **Paginación siempre.** Ninguna consulta a PocketBase debería pedir una colección completa sin `limit`/`offset`. Si ves un límite fijo tipo `5000` como "no debería llegar nunca a ese tope", trátalo como una bandera roja: o se pagina de verdad, o se documenta explícitamente por qué el límite es seguro.
+- **Evita patrones N+1: una consulta bien filtrada, no un loop de N peticiones.** Si necesitas datos relacionados de una lista de registros (comentarios de N posts, perfiles de N vendedores, etc.), arma un único filtro que traiga todo de una vez (`id = "a" || id = "b" || ...`, o mejor aún un campo que agrupe la relación) en vez de iterar y pedir uno por uno.
+  - **Caso de estudio:** `PostDetailScreen` armaba la cadena de ancestros de un hilo (post → su padre → el padre de ese → ...) haciendo un `getOne()` secuencial por cada nivel de profundidad — O(profundidad del hilo) requests. Se corrigió aprovechando que `forum.pb.js` ya mantiene un campo `root` en cada post (el id del post raíz del hilo, propagado en creación), lo que permite traer *todo* el hilo en una sola consulta filtrada `(id = rootId || root = rootId)` y reconstruir la cadena en memoria en el cliente. Antes de escribir un loop que hace una consulta por iteración, pregúntate si existe (o vale la pena agregar) un campo que te permita pedirlo todo de una vez.
+  - Lo mismo aplica a agregados calculados en vivo con una consulta extra por cada ítem de una lista (ej. contar recomendaciones de cada vendedor mostrado en un listado de productos) — la solución casi siempre es el patrón de contador incremental de arriba, no optimizar el loop.
+- **Peticiones independientes se piden en paralelo, nunca en cadena.** Si dentro de una función de carga (`fetchX`, `loadData`, etc.) hay dos o más llamadas a la red que no dependen del resultado de la otra, se lanzan juntas con `Promise.allSettled` (o `Promise.all` cuando el fallo de una realmente debe abortar toda la operación) en vez de encadenar `await`s uno tras otro — cada `await` secuencial de una llamada independiente sólo suma latencia sin necesidad.
+  - Usa `Promise.allSettled` por defecto: preserva el manejo de error individual de cada llamada (una puede fallar en silencio con solo un `console.error`, sin tumbar las demás), replicando exactamente la granularidad que tenía el código secuencial original.
+  - Usa `Promise.all` únicamente cuando el fallo de esa llamada específica debe hacer fallar toda la carga de la pantalla (ej. el registro principal de un detalle, sin el cual no hay nada que mostrar).
+  - Antes de agregar una nueva llamada a una función de carga existente, revisa si depende genuinamente del resultado de otra `await` de esa misma función, o si solo está ahí porque se escribió en orden — si es lo segundo, únela al `Promise.all`/`allSettled` existente.
 
 ## 2. Los archivos (imágenes, fotos) se sirven directo desde R2, no proxeados por el servidor
 
@@ -35,6 +43,14 @@ if (r2Url && !size) {
 ```
 
 Esto significa: cada foto de perfil, cada imagen de un post, se descarga desde la red de Cloudflare, no desde el servidor de la app. El servidor de PocketBase solo entra en el camino cuando hace falta un thumbnail generado dinámicamente. Si agregas una funcionalidad nueva que muestra imágenes, usa `getFileUrl()` — no construyas URLs de archivos a mano.
+
+**Pide siempre el tamaño más chico que la vista realmente necesita.** `getFileUrl(record, filename, size)` — el tercer argumento decide tanto el peso de la descarga como si la petición va directo a R2 (imagen completa) o pasa por el proxy de PocketBase (thumbnail):
+
+- En listados, grillas y cards (feed de posts, grilla de Marketplace, cards de Tinder, banners de actividades) **siempre** se pasa un `size` (ej. `'300x300'`, `'400x0'`) — nunca se pide el archivo original para mostrarlo en miniatura.
+- Solo las vistas de zoom/pantalla completa genuinas (el visor de imagen de un post, por ejemplo) piden el original sin `size`.
+- Esto solo funciona si el campo de archivo tiene `thumbs` configurado en su colección (`backend/pb_migrations/1784100000_add_thumbs_to_image_fields.js` los habilitó para `posts.photo`, `marketplace_items.images`, `activities.banner`, `tinder_profiles.photos`, además de `users.avatar` que ya los tenía). Si agregas un campo de imagen nuevo y planeas mostrarlo en una lista, agrégale `thumbs` en la migración de creación, no lo dejes para después.
+
+**Sube imágenes como JPEG (o PNG), no WebP, en cualquier colección con `thumbs` configurado.** El generador de thumbnails de PocketBase (`github.com/disintegration/imaging`) no sabe decodificar WebP como formato de origen — si el archivo almacenado es `.webp`, una petición `?thumb=400x0` sirve el original completo en silencio, sin error, dando una falsa sensación de que el ahorro de datos está funcionando cuando no es así (verificado empíricamente: mismo tamaño de bytes exacto entre "thumb" y original). Por eso `compressImage`/`compressImageNative` se llaman con `format: 'image/jpeg'` explícito en todo lo que sube a `posts`, `marketplace_items`, `activities` y `tinder_profiles` (vía `ImagePicker.tsx`, `MarketplaceItemEditorScreen.tsx`, `TinderScreen.tsx`) — el mismo patrón que ya usaba `SettingsScreen` para avatares, que es la razón por la que esos thumbnails sí funcionaban antes de que el resto se corrigiera. WebP sigue siendo válido únicamente para archivos que no se van a mostrar en miniatura vía PocketBase (ej. adjuntos de `ProblemEditorScreen`, que van a la colección `attachments` sin `thumbs`).
 
 ## 3. Minimizar los datos sensibles que se manejan y exponen
 
@@ -71,8 +87,11 @@ Pregúntate, en orden:
 1. ¿Esto puede vivir en el cliente en vez del servidor?
 2. ¿Esto ya se sirve/calcula en otro lado y lo estoy duplicando?
 3. ¿Esta consulta está paginada / es incremental, o recorre todo cada vez?
-4. ¿Estoy guardando o exponiendo más datos de los que hacen falta?
-5. ¿Esto rompe el scroll/viewport en Safari móvil?
+4. ¿Estoy haciendo N peticiones donde una sola, bien filtrada, alcanzaría?
+5. ¿Hay llamadas independientes en esta función que debería paralelizar con `Promise.all`/`allSettled` en vez de encadenar `await`s?
+6. Si esto muestra una imagen: ¿estoy pidiendo el tamaño más chico que la vista necesita, y subiendo en un formato (JPEG) del que PocketBase pueda generar thumbnails?
+7. ¿Estoy guardando o exponiendo más datos de los que hacen falta?
+8. ¿Esto rompe el scroll/viewport en Safari móvil?
 
 Si alguna respuesta es dudosa, ese es exactamente el tipo de decisión que vale la pena parar y preguntar antes de implementar.
 
