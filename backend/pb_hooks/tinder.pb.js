@@ -249,19 +249,14 @@ routerAdd("GET", "/api/tinder/discover", (e) => {
         const visibleProfiles = profiles.filter((p) => !matchedUserIds[p.getString("user")]);
         const userIds = visibleProfiles.map((p) => p.getString("user"));
 
+        const { pickChipUserFields } = require(`${__hooks}/lib/chipFields.js`);
+
         let usersById = {};
         if (userIds.length > 0) {
             const idFilter = userIds.map((id) => `id = "${id}"`).join(" || ");
             const users = $app.findRecordsByFilter("users", `(${idFilter})`, "-created", userIds.length, 0);
             users.forEach((u) => {
-                usersById[u.id] = {
-                    id: u.id,
-                    name: u.getString("name"),
-                    username: u.getString("username"),
-                    avatar: u.getString("avatar"),
-                    collectionId: u.collection().id,
-                    collectionName: "users",
-                };
+                usersById[u.id] = pickChipUserFields(u);
             });
         }
 

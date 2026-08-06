@@ -19,6 +19,24 @@ interface Props {
   style?: StyleProp<ViewStyle>;
 }
 
+// Campos de "users" que este componente lee para pintar los chips (Karma,
+// Generación, Departamento; Ladders/Organizaciones vienen de props aparte). Es
+// la contraparte de CHIP_USER_FIELDS en backend/pb_hooks/lib/chipFields.js — si
+// una vista arma a mano un objeto "user" reducido (en vez de traer el registro
+// completo) para pasarlo a UserChipsRow, debe pedir esta lista de campos para
+// que un chip nuevo no se quede fuera silenciosamente en esa vista.
+export const CHIP_USER_FIELDS = [
+  'id',
+  'name',
+  'username',
+  'avatar',
+  'type',
+  'entry_year',
+  'department',
+  'karma',
+  'show_karma_on_profile',
+] as const;
+
 export function getSportCode(name?: string, slug?: string): string {
   if (!name && !slug) return 'ELO';
   const str = (name || slug || '').toLowerCase().trim();
