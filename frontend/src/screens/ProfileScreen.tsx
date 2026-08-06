@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, DeviceEventEmitter, Alert, Platform, RefreshControl } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, DeviceEventEmitter, Platform, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
@@ -43,6 +43,9 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [blockConfirmVisible, setBlockConfirmVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   // Estados de Organizaciones e Integrantes
@@ -161,6 +164,36 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
       console.error('Error toggling follow status', err);
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  const handleBlockPress = () => {
+    if (!currentUser || !targetUserId || currentUser.id === targetUserId) return;
+    setProfileMenuOpen(false);
+    setBlockConfirmVisible(true);
+  };
+
+  const confirmBlock = async () => {
+    if (!currentUser || !targetUserId) return;
+    try {
+      setBlockLoading(true);
+      await pb.collection('blocked_users').create({
+        blocker: currentUser.id,
+        blocked: targetUserId,
+      });
+      setBlockConfirmVisible(false);
+      Toast.show({
+        type: 'success',
+        text1: 'Usuario bloqueado',
+        text2: 'Ya no verán contenido el uno del otro.',
+      });
+      navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Directory');
+    } catch (err) {
+      console.error('Error blocking user', err);
+      setBlockConfirmVisible(false);
+      Toast.show({ type: 'error', text1: 'No se pudo bloquear al usuario' });
+    } finally {
+      setBlockLoading(false);
     }
   };
 
@@ -336,11 +369,11 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           {currentUser && currentUser.id !== targetUserId && currentUser.type !== 'organization' && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.followBtn, 
+                styles.followBtn,
                 isFollowing ? styles.followBtnActive : styles.followBtnInactive
-              ]} 
+              ]}
               onPress={handleFollowToggle}
               disabled={followLoading}
             >
@@ -348,13 +381,31 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                 <ActivityIndicator size="small" color={isFollowing ? theme.colors.text : '#000000'} />
               ) : (
                 <Text style={[
-                  styles.followBtnText, 
+                  styles.followBtnText,
                   isFollowing ? styles.followBtnTextActive : styles.followBtnTextInactive
                 ]}>
                   {isFollowing ? 'Siguiendo' : 'Seguir'}
                 </Text>
               )}
             </TouchableOpacity>
+          )}
+
+          {currentUser && currentUser.id !== targetUserId && (
+            <TouchableOpacity
+              style={styles.profileMenuBtn}
+              onPress={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              <Feather name="more-vertical" size={20} color={theme.colors.textMuted} />
+            </TouchableOpacity>
+          )}
+
+          {profileMenuOpen && (
+            <View style={styles.dropdownMenu}>
+              <TouchableOpacity style={styles.dropdownItem} onPress={handleBlockPress}>
+                <Feather name="slash" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
+                <Text style={styles.dropdownItemText}>Bloquear</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           <View style={styles.statsRow}>
@@ -447,6 +498,41 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </View>
       )}
+
+      {/* Modal de confirmación de bloqueo */}
+      {blockConfirmVisible && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Feather name="alert-triangle" size={24} color={theme.colors.error} style={{ marginRight: 10 }} />
+              <Text style={styles.modalTitle}>¿Bloquear a este usuario?</Text>
+            </View>
+            <Text style={styles.modalBody}>
+              Ya no verás contenido de {profileUser?.name || 'este usuario'} en ningún lado de la app, ni él/ella verá el tuyo. Podrás deshacerlo después desde "Usuarios bloqueados" en Configuración.
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnCancel]}
+                onPress={() => setBlockConfirmVisible(false)}
+                disabled={blockLoading}
+              >
+                <Text style={styles.modalBtnCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnDelete]}
+                onPress={confirmBlock}
+                disabled={blockLoading}
+              >
+                {blockLoading ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.modalBtnDeleteText}>Bloquear</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -458,6 +544,7 @@ const styles = StyleSheet.create({
   feedContent: { paddingBottom: theme.spacing.xl },
   
   profileHeader: {
+    position: 'relative',
     alignItems: 'center',
     padding: theme.spacing.xl,
     backgroundColor: theme.colors.cardBg,
@@ -523,6 +610,12 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     minWidth: 100,
     borderWidth: 1,
+  },
+  profileMenuBtn: {
+    position: 'absolute',
+    top: theme.spacing.md,
+    right: theme.spacing.md,
+    padding: 6,
   },
   followBtnInactive: {
     backgroundColor: theme.colors.primary,

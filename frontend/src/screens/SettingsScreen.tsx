@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, Platform, ScrollView, Image } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { pb } from '../services/pocketbase';
+import { pb, getFileUrl } from '../services/pocketbase';
 import { theme } from '../theme/theme';
 import { Avatar } from '../components/Avatar';
 import { Feather } from '@expo/vector-icons';
@@ -47,6 +47,10 @@ export const SettingsScreen: React.FC = () => {
   // Ladder Ranks individuales con toggle por deporte
   const [myLadderRanks, setMyLadderRanks] = useState<any[]>([]);
 
+  const [isManagingBlocked, setIsManagingBlocked] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
+  const [loadingBlocked, setLoadingBlocked] = useState(false);
+
   // Gestión de Integrantes para Organizaciones
   const [isManagingMembers, setIsManagingMembers] = useState(false);
   const [members, setMembers] = useState<OrganizationMemberRecord[]>([]);
@@ -66,8 +70,47 @@ export const SettingsScreen: React.FC = () => {
     }
     if (user?.id) {
       loadMyLadderRanks();
+      loadBlockedUsers();
     }
   }, [user?.id]);
+
+  const loadBlockedUsers = async () => {
+    if (!user) return;
+    setLoadingBlocked(true);
+    try {
+      // No se usa expand:'blocked' — una vez creado el bloqueo, users.viewRule ya
+      // excluye a esa persona para este mismo usuario, así que vendría vacío.
+      // El nombre/username quedan guardados aparte en el propio registro (ver
+      // blocking.pb.js).
+      const res = await pb.collection('blocked_users').getList(1, 100, {
+        filter: `blocker = "${user.id}"`,
+        sort: '-created',
+      });
+      setBlockedUsers(res.items);
+    } catch (err) {
+      console.warn('Error cargando usuarios bloqueados:', err);
+    } finally {
+      setLoadingBlocked(false);
+    }
+  };
+
+  const handleUnblock = async (blockRecordId: string, blockedName: string) => {
+    try {
+      await pb.collection('blocked_users').delete(blockRecordId);
+      setBlockedUsers((prev) => prev.filter((b) => b.id !== blockRecordId));
+      Toast.show({
+        type: 'info',
+        text1: 'Usuario desbloqueado',
+        text2: `${blockedName} ya puede volver a aparecer en la app.`,
+      });
+    } catch (err: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: err.message || 'No se pudo desbloquear al usuario.',
+      });
+    }
+  };
 
   const loadMyLadderRanks = async () => {
     if (!user) return;
@@ -802,6 +845,65 @@ export const SettingsScreen: React.FC = () => {
         </View>
       )}
 
+      {/* Sección Usuarios Bloqueados */}
+      <View style={[styles.optionCard, { marginTop: theme.spacing.md }]}>
+        <TouchableOpacity
+          style={styles.optionHeader}
+          onPress={() => setIsManagingBlocked(!isManagingBlocked)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.optionTitleRow}>
+            <Feather name="slash" size={20} color={theme.colors.error} style={styles.optionIcon} />
+            <View>
+              <Text style={styles.optionTitle}>Usuarios Bloqueados</Text>
+              <Text style={styles.optionSubtitle}>{blockedUsers.length} usuarios bloqueados</Text>
+            </View>
+          </View>
+          <Feather
+            name={isManagingBlocked ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={theme.colors.textMuted}
+          />
+        </TouchableOpacity>
+
+        {isManagingBlocked && (
+          <View style={styles.membersForm}>
+            {loadingBlocked ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
+            ) : blockedUsers.length === 0 ? (
+              <Text style={styles.noMembersText}>No has bloqueado a nadie.</Text>
+            ) : (
+              blockedUsers.map((b) => (
+                <View key={b.id} style={styles.memberCardContainer}>
+                  <View style={styles.memberRow}>
+                    {b.blocked_avatar ? (
+                      <Image
+                        source={{ uri: getFileUrl(b, b.blocked_avatar, '100x100') }}
+                        style={styles.blockedAvatarPlaceholder}
+                      />
+                    ) : (
+                      <View style={styles.blockedAvatarPlaceholder}>
+                        <Feather name="user" size={18} color={theme.colors.textMuted} />
+                      </View>
+                    )}
+                    <View style={styles.memberInfo}>
+                      <Text style={styles.memberName}>{b.blocked_name || 'Usuario'}</Text>
+                      {!!b.blocked_username && <Text style={styles.memberSub}>@{b.blocked_username}</Text>}
+                    </View>
+                    <TouchableOpacity
+                      style={styles.removeMemberBtn}
+                      onPress={() => handleUnblock(b.id, b.blocked_name || 'Usuario')}
+                    >
+                      <Text style={styles.unblockBtnText}>Desbloquear</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
+      </View>
+
       {/* Sección Opciones Avanzadas */}
       <Text style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>Opciones Avanzadas</Text>
       
@@ -1092,6 +1194,19 @@ const styles = StyleSheet.create({
   },
   removeMemberBtn: {
     padding: 8,
+  },
+  unblockBtnText: {
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  blockedAvatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   memberCardContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.02)',

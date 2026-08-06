@@ -75,14 +75,35 @@ onRecordUpdateRequest((e) => {
 // Sync (onRecordCreateRequest, antes de e.next()) en vez de onRecordAfterCreateSuccess (async)
 // para que un chequeo inmediato de "¿hubo match?" tras dar like ya lo encuentre.
 onRecordCreateRequest((e) => {
+    const like = e.record;
+    const fromUser = like.getString("fromUser");
+    const toUser = like.getString("toUser");
+
+    // Respaldo a nivel de hook del bloqueo de usuarios (independiente de que
+    // tinder_likes.createRule ya lo impida) — si cualquiera de los dos bloqueó
+    // al otro, ni el like/pase se registra ni, por lo tanto, puede haber match.
+    // Fuera del try/catch de abajo a propósito: el BadRequestError debe
+    // propagarse y rechazar la request, no quedar atrapado y logueado en
+    // silencio como los errores inesperados del resto de la función.
+    let isBlocked = false;
     try {
-        const like = e.record;
+        $app.findFirstRecordByFilter(
+            "blocked_users",
+            "(blocker = {:fromUser} && blocked = {:toUser}) || (blocker = {:toUser} && blocked = {:fromUser})",
+            { fromUser: fromUser, toUser: toUser }
+        );
+        isBlocked = true;
+    } catch (err) {
+        // No hay bloqueo entre ambos usuarios
+    }
+    if (isBlocked) {
+        throw new BadRequestError("No puedes interactuar con este usuario.");
+    }
+
+    try {
         if (!like.getBool("liked")) {
             return e.next(); // Los pases no gatillan matches
         }
-
-        const fromUser = like.getString("fromUser");
-        const toUser = like.getString("toUser");
 
         let hasReciprocal = false;
         try {
