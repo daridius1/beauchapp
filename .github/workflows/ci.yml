@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  frontend:
+    name: Frontend (typecheck + audit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      # Nivel "critical": ya no quedan vulnerabilidades críticas tras `npm audit fix` (no-breaking).
+      # Queda 1 alta (postcss, transitiva vía @expo/metro-config, solo afecta tooling de build)
+      # que solo se resuelve con el upgrade mayor de Expo 54→57, planificado como fase aparte
+      # (ver auditoria.md, hallazgo 3.6). Subir este umbral a "high" cuando esa fase se complete.
+      - name: Audit (sin vulnerabilidades críticas)
+        run: npm audit --audit-level=critical
+
+  backend-lib-tests:
+    name: Backend (lógica pura de pb_hooks/lib)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run pure-logic tests
+        run: npm run test:backend

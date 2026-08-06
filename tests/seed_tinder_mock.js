@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const BACKEND_URL = 'http://127.0.0.1:8090';
-const ADMIN_EMAIL = 'tempadmin@example.com';
-const ADMIN_PASSWORD = 'tempadminpassword123';
+const BACKEND_URL = process.env.PB_BACKEND_URL || 'http://127.0.0.1:8090';
+const ADMIN_EMAIL = process.env.PB_ADMIN_EMAIL || 'admin@example.test';
+const ADMIN_PASSWORD = process.env.PB_ADMIN_PASSWORD || 'changeme-local-only';
 
 async function request(pathStr, options = {}) {
   const url = `${BACKEND_URL}${pathStr}`;

@@ -134,6 +134,13 @@ La app estará en `http://localhost:8081` (web) o escanea el QR con Expo Go (cel
 
 PocketBase puede servir tanto la API como el frontend estático desde el mismo proceso.
 
+> [!TIP]
+> `deploy.sh` (raíz del repo) automatiza los pasos de esta sección para un servidor ya preparado con acceso SSH por llave. Requiere la variable de entorno `DEPLOY_SERVER` (ej. `usuario@host`) y opcionalmente `DEPLOY_REMOTE_DIR` (carpeta remota, por defecto `red-social`):
+> ```bash
+> DEPLOY_SERVER=usuario@tu-servidor ./deploy.sh
+> ```
+> Antes de sobrescribir `pb_data`/`pb_public` en el servidor, el script guarda un respaldo comprimido con timestamp en `~/<REMOTE_DIR>/backups/` (conserva los últimos 10).
+
 ### 1. Preparar el servidor
 
 Necesitas un servidor Linux con acceso SSH (ej. VPS en DigitalOcean, Hetzner, AWS Lightsail, etc).

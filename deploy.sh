@@ -1,8 +1,11 @@
 #!/bin/bash
 set -e
 
-SERVER="salas@192.168.0.6"
-PROJECT_DIR="~/red-social"
+# Configurable vía variables de entorno (o un deploy.env local, no versionado, con `source deploy.env`).
+# Ejemplo: DEPLOY_SERVER=usuario@host DEPLOY_REMOTE_DIR=red-social ./deploy.sh
+SERVER="${DEPLOY_SERVER:?Debes definir DEPLOY_SERVER, ej: usuario@host. Ver README/SETUP.md.}"
+REMOTE_DIR="${DEPLOY_REMOTE_DIR:-red-social}"
+REMOTE_USER="${SERVER%@*}"
 LOCAL_BUILD_DIR="./frontend/dist"
 
 echo "========================================="
@@ -18,24 +21,27 @@ if [ ! -d "$LOCAL_BUILD_DIR" ]; then
 fi
 
 echo "1. Creando estructura en el servidor y descargando PocketBase..."
-ssh -t $SERVER "sudo apt update && sudo apt install wget unzip git tmux mc curl -y && mkdir -p ~/red-social/pb_public && cd ~/red-social && if [ ! -f pocketbase ]; then echo 'Obteniendo última versión de PocketBase...' && VERSION=\$(curl -s https://api.github.com/repos/pocketbase/pocketbase/releases/latest | grep '\"tag_name\":' | sed -E 's/.*\"v([^\"]+)\".*/\1/') && echo \"Descargando versión \$VERSION...\" && wget \"https://github.com/pocketbase/pocketbase/releases/latest/download/pocketbase_\${VERSION}_linux_amd64.zip\" -O pb.zip && unzip -o pb.zip && chmod +x pocketbase && rm pb.zip; fi"
+ssh -t $SERVER "sudo apt update && sudo apt install wget unzip git tmux mc curl -y && mkdir -p ~/$REMOTE_DIR/pb_public && cd ~/$REMOTE_DIR && if [ ! -f pocketbase ]; then echo 'Obteniendo última versión de PocketBase...' && VERSION=\$(curl -s https://api.github.com/repos/pocketbase/pocketbase/releases/latest | grep '\"tag_name\":' | sed -E 's/.*\"v([^\"]+)\".*/\1/') && echo \"Descargando versión \$VERSION...\" && wget \"https://github.com/pocketbase/pocketbase/releases/latest/download/pocketbase_\${VERSION}_linux_amd64.zip\" -O pb.zip && unzip -o pb.zip && chmod +x pocketbase && rm pb.zip; fi"
 
-echo "2. Subiendo backend y base de datos inicial..."
-scp -r ./backend/pb_migrations ./backend/pb_hooks ./backend/seed.js ./backend/start.sh ./backend/.env.example $SERVER:~/red-social/
+echo "2. Respaldando pb_data y pb_public actuales en el servidor (si existen)..."
+ssh -t $SERVER "cd ~/$REMOTE_DIR && TS=\$(date +%Y%m%d-%H%M%S) && mkdir -p backups && [ -d pb_data ] && tar -czf \"backups/pb_data-\$TS.tar.gz\" pb_data || echo 'pb_data no existe aún, se omite backup.' && [ -d pb_public ] && tar -czf \"backups/pb_public-\$TS.tar.gz\" pb_public || echo 'pb_public no existe aún, se omite backup.' && ls -1t backups | tail -n +11 | xargs -r -I{} rm -f \"backups/{}\""
 
-echo "3. Subiendo el frontend estático..."
-scp -r $LOCAL_BUILD_DIR/* $SERVER:~/red-social/pb_public/
+echo "3. Subiendo backend y base de datos inicial..."
+scp -r ./backend/pb_migrations ./backend/pb_hooks ./backend/seed.js ./backend/start.sh ./backend/.env.example $SERVER:~/$REMOTE_DIR/
 
-echo "4. Configurando persistencia con Systemd..."
+echo "4. Subiendo el frontend estático..."
+scp -r $LOCAL_BUILD_DIR/* $SERVER:~/$REMOTE_DIR/pb_public/
+
+echo "5. Configurando persistencia con Systemd..."
 ssh -t $SERVER "echo '[Unit]
 Description=PocketBase Red Social
 After=network.target
 
 [Service]
 Type=simple
-User=salas
-WorkingDirectory=/home/salas/red-social
-ExecStart=/bin/bash /home/salas/red-social/start.sh --http=\"127.0.0.1:8090\"
+User=$REMOTE_USER
+WorkingDirectory=/home/$REMOTE_USER/$REMOTE_DIR
+ExecStart=/bin/bash /home/$REMOTE_USER/$REMOTE_DIR/start.sh --http=\"127.0.0.1:8090\"
 Restart=on-failure
 
 [Install]
@@ -43,7 +49,7 @@ WantedBy=multi-user.target' | sudo tee /etc/systemd/system/pocketbase.service > 
 
 echo "========================================="
 echo "✅ Despliegue interno completado."
-echo "La app está corriendo en el servidor local en: http://192.168.0.6:8090"
+echo "La app está corriendo en el servidor local en: http://${SERVER#*@}:8090"
 echo "========================================="
 echo ""
 echo "☁️  Fase Cloudflare Zero Trust (Túnel):"

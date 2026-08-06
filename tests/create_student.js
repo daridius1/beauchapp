@@ -1,4 +1,7 @@
-const BACKEND_URL = 'http://127.0.0.1:8090';
+const BACKEND_URL = process.env.PB_BACKEND_URL || 'http://127.0.0.1:8090';
+const ADMIN_EMAIL = process.env.PB_ADMIN_EMAIL || 'admin@example.test';
+const ADMIN_PASSWORD = process.env.PB_ADMIN_PASSWORD || 'changeme-local-only';
+const NEW_STUDENT_PASSWORD = process.env.PB_NEW_STUDENT_PASSWORD || 'changeme-local-only';
 
 async function request(path, options = {}) {
   const url = `${BACKEND_URL}${path}`;
@@ -28,8 +31,8 @@ async function main() {
     const authData = await request('/api/collections/_superusers/auth-with-password', {
       method: 'POST',
       body: JSON.stringify({
-        identity: 'admin@daridius.cl',
-        password: 'password123',
+        identity: ADMIN_EMAIL,
+        password: ADMIN_PASSWORD,
       }),
     });
     
@@ -60,8 +63,8 @@ async function main() {
           username: 'estudiante',
           email: email,
           emailVisibility: true,
-          password: 'password123',
-          passwordConfirm: 'password123',
+          password: NEW_STUDENT_PASSWORD,
+          passwordConfirm: NEW_STUDENT_PASSWORD,
           name: 'Estudiante Genérico',
           verified: true,
           type: 'student'

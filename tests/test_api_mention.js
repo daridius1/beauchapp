@@ -1,4 +1,6 @@
-const BACKEND_URL = 'http://127.0.0.1:8090';
+const BACKEND_URL = process.env.PB_BACKEND_URL || 'http://127.0.0.1:8090';
+const TEST_USER_EMAIL = process.env.PB_TEST_USER_EMAIL || 'test.user@example.test';
+const TEST_USER_PASSWORD = process.env.PB_TEST_USER_PASSWORD || 'changeme-local-only';
 
 async function request(path, options = {}) {
   const url = `${BACKEND_URL}${path}`;
@@ -24,12 +26,12 @@ async function request(path, options = {}) {
 
 async function main() {
   try {
-    console.log('Autenticando como eduardor (dummy5.rojas@ing.uchile.cl)...');
+    console.log(`Autenticando como ${TEST_USER_EMAIL}...`);
     const authData = await request('/api/collections/users/auth-with-password', {
       method: 'POST',
       body: JSON.stringify({
-        identity: 'dummy5.rojas@ing.uchile.cl',
-        password: 'password123',
+        identity: TEST_USER_EMAIL,
+        password: TEST_USER_PASSWORD,
       }),
     });
     
