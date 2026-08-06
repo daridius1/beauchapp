@@ -235,6 +235,24 @@ routerAdd("GET", "/api/tinder/discover", (e) => {
             matchedUserIds[a === currentUserId ? b : a] = true;
         });
 
+        // $app.findRecordsByFilter ignora listRule/viewRule (esas reglas solo se
+        // aplican en la API REST estándar) — esta ruta arma el feed a mano, así
+        // que el bloqueo bidireccional que sí protege al resto de la app
+        // (backend/pb_migrations/1784200100_add_blocking_rules.js) no aplica acá
+        // y hay que repetirlo explícitamente.
+        const blocks = $app.findRecordsByFilter(
+            "blocked_users",
+            "blocker = {:me} || blocked = {:me}",
+            "", 500, 0,
+            { me: currentUserId }
+        );
+        const blockedUserIds = {};
+        blocks.forEach((b) => {
+            const blocker = b.getString("blocker");
+            const blocked = b.getString("blocked");
+            blockedUserIds[blocker === currentUserId ? blocked : blocker] = true;
+        });
+
         const myLikes = $app.findRecordsByFilter(
             "tinder_likes",
             "fromUser = {:me} && liked = true",
@@ -246,7 +264,9 @@ routerAdd("GET", "/api/tinder/discover", (e) => {
             likeIdByUser[l.getString("toUser")] = l.id;
         });
 
-        const visibleProfiles = profiles.filter((p) => !matchedUserIds[p.getString("user")]);
+        const visibleProfiles = profiles.filter((p) =>
+            !matchedUserIds[p.getString("user")] && !blockedUserIds[p.getString("user")]
+        );
         const userIds = visibleProfiles.map((p) => p.getString("user"));
 
         const { pickChipUserFields } = require(`${__hooks}/lib/chipFields.js`);
