@@ -31,6 +31,11 @@ export const ClashRoyaleArbitrator: React.FC<Props> = ({ ladder, initialMode, na
   const [crownsRed, setCrownsRed] = useState<number>(0);
   const [crownsBlue, setCrownsBlue] = useState<number>(0);
 
+  // Un resultado válido de Clash Royale es aquel en que exactamente un equipo
+  // llegó a las coronas máximas (destruyó la torre principal rival) — no puede
+  // haber empate (ambos en el máximo) ni un resultado sin equipo ganador.
+  const isValidResult = (crownsRed === maxCrowns) !== (crownsBlue === maxCrowns);
+
   const isNavigatingRef = React.useRef<boolean>(false);
   const hasUnsavedData = step === 'live' || crownsRed > 0 || crownsBlue > 0 || teamRed.length > 0 || teamBlue.length > 0;
 
@@ -76,6 +81,8 @@ export const ClashRoyaleArbitrator: React.FC<Props> = ({ ladder, initialMode, na
   };
 
   const handleSubmitMatch = async () => {
+    if (!isValidResult) return;
+
     setSubmitting(true);
     try {
       await ladderService.submitArbitratedMatch({
@@ -203,9 +210,13 @@ export const ClashRoyaleArbitrator: React.FC<Props> = ({ ladder, initialMode, na
             </View>
           </View>
 
-          <TouchableOpacity style={styles.finishBtn} disabled={submitting} onPress={handleSubmitMatch}>
-            {submitting ? <ActivityIndicator color="#000" /> : <Text style={styles.finishBtnText}>Guardar Resultado ({crownsRed} - {crownsBlue})</Text>}
-          </TouchableOpacity>
+          {isValidResult ? (
+            <TouchableOpacity style={styles.finishBtn} disabled={submitting} onPress={handleSubmitMatch}>
+              {submitting ? <ActivityIndicator color="#000" /> : <Text style={styles.finishBtnText}>Guardar Resultado ({crownsRed} - {crownsBlue})</Text>}
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.hintText}>Un solo equipo debe llegar a {maxCrowns} coronas para poder guardar el resultado.</Text>
+          )}
         </View>
       )}
 
@@ -305,6 +316,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
     marginTop: 10,
+  },
+  hintText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginTop: theme.spacing.sm,
   },
   finishBtn: {
     backgroundColor: theme.colors.primary,
