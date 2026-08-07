@@ -45,6 +45,7 @@ export function getSportCode(name?: string, slug?: string): string {
   if (str.includes('tenis') || str.includes('mesa') || str.includes('ping')) return 'TdM';
   if (str.includes('pádel') || str.includes('padel')) return 'PDL';
   if (str.includes('ajedrez') || str.includes('chess')) return 'AJZ';
+  if (str.includes('clash') || str.includes('royale')) return 'CR';
   if (str.includes('fútbol') || str.includes('futbol')) return 'FUT';
   if (str.includes('básquet') || str.includes('basquet') || str.includes('basket')) return 'BSQ';
 

@@ -48,6 +48,14 @@ export const LADDER_GROUPS: SportGroup[] = [
       { id: '1v1', label: '1v1', slug: 'ajedrez' },
     ],
   },
+  {
+    groupSlug: 'clash-royale',
+    groupName: 'Clash Royale',
+    categories: [
+      { id: '1v1', label: '1v1', slug: 'clash-royale' },
+      { id: '2v2', label: '2v2', slug: 'clash-royale' },
+    ],
+  },
 ];
 
 export const getSportGroup = (slugInput: string): { group: SportGroup; activeCategory: CategoryOption } => {
