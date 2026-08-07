@@ -38,4 +38,5 @@ export type RootStackParamList = {
   Reviews: undefined;
   CourseDetail: { courseId: string };
   ProfessorDetail: { professorId: string };
+  Info: undefined;
 };

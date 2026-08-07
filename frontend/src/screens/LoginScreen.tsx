@@ -369,11 +369,19 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
         <TouchableOpacity style={styles.toggleLink} onPress={isForgotPassword ? toggleForgotPassword : toggleMode} disabled={loading}>
           <Text style={styles.toggleLinkText}>
-            {isForgotPassword 
+            {isForgotPassword
               ? 'Volver al inicio de sesión'
               : isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
           </Text>
         </TouchableOpacity>
+
+        {isSignUp && !isForgotPassword && (
+          <TouchableOpacity style={styles.toggleLink} onPress={() => navigation.navigate('Info')} disabled={loading}>
+            <Text style={styles.toggleLinkText}>
+              Conoce las políticas de la plataforma
+            </Text>
+          </TouchableOpacity>
+        )}
         </>
         )}
       </View>

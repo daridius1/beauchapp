@@ -16,8 +16,12 @@ import { UserSelectorModal } from '../components/UserSelectorModal';
 import { SocialInput } from '../components/SocialInput';
 import { getSportCode } from '../components/UserChipsRow';
 import { SportIcon } from '../components/SportIcon';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
 
-export const SettingsScreen: React.FC = () => {
+type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
+
+export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const { user, developerMode, setDeveloperMode } = useAuth();
   
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -904,9 +908,28 @@ export const SettingsScreen: React.FC = () => {
         )}
       </View>
 
+      {/* Sección Ayuda */}
+      <Text style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>Ayuda</Text>
+
+      <View style={styles.optionCard}>
+        <TouchableOpacity
+          style={styles.optionHeader}
+          onPress={() => navigation.navigate('Info')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.optionTitleRow}>
+            <Feather name="info" size={20} color={theme.colors.primary} style={styles.optionIcon} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.optionTitle}>Info y Políticas</Text>
+            </View>
+          </View>
+          <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
+        </TouchableOpacity>
+      </View>
+
       {/* Sección Opciones Avanzadas */}
       <Text style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>Opciones Avanzadas</Text>
-      
+
       <View style={styles.optionCard}>
         <TouchableOpacity 
           style={styles.optionHeader} 

@@ -10,6 +10,8 @@ import { ImageViewer } from './ImageViewer';
 import { useAuth } from '../context/AuthContext';
 
 import { TargetPreview } from './TargetPreview';
+import { ContentActionsMenu, ContentAction } from './ContentActionsMenu';
+import { ReportModal } from './ReportModal';
 
 export interface PostCardProps {
   post: any;
@@ -45,14 +47,24 @@ export const PostCard: React.FC<PostCardProps> = ({
   const { developerMode } = useAuth();
   const navigation = useNavigation<any>();
 
-  const [menuOpen, setMenuOpen] = useState(false);
   const [loadingMention, setLoadingMention] = useState(false);
   const [viewerVisible, setViewerVisible] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const isDeleted = post.deleted === true;
   const author = isDeleted ? null : post.expand?.author;
   const isLiked = currentUser && (post.likes || []).includes(currentUser.id);
   const repliesCount = post.commentCount || 0;
+  const isOwnPost = !!currentUser && post.author === currentUser.id;
+
+  const cardActions: ContentAction[] = [];
+  if (currentUser && !isDeleted) {
+    if (isOwnPost && onDeletePress) {
+      cardActions.push({ key: 'delete', icon: 'trash-2', label: 'Eliminar', onPress: onDeletePress, destructive: true });
+    } else if (!isOwnPost) {
+      cardActions.push({ key: 'report', icon: 'flag', label: 'Reportar', onPress: () => setShowReportModal(true) });
+    }
+  }
 
   const handleMentionPress = async (username: string) => {
     if (loadingMention) return;
@@ -223,14 +235,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             </View>
           </View>
 
-          {currentUser && post.author === currentUser.id && !isDeleted && onDeletePress && (
-            <TouchableOpacity 
-              style={{ padding: 8 }} 
-              onPress={() => setMenuOpen(!menuOpen)}
-            >
-              <Feather name="more-horizontal" size={20} color={theme.colors.textMuted} />
-            </TouchableOpacity>
-          )}
+          <ContentActionsMenu actions={cardActions} />
         </View>
         
         {/* Contexto NO clickeable para Respuestas entre Posts */}
@@ -369,26 +374,15 @@ export const PostCard: React.FC<PostCardProps> = ({
           )}
         </View>
 
-        {/* Menú contextual */}
-        {menuOpen && (
-          <View style={styles.dropdownMenu}>
-            <TouchableOpacity 
-              style={styles.dropdownItem} 
-              onPress={() => {
-                setMenuOpen(false);
-                if (onDeletePress) {
-                  onDeletePress();
-                }
-              }}
-            >
-              <Feather name="trash-2" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
-              <Text style={styles.dropdownItemText}>Eliminar</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </CardComponent>
+      <ReportModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetType="post"
+        targetId={post.id}
+      />
       {post.photo && (
-        <ImageViewer 
+        <ImageViewer
           visible={viewerVisible}
           imageUrl={getFileUrl(post, post.photo)}
           onClose={() => setViewerVisible(false)}
@@ -499,28 +493,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 13,
     fontWeight: '500',
-  },
-  dropdownMenu: {
-    position: 'absolute',
-    right: 10,
-    top: 40,
-    backgroundColor: theme.colors.cardBg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    zIndex: 1000,
-  },
-  dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  dropdownItemText: {
-    color: theme.colors.text,
-    fontSize: 14,
   },
   devIdBadge: {
     backgroundColor: '#121212',

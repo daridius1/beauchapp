@@ -25,6 +25,8 @@ import { Avatar } from '../components/Avatar';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { PostCard } from '../components/PostCard';
 import { EntityCommentBox } from '../components/EntityCommentBox';
+import { ContentActionsMenu, ContentAction } from '../components/ContentActionsMenu';
+import { ReportModal } from '../components/ReportModal';
 import Toast from 'react-native-toast-message';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProblemDetail'>;
@@ -72,6 +74,7 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [showParentProblem, setShowParentProblem] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [quoteModalVisible, setQuoteModalVisible] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const [comments, setComments] = useState<any[]>([]);
   const [commentContent, setCommentContent] = useState('');
@@ -599,13 +602,14 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {user && problem.author === user.id && !problem.deleted && (
-              <TouchableOpacity 
-                style={{ padding: 8 }} 
-                onPress={handleDeleteProblem}
-              >
-                <Feather name="trash-2" size={20} color={theme.colors.error} />
-              </TouchableOpacity>
+            {user && !problem.deleted && (
+              <ContentActionsMenu
+                actions={
+                  problem.author === user.id
+                    ? [{ key: 'delete', icon: 'trash-2', label: 'Eliminar', onPress: handleDeleteProblem, destructive: true }]
+                    : [{ key: 'report', icon: 'flag', label: 'Reportar', onPress: () => setShowReportModal(true) }]
+                }
+              />
             )}
           </View>
         </View>
@@ -911,6 +915,13 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </View>
       )}
+
+      <ReportModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetType="problem"
+        targetId={problem.id}
+      />
     </View>
   );
 };

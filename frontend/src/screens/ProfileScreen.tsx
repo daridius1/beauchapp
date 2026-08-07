@@ -17,6 +17,8 @@ import { OrgChip } from '../components/OrgChip';
 import { UserChipsRow } from '../components/UserChipsRow';
 import { SocialButtonsRow } from '../components/SocialButtonsRow';
 import { marketplaceService, SellerProfileRecord } from '../services/marketplaceService';
+import { ContentActionsMenu, ContentAction } from '../components/ContentActionsMenu';
+import { ReportModal } from '../components/ReportModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile' | 'UserProfile'>;
 
@@ -44,8 +46,8 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [blockConfirmVisible, setBlockConfirmVisible] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   // Estados de Organizaciones e Integrantes
@@ -169,7 +171,6 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const handleBlockPress = () => {
     if (!currentUser || !targetUserId || currentUser.id === targetUserId) return;
-    setProfileMenuOpen(false);
     setBlockConfirmVisible(true);
   };
 
@@ -393,20 +394,14 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           )}
 
           {currentUser && currentUser.id !== targetUserId && (
-            <TouchableOpacity
-              style={styles.profileMenuBtn}
-              onPress={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              <Feather name="more-vertical" size={20} color={theme.colors.textMuted} />
-            </TouchableOpacity>
-          )}
-
-          {profileMenuOpen && (
-            <View style={styles.dropdownMenu}>
-              <TouchableOpacity style={styles.dropdownItem} onPress={handleBlockPress}>
-                <Feather name="slash" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
-                <Text style={styles.dropdownItemText}>Bloquear</Text>
-              </TouchableOpacity>
+            <View style={styles.profileMenuAnchor}>
+              <ContentActionsMenu
+                iconName="more-vertical"
+                actions={[
+                  { key: 'report', icon: 'flag', label: 'Reportar', onPress: () => setShowReportModal(true) },
+                  { key: 'block', icon: 'slash', label: 'Bloquear', onPress: handleBlockPress, destructive: true },
+                ]}
+              />
             </View>
           )}
 
@@ -535,6 +530,13 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </View>
       )}
+
+      <ReportModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetType="user"
+        targetId={targetUserId}
+      />
     </View>
   );
 };
@@ -613,11 +615,10 @@ const styles = StyleSheet.create({
     minWidth: 100,
     borderWidth: 1,
   },
-  profileMenuBtn: {
+  profileMenuAnchor: {
     position: 'absolute',
     top: theme.spacing.md,
     right: theme.spacing.md,
-    padding: 6,
   },
   followBtnInactive: {
     backgroundColor: theme.colors.primary,
@@ -680,35 +681,6 @@ const styles = StyleSheet.create({
   actionIcon: { fontSize: 14, marginRight: 6 },
   actionIconActive: { color: theme.colors.primary },
   actionCount: { color: theme.colors.textMuted, fontSize: 13, fontWeight: '500' },
-  dropdownMenu: {
-    position: 'absolute',
-    right: 16,
-    top: 48,
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 8,
-    padding: 4,
-    zIndex: 1000,
-    minWidth: 110,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-  },
-  dropdownItemText: {
-    color: '#ff4444',
-    fontSize: 14,
-    fontWeight: '600',
-  },
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

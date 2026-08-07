@@ -25,6 +25,8 @@ import Toast from 'react-native-toast-message';
 import { pb } from '../services/pocketbase';
 import { EntityCommentBox } from '../components/EntityCommentBox';
 import { PostCard } from '../components/PostCard';
+import { ContentActionsMenu } from '../components/ContentActionsMenu';
+import { ReportModal } from '../components/ReportModal';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -44,6 +46,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
   const [statusLoading, setStatusLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const loadItem = useCallback(async () => {
     setLoading(true);
@@ -326,6 +329,14 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
 
         {/* Info Principal */}
         <View style={styles.mainCard}>
+          {!isOwner && currentUser && (
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+              <ContentActionsMenu
+                actions={[{ key: 'report', icon: 'flag', label: 'Reportar', onPress: () => setShowReportModal(true) }]}
+              />
+            </View>
+          )}
+
           {/* Row de Categoría Principal y Tags Extra */}
           <View style={styles.categoryTagsRow}>
             <View style={[styles.categoryBadge, { borderColor: categoryObj?.color || theme.colors.primary }]}>
@@ -509,6 +520,13 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
         deleting={deleting}
         onConfirm={handleConfirmDelete}
         onClose={() => setShowDeleteModal(false)}
+      />
+
+      <ReportModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetType="marketplace_item"
+        targetId={item.id}
       />
     </View>
   );

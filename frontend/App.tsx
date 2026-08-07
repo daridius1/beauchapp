@@ -41,6 +41,8 @@ import { BeauchappsScreen } from './src/screens/BeauchappsScreen';
 import { ReviewsScreen } from './src/screens/ReviewsScreen';
 import { CourseDetailScreen } from './src/screens/CourseDetailScreen';
 import { ProfessorDetailScreen } from './src/screens/ProfessorDetailScreen';
+import { InfoScreen } from './src/screens/InfoScreen';
+import { AnnouncementModal } from './src/components/AnnouncementModal';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -274,6 +276,7 @@ function AppContent() {
       case 'Reviews': return 'Reseñas';
       case 'CourseDetail': return 'Ramo';
       case 'ProfessorDetail': return 'Profesor';
+      case 'Info': return 'Info y Políticas';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
       case 'LadderMatchDetail':
@@ -375,6 +378,7 @@ function AppContent() {
                 Reviews: 'reviews',
                 CourseDetail: 'reviews/course/:courseId',
                 ProfessorDetail: 'reviews/professor/:professorId',
+                Info: 'info',
               }
             }
           }}
@@ -396,6 +400,7 @@ function AppContent() {
           <View style={[styles.appContainer, isDesktop && styles.appContainerDesktop]}>
             {user ? (
               <View style={{ flex: 1, flexDirection: 'row' }}>
+                <AnnouncementModal />
                 {isDesktop && (
                   <Sidebar 
                     activeScreen={currentRouteName} 
@@ -453,6 +458,7 @@ function AppContent() {
                       <Stack.Screen name="CourseDetail" component={CourseDetailScreen} />
                       <Stack.Screen name="ProfessorDetail" component={ProfessorDetailScreen} />
                       <Stack.Screen name="Settings" component={SettingsScreen} />
+                      <Stack.Screen name="Info" component={InfoScreen} />
                       <Stack.Screen name="NotFound" component={NotFoundScreen} />
                     </Stack.Navigator>
                   </View>
@@ -478,6 +484,7 @@ function AppContent() {
                 <Stack.Screen name="Verification" component={VerificationScreen} />
                 <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
                 <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+                <Stack.Screen name="Info" component={InfoScreen} />
               </Stack.Navigator>
             )}
           </View>
