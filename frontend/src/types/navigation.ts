@@ -35,4 +35,7 @@ export type RootStackParamList = {
   Activities: { initialTab?: 'following' | 'all' } | undefined;
   ActivityDetail: { activityId: string };
   ActivityEditor: undefined;
+  Reviews: undefined;
+  CourseDetail: { courseId: string };
+  ProfessorDetail: { professorId: string };
 };

@@ -48,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
     if (onClose) onClose();
   };
 
-  const beauchappsScreens = ['Beauchapps', 'Marketplace', 'ProblemsList', 'LaddersList', 'Tinder'];
+  const beauchappsScreens = ['Beauchapps', 'Marketplace', 'ProblemsList', 'LaddersList', 'Tinder', 'Reviews'];
 
   const menuItems = [
     { id: 'Home', label: 'Inicio' },

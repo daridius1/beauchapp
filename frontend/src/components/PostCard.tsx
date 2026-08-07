@@ -93,6 +93,8 @@ export const PostCard: React.FC<PostCardProps> = ({
       navigation.push('SellerProfile', { sellerProfileId: post.targetId });
     } else if (post.targetType === 'activity') {
       navigation.push('ActivityDetail', { activityId: post.targetId });
+    } else if (post.targetType === 'course') {
+      navigation.push('CourseDetail', { courseId: post.targetId });
     }
   };
 
@@ -262,15 +264,17 @@ export const PostCard: React.FC<PostCardProps> = ({
                 post.targetType === 'match' ? 'Partido: ' :
                 (post.targetType === 'marketplace_item' || post.targetType === 'product') ? 'Producto: ' :
                 (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Vendedor: ' :
-                post.targetType === 'activity' ? 'Actividad: ' : ''
+                post.targetType === 'activity' ? 'Actividad: ' :
+                post.targetType === 'course' ? 'Ramo: ' : ''
               }
               <Text style={{ fontWeight: '700', textDecorationLine: 'underline' }}>
-                {post.targetMeta?.title || post.targetMeta?.sportName || post.targetMeta?.sellerName || (
+                {post.targetMeta?.title || post.targetMeta?.sportName || post.targetMeta?.sellerName || post.targetMeta?.nombre || (
                   post.targetType === 'problem' ? 'Ver problema' :
                   post.targetType === 'match' ? 'Ver partido' :
                   (post.targetType === 'marketplace_item' || post.targetType === 'product') ? 'Ver producto' :
                   (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Ver tienda' :
-                  post.targetType === 'activity' ? 'Ver actividad' : 'Ver detalle'
+                  post.targetType === 'activity' ? 'Ver actividad' :
+                  post.targetType === 'course' ? 'Ver ramo' : 'Ver detalle'
                 )}
               </Text>
             </Text>

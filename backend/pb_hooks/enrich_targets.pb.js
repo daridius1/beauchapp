@@ -39,6 +39,8 @@ onRecordEnrich((e) => {
             collectionName = "seller_profiles";
         } else if (targetType === "activity") {
             collectionName = "activities";
+        } else if (targetType === "course") {
+            collectionName = "courses";
         }
 
         if (!collectionName) {
@@ -196,6 +198,15 @@ onRecordEnrich((e) => {
                     bio: targetRecord.getString("bio"),
                     deleted: targetRecord.getBool("deleted"),
                     expand: userData ? { user: userData } : {},
+                };
+            } else if (targetType === "course") {
+                enriched = {
+                    id: targetRecord.id,
+                    collectionId: targetRecord.collection().id,
+                    codigo: targetRecord.getString("codigo"),
+                    nombre: targetRecord.getString("nombre"),
+                    area: targetRecord.getString("area"),
+                    deleted: false,
                 };
             } else if (targetType === "activity") {
                 let orgData = null;

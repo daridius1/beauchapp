@@ -101,6 +101,17 @@ onRecordCreateRequest((e) => {
             } catch (err) {
                 console.error("[Target Meta] Target match not found:", err);
             }
+        } else if (targetType === "course") {
+            try {
+                const targetRecord = $app.findRecordById("courses", targetId);
+                meta = {
+                    codigo: targetRecord.getString("codigo"),
+                    nombre: targetRecord.getString("nombre"),
+                    area: targetRecord.getString("area"),
+                };
+            } catch (err) {
+                console.error("[Target Meta] Target course not found:", err);
+            }
         } else if (targetType === "activity") {
             try {
                 const targetRecord = $app.findRecordById("activities", targetId);

@@ -49,6 +49,9 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
         } else if (targetType === 'activity') {
           const record = await pb.collection('activities').getOne(targetId, { expand: 'organization' });
           if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'course') {
+          const record = await pb.collection('courses').getOne(targetId);
+          if (isMounted) setFetchedTarget(record);
         }
       } catch (err) {
         if (isMounted) setFetchError(true);
@@ -295,6 +298,35 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
           <Text style={{ color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }}>
             📍 {location} {date ? `| ${date}` : ''} {startTime ? `(${startTime} - ${endTime})` : ''}
           </Text>
+        </View>
+        <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
+      </Wrapper>
+    );
+  }
+
+  // 7. RENDERIZADO DE RAMO CITADO
+  if (targetType === 'course') {
+    if (isDeleted) {
+      return (
+        <View style={styles.fallbackBox}>
+          <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.fallbackText}>Este ramo ya no está disponible.</Text>
+        </View>
+      );
+    }
+
+    const codigo = resolved?.codigo || targetMeta?.codigo || '';
+    const nombre = resolved?.nombre || targetMeta?.nombre || 'Ramo';
+    const area = resolved?.area || targetMeta?.area || '';
+
+    return (
+      <Wrapper {...wrapperProps} style={styles.previewCardProblem}>
+        <View style={styles.iconBox}>
+          <Feather name="book-open" size={16} color={theme.colors.textMuted} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.problemSubtitle}>Ramo{area ? ` · ${area}` : ''}</Text>
+          <Text style={styles.problemTitle} numberOfLines={2}>{nombre}{codigo ? ` (${codigo})` : ''}</Text>
         </View>
         <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
       </Wrapper>

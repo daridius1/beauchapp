@@ -38,6 +38,9 @@ import { ActivitiesScreen } from './src/screens/ActivitiesScreen';
 import { ActivityDetailScreen } from './src/screens/ActivityDetailScreen';
 import { ActivityEditorScreen } from './src/screens/ActivityEditorScreen';
 import { BeauchappsScreen } from './src/screens/BeauchappsScreen';
+import { ReviewsScreen } from './src/screens/ReviewsScreen';
+import { CourseDetailScreen } from './src/screens/CourseDetailScreen';
+import { ProfessorDetailScreen } from './src/screens/ProfessorDetailScreen';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -268,6 +271,9 @@ function AppContent() {
       case 'Activities': return 'Actividades';
       case 'ActivityDetail': return 'Actividad';
       case 'ActivityEditor': return 'Nueva Actividad';
+      case 'Reviews': return 'Reseñas';
+      case 'CourseDetail': return 'Ramo';
+      case 'ProfessorDetail': return 'Profesor';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
       case 'LadderMatchDetail':
@@ -304,12 +310,14 @@ function AppContent() {
       navigationRef.navigate('ProblemsList' as never);
     } else if (['MarketplaceItemDetail', 'SellerProfile', 'SellerProfileEditor', 'MarketplaceItemEditor'].includes(currentRouteName)) {
       navigationRef.navigate('Marketplace' as never);
-    } else if (['LaddersList', 'ProblemsList', 'Marketplace', 'Tinder'].includes(currentRouteName)) {
+    } else if (['LaddersList', 'ProblemsList', 'Marketplace', 'Tinder', 'Reviews'].includes(currentRouteName)) {
       navigationRef.navigate('Beauchapps' as never);
     } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'FollowList'].includes(currentRouteName)) {
       navigationRef.navigate('Directory' as never);
     } else if (['ActivityDetail', 'ActivityEditor'].includes(currentRouteName)) {
       navigationRef.navigate('Activities' as never);
+    } else if (['CourseDetail', 'ProfessorDetail'].includes(currentRouteName)) {
+      navigationRef.navigate('Reviews' as never);
     } else if (currentRouteName === 'PostDetail') {
       navigationRef.navigate('Home' as never);
     } else {
@@ -364,6 +372,9 @@ function AppContent() {
                 Activities: 'activities',
                 ActivityDetail: 'activities/:activityId',
                 ActivityEditor: 'activities/editor',
+                Reviews: 'reviews',
+                CourseDetail: 'reviews/course/:courseId',
+                ProfessorDetail: 'reviews/professor/:professorId',
               }
             }
           }}
@@ -401,7 +412,7 @@ function AppContent() {
                     title={getScreenTitle(currentRouteName, currentRouteParams)} 
                     onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                     onBack={showBackButton ? handleBack : undefined}
-                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail'].includes(currentRouteName) ? () => {
+                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail'].includes(currentRouteName) ? () => {
                       DeviceEventEmitter.emit('onGlobalRefresh');
                     } : undefined}
                     hasUnreadNotifications={hasUnreadNotifications}
@@ -438,6 +449,9 @@ function AppContent() {
                       <Stack.Screen name="Activities" component={ActivitiesScreen} />
                       <Stack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
                       <Stack.Screen name="ActivityEditor" component={ActivityEditorScreen} />
+                      <Stack.Screen name="Reviews" component={ReviewsScreen} />
+                      <Stack.Screen name="CourseDetail" component={CourseDetailScreen} />
+                      <Stack.Screen name="ProfessorDetail" component={ProfessorDetailScreen} />
                       <Stack.Screen name="Settings" component={SettingsScreen} />
                       <Stack.Screen name="NotFound" component={NotFoundScreen} />
                     </Stack.Navigator>
