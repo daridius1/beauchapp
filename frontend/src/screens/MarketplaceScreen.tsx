@@ -34,6 +34,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const [activeCategory, setActiveCategory] = useState<string>(initialCategory);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activeSearch, setActiveSearch] = useState<string>('');
   const [activeTags, setActiveTags] = useState<string[]>([]);
 
   const [showCategoryModal, setShowCategoryModal] = useState<boolean>(false);
@@ -53,7 +54,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
         const [itemsResult, profileResult] = await Promise.allSettled([
           marketplaceService.getMarketplaceItems({
             category: activeCategory,
-            query: searchQuery,
+            query: activeSearch,
             tag: activeTags.join(','),
           }),
           currentUser ? marketplaceService.getSellerProfile(currentUser.id) : Promise.resolve(null),
@@ -72,7 +73,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeCategory, searchQuery, activeTags, currentUser]);
+  }, [activeCategory, activeSearch, activeTags, currentUser]);
 
   useEffect(() => {
     loadItems();
@@ -90,6 +91,17 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
   const onRefresh = () => {
     setRefreshing(true);
     loadItems();
+  };
+
+  // No se busca mientras se escribe: solo al confirmar (Enter / tecla "buscar" del teclado),
+  // igual que en Problemas y Reseñas — nada de consultar la API en cada tecla.
+  const handleSearch = () => {
+    setActiveSearch(searchQuery.trim());
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setActiveSearch('');
   };
 
   const handleOpenMySellerProfile = () => {
@@ -136,9 +148,10 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
             placeholderTextColor={theme.colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <TouchableOpacity onPress={clearSearch}>
               <Feather name="x" size={16} color={theme.colors.textMuted} />
             </TouchableOpacity>
           )}
@@ -226,7 +239,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ route, navigation }) => {
             <Feather name="box" size={40} color={theme.colors.textMuted} />
             <Text style={styles.emptyTitle}>No hay productos disponibles</Text>
             <Text style={styles.emptySub}>
-              {searchQuery.trim() || activeTags.length > 0
+              {activeSearch.trim() || activeTags.length > 0
                 ? 'Prueba ajustando tu búsqueda o filtros.'
                 : 'Sé el primero en publicar un producto o servicio en Beauchapp.'}
             </Text>
