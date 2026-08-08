@@ -183,7 +183,16 @@ export const reviewsService = {
   getCourseAreas: async (): Promise<string[]> => {
     if (!cachedAreasPromise) {
       cachedAreasPromise = pb.collection('courses').getFullList<{ area: string }>({ fields: 'area' })
-        .then((res) => Array.from(new Set(res.map((r) => r.area).filter(Boolean))).sort())
+        .then((res) => {
+          const areas = Array.from(new Set(res.map((r) => r.area).filter(Boolean))).sort();
+          // No cachear un resultado vacío: probablemente el catálogo todavía no tiene datos
+          // (import en curso, o recién desplegado sin importar nada aún) — la próxima
+          // llamada reintenta en vez de quedar pegada en "sin áreas" para toda la sesión.
+          if (areas.length === 0) {
+            cachedAreasPromise = null;
+          }
+          return areas;
+        })
         .catch((err) => {
           cachedAreasPromise = null; // permitir reintentar si falló
           throw err;
