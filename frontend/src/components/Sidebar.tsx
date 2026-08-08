@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
 import { Avatar } from './Avatar';
+import { isStandalone } from '../utils/pwa';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SIDEBAR_WIDTH = Math.min(SCREEN_WIDTH * 0.75, 300);
@@ -21,6 +22,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
   const { user, logout } = useAuth();
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+  const [runningAsPwa, setRunningAsPwa] = useState(false);
+  useEffect(() => {
+    if (Platform.OS === 'web') setRunningAsPwa(isStandalone());
+  }, []);
   useEffect(() => {
     if (isDocked) return;
     Animated.parallel([
@@ -55,9 +60,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
     { id: 'Activities', label: 'Actividades' },
     { id: 'Directory', label: 'Perfiles' },
     { id: 'Beauchapps', label: 'Beauchapps' },
-    // Instalar como PWA solo tiene sentido en el navegador, no en una build nativa. Va al
-    // final del arreglo a propósito para que quede como el último ítem del sidebar.
-    ...(Platform.OS === 'web' ? [{ id: 'InstallApp', label: 'Instalar aplicación' }] : []),
+    // Instalar como PWA solo tiene sentido en el navegador y si todavía no está instalada
+    // (si ya se abrió en modo standalone, no hay nada que instalar). Va al final del arreglo
+    // a propósito para que quede como el último ítem del sidebar.
+    ...(Platform.OS === 'web' && !runningAsPwa ? [{ id: 'InstallApp', label: 'Instalar aplicación' }] : []),
   ];
 
   const renderSidebarContent = () => (

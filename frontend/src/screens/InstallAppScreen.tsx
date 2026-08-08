@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { theme } from '../theme/theme';
 import { RootStackParamList } from '../types/navigation';
+import { isStandalone } from '../utils/pwa';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'InstallApp'>;
 
@@ -35,13 +36,6 @@ function detectedSectionId(platform: DetectedPlatform): string | null {
   }
 }
 
-function isStandalone(): boolean {
-  if (typeof window === 'undefined') return false;
-  const mq = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
-  const iosStandalone = (window.navigator as any).standalone === true;
-  return !!(mq || iosStandalone);
-}
-
 interface Step {
   text: string;
 }
@@ -63,7 +57,7 @@ const SECTIONS: Section[] = [
     label: 'iPhone / iPad — Safari',
     icon: 'smartphone',
     steps: [
-      { text: 'Abre beauchapp.cl en Safari (no funciona desde Chrome, Instagram u otra app en iOS — tiene que ser Safari).' },
+      { text: 'Abre beauchapp.daridius.cl en Safari (no funciona desde Chrome, Instagram u otra app en iOS — tiene que ser Safari).' },
       { text: 'Toca el botón de Compartir: el cuadrado con una flecha hacia arriba, en la barra inferior.' },
       { text: 'Desliza la lista de opciones hacia abajo y elige "Agregar a pantalla de inicio".' },
       { text: 'Revisa el nombre y toca "Agregar" arriba a la derecha.' },
@@ -75,7 +69,7 @@ const SECTIONS: Section[] = [
     label: 'Mac — Safari',
     icon: 'monitor',
     steps: [
-      { text: 'Abre beauchapp.cl en Safari.' },
+      { text: 'Abre beauchapp.daridius.cl en Safari.' },
       { text: 'Ve al menú "Archivo" → "Añadir al Dock…" (o toca el botón de Compartir y elige "Añadir al Dock").' },
       { text: 'Ponle un nombre si quieres y toca "Añadir".' },
     ],
@@ -86,7 +80,7 @@ const SECTIONS: Section[] = [
     label: 'Android — Chrome',
     icon: 'smartphone',
     steps: [
-      { text: 'Abre beauchapp.cl en Chrome.' },
+      { text: 'Abre beauchapp.daridius.cl en Chrome.' },
       { text: 'Si aparece un aviso de "Instalar aplicación" abajo, tócalo y listo.' },
       { text: 'Si no aparece, toca el menú de tres puntos (⋮) arriba a la derecha.' },
       { text: 'Elige "Instalar aplicación" (o "Agregar a pantalla de inicio") y confirma con "Instalar".' },
@@ -97,7 +91,7 @@ const SECTIONS: Section[] = [
     label: 'Computador — Chrome / Edge',
     icon: 'monitor',
     steps: [
-      { text: 'Abre beauchapp.cl en Chrome o Edge.' },
+      { text: 'Abre beauchapp.daridius.cl en Chrome o Edge.' },
       { text: 'Busca el ícono de instalar en la barra de direcciones (una pantalla con una flecha, o un "+" dentro de un círculo), al lado derecho.' },
       { text: 'Si no lo ves, abre el menú de tres puntos (⋮) y busca "Instalar Beauchapp…" (Chrome) o "Aplicaciones" → "Instalar este sitio como aplicación" (Edge).' },
       { text: 'Confirma haciendo clic en "Instalar". Queda como una ventana propia y un ícono en tu sistema.' },
@@ -167,7 +161,7 @@ export const InstallAppScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.otherBrowserBox}>
             <Feather name="alert-circle" size={16} color="#f59e0b" />
             <Text style={styles.otherBrowserText}>
-              Parece que estás en un navegador distinto a Safari o Chrome. Prueba abrir beauchapp.cl en alguno de
+              Parece que estás en un navegador distinto a Safari o Chrome. Prueba abrir beauchapp.daridius.cl en alguno de
               esos dos según tu dispositivo, o revisa las guías de abajo — suelen tener una opción parecida en su
               menú (busca "Agregar a pantalla de inicio" o "Instalar sitio").
             </Text>
