@@ -27,6 +27,7 @@ import { EntityCommentBox } from '../components/EntityCommentBox';
 import { PostCard } from '../components/PostCard';
 import { ContentActionsMenu } from '../components/ContentActionsMenu';
 import { ReportModal } from '../components/ReportModal';
+import { ImageViewer } from '../components/ImageViewer';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -47,6 +48,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [viewerVisible, setViewerVisible] = useState(false);
 
   const loadItem = useCallback(async () => {
     setLoading(true);
@@ -299,11 +301,13 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
         {/* Galería / Carrusel de Imágenes */}
         {imageUrls.length > 0 ? (
           <View style={styles.galleryContainer}>
-            <Image
-              source={{ uri: imageUrls[activeImageIndex] }}
-              style={styles.galleryImage}
-              resizeMode="contain"
-            />
+            <TouchableOpacity activeOpacity={0.9} onPress={() => setViewerVisible(true)}>
+              <Image
+                source={{ uri: imageUrls[activeImageIndex] }}
+                style={styles.galleryImage}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
             {imageUrls.length > 1 && (
               <View style={styles.thumbnailsRow}>
                 {imageUrls.map((url, idx) => (
@@ -527,6 +531,12 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
         onClose={() => setShowReportModal(false)}
         targetType="marketplace_item"
         targetId={item.id}
+      />
+
+      <ImageViewer
+        visible={viewerVisible}
+        imageUrl={imageUrls[activeImageIndex] || null}
+        onClose={() => setViewerVisible(false)}
       />
     </View>
   );

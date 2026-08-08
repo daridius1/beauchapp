@@ -39,4 +39,5 @@ export type RootStackParamList = {
   CourseDetail: { courseId: string };
   ProfessorDetail: { professorId: string };
   Info: undefined;
+  InstallApp: undefined;
 };

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { getFileUrl } from '../../services/pocketbase';
@@ -37,6 +37,15 @@ export const TinderDiscoverCard: React.FC<TinderDiscoverCardProps> = ({
   setCurrentIndex,
   onToggleLike,
 }) => {
+  // Al entrar a un perfil solo se pinta la foto activa (índice 0), pero el resto quedan sin
+  // pedir hasta que se navega a ellas manualmente, generando un salto de carga en cada tap.
+  // Se precargan todas apenas cambia el perfil para que el resto ya estén en caché del navegador.
+  useEffect(() => {
+    activePhotos.forEach((photo: any) => {
+      Image.prefetch(getFileUrl(activeDiscoverProfile, photo, '800x0'));
+    });
+  }, [activeDiscoverProfile?.id]);
+
   return (
     <ScrollView
       style={styles.discoverContainer}

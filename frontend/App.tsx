@@ -42,6 +42,7 @@ import { ReviewsScreen } from './src/screens/ReviewsScreen';
 import { CourseDetailScreen } from './src/screens/CourseDetailScreen';
 import { ProfessorDetailScreen } from './src/screens/ProfessorDetailScreen';
 import { InfoScreen } from './src/screens/InfoScreen';
+import { InstallAppScreen } from './src/screens/InstallAppScreen';
 import { AnnouncementModal } from './src/components/AnnouncementModal';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
@@ -277,6 +278,7 @@ function AppContent() {
       case 'CourseDetail': return 'Ramo';
       case 'ProfessorDetail': return 'Profesor';
       case 'Info': return 'Info y Políticas';
+      case 'InstallApp': return 'Instalar Aplicación';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
       case 'LadderMatchDetail':
@@ -379,6 +381,7 @@ function AppContent() {
                 CourseDetail: 'reviews/course/:courseId',
                 ProfessorDetail: 'reviews/professor/:professorId',
                 Info: 'info',
+                InstallApp: 'instalar',
               }
             }
           }}
@@ -459,6 +462,7 @@ function AppContent() {
                       <Stack.Screen name="ProfessorDetail" component={ProfessorDetailScreen} />
                       <Stack.Screen name="Settings" component={SettingsScreen} />
                       <Stack.Screen name="Info" component={InfoScreen} />
+                      <Stack.Screen name="InstallApp" component={InstallAppScreen} />
                       <Stack.Screen name="NotFound" component={NotFoundScreen} />
                     </Stack.Navigator>
                   </View>

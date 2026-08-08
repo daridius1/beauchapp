@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Animated, Dimensions, Pressable } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Animated, Dimensions, Pressable, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
@@ -55,6 +55,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
     { id: 'Activities', label: 'Actividades' },
     { id: 'Directory', label: 'Perfiles' },
     { id: 'Beauchapps', label: 'Beauchapps' },
+    // Instalar como PWA solo tiene sentido en el navegador, no en una build nativa. Va al
+    // final del arreglo a propósito para que quede como el último ítem del sidebar.
+    ...(Platform.OS === 'web' ? [{ id: 'InstallApp', label: 'Instalar aplicación' }] : []),
   ];
 
   const renderSidebarContent = () => (
@@ -167,8 +170,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
       {/* Botón de Salida (Cerrar Sesión) */}
       {user && (
         <View style={styles.footer}>
-          <TouchableOpacity 
-            style={styles.logoutBtn} 
+          <TouchableOpacity
+            style={styles.logoutBtn}
             onPress={handleLogout}
           >
             <Text style={styles.logoutText}>Cerrar Sesión</Text>

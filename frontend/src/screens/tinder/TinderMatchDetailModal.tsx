@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { getFileUrl } from '../../services/pocketbase';
@@ -35,6 +35,14 @@ export const TinderMatchDetailModal: React.FC<TinderMatchDetailModalProps> = ({
   onClose,
   onUnmatch,
 }) => {
+  // Mismo motivo que en TinderDiscoverCard: solo se pinta la foto activa, el resto se
+  // precargan apenas se abre el perfil para que cambiar de foto no tenga que esperar la carga.
+  useEffect(() => {
+    (selectedMatch.profile?.photos || []).forEach((photo: any) => {
+      Image.prefetch(getFileUrl(selectedMatch.profile, photo, '800x0'));
+    });
+  }, [selectedMatch.profile?.id]);
+
   return (
     <View style={styles.modalOverlay}>
       <View style={styles.matchDetailCard}>

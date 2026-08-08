@@ -89,7 +89,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
   const handleNotificationPress = (item: any) => {
     if (item.type === 'match') {
       navigation.navigate('Tinder', { initialTab: 'matches' });
-    } else if (item.type === 'mention' && item.relatedId) {
+    } else if ((item.type === 'mention' || item.type === 'reply') && item.relatedId) {
       navigation.navigate('PostDetail', { postId: item.relatedId });
     } else if (item.type === 'ladder_match' && item.relatedId) {
       navigation.navigate('LadderMatchDetail', { matchId: item.relatedId });
@@ -194,7 +194,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
               </View>
                <Text style={styles.emptyTitle}>No tienes notificaciones</Text>
               <Text style={styles.emptySubtitle}>
-                Aquí aparecerán las menciones, los avisos de nuevos matches y novedades del sistema.
+                Aquí aparecerán las menciones, respuestas, avisos de nuevos matches y novedades del sistema.
               </Text>
             </View>
           }
