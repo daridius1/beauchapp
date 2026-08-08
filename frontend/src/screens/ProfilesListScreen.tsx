@@ -48,6 +48,12 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  // La búsqueda solo se aplica al servidor cuando se confirma (submit), no en cada tecla
+  // (mismo patrón que Reseñas/Marketplace/Problemas). Antes de esto, "searchQuery" solo
+  // filtraba en el cliente los 100 perfiles ya traídos ordenados por nombre — cualquier
+  // usuario cuyo nombre cayera después del corte alfabético (ej. apellidos con "W") nunca
+  // aparecía en el resultado sin importar qué se buscara.
+  const [activeSearch, setActiveSearch] = useState('');
 
   // Filtros de Selectores
   const [profileType, setProfileType] = useState<'all' | 'student' | 'organization'>('all');
@@ -167,7 +173,12 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
           }
         }
 
-        const res = await pb.collection('users').getList(1, 100, {
+        if (activeSearch) {
+          const safeSearch = activeSearch.replace(/"/g, '\\"');
+          filterParts.push(`(name ~ "${safeSearch}" || username ~ "${safeSearch}")`);
+        }
+
+        const res = await pb.collection('users').getList(1, 500, {
           filter: filterParts.join(' && '),
           sort: 'name',
         });
@@ -188,19 +199,28 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
       setLoading(false);
     });
     return () => sub.remove();
-  }, [routeName, routeParams?.userId, routeParams?.type, profileType, orgSubtype]);
+  }, [routeName, routeParams?.userId, routeParams?.type, profileType, orgSubtype, activeSearch]);
 
   useFocusEffect(
     useCallback(() => {
       fetchProfiles(!isFirstLoad.current);
       isFirstLoad.current = false;
-    }, [routeName, routeParams?.userId, routeParams?.type, profileType, orgSubtype])
+    }, [routeName, routeParams?.userId, routeParams?.type, profileType, orgSubtype, activeSearch])
   );
 
   const onRefresh = async () => {
     setRefreshing(true);
     await withMinimumDelay(() => fetchProfiles(true));
     setRefreshing(false);
+  };
+
+  const handleSearch = () => {
+    setActiveSearch(searchQuery.trim());
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setActiveSearch('');
   };
 
   const getProfileTypeLabel = () => {
@@ -217,12 +237,6 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
     if (orgSubtype === 'band') return 'Bandas';
     return 'Todas las orgs';
   };
-
-  const filteredProfiles = profiles.filter(
-    (p) =>
-      (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.username || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const emptyText =
     routeName === 'FollowList'
@@ -257,11 +271,13 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
               placeholderTextColor={theme.colors.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
+              onSubmitEditing={handleSearch}
+              returnKeyType="search"
             />
             {(searchQuery.length > 0 || profileType !== 'all' || orgSubtype !== 'all') && (
               <TouchableOpacity
                 onPress={() => {
-                  setSearchQuery('');
+                  clearSearch();
                   setProfileType('all');
                   setOrgSubtype('all');
                 }}
@@ -337,13 +353,13 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
       >
         {loading && !refreshing ? (
           <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 50 }} />
-        ) : filteredProfiles.length === 0 ? (
+        ) : profiles.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Feather name="users" size={40} color={theme.colors.textMuted} style={{ marginBottom: 12 }} />
             <Text style={styles.emptyText}>{emptyText}</Text>
           </View>
         ) : (
-          filteredProfiles.map((profile) => (
+          profiles.map((profile) => (
             <TouchableOpacity
               key={profile.id}
               style={styles.itemContainer}
