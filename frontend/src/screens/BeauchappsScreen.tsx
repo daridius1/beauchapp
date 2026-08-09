@@ -36,6 +36,12 @@ export const BeauchappsScreen: React.FC<Props> = ({ navigation }) => {
       icon: 'star',
       screen: 'Reviews',
     },
+    {
+      id: 'Beaudle',
+      title: 'Beaudle',
+      icon: 'grid',
+      screen: 'Beaudle',
+    },
     ...(user && user.type !== 'organization'
       ? [
           {

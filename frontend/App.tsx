@@ -43,6 +43,7 @@ import { CourseDetailScreen } from './src/screens/CourseDetailScreen';
 import { ProfessorDetailScreen } from './src/screens/ProfessorDetailScreen';
 import { InfoScreen } from './src/screens/InfoScreen';
 import { InstallAppScreen } from './src/screens/InstallAppScreen';
+import { BeaudleScreen } from './src/screens/BeaudleScreen';
 import { AnnouncementModal } from './src/components/AnnouncementModal';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
@@ -279,6 +280,7 @@ function AppContent() {
       case 'ProfessorDetail': return 'Profesor';
       case 'Info': return 'Info y Políticas';
       case 'InstallApp': return 'Instalar Aplicación';
+      case 'Beaudle': return 'Beaudle';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
       case 'LadderMatchDetail':
@@ -315,7 +317,7 @@ function AppContent() {
       navigationRef.navigate('ProblemsList' as never);
     } else if (['MarketplaceItemDetail', 'SellerProfile', 'SellerProfileEditor', 'MarketplaceItemEditor'].includes(currentRouteName)) {
       navigationRef.navigate('Marketplace' as never);
-    } else if (['LaddersList', 'ProblemsList', 'Marketplace', 'Tinder', 'Reviews'].includes(currentRouteName)) {
+    } else if (['LaddersList', 'ProblemsList', 'Marketplace', 'Tinder', 'Reviews', 'Beaudle'].includes(currentRouteName)) {
       navigationRef.navigate('Beauchapps' as never);
     } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'FollowList'].includes(currentRouteName)) {
       navigationRef.navigate('Directory' as never);
@@ -382,6 +384,7 @@ function AppContent() {
                 ProfessorDetail: 'reviews/professor/:professorId',
                 Info: 'info',
                 InstallApp: 'instalar',
+                Beaudle: 'beaudle',
               }
             }
           }}
@@ -420,7 +423,7 @@ function AppContent() {
                     title={getScreenTitle(currentRouteName, currentRouteParams)} 
                     onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                     onBack={showBackButton ? handleBack : undefined}
-                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail'].includes(currentRouteName) ? () => {
+                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle'].includes(currentRouteName) ? () => {
                       DeviceEventEmitter.emit('onGlobalRefresh');
                     } : undefined}
                     hasUnreadNotifications={hasUnreadNotifications}
@@ -463,6 +466,7 @@ function AppContent() {
                       <Stack.Screen name="Settings" component={SettingsScreen} />
                       <Stack.Screen name="Info" component={InfoScreen} />
                       <Stack.Screen name="InstallApp" component={InstallAppScreen} />
+                      <Stack.Screen name="Beaudle" component={BeaudleScreen} />
                       <Stack.Screen name="NotFound" component={NotFoundScreen} />
                     </Stack.Navigator>
                   </View>

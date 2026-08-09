@@ -40,4 +40,5 @@ export type RootStackParamList = {
   ProfessorDetail: { professorId: string };
   Info: undefined;
   InstallApp: undefined;
+  Beaudle: undefined;
 };
