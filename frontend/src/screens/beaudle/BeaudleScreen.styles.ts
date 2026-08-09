@@ -17,23 +17,25 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   intro: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: theme.spacing.md,
   },
-  title: {
+  guessesRemaining: {
+    flex: 1,
     color: theme.colors.text,
-    fontSize: 20,
+    fontSize: 12,
     fontWeight: '800',
   },
-  subtitle: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  guessesRemaining: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    marginTop: theme.spacing.xs,
+  infoButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pickerSection: {
     marginBottom: theme.spacing.md,

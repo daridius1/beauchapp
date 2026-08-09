@@ -3,17 +3,28 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { BeaudleGuessFeedback } from '../../services/beaudleService';
-import { BEAUDLE_COURSES } from './courses';
+import { BEAUDLE_PLACES } from './places';
 
-const CORRECT_COLOR = '#22c55e';
-const WRONG_COLOR = '#ef4444';
+const CORRECT_COLOR = '#16a34a';
+const PARTIAL_COLOR = '#ca8a04';
+const WRONG_COLOR = '#dc2626';
+
+type TileState = 'correct' | 'partial' | 'wrong';
+
+const TILE_COLOR: Record<TileState, string> = {
+  correct: CORRECT_COLOR,
+  partial: PARTIAL_COLOR,
+  wrong: WRONG_COLOR,
+};
 
 // Estilo inspirado en LoLdle: cada celda muestra el valor adivinado (no una flecha),
-// coloreada en verde si coincide con el secreto y en rojo si no — sin indicar dirección.
-function Tile({ value, correct }: { value: string | number; correct: boolean }) {
+// coloreada en verde si coincide exactamente con el secreto, amarillo si comparte al
+// menos un valor con el secreto sin ser igual (edificio/piso/tipo pueden tener más de un
+// valor a la vez), y rojo si no comparten nada.
+function Tile({ value, state }: { value: string; state: TileState }) {
   return (
-    <View style={[styles.tile, correct ? styles.tileCorrect : styles.tileWrong]}>
-      <Text style={styles.tileValue}>{value}</Text>
+    <View style={[styles.tile, { backgroundColor: TILE_COLOR[state] }]}>
+      <Text style={styles.tileValue} numberOfLines={3}>{value}</Text>
     </View>
   );
 }
@@ -21,34 +32,30 @@ function Tile({ value, correct }: { value: string | number; correct: boolean }) 
 export function GuessRowHeader() {
   return (
     <View style={styles.headerRow}>
-      <View style={styles.headerSpacer} />
-      <Text style={styles.headerLabel}>Depto</Text>
-      <Text style={styles.headerLabel}>Semestre</Text>
-      <Text style={styles.headerLabel}>Créditos</Text>
+      <Text style={styles.headerLabel}>Ubicación</Text>
+      <Text style={styles.headerLabel}>Edificio</Text>
+      <Text style={styles.headerLabel}>Piso</Text>
+      <Text style={styles.headerLabel}>Tipo</Text>
     </View>
   );
 }
 
 export function GuessRow({ guess }: { guess: BeaudleGuessFeedback }) {
-  const course = BEAUDLE_COURSES.find((c) => c.code === guess.code);
+  const place = BEAUDLE_PLACES.find((p) => p.code === guess.code);
   return (
     <View style={styles.container}>
       <View style={styles.row}>
-        <View style={styles.codeCell}>
-          <Text style={styles.code}>{guess.code}</Text>
-          {!!course && (
-            <Text style={styles.name} numberOfLines={2}>{course.name}</Text>
-          )}
-        </View>
-        <Tile value={course?.department ?? '?'} correct={guess.department === 'correct'} />
-        <Tile value={course?.semester ?? '?'} correct={guess.semester === 'correct'} />
-        <Tile value={course?.credits ?? '?'} correct={guess.credits === 'correct'} />
+        <Tile value={place?.ubicacion ?? '?'} state={guess.ubicacion === 'correct' ? 'correct' : 'wrong'} />
+        <Tile value={place ? place.edificio.join(', ') : '?'} state={guess.edificio} />
+        <Tile value={place ? place.piso.join(', ') : '?'} state={guess.piso} />
+        <Tile value={place ? place.tipo.join(', ') : '?'} state={guess.tipo} />
       </View>
+      <Text style={styles.name} numberOfLines={2}>{place?.name ?? guess.code}</Text>
       {guess.tie && !guess.solved && (
         <View style={styles.tieBanner}>
           <Feather name="alert-triangle" size={13} color="#facc15" style={{ marginRight: 6 }} />
           <Text style={styles.tieText}>
-            Coincide en todo, pero hay más de un ramo así — prueba con el otro.
+            Coincide en todo, pero hay más de un lugar así — prueba con el otro.
           </Text>
         </View>
       )}
@@ -58,27 +65,19 @@ export function GuessRow({ guess }: { guess: BeaudleGuessFeedback }) {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   row: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 5,
     alignItems: 'stretch',
   },
-  codeCell: {
-    flex: 1.6,
-    justifyContent: 'center',
-    paddingRight: 4,
-  },
-  code: {
+  name: {
     color: theme.colors.text,
     fontWeight: '800',
-    fontSize: 13,
-  },
-  name: {
-    color: theme.colors.textMuted,
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 6,
   },
   tile: {
     flex: 1,
@@ -86,31 +85,24 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  tileCorrect: {
-    backgroundColor: CORRECT_COLOR,
-  },
-  tileWrong: {
-    backgroundColor: WRONG_COLOR,
+    paddingHorizontal: 2,
   },
   tileValue: {
     color: '#ffffff',
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 10,
+    textAlign: 'center',
   },
   headerRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 5,
     marginBottom: theme.spacing.xs,
-  },
-  headerSpacer: {
-    flex: 1.6,
   },
   headerLabel: {
     flex: 1,
     textAlign: 'center',
     color: theme.colors.textMuted,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     textTransform: 'uppercase',
   },

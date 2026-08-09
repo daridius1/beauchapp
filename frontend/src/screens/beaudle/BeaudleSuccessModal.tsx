@@ -8,16 +8,16 @@ const CORRECT_COLOR = '#22c55e';
 interface BeaudleSuccessModalProps {
   visible: boolean;
   guessCount: number;
-  courseName?: string;
-  courseCode?: string;
+  placeName?: string;
+  placeShortName?: string;
   onClose: () => void;
 }
 
 export const BeaudleSuccessModal: React.FC<BeaudleSuccessModalProps> = ({
   visible,
   guessCount,
-  courseName,
-  courseCode,
+  placeName,
+  placeShortName,
   onClose,
 }) => {
   return (
@@ -30,10 +30,10 @@ export const BeaudleSuccessModal: React.FC<BeaudleSuccessModalProps> = ({
 
           <Text style={styles.title}>¡Lo lograste!</Text>
           <Text style={styles.message}>
-            Adivinaste el ramo secreto de hoy en {guessCount} intento{guessCount === 1 ? '' : 's'}.
+            Adivinaste el lugar secreto de hoy en {guessCount} intento{guessCount === 1 ? '' : 's'}.
           </Text>
-          {!!courseName && (
-            <Text style={styles.courseText}>{courseName} ({courseCode})</Text>
+          {!!placeName && (
+            <Text style={styles.placeText}>{placeName}{placeShortName && placeShortName !== placeName ? ` (${placeShortName})` : ''}</Text>
           )}
 
           <TouchableOpacity style={styles.closeBtn} activeOpacity={0.7} onPress={onClose}>
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
-  courseText: {
+  placeText: {
     fontSize: 13,
     color: '#ffffff',
     fontWeight: '700',

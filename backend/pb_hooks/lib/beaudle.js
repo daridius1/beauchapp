@@ -2,39 +2,67 @@
 // orquestación con $app (find/create/save de beaudle_games y beaudle_daily_stats) y
 // backend/pb_hooks/lib/__tests__/beaudle.test.js para los tests.
 //
-// IMPORTANTE: este arreglo de ramos es la fuente de verdad del backend. Existe una copia
-// independiente en frontend/src/screens/beaudle/courses.ts (solo para la UI del selector)
-// — no hay forma de compartir un módulo entre el bundle de Expo y el runtime goja de
-// PocketBase en este repo, así que ambas copias deben mantenerse sincronizadas a mano.
-// NO reordenar ni eliminar entradas de este arreglo una vez en producción: el índice de
-// cada ramo determina qué día le toca ser el secreto (ver pickSecretForDay). Agregar
-// ramos nuevos al final es seguro; reordenar/borrar no lo es (cambiaría en silencio el
-// secreto de días futuros aún no jugados).
+// IMPORTANTE: este arreglo de lugares es la fuente de verdad del backend. Existe una
+// copia independiente en frontend/src/screens/beaudle/places.ts (solo para la UI del
+// selector) — no hay forma de compartir un módulo entre el bundle de Expo y el runtime
+// goja de PocketBase en este repo, así que ambas copias deben mantenerse sincronizadas a
+// mano. NO reordenar ni eliminar entradas de este arreglo una vez en producción: el
+// índice de cada lugar determina qué día le toca ser el secreto (ver pickSecretForDay).
+// Agregar lugares nuevos al final es seguro; reordenar/borrar no lo es (cambiaría en
+// silencio el secreto de días futuros aún no jugados).
 
 const MAX_GUESSES = 6;
 
-const COURSES = [
-    { code: "MA1001", name: "Introducción al Cálculo", department: "MA", credits: 6, semester: 1, prerequisites: [] },
-    { code: "MA1101", name: "Introducción al Álgebra", department: "MA", credits: 6, semester: 1, prerequisites: [] },
-    { code: "FI1000", name: "Introducción a la Física Clásica", department: "FI", credits: 6, semester: 1, prerequisites: [] },
-    { code: "CC1000", name: "Herramientas Computacionales para Ingeniería y Ciencias", department: "CC", credits: 3, semester: 1, prerequisites: [] },
-    { code: "CD1100", name: "Desafíos de Innovación en Ingeniería y Ciencias", department: "CD", credits: 6, semester: 1, prerequisites: [] },
-    { code: "BT1211", name: "Aplicaciones de la Biología a la Ingeniería y Ciencias", department: "BT", credits: 3, semester: 1, prerequisites: [] },
-    { code: "MA1002", name: "Cálculo Diferencial e Integral", department: "MA", credits: 6, semester: 2, prerequisites: ["MA1001"] },
-    { code: "MA1102", name: "Álgebra Lineal", department: "MA", credits: 6, semester: 2, prerequisites: ["MA1101"] },
-    { code: "FI1100", name: "Introducción a la Física Moderna", department: "FI", credits: 6, semester: 2, prerequisites: ["FI1000", "MA1101", "MA1001"] },
-    { code: "CC1002", name: "Introducción a la Programación", department: "CC", credits: 6, semester: 2, prerequisites: [] },
-    { code: "CD1201", name: "Proyecto de Innovación en Ingeniería y Ciencias", department: "CD", credits: 3, semester: 2, prerequisites: ["CD1100"] },
-    { code: "MA2001", name: "Cálculo en Varias Variables", department: "MA", credits: 6, semester: 3, prerequisites: ["MA1002", "MA1102"] },
-    { code: "MA2601", name: "Ecuaciones Diferenciales Ordinarias", department: "MA", credits: 6, semester: 3, prerequisites: ["MA1002", "MA1102"] },
-    { code: "FI2001", name: "Mecánica", department: "FI", credits: 6, semester: 3, prerequisites: ["FI1100", "MA1102", "MA1002"] },
-    { code: "FI2003", name: "Métodos Experimentales", department: "FI", credits: 6, semester: 3, prerequisites: ["FI1100", "MA1002"] },
-    { code: "IQ2211", name: "Química", department: "IQ", credits: 6, semester: 3, prerequisites: [] },
-    { code: "MA2002", name: "Cálculo Avanzado y Aplicaciones", department: "MA", credits: 6, semester: 4, prerequisites: ["MA2001", "MA2601"] },
-    { code: "IN2201", name: "Economía", department: "IN", credits: 6, semester: 4, prerequisites: ["MA2001"] },
-    { code: "FI2002", name: "Electromagnetismo", department: "FI", credits: 6, semester: 4, prerequisites: ["MA2001", "MA2601", "FI2003"] },
-    { code: "FI2004", name: "Termodinámica", department: "FI", credits: 6, semester: 4, prerequisites: ["IQ2211", "FI2001", "MA2001"], altCode: "IQ2212", altName: "Termodinámica Química" },
-    { code: "CD2201", name: "Módulo Interdisciplinario", department: "CD", credits: 3, semester: 4, prerequisites: ["CD1201"] }
+// edificio/piso/tipo son SIEMPRE arreglos (incluso cuando el lugar solo tiene un valor)
+// porque varios lugares del campus caen en más de una torre/piso/categoría a la vez —
+// eso es justo lo que habilita la pista amarilla (ver compareSet): coincidencia parcial,
+// no exacta.
+const PLACES = [
+    { code: "dcc", name: "Departamento de Ciencias de la Computación", shortName: "DCC", ubicacion: "851", edificio: ["Torre Norte", "Torre Poniente"], piso: [2, 3], tipo: ["Departamento"] },
+    { code: "cmm", name: "Centro de Modelamiento Matemático", shortName: "CMM", ubicacion: "851", edificio: ["Torre Norte"], piso: [6, 7], tipo: ["Centro"] },
+    { code: "dim", name: "Departamento de Ingeniería Matemática", shortName: "DIM", ubicacion: "851", edificio: ["Torre Norte"], piso: [4, 5], tipo: ["Departamento"] },
+    { code: "dimec", name: "Departamento de Ingeniería Mecánica", shortName: "DIMEC", ubicacion: "851", edificio: ["Torre Poniente"], piso: [4, 5], tipo: ["Departamento"] },
+    { code: "diqbm", name: "Departamento de Ingeniería Química, Biotecnología y Materiales", shortName: "DIQBM", ubicacion: "851", edificio: ["Torre Poniente"], piso: [6], tipo: ["Departamento"] },
+    { code: "fablab", name: "Laboratorio de Fabricación Digital", shortName: "FabLab", ubicacion: "851", edificio: ["Torre Poniente"], piso: [3], tipo: ["Centro", "Laboratorio"] },
+    { code: "openbeauchef", name: "Centro de Innovación y Emprendimiento OpenBeauchef", shortName: "OpenBeauchef", ubicacion: "851", edificio: ["Torre Poniente"], piso: [2], tipo: ["Centro"] },
+    { code: "delta-te", name: "Cafetería Delta Té", shortName: "Delta Té", ubicacion: "851", edificio: ["Torre Poniente"], piso: [1], tipo: ["Servicio", "Áreas comunes"] },
+    { code: "kinder", name: "Kinder", shortName: "Kinder", ubicacion: "851", edificio: ["Torre Poniente"], piso: [1], tipo: ["Áreas comunes", "Estudio"] },
+    { code: "la-arana", name: "Auditorio Enrique D'Etigny", shortName: "La Araña", ubicacion: "851", edificio: ["Patio 851"], piso: [1], tipo: ["Auditorio"] },
+    { code: "sala-de-artes", name: "Sala de Artes", shortName: "Sala de Artes", ubicacion: "851", edificio: ["Subterráneo", "Torre Oriente"], piso: [-3], tipo: ["Deportivo", "Artístico"] },
+    { code: "dojo", name: "Dojo", shortName: "Dojo", ubicacion: "851", edificio: ["Subterráneo", "Torre Oriente"], piso: [-3], tipo: ["Deportivo"] },
+    { code: "sala-de-juegos", name: "Sala de Juegos", shortName: "Sala de Juegos", ubicacion: "851", edificio: ["Subterráneo", "Torre Oriente"], piso: [-3], tipo: ["Deportivo", "Recreativo"] },
+    { code: "gimnasio-851", name: "Gimnasio 851", shortName: "Gimnasio 851", ubicacion: "851", edificio: ["Subterráneo", "Torre Poniente"], piso: [-3], tipo: ["Deportivo"] },
+    { code: "cancha-squash", name: "Cancha de Squash", shortName: "Cancha de Squash", ubicacion: "851", edificio: ["Subterráneo", "Torre Oriente"], piso: [-3], tipo: ["Deportivo", "Cancha"] },
+    { code: "cancha-futsal-handball", name: "Cancha de Futsal/Handball", shortName: "Cancha de Futsal/Handball", ubicacion: "851", edificio: ["Subterráneo"], piso: [-3], tipo: ["Deportivo", "Cancha"] },
+    { code: "cancha-volley-basket", name: "Cancha de Volley/Basket", shortName: "Cancha de Volley/Basket", ubicacion: "851", edificio: ["Subterráneo", "Torre Norte"], piso: [-3], tipo: ["Deportivo", "Cancha"] },
+    { code: "cdi", name: "Centro Deportivo de Ingeniería", shortName: "CDI", ubicacion: "851", edificio: ["Subterráneo", "Torre Oriente"], piso: [-3], tipo: ["Oficina", "CCEE"] },
+    { code: "adefa", name: "Área de Deportes, Educación Física y Expresiones Artísticas", shortName: "ADEFA", ubicacion: "851", edificio: ["Subterráneo", "Torre Oriente"], piso: [-3], tipo: ["Oficina"] },
+    { code: "escalera-caracol", name: "Escalera Caracol", shortName: "Escalera Caracol", ubicacion: "851", edificio: ["Subterráneo"], piso: [-1, -2, -3, 1], tipo: ["Infraestructura"] },
+    { code: "piscina", name: "Piscina", shortName: "Piscina", ubicacion: "851", edificio: ["Subterráneo"], piso: [-1], tipo: ["Deportivo"] },
+    { code: "camarines-851", name: "Camarines 851", shortName: "Camarines 851", ubicacion: "851", edificio: ["Subterráneo"], piso: [-3], tipo: ["Infraestructura", "Deportivo"] },
+    { code: "cec", name: "CEC", shortName: "CEC", ubicacion: "851", edificio: ["Subterráneo", "Torre Norte"], piso: [-1], tipo: ["Laboratorio", "Estudio"] },
+    { code: "barras-calistenia", name: "Barras de Calistenia", shortName: "Barras de Calistenia", ubicacion: "850", edificio: ["Patio 850"], piso: [1], tipo: ["Deportivo"] },
+    { code: "multicancha-850", name: "Multicancha 850", shortName: "Multicancha 850", ubicacion: "850", edificio: ["Patio 850"], piso: [1], tipo: ["Deportivo", "Cancha"] },
+    { code: "terraza-ebria", name: "Terraza Ebria", shortName: "Terraza Ebria", ubicacion: "850", edificio: ["Patio 850"], piso: [2], tipo: ["Áreas comunes"] },
+    { code: "el-muerto", name: "El Muerto", shortName: "El Muerto", ubicacion: "850", edificio: ["Patio 850"], piso: [1], tipo: ["Patrimonio"] },
+    { code: "carrito", name: "Carrito", shortName: "Carrito", ubicacion: "850", edificio: ["Patio 850"], piso: [1], tipo: ["Servicio"] },
+    { code: "pajarera", name: "Pajarera", shortName: "Pajarera", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [2], tipo: ["Áreas comunes", "Estudio"] },
+    { code: "a2ic", name: "A2IC", shortName: "A2IC", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [3], tipo: ["Centro", "Oficina"] },
+    { code: "zocalo", name: "Zócalo", shortName: "Zócalo", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [-1], tipo: ["Sala", "Área común"] },
+    { code: "auditorio-gorbea", name: "Auditorio Gorbea", shortName: "Auditorio Gorbea", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [3], tipo: ["Auditorio"] },
+    { code: "hall-sur", name: "Hall Sur", shortName: "Hall Sur", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [1], tipo: ["Áreas comunes"] },
+    { code: "biblioteca-850", name: "Biblioteca 850", shortName: "Biblioteca 850", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [1, 2, 3], tipo: ["Áreas comunes", "Estudio"] },
+    { code: "la-mona", name: "Estatua de Minerva", shortName: "La Mona", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [1], tipo: ["Patrimonio"] },
+    { code: "terraza-sobria", name: "Terraza Sobria", shortName: "Terraza Sobria", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [1], tipo: ["Áreas comunes"] },
+    { code: "cafeta-850", name: "Cafetería 850", shortName: "Cafeta 850", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [-1], tipo: ["Áreas comunes", "Servicio"] },
+    { code: "decanato", name: "Decanato FCFM", shortName: "Decanato", ubicacion: "850", edificio: ["Torre Justicia Espada"], piso: [8], tipo: ["Oficina"] },
+    { code: "el-piano", name: "El Piano", shortName: "El Piano", ubicacion: "850", edificio: ["Torre Justicia Espada"], piso: [8], tipo: ["Patrimonio"] },
+    { code: "gmi", name: "Grupo de Música de Ingeniería", shortName: "GMI", ubicacion: "Casa CEI", edificio: ["Casa CEI"], piso: [1], tipo: ["Sala", "GGOO"] },
+    { code: "oficina-cei", name: "Oficina Centro de Estudiantes de Ingeniería", shortName: "Oficina CEI", ubicacion: "Casa CEI", edificio: ["Casa CEI"], piso: [2], tipo: ["Oficina", "CCEE"] },
+    { code: "casino", name: "Casino Domeyko", shortName: "Casino", ubicacion: "Domeyko", edificio: ["Domeyko"], piso: [1, 2, 3], tipo: ["Áreas comunes", "Servicio"] },
+    { code: "gimnasio-domeyko", name: "Gimnasio Polideportivo Domeyko", shortName: "Gimnasio Domeyko", ubicacion: "Domeyko", edificio: ["Domeyko"], piso: [1], tipo: ["Deportivo", "Cancha"] },
+    { code: "camarines-domeyko", name: "Camarines Domeyko", shortName: "Camarines Domeyko", ubicacion: "Domeyko", edificio: ["Domeyko"], piso: [1], tipo: ["Infraestructura", "Deportivo"] },
+    { code: "muro-escalada", name: "Muro de Escalada", shortName: "Muro de Escalada", ubicacion: "Domeyko", edificio: ["Domeyko"], piso: [1], tipo: ["Deportivo"] },
 ];
 
 // FNV-1a de 32 bits, escrito a mano — goja no expone ninguna librería de hashing al JSVM.
@@ -48,30 +76,36 @@ function fnv1aHash(str) {
     return hash >>> 0;
 }
 
-// Elección determinística del ramo secreto del día: mismo (dayKey, salt) -> mismo ramo,
-// siempre. La salt evita que la secuencia sea trivialmente adivinable leyendo el código
-// fuente (ver $os.getenv("BEAUDLE_SEED_SALT") en beaudle.pb.js).
-function pickSecretForDay(dayKey, courses, salt) {
-    const idx = fnv1aHash(`${salt}:${dayKey}`) % courses.length;
-    return courses[idx];
+// Elección determinística del lugar secreto del día: mismo (dayKey, salt) -> mismo
+// lugar, siempre. La salt evita que la secuencia sea trivialmente adivinable leyendo el
+// código fuente (ver $os.getenv("BEAUDLE_SEED_SALT") en beaudle.pb.js).
+function pickSecretForDay(dayKey, places, salt) {
+    const idx = fnv1aHash(`${salt}:${dayKey}`) % places.length;
+    return places[idx];
 }
 
-// direction: 'correct' si son iguales; si no, 'higher' cuando el valor secreto es MAYOR
-// que el adivinado (hay que subir), 'lower' cuando es menor (hay que bajar).
-function compareNumeric(guessValue, secretValue) {
-    if (guessValue === secretValue) return "correct";
-    return secretValue > guessValue ? "higher" : "lower";
+// Comparación de atributos con VARIOS valores a la vez (edificio/piso/tipo): "correct"
+// si son exactamente el mismo conjunto, "partial" (la pista amarilla) si comparten al
+// menos un valor pero no son iguales, "wrong" si no comparten ninguno. Sin Set/spread a
+// propósito (mismo estilo defensivo que el resto de este proyecto para el runtime goja).
+function compareSet(guessValues, secretValues) {
+    const sameSize = guessValues.length === secretValues.length;
+    const sameSet = sameSize && guessValues.every((v) => secretValues.indexOf(v) !== -1);
+    if (sameSet) return "correct";
+    const overlaps = guessValues.some((v) => secretValues.indexOf(v) !== -1);
+    return overlaps ? "partial" : "wrong";
 }
 
-// tie = true cuando las 3 pistas dan "correcto" pero el código adivinado NO es el
-// secreto (ej. MA1001 vs secreto MA1101: mismo depto/semestre/créditos, otro ramo).
-function compareGuessToSecret(guessCourse, secretCourse) {
-    const department = guessCourse.department === secretCourse.department ? "correct" : "wrong";
-    const semester = compareNumeric(guessCourse.semester, secretCourse.semester);
-    const credits = compareNumeric(guessCourse.credits, secretCourse.credits);
-    const solved = guessCourse.code === secretCourse.code;
-    const tie = !solved && department === "correct" && semester === "correct" && credits === "correct";
-    return { department, semester, credits, tie, solved };
+// tie = true cuando las 4 pistas dan "correcto" pero el lugar adivinado NO es el secreto
+// (dos lugares distintos con exactamente la misma ubicación/edificio/piso/tipo).
+function compareGuessToSecret(guessPlace, secretPlace) {
+    const ubicacion = guessPlace.ubicacion === secretPlace.ubicacion ? "correct" : "wrong";
+    const edificio = compareSet(guessPlace.edificio, secretPlace.edificio);
+    const piso = compareSet(guessPlace.piso, secretPlace.piso);
+    const tipo = compareSet(guessPlace.tipo, secretPlace.tipo);
+    const solved = guessPlace.code === secretPlace.code;
+    const tie = !solved && ubicacion === "correct" && edificio === "correct" && piso === "correct" && tipo === "correct";
+    return { ubicacion, edificio, piso, tipo, tie, solved };
 }
 
-module.exports = { MAX_GUESSES, COURSES, fnv1aHash, pickSecretForDay, compareNumeric, compareGuessToSecret };
+module.exports = { MAX_GUESSES, PLACES, fnv1aHash, pickSecretForDay, compareSet, compareGuessToSecret };

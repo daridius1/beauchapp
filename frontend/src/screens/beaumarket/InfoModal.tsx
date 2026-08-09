@@ -25,7 +25,7 @@ const SECTIONS: Section[] = [
   },
   {
     title: 'Comprar y vender',
-    body: 'Comprar acciones de un resultado cuesta puntos según el precio actual — mientras más gente compra ese lado, más caro se pone. Podés vender tus acciones en cualquier momento antes de que el mercado se resuelva, al precio que tenga en ese momento (puede ser más o menos de lo que pagaste).',
+    body: 'Comprar acciones de un resultado cuesta puntos según el precio actual — mientras más gente compra ese lado, más caro se pone. Puedes vender tus acciones en cualquier momento antes de que el mercado se resuelva, al precio que tenga en ese momento (puede ser más o menos de lo que pagaste).',
   },
   {
     title: 'Al resolverse',
@@ -47,12 +47,12 @@ const SECTIONS: Section[] = [
   },
   {
     title: 'Costo de comprar o vender',
-    body: 'Comprar k acciones del resultado i mueve q así: qᵢ → qᵢ + k. Lo que pagás (o recibís, si vendés con k negativo) es la diferencia de costo entre el "antes" y el "después" — nunca un precio fijo, siempre recalculado en el momento contra el estado real del mercado:',
+    body: 'Comprar k acciones del resultado i mueve q así: qᵢ → qᵢ + k. Lo que pagas (o recibes, si vendes con k negativo) es la diferencia de costo entre el "antes" y el "después" — nunca un precio fijo, siempre recalculado en el momento contra el estado real del mercado:',
     formulas: ['costo = C(q después) − C(q antes)'],
   },
   {
     title: 'El redondeo siempre juega en tu contra',
-    body: 'Como los ℬ son enteros, cada operación se redondea: al comprar, el costo se redondea hacia arriba; al vender, lo que recibís se redondea hacia abajo. Es a propósito — así ni comprando ni vendiendo en pedacitos muy chicos se puede sacar ventaja del redondeo. De hecho, partir una operación grande en muchas chicas siempre sale más caro (o rinde menos), nunca más barato.',
+    body: 'Como los ℬ son enteros, cada operación se redondea: al comprar, el costo se redondea hacia arriba; al vender, lo que recibes se redondea hacia abajo. Es a propósito — así ni comprando ni vendiendo en pedacitos muy chicos se puede sacar ventaja del redondeo. De hecho, partir una operación grande en muchas chicas siempre sale más caro (o rinde menos), nunca más barato.',
   },
   {
     title: 'Pérdida máxima garantizada',

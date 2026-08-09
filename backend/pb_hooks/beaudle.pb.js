@@ -1,11 +1,11 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Beaudle: Wordle diario de ramos del Plan Común FCFM. Cada callback de abajo es
-// autocontenido (require() propio en vez de compartir const/function de nivel de
+// Beaudle: Wordle diario de lugares del campus Beauchef (FCFM). Cada callback de abajo
+// es autocontenido (require() propio en vez de compartir const/function de nivel de
 // archivo) por el mismo motivo documentado en karma.pb.js: el JSVM no conserva
 // referencias de nivel de archivo entre callbacks registrados por separado.
 //
-// El ramo secreto del día NUNCA se confía del cliente ni se guarda mientras la partida
+// El lugar secreto del día NUNCA se confía del cliente ni se guarda mientras la partida
 // sigue en curso: se recalcula server-side en cada request a partir de la fecha (hora
 // de Chile) + una salt, vía pickSecretForDay() en lib/beaudle.js. Solo se persiste en
 // beaudle_games.revealed_code en el momento exacto en que la partida deja de estar
@@ -18,7 +18,7 @@
 
 routerAdd("GET", "/api/beaudle/today", (e) => {
     try {
-        const { COURSES, MAX_GUESSES } = require(`${__hooks}/lib/beaudle.js`);
+        const { PLACES, MAX_GUESSES } = require(`${__hooks}/lib/beaudle.js`);
 
         const variant = e.requestInfo().query["variant"] || "classic";
         if (variant !== "classic") {
@@ -56,20 +56,20 @@ routerAdd("GET", "/api/beaudle/today", (e) => {
         if (!game) {
             return e.json(200, {
                 day, variant, maxGuesses: MAX_GUESSES, status: "in_progress",
-                guesses: [], guessesRemaining: MAX_GUESSES, revealedCourse: null, stats: statsJson,
+                guesses: [], guessesRemaining: MAX_GUESSES, revealedPlace: null, stats: statsJson,
             });
         }
 
         const status = game.getString("status");
         const guesses = JSON.parse(game.getString("guesses") || "[]");
-        let revealedCourse = null;
+        let revealedPlace = null;
         if (status !== "in_progress") {
             const code = game.getString("revealed_code");
-            revealedCourse = COURSES.find((c) => c.code === code) || null;
+            revealedPlace = PLACES.find((p) => p.code === code) || null;
         }
         return e.json(200, {
             day, variant, maxGuesses: MAX_GUESSES, status, guesses,
-            guessesRemaining: MAX_GUESSES - guesses.length, revealedCourse, stats: statsJson,
+            guessesRemaining: MAX_GUESSES - guesses.length, revealedPlace, stats: statsJson,
         });
     } catch (err) {
         console.error("[beaudle.pb.js] Error en GET /api/beaudle/today:", err);
@@ -79,18 +79,18 @@ routerAdd("GET", "/api/beaudle/today", (e) => {
 
 routerAdd("POST", "/api/beaudle/guess", (e) => {
     try {
-        const { COURSES, MAX_GUESSES, pickSecretForDay, compareGuessToSecret } = require(`${__hooks}/lib/beaudle.js`);
+        const { PLACES, MAX_GUESSES, pickSecretForDay, compareGuessToSecret } = require(`${__hooks}/lib/beaudle.js`);
 
         const body = e.requestInfo().body || {};
         const variant = body.variant || "classic";
-        const code = String(body.code || "").toUpperCase();
+        const code = String(body.code || "").toLowerCase();
         if (variant !== "classic") {
             return e.json(400, { error: "Variante desconocida." });
         }
 
-        const guessCourse = COURSES.find((c) => c.code === code);
-        if (!guessCourse) {
-            return e.json(400, { error: "Ramo inválido." });
+        const guessPlace = PLACES.find((p) => p.code === code);
+        if (!guessPlace) {
+            return e.json(400, { error: "Lugar inválido." });
         }
 
         const t = new DateTime().time().in(new Timezone("America/Santiago"));
@@ -98,8 +98,8 @@ routerAdd("POST", "/api/beaudle/guess", (e) => {
         const day = `${t.year()}-${pad(Number(t.month()))}-${pad(t.day())}`;
 
         const salt = $os.getenv("BEAUDLE_SEED_SALT") || "beaudle-default-salt-v1";
-        const secretCourse = pickSecretForDay(day, COURSES, salt);
-        const feedback = compareGuessToSecret(guessCourse, secretCourse);
+        const secretPlace = pickSecretForDay(day, PLACES, salt);
+        const feedback = compareGuessToSecret(guessPlace, secretPlace);
 
         // Busca-o-crea la partida de hoy. No se usa una transacción explícita (sin
         // precedente en este repo): el riesgo de carrera por doble-submit del mismo
@@ -133,21 +133,33 @@ routerAdd("POST", "/api/beaudle/guess", (e) => {
             return e.json(400, { error: "Ya usaste todos tus intentos de hoy." });
         }
 
-        guesses.push({ ...feedback, code: guessCourse.code, guessedAt: new DateTime().string() });
+        guesses.push({ ...feedback, code: guessPlace.code, guessedAt: new DateTime().string() });
         game.set("guesses", JSON.stringify(guesses));
 
         let justFinished = false;
         if (feedback.solved) {
             game.set("status", "won");
             game.set("solvedAtGuess", guesses.length);
-            game.set("revealed_code", secretCourse.code);
+            game.set("revealed_code", secretPlace.code);
             justFinished = true;
         } else if (guesses.length >= MAX_GUESSES) {
             game.set("status", "lost");
-            game.set("revealed_code", secretCourse.code);
+            game.set("revealed_code", secretPlace.code);
             justFinished = true;
         }
         $app.save(game);
+
+        // Recompensa por completar el Beaudle del día — gane o pierda, una sola vez (justo
+        // en la transición a "won"/"lost", nunca de nuevo si se reintenta la ruta con la
+        // partida ya terminada, porque el chequeo de status !== "in_progress" de más
+        // arriba ya corta esa segunda llamada antes de llegar acá).
+        const FINISH_REWARD_BEAUTOKENS = 10;
+        if (justFinished) {
+            $app.db()
+                .newQuery("UPDATE users SET beautokens = COALESCE(beautokens, 0) + {:amt} WHERE id = {:id}")
+                .bind({ amt: FINISH_REWARD_BEAUTOKENS, id: e.auth.id })
+                .execute();
+        }
 
         // beaudle_daily_stats: busca-o-crea la fila del día y actualiza contadores.
         let stats;
@@ -183,7 +195,7 @@ routerAdd("POST", "/api/beaudle/guess", (e) => {
         return e.json(200, {
             day, variant, maxGuesses: MAX_GUESSES, status, guesses,
             guessesRemaining: MAX_GUESSES - guesses.length,
-            revealedCourse: status !== "in_progress" ? COURSES.find((c) => c.code === game.getString("revealed_code")) : null,
+            revealedPlace: status !== "in_progress" ? PLACES.find((p) => p.code === game.getString("revealed_code")) : null,
             stats: {
                 day, variant,
                 playersCount: stats.getInt("players_count"),

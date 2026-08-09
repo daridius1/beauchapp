@@ -50,11 +50,9 @@ export function BeaudleStatsPanel({ stats, ownBucket }: BeaudleStatsPanelProps) 
 const styles = StyleSheet.create({
   container: {
     marginTop: theme.spacing.md,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -80,6 +78,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: theme.spacing.sm,
     textTransform: 'uppercase',
+    textAlign: 'center',
   },
   distRow: {
     flexDirection: 'row',

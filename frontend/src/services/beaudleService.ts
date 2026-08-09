@@ -1,11 +1,14 @@
 import { pb } from './pocketbase';
-import { BeaudleCourse } from '../screens/beaudle/courses';
+import { BeaudlePlace } from '../screens/beaudle/places';
+
+type MatchState = 'correct' | 'partial' | 'wrong';
 
 export interface BeaudleGuessFeedback {
   code: string;
-  department: 'correct' | 'wrong';
-  semester: 'correct' | 'higher' | 'lower';
-  credits: 'correct' | 'higher' | 'lower';
+  ubicacion: 'correct' | 'wrong';
+  edificio: MatchState;
+  piso: MatchState;
+  tipo: MatchState;
   tie: boolean;
   solved: boolean;
   guessedAt: string;
@@ -26,7 +29,7 @@ export interface BeaudleGameState {
   status: 'in_progress' | 'won' | 'lost';
   guesses: BeaudleGuessFeedback[];
   guessesRemaining: number;
-  revealedCourse: BeaudleCourse | null;
+  revealedPlace: BeaudlePlace | null;
   stats: BeaudleStats;
 }
 

@@ -3,32 +3,32 @@ import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { SelectorModal } from '../../components/SelectorModal';
-import { BEAUDLE_COURSES, BeaudleCourse } from './courses';
+import { BEAUDLE_PLACES, BeaudlePlace } from './places';
 
 // Mismo patrón que los filtros de ProblemsListScreen: un "selector" (TextInput no
 // editable dentro de un TouchableOpacity) que abre un SelectorModal y se queda mostrando
 // el valor elegido, en vez de un buscador libre que se vacía al seleccionar. El envío es
 // un paso aparte, con el cuadrado de confirmar a la derecha.
 
-function labelFor(course: BeaudleCourse) {
-  return `${course.code} — ${course.name}`;
+function labelFor(place: BeaudlePlace) {
+  return place.shortName === place.name ? place.name : `${place.shortName} — ${place.name}`;
 }
 
-interface CourseSelectorProps {
+interface PlaceSelectorProps {
   disabledCodes: string[];
   disabled?: boolean;
-  onConfirm: (course: BeaudleCourse) => void;
+  onConfirm: (place: BeaudlePlace) => void;
 }
 
-export const CourseSelector: React.FC<CourseSelectorProps> = ({ disabledCodes, disabled, onConfirm }) => {
-  const [selected, setSelected] = useState<BeaudleCourse | null>(null);
+export const PlaceSelector: React.FC<PlaceSelectorProps> = ({ disabledCodes, disabled, onConfirm }) => {
+  const [selected, setSelected] = useState<BeaudlePlace | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  const available = BEAUDLE_COURSES.filter((c) => !disabledCodes.includes(c.code));
+  const available = BEAUDLE_PLACES.filter((p) => !disabledCodes.includes(p.code));
   const suggestions = available.map(labelFor);
 
   const handleSelect = (val: string) => {
-    setSelected(available.find((c) => labelFor(c) === val) || null);
+    setSelected(available.find((p) => labelFor(p) === val) || null);
   };
 
   const handleConfirm = () => {
@@ -43,7 +43,7 @@ export const CourseSelector: React.FC<CourseSelectorProps> = ({ disabledCodes, d
         <View pointerEvents="none">
           <TextInput
             style={styles.selectorInput}
-            placeholder="Elige un ramo..."
+            placeholder="Elige un lugar..."
             placeholderTextColor={theme.colors.textMuted}
             value={selected ? labelFor(selected) : ''}
             editable={false}
@@ -61,8 +61,8 @@ export const CourseSelector: React.FC<CourseSelectorProps> = ({ disabledCodes, d
 
       <SelectorModal
         visible={showModal}
-        title="Elegir ramo"
-        placeholder="Buscar ramo (ej. MA1001)..."
+        title="Elegir lugar"
+        placeholder="Buscar lugar (ej. DCC)..."
         suggestions={suggestions}
         allowCustom={false}
         onSelect={(val) => handleSelect(val)}

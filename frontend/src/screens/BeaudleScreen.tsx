@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, RefreshControl, DeviceEventEmitter } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, DeviceEventEmitter, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { beaudleService, BeaudleGameState } from '../services/beaudleService';
-import { BeaudleCourse } from './beaudle/courses';
-import { CourseSelector } from './beaudle/CourseSelector';
+import { BeaudlePlace } from './beaudle/places';
+import { PlaceSelector } from './beaudle/PlaceSelector';
 import { GuessRow, GuessRowHeader } from './beaudle/GuessRow';
 import { BeaudleStatsPanel } from './beaudle/BeaudleStatsPanel';
 import { BeaudleSuccessModal } from './beaudle/BeaudleSuccessModal';
+import { BeaudleInfoModal } from './beaudle/BeaudleInfoModal';
 import { styles } from './beaudle/BeaudleScreen.styles';
 import { withMinimumDelay } from '../utils/refresh';
 
@@ -18,6 +20,7 @@ export const BeaudleScreen: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [infoVisible, setInfoVisible] = useState(false);
 
   const fetchToday = async (hideLoading = false) => {
     try {
@@ -53,12 +56,12 @@ export const BeaudleScreen: React.FC = () => {
     await withMinimumDelay(() => fetchToday(true));
   };
 
-  const handleGuess = async (course: BeaudleCourse) => {
+  const handleGuess = async (place: BeaudlePlace) => {
     if (submitting) return;
     setSubmitting(true);
     setError(null);
     try {
-      const data = await beaudleService.submitGuess(course.code);
+      const data = await beaudleService.submitGuess(place.code);
       setGame(data);
       if (data.status === 'won') {
         setShowSuccessModal(true);
@@ -107,49 +110,50 @@ export const BeaudleScreen: React.FC = () => {
       }
     >
       <View style={styles.intro}>
-        <Text style={styles.title}>Beaudle</Text>
-        <Text style={styles.subtitle}>
-          Adivina el ramo secreto del Plan Común de hoy. Cada intento compara departamento, semestre y créditos.
+        <Text style={styles.guessesRemaining}>
+          {isInProgress
+            ? `Te quedan ${game.guessesRemaining} de ${game.maxGuesses} intentos.`
+            : game.status === 'won' ? '¡Felicidades, lo lograste!' : 'Fallaste esta vez.'}
         </Text>
-        {isInProgress && (
-          <Text style={styles.guessesRemaining}>
-            Te quedan {game.guessesRemaining} de {game.maxGuesses} intentos.
-          </Text>
-        )}
+        <TouchableOpacity style={styles.infoButton} activeOpacity={0.7} onPress={() => setInfoVisible(true)}>
+          <Feather name="info" size={20} color={theme.colors.textMuted} />
+        </TouchableOpacity>
       </View>
 
       {game.status === 'lost' && (
         <View style={[styles.endBanner, styles.endBannerLost]}>
           <Text style={styles.endBannerTitle}>Se acabaron los intentos.</Text>
-          {game.revealedCourse && (
+          {game.revealedPlace && (
             <Text style={styles.endBannerText}>
-              El ramo secreto era {game.revealedCourse.name} ({game.revealedCourse.code}).
+              El lugar secreto era {game.revealedPlace.name} ({game.revealedPlace.shortName}).
             </Text>
           )}
         </View>
       )}
 
-      {game.guesses.length > 0 && <GuessRowHeader />}
-      {game.guesses.map((g, idx) => (
-        <GuessRow key={`${g.code}-${idx}`} guess={g} />
-      ))}
-
       {isInProgress && (
         <View style={styles.pickerSection}>
           {!!error && <Text style={styles.errorText}>{error}</Text>}
-          <CourseSelector disabledCodes={guessedCodes} disabled={submitting} onConfirm={handleGuess} />
+          <PlaceSelector disabledCodes={guessedCodes} disabled={submitting} onConfirm={handleGuess} />
         </View>
       )}
+
+      {game.guesses.length > 0 && <GuessRowHeader />}
+      {[...game.guesses].reverse().map((g, idx) => (
+        <GuessRow key={`${g.code}-${game.guesses.length - idx}`} guess={g} />
+      ))}
 
       {!isInProgress && <BeaudleStatsPanel stats={game.stats} ownBucket={ownBucket} />}
 
       <BeaudleSuccessModal
         visible={showSuccessModal}
         guessCount={game.guesses.length}
-        courseName={game.revealedCourse?.name}
-        courseCode={game.revealedCourse?.code}
+        placeName={game.revealedPlace?.name}
+        placeShortName={game.revealedPlace?.shortName}
         onClose={() => setShowSuccessModal(false)}
       />
+
+      <BeaudleInfoModal visible={infoVisible} onClose={() => setInfoVisible(false)} />
     </ScrollView>
   );
 };
