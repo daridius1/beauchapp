@@ -42,6 +42,12 @@ export const BeauchappsScreen: React.FC<Props> = ({ navigation }) => {
       icon: 'grid',
       screen: 'Beaudle',
     },
+    {
+      id: 'Beaumarket',
+      title: 'Beaumarket',
+      icon: 'trending-up',
+      screen: 'Beaumarket',
+    },
     ...(user && user.type !== 'organization'
       ? [
           {

@@ -23,6 +23,7 @@ export interface User {
   website?: string;
   karma?: number;
   show_karma_on_profile?: boolean;
+  beautokens?: number;
   last_seen_announcement?: string;
 }
 

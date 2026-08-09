@@ -44,6 +44,8 @@ import { ProfessorDetailScreen } from './src/screens/ProfessorDetailScreen';
 import { InfoScreen } from './src/screens/InfoScreen';
 import { InstallAppScreen } from './src/screens/InstallAppScreen';
 import { BeaudleScreen } from './src/screens/BeaudleScreen';
+import { BeaumarketScreen } from './src/screens/BeaumarketScreen';
+import { BeaumarketDetailScreen } from './src/screens/BeaumarketDetailScreen';
 import { AnnouncementModal } from './src/components/AnnouncementModal';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
@@ -281,6 +283,8 @@ function AppContent() {
       case 'Info': return 'Info y Políticas';
       case 'InstallApp': return 'Instalar Aplicación';
       case 'Beaudle': return 'Beaudle';
+      case 'Beaumarket': return 'Beaumarket';
+      case 'BeaumarketDetail': return 'Mercado';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
       case 'LadderMatchDetail':
@@ -317,7 +321,9 @@ function AppContent() {
       navigationRef.navigate('ProblemsList' as never);
     } else if (['MarketplaceItemDetail', 'SellerProfile', 'SellerProfileEditor', 'MarketplaceItemEditor'].includes(currentRouteName)) {
       navigationRef.navigate('Marketplace' as never);
-    } else if (['LaddersList', 'ProblemsList', 'Marketplace', 'Tinder', 'Reviews', 'Beaudle'].includes(currentRouteName)) {
+    } else if (currentRouteName === 'BeaumarketDetail') {
+      navigationRef.navigate('Beaumarket' as never);
+    } else if (['LaddersList', 'ProblemsList', 'Marketplace', 'Tinder', 'Reviews', 'Beaudle', 'Beaumarket'].includes(currentRouteName)) {
       navigationRef.navigate('Beauchapps' as never);
     } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'FollowList'].includes(currentRouteName)) {
       navigationRef.navigate('Directory' as never);
@@ -385,6 +391,8 @@ function AppContent() {
                 Info: 'info',
                 InstallApp: 'instalar',
                 Beaudle: 'beaudle',
+                Beaumarket: 'beaumarket',
+                BeaumarketDetail: 'beaumarket/:marketId',
               }
             }
           }}
@@ -423,7 +431,7 @@ function AppContent() {
                     title={getScreenTitle(currentRouteName, currentRouteParams)} 
                     onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                     onBack={showBackButton ? handleBack : undefined}
-                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle'].includes(currentRouteName) ? () => {
+                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'Beaumarket', 'BeaumarketDetail'].includes(currentRouteName) ? () => {
                       DeviceEventEmitter.emit('onGlobalRefresh');
                     } : undefined}
                     hasUnreadNotifications={hasUnreadNotifications}
@@ -467,6 +475,8 @@ function AppContent() {
                       <Stack.Screen name="Info" component={InfoScreen} />
                       <Stack.Screen name="InstallApp" component={InstallAppScreen} />
                       <Stack.Screen name="Beaudle" component={BeaudleScreen} />
+                      <Stack.Screen name="Beaumarket" component={BeaumarketScreen} />
+                      <Stack.Screen name="BeaumarketDetail" component={BeaumarketDetailScreen} />
                       <Stack.Screen name="NotFound" component={NotFoundScreen} />
                     </Stack.Navigator>
                   </View>

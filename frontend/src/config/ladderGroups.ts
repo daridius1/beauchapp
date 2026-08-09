@@ -19,6 +19,13 @@ export const LADDER_GROUPS: SportGroup[] = [
     ],
   },
   {
+    groupSlug: 'beautokens',
+    groupName: 'BeauTokens',
+    categories: [
+      { id: 'beautokens', label: 'BeauTokens', slug: 'beautokens' },
+    ],
+  },
+  {
     groupSlug: 'tenis-de-mesa',
     groupName: 'Tenis de Mesa',
     categories: [

@@ -88,8 +88,8 @@ export const LaddersListScreen: React.FC<Props> = ({ navigation }) => {
     >
       <View style={styles.listContainer}>
         {displayedGroups.map((group) => {
-          const isKarma = group.groupSlug === 'karma';
-          const categoriesLabel = isKarma ? '' : group.categories.map((c) => c.label).join(' / ');
+          const hideCategoriesLabel = group.groupSlug === 'karma' || group.groupSlug === 'beautokens';
+          const categoriesLabel = hideCategoriesLabel ? '' : group.categories.map((c) => c.label).join(' / ');
           const defaultSlug = group.categories[0].slug;
 
           return (

@@ -31,8 +31,10 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [activeCategory, setActiveCategory] = useState<CategoryOption>(sportGroupInfo.activeCategory);
 
   const isKarmaLadder = slug === 'karma' || sportGroupInfo.group.groupSlug === 'karma';
+  const isBeautokensLadder = slug === 'beautokens' || sportGroupInfo.group.groupSlug === 'beautokens';
   const [ladder, setLadder] = useState<Ladder | null>(null);
   const [karmaUsers, setKarmaUsers] = useState<any[]>([]);
+  const [beautokensUsers, setBeautokensUsers] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<LadderRank[]>([]);
   const [matches, setMatches] = useState<LadderMatch[]>([]);
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'matches' | 'my_matches'>('leaderboard');
@@ -57,6 +59,16 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             filter: 'type != "organization"'
           });
           setKarmaUsers(res.items);
+          return;
+        }
+
+        if (isBeautokensLadder) {
+          navigation.setParams({ name: 'BeauTokens' });
+          const res = await pb.collection('users').getList(1, 100, {
+            sort: '-beautokens',
+            filter: 'type != "organization"'
+          });
+          setBeautokensUsers(res.items);
           return;
         }
 
@@ -185,6 +197,78 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     </View>
 
                     <Text style={styles.ratingScore}>{u.karma || 0}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </>
+          )}
+        </View>
+      </ScrollView>
+    );
+  }
+
+  if (isBeautokensLadder) {
+    return (
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
+      >
+        <Text style={styles.karmaExplanationText}>
+          Todos ganan BeauTokens (ℬ) cada día solo por ser parte de la comunidad, y pueden apostarlos en los mercados de predicción de Beaumarket.
+        </Text>
+
+        <View style={styles.sectionContainer}>
+          {beautokensUsers.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No hay usuarios registrados en el ranking de BeauTokens.</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.tableHeaderRow}>
+                <Text style={styles.thPos}>POS</Text>
+                <Text style={styles.thName}>USUARIO</Text>
+                <Text style={styles.thScore}>ℬ</Text>
+              </View>
+
+              {beautokensUsers.map((u, index) => {
+                const position = index + 1;
+                const avatarUser = {
+                  id: u.id,
+                  collectionId: '_pb_users_auth_',
+                  avatar: u.avatar,
+                  name: u.name,
+                  username: u.username
+                };
+
+                return (
+                  <TouchableOpacity
+                    key={u.id}
+                    style={styles.rankRow}
+                    activeOpacity={0.7}
+                    onPress={() => navigation.push('UserProfile', { userId: u.id })}
+                  >
+                    <Text style={[styles.rankPosNumber, position <= 3 && styles.rankPosTop]}>
+                      {position}
+                    </Text>
+
+                    <Avatar user={avatarUser} size={34} />
+
+                    <View style={styles.rankInfo}>
+                      <Text style={styles.rankUserName} numberOfLines={1}>
+                        {u.name || u.username || 'Alumno FCFM'}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.ratingScore}>{u.beautokens || 0}</Text>
                   </TouchableOpacity>
                 );
               })}

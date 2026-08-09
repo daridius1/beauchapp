@@ -41,4 +41,6 @@ export type RootStackParamList = {
   Info: undefined;
   InstallApp: undefined;
   Beaudle: undefined;
+  Beaumarket: undefined;
+  BeaumarketDetail: { marketId: string; title?: string };
 };
