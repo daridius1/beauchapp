@@ -308,7 +308,7 @@ routerAdd("POST", "/api/beaudle/guess", (e) => {
 
         const status = game.getString("status");
         return e.json(200, {
-            day, variant, dayNumber: stats.getInt("day_number") || null, maxGuesses: MAX_GUESSES, status, guesses,
+            day, variant, dayNumber: stats.getInt("day_number") || null, isToday: onTime, maxGuesses: MAX_GUESSES, status, guesses,
             guessesRemaining: MAX_GUESSES - guesses.length,
             revealedPlace: status !== "in_progress" ? PLACES.find((p) => p.code === game.getString("revealed_code")) : null,
             stats: {
