@@ -31,6 +31,8 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [entryYear, setEntryYear] = useState(user?.entry_year || '');
   const [department, setDepartment] = useState(user?.department || '');
   const [showKarmaOnProfile, setShowKarmaOnProfile] = useState(Boolean(user?.show_karma_on_profile));
+  const [showBeautokensOnProfile, setShowBeautokensOnProfile] = useState(Boolean(user?.show_beautokens_on_profile));
+  const [showBeaudleStreakOnProfile, setShowBeaudleStreakOnProfile] = useState(Boolean(user?.show_beaudle_streak_on_profile));
 
   // Biografía / Descripción del Perfil Principal
   const [description, setDescription] = useState(user?.description || '');
@@ -141,6 +143,8 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
         formData.append('entry_year', entryYear.trim());
         formData.append('department', department.trim());
         formData.append('show_karma_on_profile', String(showKarmaOnProfile));
+        formData.append('show_beautokens_on_profile', String(showBeautokensOnProfile));
+        formData.append('show_beaudle_streak_on_profile', String(showBeaudleStreakOnProfile));
       }
 
       formData.append('description', description.trim());
@@ -362,17 +366,75 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Option toggle for Karma */}
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 4 }}
-            onPress={() => setShowKarmaOnProfile(!showKarmaOnProfile)}
-            activeOpacity={0.7}
-          >
-            <Feather name={showKarmaOnProfile ? "check-square" : "square"} size={18} color={theme.colors.primary} />
-            <Text style={{ color: theme.colors.text, fontSize: 13, fontWeight: '600' }}>
-              Mostrar insignia de Karma en mi perfil
+          {/* Ladders: Karma, BeauTokens y Racha de Beaudle son "ladders" para efectos de
+              la insignia de perfil, igual que cada deporte — todos viven juntos acá con
+              su propio toggle de visibilidad. */}
+          <View style={[styles.section, { marginTop: theme.spacing.md }]}>
+            <Text style={[styles.inputLabel, { fontSize: 14, color: theme.colors.text, marginBottom: 2 }]}>
+              Ladders
             </Text>
-          </TouchableOpacity>
+            <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 10 }}>
+              Elige qué insignias de ladder quieres mostrar en tu perfil.
+            </Text>
+
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}
+              onPress={() => setShowKarmaOnProfile(!showKarmaOnProfile)}
+              activeOpacity={0.7}
+            >
+              <Feather name={showKarmaOnProfile ? "check-square" : "square"} size={18} color={theme.colors.primary} />
+              <Text style={{ color: theme.colors.text, fontSize: 13, fontWeight: '600' }}>
+                Karma
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}
+              onPress={() => setShowBeautokensOnProfile(!showBeautokensOnProfile)}
+              activeOpacity={0.7}
+            >
+              <Feather name={showBeautokensOnProfile ? "check-square" : "square"} size={18} color={theme.colors.primary} />
+              <Text style={{ color: theme.colors.text, fontSize: 13, fontWeight: '600' }}>
+                BeauTokens
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}
+              onPress={() => setShowBeaudleStreakOnProfile(!showBeaudleStreakOnProfile)}
+              activeOpacity={0.7}
+            >
+              <Feather name={showBeaudleStreakOnProfile ? "check-square" : "square"} size={18} color={theme.colors.primary} />
+              <Text style={{ color: theme.colors.text, fontSize: 13, fontWeight: '600' }}>
+                Racha de Beaudle
+              </Text>
+            </TouchableOpacity>
+
+            {myLadderRanks.map((rank) => {
+              const sportName = rank.expand?.ladder?.name || rank.expand?.sport?.name || rank.sportKey || '';
+              const sportSlug = rank.expand?.ladder?.slug || rank.sportKey || '';
+              const mode = rank.mode || '1v1';
+              const is2v2 = mode.includes('2v2');
+              const eloVal = Math.round(rank.ordinal_rating || rank.rating || rank.points || 1200);
+              return (
+                <TouchableOpacity
+                  key={rank.id}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}
+                  onPress={() => toggleLadderVisibility(rank.id)}
+                  activeOpacity={0.7}
+                >
+                  <Feather name={rank.show_on_profile ? "check-square" : "square"} size={18} color={theme.colors.primary} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <SportIcon name={sportName} slug={sportSlug} size={15} color={theme.colors.text} />
+                    {is2v2 && <Feather name="users" size={13} color={theme.colors.textMuted} />}
+                  </View>
+                  <Text style={{ color: theme.colors.text, fontSize: 13, fontWeight: '600' }}>
+                    {sportName ? `${sportName} ${mode}` : 'Ladder'} ({eloVal})
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
           {/* Previsualización de Pins */}
           <View style={styles.previewBox}>
@@ -383,6 +445,8 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
                 entry_year: entryYear,
                 department: department,
                 show_karma_on_profile: showKarmaOnProfile,
+                show_beautokens_on_profile: showBeautokensOnProfile,
+                show_beaudle_streak_on_profile: showBeaudleStreakOnProfile,
                 instagram,
                 telegram,
                 whatsapp,
@@ -463,42 +527,6 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
           showAtPrefix={false}
           keyboardType="url"
         />
-
-        {/* Visibilidad de ELO por Deporte / Ladder */}
-        {myLadderRanks.length > 0 && (
-          <View style={[styles.section, { marginTop: theme.spacing.sm }]}>
-            <Text style={[styles.inputLabel, { fontSize: 13, color: theme.colors.text, marginBottom: 2 }]}>
-              Visibilidad de ELO en tu Perfil
-            </Text>
-            <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 10 }}>
-              Selecciona en qué deportes deseas mostrar tu ELO públicamente:
-            </Text>
-            {myLadderRanks.map((rank) => {
-              const sportName = rank.expand?.ladder?.name || rank.expand?.sport?.name || rank.sportKey || '';
-              const sportSlug = rank.expand?.ladder?.slug || rank.sportKey || '';
-              const mode = rank.mode || '1v1';
-              const is2v2 = mode.includes('2v2');
-              const eloVal = Math.round(rank.ordinal_rating || rank.rating || rank.points || 1200);
-              return (
-                <TouchableOpacity
-                  key={rank.id}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}
-                  onPress={() => toggleLadderVisibility(rank.id)}
-                  activeOpacity={0.7}
-                >
-                  <Feather name={rank.show_on_profile ? "check-square" : "square"} size={18} color={theme.colors.accent} />
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <SportIcon name={sportName} slug={sportSlug} size={15} color={theme.colors.text} />
-                    {is2v2 && <Feather name="users" size={13} color={theme.colors.textMuted} />}
-                  </View>
-                  <Text style={{ color: theme.colors.text, fontSize: 13 }}>
-                    {eloVal} {sportName ? `(${sportName} ${mode})` : ''}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
       </View>
 
       {/* Acciones */}

@@ -35,6 +35,10 @@ export const CHIP_USER_FIELDS = [
   'department',
   'karma',
   'show_karma_on_profile',
+  'beautokens',
+  'show_beautokens_on_profile',
+  'beaudle_streak',
+  'show_beaudle_streak_on_profile',
 ] as const;
 
 export function getSportCode(name?: string, slug?: string): string {
@@ -98,7 +102,13 @@ export const UserChipsRow: React.FC<Props> = ({
   const showKarma = user.type !== 'organization' && Boolean(user.show_karma_on_profile);
   const karmaVal = user.karma || 0;
 
-  const hasAnyChip = entryYearText || deptText || showKarma || memberships.length > 0 || !!sellerProfile || validLadderRanks.length > 0;
+  const showBeautokens = user.type !== 'organization' && Boolean(user.show_beautokens_on_profile);
+  const beautokensVal = user.beautokens || 0;
+
+  const showBeaudleStreak = user.type !== 'organization' && Boolean(user.show_beaudle_streak_on_profile);
+  const beaudleStreakVal = user.beaudle_streak || 0;
+
+  const hasAnyChip = entryYearText || deptText || showKarma || showBeautokens || showBeaudleStreak || memberships.length > 0 || !!sellerProfile || validLadderRanks.length > 0;
 
   if (!hasAnyChip) return null;
 
@@ -118,6 +128,34 @@ export const UserChipsRow: React.FC<Props> = ({
         >
           <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.karmaChipText]}>
             Karma {karmaVal}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Pin de BeauTokens */}
+      {showBeautokens && (
+        <TouchableOpacity
+          style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.beautokensChip]}
+          onPress={onLadderPress ? () => onLadderPress('beautokens') : undefined}
+          disabled={!onLadderPress}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.beautokensChipText]}>
+            {beautokensVal} ℬ
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Pin de Racha de Beaudle */}
+      {showBeaudleStreak && (
+        <TouchableOpacity
+          style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.beaudleStreakChip]}
+          onPress={onLadderPress ? () => onLadderPress('beaudle-racha') : undefined}
+          disabled={!onLadderPress}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.beaudleStreakChipText]}>
+            Racha {beaudleStreakVal}
           </Text>
         </TouchableOpacity>
       )}
@@ -251,5 +289,19 @@ const styles = StyleSheet.create({
   },
   karmaChipText: {
     color: '#f59e0b',
+  },
+  beautokensChip: {
+    borderColor: '#14b8a6',
+    backgroundColor: '#14b8a615',
+  },
+  beautokensChipText: {
+    color: '#14b8a6',
+  },
+  beaudleStreakChip: {
+    borderColor: '#ef4444',
+    backgroundColor: '#ef444415',
+  },
+  beaudleStreakChipText: {
+    color: '#ef4444',
   },
 });

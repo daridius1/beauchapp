@@ -22,7 +22,10 @@ import { withMinimumDelay } from '../utils/refresh';
 type Props = NativeStackScreenProps<RootStackParamList, 'BeaudleDay'>;
 
 export const BeaudleDayScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { day } = route.params;
+  // "day" es opcional — sin él, es el Beaudle de hoy (incluso si todavía no existe
+  // ninguna fila para hoy, ver GET /api/beaudle/today). submitGuess ya maneja el mismo
+  // "undefined = hoy" para el body de POST /api/beaudle/guess.
+  const { day } = route.params || {};
   const { user } = useAuth();
   const [game, setGame] = useState<BeaudleGameState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,7 +52,7 @@ export const BeaudleDayScreen: React.FC<Props> = ({ route, navigation }) => {
   const fetchDay = async (hideLoading = false) => {
     try {
       if (!hideLoading) setLoading(true);
-      const data = await beaudleService.getDay(day);
+      const data = day ? await beaudleService.getDay(day) : await beaudleService.getToday();
       setGame(data);
       navigation.setParams({ name: data.dayNumber ? `Beaudle #${data.dayNumber}` : 'Beaudle' });
       if (data.status !== 'in_progress' && data.statsId) {

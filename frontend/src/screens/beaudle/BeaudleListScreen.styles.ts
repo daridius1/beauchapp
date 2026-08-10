@@ -20,6 +20,20 @@ export const styles = StyleSheet.create({
     color: theme.colors.error,
     fontSize: 13,
   },
+  playTodayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 8,
+    paddingVertical: 12,
+    marginBottom: theme.spacing.lg,
+  },
+  playTodayBtnText: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '800',
+  },
   streakRow: {
     flexDirection: 'row',
     marginBottom: theme.spacing.lg,

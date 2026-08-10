@@ -43,7 +43,7 @@ export type RootStackParamList = {
   Info: undefined;
   InstallApp: undefined;
   Beaudle: undefined;
-  BeaudleDay: { day: string; name?: string };
+  BeaudleDay: { day?: string; name?: string };
   Beaumarket: undefined;
   BeaumarketDetail: { marketId: string; title?: string };
 };

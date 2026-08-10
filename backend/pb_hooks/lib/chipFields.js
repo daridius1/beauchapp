@@ -21,6 +21,10 @@ const CHIP_USER_FIELDS = [
     "department",
     "karma",
     "show_karma_on_profile",
+    "beautokens",
+    "show_beautokens_on_profile",
+    "beaudle_streak",
+    "show_beaudle_streak_on_profile",
 ];
 
 function pickChipUserFields(userRecord) {

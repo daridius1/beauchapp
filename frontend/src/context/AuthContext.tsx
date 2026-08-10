@@ -24,6 +24,10 @@ export interface User {
   karma?: number;
   show_karma_on_profile?: boolean;
   beautokens?: number;
+  show_beautokens_on_profile?: boolean;
+  beaudle_streak?: number;
+  beaudle_best_streak?: number;
+  show_beaudle_streak_on_profile?: boolean;
   last_seen_announcement?: string;
 }
 
