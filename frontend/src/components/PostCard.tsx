@@ -336,17 +336,6 @@ export const PostCard: React.FC<PostCardProps> = ({
           </Text>
         )}
 
-        {/* Target Preview Polimórfico (solo para citas, no para respuestas ni comentarios) */}
-        {post.actionType === 'quote' && !!post.targetType && !!post.targetId && (
-          <TargetPreview
-            targetType={post.targetType}
-            targetId={post.targetId}
-            targetMeta={post.targetMeta}
-            expandedTarget={post.expandedTarget}
-            onPress={handleDefaultTargetPress}
-          />
-        )}
-
         {/* Adjunto de foto */}
         {!isDeleted && !!post.photo && (
           <TouchableOpacity
@@ -359,6 +348,18 @@ export const PostCard: React.FC<PostCardProps> = ({
               resizeMode="cover"
             />
           </TouchableOpacity>
+        )}
+
+        {/* Target Preview Polimórfico (solo para citas, no para respuestas ni comentarios) —
+            va después de la imagen del post a propósito, no antes. */}
+        {post.actionType === 'quote' && !!post.targetType && !!post.targetId && (
+          <TargetPreview
+            targetType={post.targetType}
+            targetId={post.targetId}
+            targetMeta={post.targetMeta}
+            expandedTarget={post.expandedTarget}
+            onPress={handleDefaultTargetPress}
+          />
         )}
 
         {/* Tags (solo se muestran en publicaciones o citas principales, no en respuestas ni comentarios) */}
