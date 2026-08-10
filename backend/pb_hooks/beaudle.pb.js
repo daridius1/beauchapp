@@ -114,6 +114,10 @@ routerAdd("GET", "/api/beaudle/days", (e) => {
         const page = Math.max(1, Number(e.requestInfo().query["page"] || 1) || 1);
         const perPage = Math.min(50, Math.max(1, Number(e.requestInfo().query["perPage"] || 30) || 30));
 
+        const t = new DateTime().time().in(new Timezone("America/Santiago"));
+        const pad = (n) => String(n).padStart(2, "0");
+        const today = `${t.year()}-${pad(Number(t.month()))}-${pad(t.day())}`;
+
         const statsRows = $app.findRecordsByFilter(
             "beaudle_daily_stats", "variant = {:v}", "-day_number", perPage, (page - 1) * perPage, { v: variant }
         );
@@ -134,6 +138,7 @@ routerAdd("GET", "/api/beaudle/days", (e) => {
             return {
                 day,
                 dayNumber: statsRow.getInt("day_number") || null,
+                isToday: day === today,
                 playersCount: statsRow.getInt("players_count") || 0,
                 solvedCount: statsRow.getInt("solved_count") || 0,
                 myStatus, myGuessCount,
@@ -324,6 +329,47 @@ routerAdd("POST", "/api/beaudle/guess", (e) => {
         return e.json(400, { error: "No se pudo registrar tu intento." });
     }
 }, $apis.requireAuth("users"));
+
+// Crea la fila de beaudle_daily_stats de HOY apenas empieza el día (hora Chile), para que
+// aparezca en la lista sin que nadie tenga que jugar primero — la numeración "Beaudle #N"
+// se asigna igual que siempre (ver nextDayNumber en lib/beaudle.js), a partir de la
+// última fila que exista. Idempotente: si ya existe (alguien ya jugó hoy antes de que
+// corriera este cron, o el cron ya corrió), no hace nada. "10 4 * * *" (UTC) cae poco
+// después de medianoche en Chile — mismo criterio de horario que el cron de abajo.
+cronAdd("create_todays_beaudle", "10 4 * * *", () => {
+    try {
+        const { nextDayNumber } = require(`${__hooks}/lib/beaudle.js`);
+        const variant = "classic";
+        const t = new DateTime().time().in(new Timezone("America/Santiago"));
+        const pad = (n) => String(n).padStart(2, "0");
+        const today = `${t.year()}-${pad(Number(t.month()))}-${pad(t.day())}`;
+
+        try {
+            $app.findFirstRecordByFilter("beaudle_daily_stats", "day = {:d} && variant = {:v}", { d: today, v: variant });
+            return; // ya existe
+        } catch (nf) { /* no existe todavía, se crea abajo */ }
+
+        let prevDayNumber = 0;
+        const prevRows = $app.findRecordsByFilter(
+            "beaudle_daily_stats", "variant = {:v}", "-day_number", 1, 0, { v: variant }
+        );
+        if (prevRows.length > 0) {
+            prevDayNumber = prevRows[0].getInt("day_number") || 0;
+        }
+
+        const coll = $app.findCollectionByNameOrId("beaudle_daily_stats");
+        const stats = new Record(coll);
+        stats.set("day", today);
+        stats.set("variant", variant);
+        stats.set("day_number", nextDayNumber(prevDayNumber));
+        stats.set("players_count", 0);
+        stats.set("solved_count", 0);
+        stats.set("guess_distribution", JSON.stringify({}));
+        $app.save(stats);
+    } catch (err) {
+        console.error("[beaudle.pb.js] Error en cron create_todays_beaudle:", err);
+    }
+});
 
 // Corrección de deriva liviana: recalcula beaudle_daily_stats SOLO del día de ayer (hora
 // Chile) recorriendo beaudle_games de ese día. A diferencia de karma.pb.js (que

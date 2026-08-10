@@ -112,7 +112,9 @@ export const BeaudleScreen: React.FC<Props> = ({ navigation }) => {
         onPress={() => navigation.push('BeaudleDay', { day: item.day })}
       >
         <View style={styles.dayInfo}>
-          <Text style={styles.dayTitle}>{item.dayNumber ? `Beaudle #${item.dayNumber}` : 'Beaudle'}</Text>
+          <Text style={styles.dayTitle}>
+            {item.isToday ? 'Beaudle de hoy' : (item.dayNumber ? `Beaudle #${item.dayNumber}` : 'Beaudle')}
+          </Text>
           <Text style={styles.dayDate}>{formatDay(item.day)}</Text>
         </View>
         <Text style={[styles.dayStatus, status.style]}>{status.text}</Text>
@@ -149,18 +151,6 @@ export const BeaudleScreen: React.FC<Props> = ({ navigation }) => {
       ListHeaderComponent={
         <>
           {!!error && <Text style={styles.errorText}>{error}</Text>}
-
-          {/* Siempre presente, sin importar si la lista de abajo ya tiene una fila para
-              hoy — es la única forma de entrar al Beaudle de hoy antes de que exista
-              (la fila del día se crea recién con el primer intento de alguien). */}
-          <TouchableOpacity
-            style={styles.playTodayBtn}
-            activeOpacity={0.8}
-            onPress={() => navigation.push('BeaudleDay', {})}
-          >
-            <Feather name="grid" size={16} color="#000000" style={{ marginRight: 8 }} />
-            <Text style={styles.playTodayBtnText}>Jugar el Beaudle de hoy</Text>
-          </TouchableOpacity>
 
           <View style={styles.streakRow}>
             <View style={styles.streakItem}>

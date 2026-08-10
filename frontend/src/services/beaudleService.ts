@@ -45,6 +45,7 @@ export interface BeaudleGameState {
 export interface BeaudleDaySummary {
   day: string;
   dayNumber: number | null;
+  isToday: boolean;
   playersCount: number;
   solvedCount: number;
   myStatus: 'not_played' | 'in_progress' | 'won' | 'lost';
