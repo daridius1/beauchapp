@@ -74,7 +74,7 @@ routerAdd("GET", "/api/beaumarket/markets", (e) => {
             const positions = $app.findRecordsByFilter(
                 "beaumarket_positions", "market = {:id} && user = {:u}", "", 0, 0,
                 { id: m.id, u: e.auth.id }
-            ).filter((p) => p.getInt("shares") > 0);
+            );
 
             // netInvested = neto de caja histórico de esta posición: suma de "cost" de
             // todos los trades propios en ese resultado (positivo al comprar, negativo al
@@ -83,28 +83,37 @@ routerAdd("GET", "/api/beaumarket/markets", (e) => {
             // posición recibiendo más de lo que gastaste en total (estás "jugando con
             // ganancia ya realizada") — a propósito, es justamente lo que se quiere
             // mostrar: cuánta plata neta llevas puesta en esta apuesta ahora mismo, no un
-            // piso artificial en 0.
-            const myTrades = positions.length > 0
-                ? $app.findRecordsByFilter(
-                    "beaumarket_trades", "market = {:id} && user = {:u}", "", 0, 0,
-                    { id: m.id, u: e.auth.id }
-                )
-                : [];
+            // piso artificial en 0. Se consulta siempre (no solo si hay posición vigente)
+            // porque un resultado puede tener historial de trades sin tener ya ninguna
+            // acción (se vendió todo, la posición se borra al llegar a 0 en /sell) — igual
+            // debe mostrarse cuánto llevas invertido en él.
+            const myTrades = $app.findRecordsByFilter(
+                "beaumarket_trades", "market = {:id} && user = {:u}", "", 0, 0,
+                { id: m.id, u: e.auth.id }
+            );
             const netInvestedByOutcome = {};
             myTrades.forEach((t) => {
                 const idx = t.getInt("outcomeIndex");
                 netInvestedByOutcome[idx] = (netInvestedByOutcome[idx] || 0) + t.getInt("cost");
             });
 
-            const myPositions = positions.map((p) => {
-                const outcomeIndex = p.getInt("outcomeIndex");
-                const shares = p.getInt("shares");
-                return {
-                    outcomeIndex,
-                    shares,
-                    netInvested: netInvestedByOutcome[outcomeIndex] || 0,
-                };
+            const sharesByOutcome = {};
+            positions.forEach((p) => {
+                sharesByOutcome[p.getInt("outcomeIndex")] = p.getInt("shares");
             });
+
+            // Unión de resultados con acciones vigentes y resultados con historial de
+            // trades (aunque ya no tengan acciones) — cada uno de estos es "una apuesta
+            // que hice" y debe tener su barra en el front, no solo las abiertas.
+            const outcomeIndexes = new Set([
+                ...Object.keys(sharesByOutcome).map(Number),
+                ...Object.keys(netInvestedByOutcome).map(Number),
+            ]);
+            const myPositions = Array.from(outcomeIndexes).sort((a, b) => a - b).map((outcomeIndex) => ({
+                outcomeIndex,
+                shares: sharesByOutcome[outcomeIndex] || 0,
+                netInvested: netInvestedByOutcome[outcomeIndex] || 0,
+            }));
 
             let history;
             if (singleId) {

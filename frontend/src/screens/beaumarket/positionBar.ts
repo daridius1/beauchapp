@@ -3,6 +3,11 @@
 // para poder razonar sobre ella sin JSX de por medio.
 import { BeaumarketPosition } from '../../services/beaumarketService';
 
+// Piso mínimo de ancho — sin acciones (posición cerrada del todo, vendida completa) el
+// pill igual se dibuja, como una línea delgada del color del resultado, en vez de
+// desaparecer por completo (0% de ancho sería invisible).
+const MIN_TRACK_PCT = 4;
+
 export interface PositionBarSegments {
   // Ancho del pill de esta posición respecto al ancho completo de la fila — compara el
   // TAMAÑO entre posiciones distintas (más acciones se ve como una barra más larga). Es
@@ -33,7 +38,7 @@ export function computePositionBar(
 ): PositionBarSegments {
   const isWinner = status === 'resolved' && position.outcomeIndex === winningOutcomeIndex;
   const isLoser = status === 'resolved' && position.outcomeIndex !== winningOutcomeIndex;
-  const trackWidthPct = (position.shares / Math.max(1, maxScale)) * 100;
+  const trackWidthPct = Math.max(MIN_TRACK_PCT, (position.shares / Math.max(1, maxScale)) * 100);
 
   let caption: string;
   if (status === 'resolved') {
