@@ -3,11 +3,10 @@ import { pb } from './pocketbase';
 export interface BeaumarketPosition {
   outcomeIndex: number;
   shares: number;
-  // Neto de ℬ efectivamente gastado en esta posición (suma de "cost" de los trades
-  // propios en ese resultado) — siempre <= shares, porque el precio LMSR siempre es
-  // menor a 100%. Con esto el front puede mostrar "cuánto llevas invertido" vs. "cuánto
-  // recibes si gana" (que siempre es exactamente shares, 1 ℬ por acción).
-  costBasis: number;
+  // Neto de caja histórico de esta posición (compras menos ventas, en ℬ) — puede ser
+  // negativo si ya recibiste, vendiendo parte de la posición, más de lo que gastaste en
+  // total (estás jugando con ganancia ya realizada).
+  netInvested: number;
 }
 
 export interface BeaumarketOddsHistoryPoint {

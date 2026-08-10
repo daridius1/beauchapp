@@ -49,7 +49,7 @@ cronAdd("credit_daily_beautokens", "5 4 * * *", () => {
 // propósito, para no pagar ese costo extra en cada carga de la pantalla de lista.
 routerAdd("GET", "/api/beaumarket/markets", (e) => {
     try {
-        const { prices, computeLmsrPriceHistory, computeCostBasis, MAX_CHART_POINTS } = require(`${__hooks}/lib/beaumarket.js`);
+        const { prices, computeLmsrPriceHistory, MAX_CHART_POINTS } = require(`${__hooks}/lib/beaumarket.js`);
         const status = e.requestInfo().query["status"] || "";
         const singleId = e.requestInfo().query["id"] || "";
 
@@ -76,29 +76,25 @@ routerAdd("GET", "/api/beaumarket/markets", (e) => {
                 { id: m.id, u: e.auth.id }
             ).filter((p) => p.getInt("shares") > 0);
 
-            // costBasis = costo promedio ponderado de la posición VIGENTE (cuánto llevas
-            // realmente invertido en las acciones que todavía tienes) — no el neto de
-            // caja histórico. Al vender una fracción de la posición se libera esa misma
-            // fracción del costo acumulado, sin importar a qué precio se vendió (mismo
-            // método que cualquier cartera de acciones). Con neto de caja simple (sumar
-            // "cost" de compras y restar lo recibido al vender) el costBasis podía quedar
-            // MÁS ALTO que las acciones restantes si vendías con el precio más bajo que
-            // cuando compraste — rompiendo la garantía LMSR de que comprar siempre cuesta
-            // menos de 1 ℬ por acción, y con eso rompiendo la barra "invertido -> si gana"
-            // del front (la extensión se veía "escondida"/invisible). Ver
-            // lib/beaumarket.js#computeCostBasis y sus tests para la garantía formal.
+            // netInvested = neto de caja histórico de esta posición: suma de "cost" de
+            // todos los trades propios en ese resultado (positivo al comprar, negativo al
+            // vender — ver POST /buy y /sell). A diferencia de un costo promedio
+            // ponderado, esto SÍ puede quedar en negativo si ya vendiste una parte de la
+            // posición recibiendo más de lo que gastaste en total (estás "jugando con
+            // ganancia ya realizada") — a propósito, es justamente lo que se quiere
+            // mostrar: cuánta plata neta llevas puesta en esta apuesta ahora mismo, no un
+            // piso artificial en 0.
             const myTrades = positions.length > 0
                 ? $app.findRecordsByFilter(
                     "beaumarket_trades", "market = {:id} && user = {:u}", "", 0, 0,
                     { id: m.id, u: e.auth.id }
                 )
                 : [];
-            const costBasisByOutcome = computeCostBasis(myTrades.map((t) => ({
-                outcomeIndex: t.getInt("outcomeIndex"),
-                sharesDelta: t.getInt("sharesDelta"),
-                cost: t.getInt("cost"),
-                createdAtMs: t.getDateTime("created").unix() * 1000,
-            })));
+            const netInvestedByOutcome = {};
+            myTrades.forEach((t) => {
+                const idx = t.getInt("outcomeIndex");
+                netInvestedByOutcome[idx] = (netInvestedByOutcome[idx] || 0) + t.getInt("cost");
+            });
 
             const myPositions = positions.map((p) => {
                 const outcomeIndex = p.getInt("outcomeIndex");
@@ -106,10 +102,7 @@ routerAdd("GET", "/api/beaumarket/markets", (e) => {
                 return {
                     outcomeIndex,
                     shares,
-                    // Math.min defensivo: solo pisa un desajuste de redondeo de última
-                    // instancia (el cálculo ya garantiza costBasis <= shares en la
-                    // práctica), nunca debería activarse en régimen normal.
-                    costBasis: Math.round(Math.min(shares, Math.max(0, costBasisByOutcome[outcomeIndex] || 0))),
+                    netInvested: netInvestedByOutcome[outcomeIndex] || 0,
                 };
             });
 

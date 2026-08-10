@@ -12,9 +12,8 @@ const WINNER_COLOR = '#22c55e';
 // Fila de leyenda de ancho completo, usada por OddsChart — cuando es interactiva (hay
 // onPress), también sirve como botón para operar ese resultado. Cuando el usuario tiene
 // una posición vigente en ese resultado, la fila se extiende con una barra que muestra
-// cuánto lleva invertido vs. cuánto recibiría si gana (ver positionBar.ts) — no hay una
-// sección aparte de "tus posiciones", vive directamente acá, debajo del nombre y el
-// porcentaje de cada opción.
+// cuántas acciones tiene (ver positionBar.ts) — no hay una sección aparte de "tus
+// posiciones", vive directamente acá, debajo del nombre y el porcentaje de cada opción.
 interface LegendRowProps {
   color: string;
   label: string;
@@ -23,7 +22,7 @@ interface LegendRowProps {
   isLast?: boolean;
   onPress?: () => void;
   disabled?: boolean;
-  positionBar?: { trackWidthPct: number; solidPct: number; extPct: number; caption: string; isLoser?: boolean } | null;
+  positionBar?: { trackWidthPct: number; caption: string; isLoser?: boolean } | null;
 }
 
 export const LegendRow: React.FC<LegendRowProps> = ({
@@ -60,10 +59,8 @@ export const LegendRow: React.FC<LegendRowProps> = ({
       {positionBar && (() => {
         // Barra de un resultado perdedor: mucho más gris que el color normal (pero sin
         // perderlo del todo) — únicamente la barra, el texto de abajo mantiene su color
-        // habitual. Los dos tramos (apostado/acciones que se pudieron ganar) se siguen
-        // viendo igual de diferenciados entre sí (misma opacidad relativa de siempre).
-        // La del ganador, en cambio, se resalta con un brillo sutil (mismo tono verde del
-        // ícono de check).
+        // habitual. La del ganador, en cambio, se resalta con un brillo sutil (mismo tono
+        // verde del ícono de check).
         const barColor = positionBar.isLoser ? mixWithGray(color, 0.85) : color;
         return (
           <View style={styles.barBlock}>
@@ -73,12 +70,7 @@ export const LegendRow: React.FC<LegendRowProps> = ({
                     quedara en el mismo view que el shadow del brillo, se recortaría
                     el brillo junto con el contenido. */}
                 <View style={styles.trackClip}>
-                  <View style={styles.barRow}>
-                    <View style={[styles.bar, { width: `${positionBar.solidPct}%`, backgroundColor: barColor }]} />
-                    {positionBar.extPct > 0 && (
-                      <View style={[styles.bar, styles.barExtension, { width: `${positionBar.extPct}%`, backgroundColor: barColor }]} />
-                    )}
-                  </View>
+                  <View style={[styles.bar, { backgroundColor: barColor }]} />
                 </View>
               </View>
             </View>
@@ -174,15 +166,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: WINNER_COLOR,
   },
-  barRow: {
-    flexDirection: 'row',
-    height: '100%',
-  },
   bar: {
+    width: '100%',
     height: '100%',
-  },
-  barExtension: {
-    opacity: 0.35,
   },
   caption: {
     fontSize: 12,
