@@ -6,7 +6,7 @@ import { BeaumarketPosition } from '../../services/beaumarketService';
 // Piso mínimo de ancho — sin acciones (posición cerrada del todo, vendida completa) el
 // pill igual se dibuja, como una línea delgada del color del resultado, en vez de
 // desaparecer por completo (0% de ancho sería invisible).
-const MIN_TRACK_PCT = 4;
+const MIN_TRACK_PCT = 1;
 
 export interface PositionBarSegments {
   // Ancho del pill de esta posición respecto al ancho completo de la fila — compara el
