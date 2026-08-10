@@ -349,31 +349,6 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   };
 
-  const handleTargetPress = (targetType?: string, targetId?: string, targetMeta?: any) => {
-    if (!targetType || !targetId) return;
-    if (targetType === 'post') {
-      navigation.push('PostDetail', { postId: targetId });
-    } else if (targetType === 'problem') {
-      navigation.push('ProblemDetail', { problemId: targetId });
-    } else if (targetType === 'match') {
-      navigation.push('LadderMatchDetail', { matchId: targetId });
-    } else if (targetType === 'marketplace_item' || targetType === 'product') {
-      navigation.push('MarketplaceItemDetail', { itemId: targetId });
-    } else if (targetType === 'seller_profile' || targetType === 'seller') {
-      navigation.push('SellerProfile', { sellerProfileId: targetId });
-    } else if (targetType === 'course') {
-      navigation.push('CourseDetail', { courseId: targetId });
-    } else if (targetType === 'beaumarket') {
-      navigation.push('BeaumarketDetail', { marketId: targetId });
-    } else if (targetType === 'beaudle') {
-      if (targetMeta?.day) {
-        navigation.push('BeaudleDay', { day: targetMeta.day });
-      } else {
-        navigation.push('Beaudle');
-      }
-    }
-  };
-
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr.replace(' ', 'T'));
     return d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL', { hour: '2-digit', minute:'2-digit' });
@@ -627,7 +602,6 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               onAuthorPress={() => navigation.push('UserProfile', { userId: post.author })}
               onTagPress={(t) => activateTagFilter(t)}
               onRepostPress={() => handleRepost(post)}
-              onTargetPress={() => handleTargetPress(post.targetType, post.targetId, post.targetMeta)}
             />
           ))
         )}
