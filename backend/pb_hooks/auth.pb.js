@@ -27,6 +27,27 @@ onRecordCreateRequest((e) => {
         return e.next();
     }
 
+    // Cierre de capacidad para registro de estudiantes nuevos — controlado desde el
+    // dashboard de admin (Collections > app_config), nunca hardcodeado. Se chequea antes
+    // que cualquier otra validación: si está cerrado, no importa si el correo es válido o
+    // no. Falla "abierto" (deja registrar) si por algún motivo no se puede leer la
+    // config, para no bloquear accidentalmente todo el registro por un bug ajeno a esto —
+    // por eso el throw vive AFUERA del try, nunca adentro (si no, se auto-atraparía).
+    let registrationOpen = true;
+    let registrationClosedMessage = "El registro está cerrado temporalmente.";
+    try {
+        const configRows = $app.findRecordsByFilter("app_config", "", "", 1, 0, {});
+        if (configRows.length > 0) {
+            registrationOpen = configRows[0].getBool("registration_open");
+            registrationClosedMessage = configRows[0].getString("registration_closed_message") || registrationClosedMessage;
+        }
+    } catch (err) {
+        console.error("[auth.pb.js] Error consultando app_config, se permite el registro por defecto:", err);
+    }
+    if (!registrationOpen) {
+        throw new BadRequestError(registrationClosedMessage);
+    }
+
     // For everyone else, enforce student type
     e.record.set("type", "student");
     if (!e.hasSuperuserAuth()) {

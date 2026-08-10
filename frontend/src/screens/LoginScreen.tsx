@@ -5,12 +5,17 @@ import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
 import { RootStackParamList } from '../types/navigation';
 import { Feather } from '@expo/vector-icons';
+import { pb } from '../services/pocketbase';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const { login, signup, requestPasswordReset, error, clearError, loading } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState(true);
+  const [registrationClosedMessage, setRegistrationClosedMessage] = useState(
+    'El registro está cerrado temporalmente.'
+  );
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,6 +55,22 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
     return () => clearTimeout(timer);
   }, [resendCooldown]);
+
+  // Config pública y editable desde el dashboard de admin (Collections > app_config) —
+  // si el registro está cerrado, la vista de registro se reemplaza por un mensaje en vez
+  // de dejar completar el formulario (el bloqueo real igual lo hace el backend).
+  useEffect(() => {
+    pb.collection('app_config').getList(1, 1)
+      .then((res: any) => {
+        const record = res.items?.[0];
+        if (!record) return;
+        setRegistrationOpen(record.registration_open !== false);
+        if (record.registration_closed_message) {
+          setRegistrationClosedMessage(record.registration_closed_message);
+        }
+      })
+      .catch((err) => console.error('Error cargando app_config:', err));
+  }, []);
 
   const handleSubmit = async () => {
     setLocalError(null);
@@ -236,6 +257,10 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
+        {isSignUp && !isForgotPassword && !registrationOpen ? (
+          <Text style={styles.registrationClosedText}>{registrationClosedMessage}</Text>
+        ) : (
+        <>
         {!isForgotPassword && isSignUp && (
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Nombre</Text>
@@ -358,6 +383,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
           )}
         </TouchableOpacity>
+        </>
+        )}
 
         {!isForgotPassword && !isSignUp && (
           <TouchableOpacity style={styles.toggleLink} onPress={toggleForgotPassword} disabled={loading}>
@@ -446,6 +473,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  registrationClosedText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: theme.spacing.lg,
   },
   inputGroup: {
     marginBottom: theme.spacing.lg,

@@ -451,10 +451,6 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
 
         <View style={styles.headerRightGroup}>
-          <TouchableOpacity style={styles.infoButtonInline} activeOpacity={0.7} onPress={() => setInfoVisible(true)}>
-            <Feather name="info" size={16} color={theme.colors.text} />
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.arbitrateButtonInline}
             activeOpacity={0.8}
@@ -467,6 +463,10 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           >
             <Feather name="play-circle" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
             <Text style={styles.arbitrateButtonText}>Arbitrar</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.infoButtonInline} activeOpacity={0.7} onPress={() => setInfoVisible(true)}>
+            <Feather name="info" size={16} color={theme.colors.text} />
           </TouchableOpacity>
         </View>
       </View>

@@ -329,6 +329,8 @@ function AppContent() {
       navigationRef.navigate('Marketplace' as never);
     } else if (currentRouteName === 'BeaumarketDetail') {
       navigationRef.navigate('Beaumarket' as never);
+    } else if (currentRouteName === 'BeaudleDay') {
+      navigationRef.navigate('Beaudle' as never);
     } else if (['LaddersList', 'ProblemsList', 'Marketplace', 'Tinder', 'Reviews', 'Beaudle', 'Beaumarket'].includes(currentRouteName)) {
       navigationRef.navigate('Beauchapps' as never);
     } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'FollowList'].includes(currentRouteName)) {
@@ -337,6 +339,8 @@ function AppContent() {
       navigationRef.navigate('Activities' as never);
     } else if (['CourseDetail', 'ProfessorDetail'].includes(currentRouteName)) {
       navigationRef.navigate('Reviews' as never);
+    } else if (['EditProfile', 'BlockedUsers'].includes(currentRouteName)) {
+      navigationRef.navigate('Settings' as never);
     } else if (currentRouteName === 'PostDetail') {
       navigationRef.navigate('Home' as never);
     } else {
@@ -368,6 +372,7 @@ function AppContent() {
                 Bands: 'bands',
                 Directory: 'directory',
                 Beauchapps: 'beauchapps',
+                PostDetail: 'posts/:postId',
                 UserProfile: 'users/:userId',
                 Students: 'students',
                 FollowList: 'users/:userId/:type',
@@ -379,10 +384,14 @@ function AppContent() {
                 ResetPassword: 'reset-password',
                 Tinder: 'tinder',
                 Notifications: 'notifications',
+                Settings: 'settings',
+                EditProfile: 'settings/edit',
+                BlockedUsers: 'settings/blocked',
                 LaddersList: 'ladders',
                 LadderDetail: 'ladders/:slug',
                 LadderMatchArbitrator: 'ladders/:slug/arbitrate',
                 LadderMatchDetail: 'ladders/matches/:matchId',
+                LadderPlayerProfile: 'ladders/:slug/player/:userId',
                 Marketplace: 'marketplace',
                 MarketplaceItemDetail: 'marketplace/item/:itemId',
                 SellerProfile: 'marketplace/seller/:sellerProfileId',
@@ -438,7 +447,7 @@ function AppContent() {
                     title={getScreenTitle(currentRouteName, currentRouteParams)} 
                     onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                     onBack={showBackButton ? handleBack : undefined}
-                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail'].includes(currentRouteName) ? () => {
+                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail'].includes(currentRouteName) ? () => {
                       DeviceEventEmitter.emit('onGlobalRefresh');
                     } : undefined}
                     hasUnreadNotifications={hasUnreadNotifications}

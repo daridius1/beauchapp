@@ -46,7 +46,7 @@ export const LegendRow: React.FC<LegendRowProps> = ({
       onPress={onPress}
     >
       <View style={styles.headerRow}>
-        <View style={[styles.dot, { backgroundColor: color }]} />
+        <View style={[styles.dot, { backgroundColor: color }, isWinner && styles.dotWinnerGlow]} />
         <View style={styles.labelGroup}>
           <Text style={styles.label} numberOfLines={1}>{label}</Text>
           {isWinner && <Feather name="check-circle" size={13} color={WINNER_COLOR} style={styles.winnerIcon} />}
@@ -60,18 +60,25 @@ export const LegendRow: React.FC<LegendRowProps> = ({
       {positionBar && (() => {
         // Barra de un resultado perdedor: mucho más gris que el color normal (pero sin
         // perderlo del todo) — únicamente la barra, el texto de abajo mantiene su color
-        // habitual. Los dos tramos (apostado/acciones) se siguen viendo igual de
-        // diferenciados entre sí (misma opacidad relativa de siempre).
-        const barColor = positionBar.isLoser ? mixWithGray(color, 0.7) : color;
+        // habitual. Los dos tramos (apostado/acciones que se pudieron ganar) se siguen
+        // viendo igual de diferenciados entre sí (misma opacidad relativa de siempre).
+        // La del ganador, en cambio, se resalta con un brillo sutil (mismo tono verde del
+        // ícono de check).
+        const barColor = positionBar.isLoser ? mixWithGray(color, 0.85) : color;
         return (
           <View style={styles.barBlock}>
             <View style={styles.trackOuter}>
-              <View style={[styles.track, { width: `${positionBar.trackWidthPct}%` }]}>
-                <View style={styles.barRow}>
-                  <View style={[styles.bar, { width: `${positionBar.solidPct}%`, backgroundColor: barColor }]} />
-                  {positionBar.extPct > 0 && (
-                    <View style={[styles.bar, styles.barExtension, { width: `${positionBar.extPct}%`, backgroundColor: barColor }]} />
-                  )}
+              <View style={[styles.track, { width: `${positionBar.trackWidthPct}%` }, isWinner && styles.trackWinnerGlow]}>
+                {/* overflow:hidden vive en este wrapper interno, no en "track" — si
+                    quedara en el mismo view que el shadow del brillo, se recortaría
+                    el brillo junto con el contenido. */}
+                <View style={styles.trackClip}>
+                  <View style={styles.barRow}>
+                    <View style={[styles.bar, { width: `${positionBar.solidPct}%`, backgroundColor: barColor }]} />
+                    {positionBar.extPct > 0 && (
+                      <View style={[styles.bar, styles.barExtension, { width: `${positionBar.extPct}%`, backgroundColor: barColor }]} />
+                    )}
+                  </View>
                 </View>
               </View>
             </View>
@@ -100,6 +107,15 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     marginRight: 8,
+  },
+  // Brillo para la opción ganadora una vez resuelto el mercado — mismo tono verde que el
+  // ícono de check, sin cambiar el color propio de la opción.
+  dotWinnerGlow: {
+    shadowColor: WINNER_COLOR,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 10,
   },
   // flex:1 vive acá (no en "label" directamente) para que el ícono de ganador quede
   // pegado al texto ya truncado, en vez de empujado al borde derecho de la fila.
@@ -143,7 +159,20 @@ const styles = StyleSheet.create({
     height: BAR_HEIGHT,
     borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.border,
+  },
+  trackClip: {
+    height: '100%',
+    borderRadius: theme.borderRadius.md,
     overflow: 'hidden',
+  },
+  trackWinnerGlow: {
+    shadowColor: WINNER_COLOR,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: WINNER_COLOR,
   },
   barRow: {
     flexDirection: 'row',
