@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
+import { toLocalDateStr } from '../utils/date';
 
 interface DateTimePickerModalProps {
   visible: boolean;
@@ -47,7 +48,7 @@ export const DateTimePickerModal: React.FC<DateTimePickerModalProps> = ({
   const now = new Date();
   const [currentYear, setCurrentYear] = useState<number>(now.getFullYear());
   const [currentMonth, setCurrentMonth] = useState<number>(now.getMonth());
-  const [selectedDateStr, setSelectedDateStr] = useState<string>(value || now.toISOString().split('T')[0]);
+  const [selectedDateStr, setSelectedDateStr] = useState<string>(value || toLocalDateStr(now));
 
   // Estado para Hora (HH, mm)
   const initialTimeParts = (value && value.includes(':')) ? value.split(':') : ['14', '00'];

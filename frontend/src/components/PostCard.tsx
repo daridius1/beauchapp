@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { TargetPreview } from './TargetPreview';
 import { ContentActionsMenu, ContentAction } from './ContentActionsMenu';
 import { ReportModal } from './ReportModal';
+import { LinkConfirmModal } from './LinkConfirmModal';
 
 export interface PostCardProps {
   post: any;
@@ -50,6 +51,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [loadingMention, setLoadingMention] = useState(false);
   const [viewerVisible, setViewerVisible] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [linkModalUrl, setLinkModalUrl] = useState<string | null>(null);
 
   const isDeleted = post.deleted === true;
   const author = isDeleted ? null : post.expand?.author;
@@ -107,6 +109,10 @@ export const PostCard: React.FC<PostCardProps> = ({
       navigation.push('ActivityDetail', { activityId: post.targetId });
     } else if (post.targetType === 'course') {
       navigation.push('CourseDetail', { courseId: post.targetId });
+    } else if (post.targetType === 'beaumarket') {
+      navigation.push('BeaumarketDetail', { marketId: post.targetId });
+    } else if (post.targetType === 'beaudle') {
+      navigation.push('Beaudle');
     }
   };
 
@@ -125,7 +131,7 @@ export const PostCard: React.FC<PostCardProps> = ({
 
   const renderContent = (contentStr: string) => {
     if (!contentStr) return null;
-    const parts = contentStr.split(/(@[a-zA-Z0-9_.]+)/g);
+    const parts = contentStr.split(/(@[a-zA-Z0-9_.-]+|https?:\/\/[^\s]+)/g);
 
     return parts.map((part, index) => {
       if (part.startsWith('@')) {
@@ -135,6 +141,20 @@ export const PostCard: React.FC<PostCardProps> = ({
             key={index}
             style={styles.mentionText}
             onPress={() => handleMentionPress(username)}
+          >
+            {part}
+          </Text>
+        );
+      }
+      if (/^https?:\/\//.test(part)) {
+        return (
+          <Text
+            key={index}
+            style={styles.linkText}
+            onPress={(e: any) => {
+              if (e.stopPropagation) e.stopPropagation();
+              setLinkModalUrl(part);
+            }}
           >
             {part}
           </Text>
@@ -198,39 +218,49 @@ export const PostCard: React.FC<PostCardProps> = ({
               </View>
             </TouchableOpacity>
             <View style={styles.postMeta}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TouchableOpacity 
-                  onPress={isDeleted ? undefined : onAuthorPress}
-                  disabled={isDeleted || !onAuthorPress}
-                  activeOpacity={0.7}
-                  style={{ flexDirection: 'row', alignItems: 'center' }}
-                >
-                  <Text style={styles.postAuthor}>{isDeleted ? '[eliminado]' : (author?.name || 'Usuario')}</Text>
-                  {!isDeleted && author?.username ? <Text style={styles.postUsername}> @{author.username}</Text> : null}
-                </TouchableOpacity>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={styles.postDate}>{formatDate(post.created)}</Text>
-                {developerMode && !isDeleted && (
-                  <TouchableOpacity
-                    style={styles.devIdBadge}
-                    activeOpacity={0.7}
-                    onPress={(e: any) => {
-                      if (e.stopPropagation) e.stopPropagation();
-                      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                        navigator.clipboard.writeText(post.id);
-                      }
-                      Toast.show({
-                        type: 'info',
-                        text1: 'ID Copiado 📋',
-                        text2: `ID del post: ${post.id}`,
-                      });
-                    }}
-                  >
-                    <Feather name="code" size={10} color={theme.colors.primary} style={{ marginRight: 3 }} />
-                    <Text style={styles.devIdBadgeText}>ID: {post.id}</Text>
-                  </TouchableOpacity>
+              <TouchableOpacity
+                onPress={isDeleted ? undefined : onAuthorPress}
+                disabled={isDeleted || !onAuthorPress}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.postAuthor}>{isDeleted ? '[eliminado]' : (author?.name || 'Usuario')}</Text>
+              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                {!isDeleted && author?.username && (
+                  <>
+                    <TouchableOpacity
+                      onPress={onAuthorPress}
+                      disabled={!onAuthorPress}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.postUsername}>@{author.username}</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.postMetaDot}>·</Text>
+                  </>
                 )}
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={styles.postDate}>{formatDate(post.created)}</Text>
+                  {developerMode && !isDeleted && (
+                    <TouchableOpacity
+                      style={styles.devIdBadge}
+                      activeOpacity={0.7}
+                      onPress={(e: any) => {
+                        if (e.stopPropagation) e.stopPropagation();
+                        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                          navigator.clipboard.writeText(post.id);
+                        }
+                        Toast.show({
+                          type: 'info',
+                          text1: 'ID Copiado 📋',
+                          text2: `ID del post: ${post.id}`,
+                        });
+                      }}
+                    >
+                      <Feather name="code" size={10} color={theme.colors.primary} style={{ marginRight: 3 }} />
+                      <Text style={styles.devIdBadgeText}>ID: {post.id}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             </View>
           </View>
@@ -270,7 +300,9 @@ export const PostCard: React.FC<PostCardProps> = ({
                 (post.targetType === 'marketplace_item' || post.targetType === 'product') ? 'Producto: ' :
                 (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Vendedor: ' :
                 post.targetType === 'activity' ? 'Actividad: ' :
-                post.targetType === 'course' ? 'Ramo: ' : ''
+                post.targetType === 'course' ? 'Ramo: ' :
+                post.targetType === 'beaumarket' ? 'Mercado: ' :
+                post.targetType === 'beaudle' ? 'Beaudle: ' : ''
               }
               <Text style={{ fontWeight: '700', textDecorationLine: 'underline' }}>
                 {post.targetMeta?.title || post.targetMeta?.sportName || post.targetMeta?.sellerName || post.targetMeta?.nombre || (
@@ -279,7 +311,9 @@ export const PostCard: React.FC<PostCardProps> = ({
                   (post.targetType === 'marketplace_item' || post.targetType === 'product') ? 'Ver producto' :
                   (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Ver tienda' :
                   post.targetType === 'activity' ? 'Ver actividad' :
-                  post.targetType === 'course' ? 'Ver ramo' : 'Ver detalle'
+                  post.targetType === 'course' ? 'Ver ramo' :
+                  post.targetType === 'beaumarket' ? 'Ver mercado' :
+                  post.targetType === 'beaudle' ? 'Ver Beaudle' : 'Ver detalle'
                 )}
               </Text>
             </Text>
@@ -381,6 +415,11 @@ export const PostCard: React.FC<PostCardProps> = ({
         targetType="post"
         targetId={post.id}
       />
+      <LinkConfirmModal
+        visible={!!linkModalUrl}
+        url={linkModalUrl}
+        onClose={() => setLinkModalUrl(null)}
+      />
       {post.photo && (
         <ImageViewer
           visible={viewerVisible}
@@ -415,6 +454,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   postMeta: {
+    flex: 1,
     justifyContent: 'center',
   },
   postAuthor: {
@@ -429,6 +469,11 @@ const styles = StyleSheet.create({
   postUsername: {
     color: theme.colors.textMuted,
     fontSize: 13,
+  },
+  postMetaDot: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    marginHorizontal: 4,
   },
   replyContextText: {
     color: theme.colors.textMuted,
@@ -445,6 +490,10 @@ const styles = StyleSheet.create({
   mentionText: {
     color: '#CCCCCC',
     fontWeight: '700',
+  },
+  linkText: {
+    color: theme.colors.primary,
+    textDecorationLine: 'underline',
   },
   mainPostContent: {
     fontSize: 18,

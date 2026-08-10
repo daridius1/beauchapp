@@ -13,7 +13,9 @@ import { RootStackParamList } from '../types/navigation';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { getSportGroup, CategoryOption } from '../config/ladderGroups';
+import { LADDER_INFO } from '../config/ladderInfo';
 import { CategoryCarousel } from '../components/CategoryCarousel';
+import { InfoModal } from '../components/InfoModal';
 
 type LadderDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LadderDetail'>;
 type LadderDetailScreenRouteProp = RouteProp<RootStackParamList, 'LadderDetail'>;
@@ -40,6 +42,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'matches' | 'my_matches'>('leaderboard');
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [infoVisible, setInfoVisible] = useState<boolean>(false);
 
   useEffect(() => {
     const info = getSportGroup(slug);
@@ -137,6 +140,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
   if (isKarmaLadder) {
     return (
+      <>
       <ScrollView
         ref={scrollViewRef}
         style={styles.container}
@@ -150,9 +154,11 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           />
         }
       >
-        <Text style={styles.karmaExplanationText}>
-          El karma se obtiene aportando contenido en la sección de Problemas y recibiendo buenas evaluaciones por parte de la comunidad, tanto en la calidad de los enunciados como de las pautas publicadas.
-        </Text>
+        <View style={styles.infoRow}>
+          <TouchableOpacity style={styles.infoButtonInline} activeOpacity={0.7} onPress={() => setInfoVisible(true)}>
+            <Feather name="info" size={16} color={theme.colors.text} />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.sectionContainer}>
           {karmaUsers.length === 0 ? (
@@ -204,11 +210,20 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           )}
         </View>
       </ScrollView>
+
+      <InfoModal
+        visible={infoVisible}
+        title={LADDER_INFO.karma.title}
+        sections={LADDER_INFO.karma.sections}
+        onClose={() => setInfoVisible(false)}
+      />
+    </>
     );
   }
 
   if (isBeautokensLadder) {
     return (
+      <>
       <ScrollView
         ref={scrollViewRef}
         style={styles.container}
@@ -222,9 +237,11 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           />
         }
       >
-        <Text style={styles.karmaExplanationText}>
-          Todos ganan BeauTokens (ℬ) cada día solo por ser parte de la comunidad, y pueden apostarlos en los mercados de predicción de Beaumarket.
-        </Text>
+        <View style={styles.infoRow}>
+          <TouchableOpacity style={styles.infoButtonInline} activeOpacity={0.7} onPress={() => setInfoVisible(true)}>
+            <Feather name="info" size={16} color={theme.colors.text} />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.sectionContainer}>
           {beautokensUsers.length === 0 ? (
@@ -276,6 +293,14 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           )}
         </View>
       </ScrollView>
+
+      <InfoModal
+        visible={infoVisible}
+        title={LADDER_INFO.beautokens.title}
+        sections={LADDER_INFO.beautokens.sections}
+        onClose={() => setInfoVisible(false)}
+      />
+      </>
     );
   }
 
@@ -298,7 +323,10 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     return inRed || inBlue;
   });
 
+  const ladderInfo = LADDER_INFO[sportGroupInfo.group.groupSlug];
+
   return (
+    <>
     <ScrollView
       ref={scrollViewRef}
       style={styles.container}
@@ -312,27 +340,39 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         />
       }
     >
-      {/* Header Controls Row: Selector de Categorías & Botón Arbitrar en la misma fila */}
+      {/* Header Controls Row: Selector de Categorías & Botón Arbitrar en la misma fila.
+          El selector va envuelto en un contenedor flex:1 SIEMPRE presente (aunque el
+          carrusel en sí no renderice nada cuando el ladder tiene una sola categoría) —
+          así el grupo de la derecha (info + arbitrar) siempre queda empujado al margen
+          derecho, en vez de quedar pegado a la izquierda cuando falta el carrusel. */}
       <View style={styles.headerControlRow}>
-        <CategoryCarousel
-          categories={sportGroupInfo.group.categories}
-          activeCategoryId={activeCategory.id}
-          onSelectCategory={handleCategorySelect}
-        />
+        <View style={styles.categoryCarouselWrap}>
+          <CategoryCarousel
+            categories={sportGroupInfo.group.categories}
+            activeCategoryId={activeCategory.id}
+            onSelectCategory={handleCategorySelect}
+          />
+        </View>
 
-        <TouchableOpacity
-          style={styles.arbitrateButtonInline}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('LadderMatchArbitrator', {
-            slug: activeCategory.slug,
-            mode: activeCategory.id,
-            initialMode: activeCategory.id,
-            name: sportGroupInfo.group.groupName
-          })}
-        >
-          <Feather name="play-circle" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
-          <Text style={styles.arbitrateButtonText}>Arbitrar</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRightGroup}>
+          <TouchableOpacity style={styles.infoButtonInline} activeOpacity={0.7} onPress={() => setInfoVisible(true)}>
+            <Feather name="info" size={16} color={theme.colors.text} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.arbitrateButtonInline}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('LadderMatchArbitrator', {
+              slug: activeCategory.slug,
+              mode: activeCategory.id,
+              initialMode: activeCategory.id,
+              name: sportGroupInfo.group.groupName
+            })}
+          >
+            <Feather name="play-circle" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
+            <Text style={styles.arbitrateButtonText}>Arbitrar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Tabs Planos */}
@@ -618,6 +658,16 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       )}
     </ScrollView>
+
+    {ladderInfo && (
+      <InfoModal
+        visible={infoVisible}
+        title={ladderInfo.title}
+        sections={ladderInfo.sections}
+        onClose={() => setInfoVisible(false)}
+      />
+    )}
+    </>
   );
 };
 
@@ -638,9 +688,37 @@ const styles = StyleSheet.create({
   headerControlRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: theme.spacing.md,
     gap: 8,
+  },
+  // Contenedor SIEMPRE presente (aunque CategoryCarousel no renderice nada con una sola
+  // categoría) — con flex:1 se lleva el espacio sobrante y empuja headerRightGroup al
+  // margen derecho de forma consistente, sin depender de que el carrusel tenga contenido.
+  // alignItems:'flex-start' es clave: sin esto, el propio `container` de CategoryCarousel
+  // (que tiene alignItems/justifyContent:'center') se estira a todo el ancho del flex:1 y
+  // termina centrando el switch en vez de dejarlo pegado a la izquierda como estaba antes.
+  categoryCarouselWrap: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  headerRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoButtonInline: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: theme.spacing.sm,
   },
   arbitrateButtonInline: {
     backgroundColor: theme.colors.cardBg,
@@ -939,12 +1017,6 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: 12,
     padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  karmaExplanationText: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    lineHeight: 19,
     marginBottom: theme.spacing.md,
   },
   karmaScoreBadge: {

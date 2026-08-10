@@ -31,7 +31,7 @@ onRecordCreateRequest((e) => {
             e.record.set("replyTo", "");
             e.record.set("root", "");
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : "posts")));
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : (targetType === "beaumarket" ? "beaumarkets" : (targetType === "beaudle" ? "beaudle_daily_stats" : "posts")))));
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const targetTags = targetRecord.get("tags") || [];
                 e.record.set("tags", targetTags);
@@ -46,7 +46,7 @@ onRecordCreateRequest((e) => {
         // Incrementar síncronamente antes de e.next() para evitar condiciones de carrera entre la respuesta API y las peticiones GET posteriores
         if (actionType === "quote" && targetId && targetType) {
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : "posts")));
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : (targetType === "beaumarket" ? "beaumarkets" : (targetType === "beaudle" ? "beaudle_daily_stats" : "posts")))));
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const currentQuotes = targetRecord.getInt("quoteCount") || 0;
                 targetRecord.set("quoteCount", currentQuotes + 1);
@@ -56,7 +56,7 @@ onRecordCreateRequest((e) => {
             }
         } else if (actionType === "comment" && targetId && targetType) {
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : "posts")));
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : (targetType === "beaumarket" ? "beaumarkets" : (targetType === "beaudle" ? "beaudle_daily_stats" : "posts")))));
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const currentCount = targetRecord.getInt("commentCount") || 0;
                 targetRecord.set("commentCount", currentCount + 1);
@@ -106,7 +106,7 @@ onRecordDeleteRequest((e) => {
         // Decrementar quoteCount si se elimina una cita
         if (actionType === "quote" && targetId && targetType) {
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : "posts")));
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : (targetType === "beaumarket" ? "beaumarkets" : (targetType === "beaudle" ? "beaudle_daily_stats" : "posts")))));
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const currentQuotes = targetRecord.getInt("quoteCount") || 0;
                 const newQuotes = Math.max(0, currentQuotes - 1);
@@ -117,7 +117,7 @@ onRecordDeleteRequest((e) => {
             }
         } else if (actionType === "comment" && targetId && targetType) {
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : "posts")));
+                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : (targetType === "beaumarket" ? "beaumarkets" : (targetType === "beaudle" ? "beaudle_daily_stats" : "posts")))));
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const currentCount = targetRecord.getInt("commentCount") || 0;
                 const newCount = Math.max(0, currentCount - 1);

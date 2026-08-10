@@ -13,6 +13,23 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.xs,
+    backgroundColor: theme.colors.background,
+  },
+  infoButtonInline: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   tabHeader: {
     flexDirection: 'row',
     borderBottomWidth: 1,

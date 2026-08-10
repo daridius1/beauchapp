@@ -11,6 +11,8 @@ import { PostDetailScreen } from './src/screens/PostDetailScreen';
 import { DirectoryScreen } from './src/screens/DirectoryScreen';
 import { ProfilesListScreen } from './src/screens/ProfilesListScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { EditProfileScreen } from './src/screens/EditProfileScreen';
+import { BlockedUsersScreen } from './src/screens/BlockedUsersScreen';
 import { Header } from './src/components/Header';
 import { Sidebar } from './src/components/Sidebar';
 import { theme } from './src/theme/theme';
@@ -254,6 +256,8 @@ function AppContent() {
       case 'Bands': return 'Bandas';
       case 'Beauchapps': return 'Beauchapps';
       case 'Settings': return 'Ajustes';
+      case 'EditProfile': return 'Editar Datos';
+      case 'BlockedUsers': return 'Usuarios Bloqueados';
       case 'Directory': return 'Perfiles';
       case 'Students': return 'Personas';
       case 'FollowList': {
@@ -273,7 +277,7 @@ function AppContent() {
       case 'MarketplaceItemDetail': return 'Producto';
       case 'SellerProfile': return 'Perfil de Vendedor';
       case 'SellerProfileEditor': return 'Editar Perfil de Vendedor';
-      case 'MarketplaceItemEditor': return 'Publicar Producto';
+      case 'MarketplaceItemEditor': return params?.itemId ? 'Editar Producto' : 'Publicar Producto';
       case 'Activities': return 'Actividades';
       case 'ActivityDetail': return 'Actividad';
       case 'ActivityEditor': return 'Nueva Actividad';
@@ -472,6 +476,8 @@ function AppContent() {
                       <Stack.Screen name="CourseDetail" component={CourseDetailScreen} />
                       <Stack.Screen name="ProfessorDetail" component={ProfessorDetailScreen} />
                       <Stack.Screen name="Settings" component={SettingsScreen} />
+                      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+                      <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
                       <Stack.Screen name="Info" component={InfoScreen} />
                       <Stack.Screen name="InstallApp" component={InstallAppScreen} />
                       <Stack.Screen name="Beaudle" component={BeaudleScreen} />

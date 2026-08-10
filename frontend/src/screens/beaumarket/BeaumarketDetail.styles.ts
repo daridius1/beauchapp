@@ -31,11 +31,40 @@ export const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: theme.colors.border,
-    marginVertical: theme.spacing.md,
+    marginVertical: theme.spacing.lg,
   },
   errorText: {
     color: theme.colors.error,
     fontSize: 13,
     marginBottom: theme.spacing.sm,
+  },
+  commentsSection: {
+    marginTop: 0,
+  },
+  commentsHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  sectionTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  quoteHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161616',
+    borderWidth: 1,
+    borderColor: '#333333',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  quoteHeaderBtnText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

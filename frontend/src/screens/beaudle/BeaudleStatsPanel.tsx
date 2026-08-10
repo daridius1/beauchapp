@@ -27,6 +27,8 @@ export function BeaudleStatsPanel({ stats, ownBucket }: BeaudleStatsPanelProps) 
         </View>
       </View>
 
+      <View style={styles.distDivider} />
+
       <Text style={styles.distTitle}>Distribución de intentos</Text>
       {BUCKETS.map((bucket) => {
         const count = dist[bucket] || 0;
@@ -72,8 +74,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
+  distDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginBottom: theme.spacing.md,
+  },
   distTitle: {
-    color: theme.colors.textMuted,
+    color: theme.colors.text,
     fontSize: 12,
     fontWeight: '700',
     marginBottom: theme.spacing.sm,
@@ -104,7 +111,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   distBarOwn: {
-    backgroundColor: '#22c55e',
+    backgroundColor: '#15803d',
   },
   distBarText: {
     color: theme.colors.text,

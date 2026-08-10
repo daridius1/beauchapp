@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, RefreshControl, DeviceEventEmitter, TouchableOpacity } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { Feather } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { Feather, FontAwesome } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
+import { useAuth } from '../context/AuthContext';
+import { pb } from '../services/pocketbase';
 import { beaudleService, BeaudleGameState } from '../services/beaudleService';
 import { BeaudlePlace } from './beaudle/places';
 import { PlaceSelector } from './beaudle/PlaceSelector';
@@ -10,10 +12,14 @@ import { GuessRow, GuessRowHeader } from './beaudle/GuessRow';
 import { BeaudleStatsPanel } from './beaudle/BeaudleStatsPanel';
 import { BeaudleSuccessModal } from './beaudle/BeaudleSuccessModal';
 import { BeaudleInfoModal } from './beaudle/BeaudleInfoModal';
+import { EntityCommentBox } from '../components/EntityCommentBox';
+import { PostCard } from '../components/PostCard';
 import { styles } from './beaudle/BeaudleScreen.styles';
 import { withMinimumDelay } from '../utils/refresh';
 
 export const BeaudleScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
+  const { user } = useAuth();
   const [game, setGame] = useState<BeaudleGameState | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -21,12 +27,29 @@ export const BeaudleScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+
+  const loadComments = async (statsId: string) => {
+    try {
+      const res = await pb.collection('posts').getList(1, 50, {
+        filter: `targetType = "beaudle" && targetId = "${statsId}" && deleted = false`,
+        sort: 'created',
+        expand: 'author,replyTo.author',
+      });
+      setComments(res.items);
+    } catch (err) {
+      console.error('Error cargando comentarios del Beaudle de hoy:', err);
+    }
+  };
 
   const fetchToday = async (hideLoading = false) => {
     try {
       if (!hideLoading) setLoading(true);
       const data = await beaudleService.getToday();
       setGame(data);
+      if (data.status !== 'in_progress' && data.statsId) {
+        loadComments(data.statsId);
+      }
     } catch (err) {
       console.error('Error fetching Beaudle:', err);
     } finally {
@@ -66,11 +89,49 @@ export const BeaudleScreen: React.FC = () => {
       if (data.status === 'won') {
         setShowSuccessModal(true);
       }
+      if (data.status !== 'in_progress' && data.statsId) {
+        loadComments(data.statsId);
+      }
     } catch (err: any) {
       setError(err?.data?.error || err?.message || 'No se pudo registrar tu intento.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSendComment = async (content: string, photo: File | null) => {
+    if (!user || !game?.statsId) return;
+
+    const formData = new FormData();
+    formData.append('author', user.id);
+    formData.append('actionType', 'comment');
+    formData.append('targetType', 'beaudle');
+    formData.append('targetId', game.statsId);
+    formData.append('content', content || ' ');
+
+    if (photo) {
+      formData.append('photo', photo);
+    }
+
+    await pb.collection('posts').create(formData);
+    await loadComments(game.statsId);
+  };
+
+  const handleQuoteBeaudle = () => {
+    if (!game?.statsId) return;
+    // Sin spoilers: nunca el lugar/código secreto, solo el resultado (ganó/perdió y en
+    // cuántos intentos) — mismos datos que ya se muestran en el panel de stats.
+    navigation.navigate('Home', {
+      quoteTargetType: 'beaudle',
+      quoteTargetId: game.statsId,
+      quoteTargetMeta: {
+        day: game.day,
+        variant: game.variant,
+        status: game.status,
+        solvedAtGuess: game.solvedAtGuess,
+        maxGuesses: game.maxGuesses,
+      },
+    });
   };
 
   if (loading) {
@@ -144,6 +205,44 @@ export const BeaudleScreen: React.FC = () => {
       ))}
 
       {!isInProgress && <BeaudleStatsPanel stats={game.stats} ownBucket={ownBucket} />}
+
+      {/* Comentarios y citas — solo una vez terminado el Beaudle de hoy, sin spoilers */}
+      {!isInProgress && game.statsId && (
+        <>
+          <View style={styles.divider} />
+          <View style={styles.commentsHeaderRow}>
+            <Text style={styles.sectionTitle}>Comentarios ({comments.length})</Text>
+            <TouchableOpacity
+              style={styles.quoteHeaderBtn}
+              activeOpacity={0.7}
+              onPress={handleQuoteBeaudle}
+            >
+              <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
+              <Text style={styles.quoteHeaderBtnText}>Citar</Text>
+            </TouchableOpacity>
+          </View>
+
+          {user && (
+            <EntityCommentBox
+              onSendComment={handleSendComment}
+              placeholder="Comenta sobre el Beaudle de hoy..."
+              style={{ marginHorizontal: -theme.spacing.md }}
+            />
+          )}
+
+          {comments.map((comment) => (
+            <View key={comment.id} style={{ marginHorizontal: -theme.spacing.md }}>
+              <PostCard
+                post={comment}
+                currentUser={user}
+                hideTargetContext={true}
+                onPress={() => navigation.push('PostDetail', { postId: comment.id })}
+                onAuthorPress={() => navigation.navigate('UserProfile', { userId: comment.author })}
+              />
+            </View>
+          ))}
+        </>
+      )}
 
       <BeaudleSuccessModal
         visible={showSuccessModal}

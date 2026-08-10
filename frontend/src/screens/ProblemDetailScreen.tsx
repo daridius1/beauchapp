@@ -770,12 +770,12 @@ export const ProblemDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 )}
               </View>
             ) : (
-              answers.map(ans => {
+              answers.map((ans, ansIdx) => {
                 const ansAuthor = ans.expand?.author;
                 return (
-                  <TouchableOpacity 
-                    key={ans.id} 
-                    style={styles.answerCard}
+                  <TouchableOpacity
+                    key={ans.id}
+                    style={[styles.answerCard, ansIdx === answers.length - 1 && styles.answerCardLast]}
                     activeOpacity={0.8}
                     onPress={() => navigation.push('ProblemDetail', { problemId: ans.id, type: 'solution' })}
                   >
@@ -1150,6 +1150,9 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+  },
+  answerCardLast: {
+    borderBottomWidth: 0,
   },
   answerHeader: {
     flexDirection: 'row',

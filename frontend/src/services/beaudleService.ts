@@ -31,6 +31,11 @@ export interface BeaudleGameState {
   guessesRemaining: number;
   revealedPlace: BeaudlePlace | null;
   stats: BeaudleStats;
+  // ID de beaudle_daily_stats (compartido por todos los jugadores del día/variante) — es
+  // el "targetId" del hilo de comentarios/citas de hoy, nunca el ID privado de la partida
+  // de cada usuario.
+  statsId: string | null;
+  solvedAtGuess: number | null;
 }
 
 export const beaudleService = {

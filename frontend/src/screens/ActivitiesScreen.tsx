@@ -7,6 +7,7 @@ import { ActivityRecord, activityService } from '../services/activityService';
 import { ActivityCard } from '../components/ActivityCard';
 import { ActivityOverlapGrid } from '../components/ActivityOverlapGrid';
 import { withMinimumDelay } from '../utils/refresh';
+import { toLocalDateStr } from '../utils/date';
 
 export const ActivitiesScreen = ({ navigation }: any) => {
   const { user } = useAuth();
@@ -17,7 +18,7 @@ export const ActivitiesScreen = ({ navigation }: any) => {
   const [activities, setActivities] = useState<ActivityRecord[]>([]);
 
   // Fecha seleccionada en el calendario (Formato YYYY-MM-DD)
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalDateStr(new Date());
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
 
   // Offset de semanas (0 = semana actual que inicia HOY, 1 = semana siguiente, -1 = semana anterior)
@@ -33,7 +34,7 @@ export const ActivitiesScreen = ({ navigation }: any) => {
     for (let i = 0; i < 7; i++) {
       const d = new Date(startDate);
       d.setDate(startDate.getDate() + i);
-      const iso = d.toISOString().split('T')[0];
+      const iso = toLocalDateStr(d);
       const dayName = d.toLocaleDateString('es-CL', { weekday: 'short' });
       const dayNum = d.getDate();
       const monthName = d.toLocaleDateString('es-CL', { month: 'long' });
@@ -63,7 +64,7 @@ export const ActivitiesScreen = ({ navigation }: any) => {
     const base = new Date();
     const startDate = new Date(base);
     startDate.setDate(base.getDate() + newOffset * 7);
-    setSelectedDate(startDate.toISOString().split('T')[0]);
+    setSelectedDate(toLocalDateStr(startDate));
   };
 
   const handleNextWeek = () => {
@@ -72,7 +73,7 @@ export const ActivitiesScreen = ({ navigation }: any) => {
     const base = new Date();
     const startDate = new Date(base);
     startDate.setDate(base.getDate() + newOffset * 7);
-    setSelectedDate(startDate.toISOString().split('T')[0]);
+    setSelectedDate(toLocalDateStr(startDate));
   };
 
   const fetchActivities = async (hideLoading = false) => {

@@ -51,6 +51,8 @@ export const LegendRow: React.FC<LegendRowProps> = ({
           {isWinner && <Feather name="check-circle" size={13} color={WINNER_COLOR} style={styles.winnerIcon} />}
         </View>
         <Text style={[styles.value, { color }]}>{valueText}</Text>
+        {/* Sin reservar espacio cuando no es interactivo — el label (flex:1) absorbe el
+            ancho libre y el valor se corre hasta donde estaba el chevron. */}
         {interactive && <Feather name="chevron-right" size={16} color={theme.colors.textMuted} style={styles.chevron} />}
       </View>
 

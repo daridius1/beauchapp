@@ -20,6 +20,7 @@ interface TinderDiscoverCardProps {
   discoverCount: number;
   setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
   onToggleLike: () => void;
+  onInfoPress: () => void;
 }
 
 export const TinderDiscoverCard: React.FC<TinderDiscoverCardProps> = ({
@@ -36,6 +37,7 @@ export const TinderDiscoverCard: React.FC<TinderDiscoverCardProps> = ({
   discoverCount,
   setCurrentIndex,
   onToggleLike,
+  onInfoPress,
 }) => {
   // Al entrar a un perfil solo se pinta la foto activa (índice 0), pero el resto quedan sin
   // pedir hasta que se navega a ellas manualmente, generando un salto de carga en cada tap.
@@ -101,13 +103,19 @@ export const TinderDiscoverCard: React.FC<TinderDiscoverCardProps> = ({
 
           {/* Profile Card details */}
           <View style={styles.cardDetails}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => activeDiscoverUser?.id && navigation.navigate('UserProfile', { userId: activeDiscoverUser.id })}
-              style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}
-            >
-              <Text style={styles.cardName}>{activeDiscoverUser?.name || 'Usuario'}</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => activeDiscoverUser?.id && navigation.navigate('UserProfile', { userId: activeDiscoverUser.id })}
+                style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, flex: 1 }}
+              >
+                <Text style={styles.cardName}>{activeDiscoverUser?.name || 'Usuario'}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.infoButtonInline} activeOpacity={0.7} onPress={onInfoPress}>
+                <Feather name="info" size={16} color="#a3a3a3" />
+              </TouchableOpacity>
+            </View>
 
             {!!activeDiscoverUser?.username && (
               <TouchableOpacity
@@ -129,6 +137,11 @@ export const TinderDiscoverCard: React.FC<TinderDiscoverCardProps> = ({
                   sellerProfile={userSellerProfilesMap[activeDiscoverUser.id]}
                   align="left"
                   onOrgPress={(orgId) => navigation.navigate('UserProfile', { userId: orgId })}
+                  onSellerPress={(sellerProfileId) => navigation.navigate('SellerProfile', { sellerProfileId })}
+                  onLadderPress={(sportSlug, mode) => {
+                    const targetSlug = mode ? `${sportSlug}-${mode}` : sportSlug;
+                    navigation.navigate('LadderDetail', { slug: targetSlug });
+                  }}
                 />
               </View>
             )}

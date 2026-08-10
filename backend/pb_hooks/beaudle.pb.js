@@ -57,6 +57,7 @@ routerAdd("GET", "/api/beaudle/today", (e) => {
             return e.json(200, {
                 day, variant, maxGuesses: MAX_GUESSES, status: "in_progress",
                 guesses: [], guessesRemaining: MAX_GUESSES, revealedPlace: null, stats: statsJson,
+                statsId: stats ? stats.id : null, solvedAtGuess: null,
             });
         }
 
@@ -70,6 +71,7 @@ routerAdd("GET", "/api/beaudle/today", (e) => {
         return e.json(200, {
             day, variant, maxGuesses: MAX_GUESSES, status, guesses,
             guessesRemaining: MAX_GUESSES - guesses.length, revealedPlace, stats: statsJson,
+            statsId: stats ? stats.id : null, solvedAtGuess: game.getInt("solvedAtGuess") || null,
         });
     } catch (err) {
         console.error("[beaudle.pb.js] Error en GET /api/beaudle/today:", err);
@@ -202,6 +204,7 @@ routerAdd("POST", "/api/beaudle/guess", (e) => {
                 solvedCount: stats.getInt("solved_count"),
                 guessDistribution: JSON.parse(stats.getString("guess_distribution") || "{}"),
             },
+            statsId: stats.id, solvedAtGuess: game.getInt("solvedAtGuess") || null,
         });
     } catch (err) {
         console.error("[beaudle.pb.js] Error en POST /api/beaudle/guess:", err);

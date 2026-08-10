@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { activityService } from '../services/activityService';
 import { ImagePicker } from '../components/ImagePicker';
 import { DateTimePickerModal } from '../components/DateTimePickerModal';
+import { toLocalDateStr } from '../utils/date';
 
 const CATEGORIES = [
   'Académico',
@@ -23,7 +24,7 @@ export const ActivityEditorScreen = ({ navigation }: any) => {
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalDateStr(new Date());
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');

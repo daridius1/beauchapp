@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { theme } from '../theme/theme';
 import { ImagePicker } from './ImagePicker';
+import { MentionTextInput } from './MentionTextInput';
 
 export interface EntityCommentBoxProps {
   onSendComment: (content: string, photo: File | null) => Promise<void>;
@@ -60,7 +61,7 @@ export const EntityCommentBox: React.FC<EntityCommentBoxProps> = ({
       )}
 
       <View style={styles.inputContainer}>
-        <TextInput
+        <MentionTextInput
           style={styles.input}
           placeholder={placeholder}
           placeholderTextColor={theme.colors.textMuted}

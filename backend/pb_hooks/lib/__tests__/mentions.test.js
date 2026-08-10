@@ -42,6 +42,14 @@ test('acepta usernames con guiones y guiones bajos', () => {
     assert.deepEqual(parseMentions('@juan_perez y @maria-jose'), ['juan_perez', 'maria-jose']);
 });
 
+test('acepta usernames con punto (derivados de correo institucional nombre.apellido)', () => {
+    assert.deepEqual(parseMentions('Hola @juan.perez, ¿viste esto?'), ['juan.perez']);
+});
+
+test('no incluye el punto de fin de oración como parte del username', () => {
+    assert.deepEqual(parseMentions('Gracias @juan.perez.'), ['juan.perez']);
+});
+
 test('username de exactamente 20 caracteres sí matchea', () => {
     const username20 = 'a'.repeat(20);
     assert.deepEqual(parseMentions(`@${username20} hola`), [username20]);

@@ -13,6 +13,8 @@ export type RootStackParamList = {
   VerifyEmail: undefined;
   ResetPassword: undefined;
   Settings: undefined;
+  EditProfile: undefined;
+  BlockedUsers: undefined;
   Directory: undefined;
   Beauchapps: undefined;
   Students: undefined;

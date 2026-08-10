@@ -11,6 +11,7 @@ import { theme } from '../theme/theme';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
 import { TargetPreview } from '../components/TargetPreview';
+import { MentionTextInput } from '../components/MentionTextInput';
 import { withMinimumDelay } from '../utils/refresh';
 import Toast from 'react-native-toast-message';
 
@@ -362,6 +363,10 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       navigation.push('SellerProfile', { sellerProfileId: targetId });
     } else if (targetType === 'course') {
       navigation.push('CourseDetail', { courseId: targetId });
+    } else if (targetType === 'beaumarket') {
+      navigation.push('BeaumarketDetail', { marketId: targetId });
+    } else if (targetType === 'beaudle') {
+      navigation.push('Beaudle');
     }
   };
 
@@ -495,7 +500,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={{ marginRight: theme.spacing.sm }}>
                 <Avatar user={user} size={40} />
               </View>
-              <TextInput
+              <MentionTextInput
                 style={styles.composeInput}
                 placeholder="¿Qué está pasando?"
                 placeholderTextColor={theme.colors.textMuted}

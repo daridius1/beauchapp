@@ -1,19 +1,23 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, RefreshControl, DeviceEventEmitter } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, DeviceEventEmitter, TouchableOpacity } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
+import { pb } from '../services/pocketbase';
 import { beaumarketService, BeaumarketMarket } from '../services/beaumarketService';
 import { withMinimumDelay } from '../utils/refresh';
 import { RootStackParamList } from '../types/navigation';
 import { OddsChart } from './beaumarket/OddsChart';
 import { TradeModal } from './beaumarket/TradeModal';
+import { EntityCommentBox } from '../components/EntityCommentBox';
+import { PostCard } from '../components/PostCard';
 import { styles } from './beaumarket/BeaumarketDetail.styles';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BeaumarketDetail'>;
 
-export const BeaumarketDetailScreen: React.FC<Props> = ({ route }) => {
+export const BeaumarketDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { marketId } = route.params;
   const { user, refreshUser } = useAuth();
 
@@ -23,18 +27,60 @@ export const BeaumarketDetailScreen: React.FC<Props> = ({ route }) => {
   const [tradeOutcome, setTradeOutcome] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
 
   const fetchMarket = async (hideLoading = false) => {
     try {
       if (!hideLoading) setLoading(true);
-      const [detail] = await Promise.all([beaumarketService.getMarketDetail(marketId), refreshUser()]);
+      const [detail, , commentsResult] = await Promise.all([
+        beaumarketService.getMarketDetail(marketId),
+        refreshUser(),
+        pb.collection('posts').getList(1, 50, {
+          filter: `targetType = "beaumarket" && targetId = "${marketId}" && deleted = false`,
+          sort: 'created',
+          expand: 'author,replyTo.author',
+        }),
+      ]);
       setMarket(detail);
+      setComments(commentsResult.items);
     } catch (err) {
       console.error('Error fetching Beaumarket market:', err);
     } finally {
       if (!hideLoading) setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const handleSendComment = async (content: string, photo: File | null) => {
+    if (!user || !market) return;
+
+    const formData = new FormData();
+    formData.append('author', user.id);
+    formData.append('actionType', 'comment');
+    formData.append('targetType', 'beaumarket');
+    formData.append('targetId', market.id);
+    formData.append('content', content || ' ');
+
+    if (photo) {
+      formData.append('photo', photo);
+    }
+
+    await pb.collection('posts').create(formData);
+    await fetchMarket(true);
+  };
+
+  const handleQuoteMarket = () => {
+    if (!market) return;
+    navigation.navigate('Home', {
+      quoteTargetType: 'beaumarket',
+      quoteTargetId: market.id,
+      quoteTargetMeta: {
+        title: market.title,
+        status: market.status,
+        outcomes: market.outcomes,
+        prices: market.prices,
+      },
+    });
   };
 
   useFocusEffect(
@@ -162,6 +208,41 @@ export const BeaumarketDetailScreen: React.FC<Props> = ({ route }) => {
         onSell={handleSell}
         onClose={closeTradeModal}
       />
+
+      <View style={styles.divider} />
+
+      <View style={styles.commentsSection}>
+        <View style={styles.commentsHeaderRow}>
+          <Text style={styles.sectionTitle}>Comentarios ({comments.length})</Text>
+
+          <TouchableOpacity
+            style={styles.quoteHeaderBtn}
+            activeOpacity={0.7}
+            onPress={handleQuoteMarket}
+          >
+            <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
+            <Text style={styles.quoteHeaderBtnText}>Citar</Text>
+          </TouchableOpacity>
+        </View>
+
+        <EntityCommentBox
+          onSendComment={handleSendComment}
+          placeholder="Pregunta o comenta sobre este mercado..."
+          style={{ marginHorizontal: -theme.spacing.md }}
+        />
+
+        {comments.map((comment) => (
+          <View key={comment.id} style={{ marginHorizontal: -theme.spacing.md }}>
+            <PostCard
+              post={comment}
+              currentUser={user}
+              hideTargetContext={true}
+              onPress={() => navigation.push('PostDetail', { postId: comment.id })}
+              onAuthorPress={() => navigation.navigate('UserProfile', { userId: comment.author })}
+            />
+          </View>
+        ))}
+      </View>
     </ScrollView>
   );
 };

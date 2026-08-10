@@ -34,14 +34,39 @@ import { TinderDiscoverCard } from './tinder/TinderDiscoverCard';
 import { TinderMatchModal } from './tinder/TinderMatchModal';
 import { TinderMatchDetailModal } from './tinder/TinderMatchDetailModal';
 import { TinderUnmatchConfirmModal } from './tinder/TinderUnmatchConfirmModal';
+import { TINDER_INFO_SECTIONS } from './tinder/tinderInfo';
+import { InfoModal } from '../components/InfoModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Tinder'>;
+
+// Mismo aviso para "Descubrir" y "Matches" cuando el perfil está desactivado — antes
+// tenían textos ligeramente distintos y solo "Descubrir" tenía el botón de configurar.
+function TinderInactiveNotice({ onConfigurePress, onInfoPress }: { onConfigurePress: () => void; onInfoPress: () => void }) {
+  return (
+    <View style={styles.emptyDiscoverBox}>
+      <FontAwesome name="heart-o" size={44} color="#525252" style={{ marginBottom: 12 }} />
+      <Text style={styles.emptyDiscoverText}>Tinder Beauchef está desactivado</Text>
+      <Text style={styles.emptyDiscoverSub}>
+        Activa tu cuenta en la pestaña "Mi Perfil" para empezar a usar esta sección.
+      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+        <TouchableOpacity style={[styles.refreshBtn, { marginTop: 0 }]} onPress={onConfigurePress}>
+          <Text style={styles.refreshBtnText}>Configurar Mi Perfil</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.infoButtonInline} activeOpacity={0.7} onPress={onInfoPress}>
+          <Feather name="info" size={16} color={theme.colors.textMuted} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
 
 export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
   const { user } = useAuth();
   
   // Tabs: discover, matches, profile
   const [activeTab, setActiveTab] = useState<'discover' | 'matches' | 'profile'>('discover');
+  const [infoVisible, setInfoVisible] = useState(false);
 
   useEffect(() => {
     if (route.params?.initialTab) {
@@ -746,17 +771,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       {activeTab === 'discover' && (
         <View style={{ flex: 1 }}>
           {!profile?.isActive ? (
-            // If inactive: show notice with button to configure profile tab
-            <View style={styles.emptyDiscoverBox}>
-              <FontAwesome name="heart-o" size={44} color="#525252" style={{ marginBottom: 12 }} />
-              <Text style={styles.emptyDiscoverText}>Tinder Beauchef está desactivado</Text>
-              <Text style={styles.emptyDiscoverSub}>
-                Activa tu cuenta en la pestaña "Mi Perfil" para empezar a ver personas de la facultad.
-              </Text>
-              <TouchableOpacity style={styles.refreshBtn} onPress={() => setActiveTab('profile')}>
-                <Text style={styles.refreshBtnText}>Configurar Mi Perfil</Text>
-              </TouchableOpacity>
-            </View>
+            <TinderInactiveNotice onConfigurePress={() => setActiveTab('profile')} onInfoPress={() => setInfoVisible(true)} />
           ) : loadingDiscover ? (
             <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
           ) : discoverProfiles.length > 0 && activeDiscoverProfile ? (
@@ -774,6 +789,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
               discoverCount={discoverProfiles.length}
               setCurrentIndex={setCurrentIndex}
               onToggleLike={handleToggleLike}
+              onInfoPress={() => setInfoVisible(true)}
             />
           ) : (
             <View style={styles.emptyDiscoverBox}>
@@ -792,11 +808,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       {activeTab === 'matches' && (
         <View style={{ flex: 1 }}>
           {!profile?.isActive ? (
-            <View style={styles.emptyDiscoverBox}>
-              <FontAwesome name="heart-o" size={44} color="#525252" style={{ marginBottom: 12 }} />
-              <Text style={styles.emptyDiscoverText}>Tinder Beauchef está desactivado</Text>
-              <Text style={styles.emptyDiscoverSub}>Activa tu cuenta en la pestaña "Mi Perfil" para ver tus matches.</Text>
-            </View>
+            <TinderInactiveNotice onConfigurePress={() => setActiveTab('profile')} onInfoPress={() => setInfoVisible(true)} />
           ) : loadingMatches ? (
             <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
           ) : matches.length > 0 ? (
@@ -860,14 +872,21 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
 
       {/* --- TAB 3: INLINE PROFILE EDITOR ("MI PERFIL") --- */}
       {activeTab === 'profile' && !profile && !loadingProfile && (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-          <Feather name="alert-circle" size={48} color={theme.colors.error} />
-          <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '700', marginTop: 12, textAlign: 'center' }}>
-            No se pudo cargar tu perfil de Tinder Beauchef
-          </Text>
-          <TouchableOpacity style={[styles.refreshBtn, { marginTop: 16 }]} onPress={fetchProfile}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Reintentar</Text>
-          </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <View style={styles.infoRow}>
+            <TouchableOpacity style={styles.infoButtonInline} activeOpacity={0.7} onPress={() => setInfoVisible(true)}>
+              <Feather name="info" size={16} color={theme.colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+            <Feather name="alert-circle" size={48} color={theme.colors.error} />
+            <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '700', marginTop: 12, textAlign: 'center' }}>
+              No se pudo cargar tu perfil de Tinder Beauchef
+            </Text>
+            <TouchableOpacity style={[styles.refreshBtn, { marginTop: 16 }]} onPress={fetchProfile}>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -876,7 +895,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
 
           {/* Guidelines box when inactive */}
           {!profile.isActive && (
-            <TinderRulesPanel savingProfile={savingProfile} onActivate={() => handleToggleActive(true)} />
+            <TinderRulesPanel savingProfile={savingProfile} onActivate={() => handleToggleActive(true)} onInfoPress={() => setInfoVisible(true)} />
           )}
 
           <View style={[styles.cardWrapper, { marginBottom: theme.spacing.lg, alignSelf: 'center' }]}>
@@ -925,7 +944,12 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
 
               <View style={styles.cardDetails}>
-                <Text style={styles.cardName}>{user?.name || 'Tu Nombre'}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={styles.cardName}>{user?.name || 'Tu Nombre'}</Text>
+                  <TouchableOpacity style={styles.infoButtonInline} activeOpacity={0.7} onPress={() => setInfoVisible(true)}>
+                    <Feather name="info" size={16} color="#a3a3a3" />
+                  </TouchableOpacity>
+                </View>
                 {!!user?.username && <Text style={styles.cardUsername}>@{user.username}</Text>}
                 
                 {user && (
@@ -936,6 +960,12 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                       ladderRanks={userLadderRanksMap[user.id] || []}
                       sellerProfile={userSellerProfilesMap[user.id]}
                       align="left"
+                      onOrgPress={(orgId) => navigation.navigate('UserProfile', { userId: orgId })}
+                      onSellerPress={(sellerProfileId) => navigation.navigate('SellerProfile', { sellerProfileId })}
+                      onLadderPress={(sportSlug, mode) => {
+                        const targetSlug = mode ? `${sportSlug}-${mode}` : sportSlug;
+                        navigation.navigate('LadderDetail', { slug: targetSlug });
+                      }}
                     />
                   </View>
                 )}
@@ -1274,6 +1304,13 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
           onConfirm={() => performUnmatch(unmatchMatchId)}
         />
       )}
+
+      <InfoModal
+        visible={infoVisible}
+        title="Tinder Beauchef"
+        sections={TINDER_INFO_SECTIONS}
+        onClose={() => setInfoVisible(false)}
+      />
     </View>
   );
 };

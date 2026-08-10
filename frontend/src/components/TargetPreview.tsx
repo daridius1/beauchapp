@@ -5,6 +5,8 @@ import { theme } from '../theme/theme';
 import { Avatar } from './Avatar';
 import { pb, getFileUrl } from '../services/pocketbase';
 
+const BEAUMARKET_STATUS_LABELS: Record<string, string> = { open: 'Abierto', closed: 'Cerrado', resolved: 'Resuelto', cancelled: 'Cancelado' };
+
 export interface TargetPreviewProps {
   targetType?: string;
   targetId?: string;
@@ -51,6 +53,9 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
           if (isMounted) setFetchedTarget(record);
         } else if (targetType === 'course') {
           const record = await pb.collection('courses').getOne(targetId);
+          if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'beaumarket') {
+          const record = await pb.collection('beaumarkets').getOne(targetId);
           if (isMounted) setFetchedTarget(record);
         }
       } catch (err) {
@@ -327,6 +332,68 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
         <View style={{ flex: 1 }}>
           <Text style={styles.problemSubtitle}>Ramo{area ? ` · ${area}` : ''}</Text>
           <Text style={styles.problemTitle} numberOfLines={2}>{nombre}{codigo ? ` (${codigo})` : ''}</Text>
+        </View>
+        <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
+      </Wrapper>
+    );
+  }
+
+  // 8. RENDERIZADO DE MERCADO DE BEAUMARKET CITADO
+  if (targetType === 'beaumarket') {
+    if (isDeleted) {
+      return (
+        <View style={styles.fallbackBox}>
+          <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.fallbackText}>Este mercado ya no está disponible.</Text>
+        </View>
+      );
+    }
+
+    const title = resolved?.title || targetMeta?.title || 'Mercado de Beaumarket';
+    const status = resolved?.status || targetMeta?.status || 'open';
+    const statusLabel = BEAUMARKET_STATUS_LABELS[status] || status;
+    const outcomes: string[] = resolved?.outcomes || targetMeta?.outcomes || [];
+    const prices: number[] | undefined = targetMeta?.prices;
+    let leadLine = '';
+    if (prices && prices.length === outcomes.length && outcomes.length > 0) {
+      const leadIndex = prices.reduce((best, p, i) => (p > prices[best] ? i : best), 0);
+      leadLine = `${outcomes[leadIndex]} liderando con ${Math.round(prices[leadIndex])}%`;
+    }
+
+    return (
+      <Wrapper {...wrapperProps} style={styles.previewCardProblem}>
+        <View style={[styles.iconBox, { backgroundColor: 'rgba(56, 189, 248, 0.1)' }]}>
+          <Feather name="bar-chart-2" size={18} color="#38bdf8" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.problemSubtitle}>Mercado de Predicción · {statusLabel}</Text>
+          <Text style={styles.problemTitle} numberOfLines={2}>{title}</Text>
+          {!!leadLine && (
+            <Text style={{ color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }}>{leadLine}</Text>
+          )}
+        </View>
+        <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
+      </Wrapper>
+    );
+  }
+
+  // 9. RENDERIZADO DE RESULTADO DE BEAUDLE CITADO (sin spoilers: nunca el lugar/código)
+  if (targetType === 'beaudle') {
+    const day = targetMeta?.day || '';
+    const maxGuesses = targetMeta?.maxGuesses || 6;
+    const solvedAtGuess = targetMeta?.solvedAtGuess;
+    const won = targetMeta?.status === 'won';
+
+    return (
+      <Wrapper {...wrapperProps} style={styles.previewCardProblem}>
+        <View style={[styles.iconBox, { backgroundColor: 'rgba(56, 189, 248, 0.1)' }]}>
+          <Feather name="grid" size={18} color="#38bdf8" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.problemSubtitle}>Beaudle{day ? ` · ${day}` : ''}</Text>
+          <Text style={styles.problemTitle} numberOfLines={1}>
+            {won ? `Resuelto en ${solvedAtGuess}/${maxGuesses} intentos` : 'No lo logró hoy'}
+          </Text>
         </View>
         <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
       </Wrapper>

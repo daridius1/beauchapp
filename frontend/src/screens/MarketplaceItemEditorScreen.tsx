@@ -16,7 +16,7 @@ import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { Feather } from '@expo/vector-icons';
-import { pb } from '../services/pocketbase';
+import { pb, getFileUrl } from '../services/pocketbase';
 import { marketplaceService, CATEGORIES, MarketplaceItemRecord } from '../services/marketplaceService';
 import { compressImage } from '../utils/imageCompressor';
 import { SelectorModal } from '../components/SelectorModal';
@@ -26,6 +26,11 @@ type Props = NativeStackScreenProps<RootStackParamList, 'MarketplaceItemEditor'>
 
 export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
   const { user: currentUser } = useAuth();
+  const itemId = route.params?.itemId;
+  const isEditMode = !!itemId;
+
+  const [loadingItem, setLoadingItem] = useState(isEditMode);
+  const [editingItem, setEditingItem] = useState<MarketplaceItemRecord | null>(null);
 
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
@@ -37,12 +42,41 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
   const [showTagModal, setShowTagModal] = useState(false);
   const [tagSuggestions, setTagSuggestions] = useState<string[]>(['vegano', 'apuntes', 'calculo', 'brownies', 'tallaM', 'usado', 'nuevo', 'oficial']);
 
+  // Fotos ya guardadas en el producto (solo en modo edición) — se pueden quitar pero no
+  // se re-suben; "selectedFiles"/"previews" son solo las fotos nuevas a agregar.
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [compressing, setCompressing] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Precargar los datos del producto a editar
+  useEffect(() => {
+    if (!itemId) return;
+    const loadItem = async () => {
+      setLoadingItem(true);
+      try {
+        const item = await marketplaceService.getItemDetail(itemId);
+        if (item) {
+          setEditingItem(item);
+          setTitle(item.title || '');
+          setPrice(String(item.price ?? ''));
+          setCategory(item.category || 'comida');
+          setDescription(item.description || '');
+          setTags(item.tags || []);
+          setExistingImages(item.images || []);
+        }
+      } catch (err) {
+        console.error('Error loading marketplace item to edit:', err);
+      } finally {
+        setLoadingItem(false);
+      }
+    };
+    loadItem();
+  }, [itemId]);
 
   // Cargar etiquetas existentes en la base de datos para recomendarlas
   useEffect(() => {
@@ -84,7 +118,7 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    if (selectedFiles.length + files.length > 5) {
+    if (existingImages.length + selectedFiles.length + files.length > 5) {
       Toast.show({
         type: 'error',
         text1: 'Límite de fotos',
@@ -132,6 +166,11 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
     setPreviews(updatedPreviews);
   };
 
+  const handleRemoveExistingImage = (filename: string) => {
+    setExistingImages(existingImages.filter((f) => f !== filename));
+    setRemovedImages([...removedImages, filename]);
+  };
+
   const handlePublish = async () => {
     if (!currentUser) {
       Toast.show({
@@ -160,6 +199,30 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
 
     setPublishing(true);
     try {
+      if (isEditMode && itemId) {
+        const updatedItem = await marketplaceService.updateItem(
+          itemId,
+          {
+            title: title.trim(),
+            description: description.trim(),
+            price: priceNum,
+            category,
+            tags,
+          },
+          selectedFiles,
+          removedImages
+        );
+
+        Toast.show({
+          type: 'success',
+          text1: '¡Producto Actualizado!',
+          text2: `Los cambios en ${updatedItem.title} ya están guardados.`,
+        });
+
+        navigation.replace('MarketplaceItemDetail', { itemId: updatedItem.id });
+        return;
+      }
+
       const newItem = await marketplaceService.createItem(
         {
           title: title.trim(),
@@ -184,16 +247,26 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
         navigation.navigate('Marketplace');
       }
     } catch (err: any) {
-      console.error('Error creating marketplace item:', err);
+      console.error('Error saving marketplace item:', err);
       Toast.show({
         type: 'error',
-        text1: 'Error al publicar',
-        text2: err.message || 'No se pudo publicar el producto.',
+        text1: isEditMode ? 'Error al guardar' : 'Error al publicar',
+        text2: err.message || (isEditMode ? 'No se pudieron guardar los cambios.' : 'No se pudo publicar el producto.'),
       });
     } finally {
       setPublishing(false);
     }
   };
+
+  if (loadingItem) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  const totalPhotoCount = existingImages.length + previews.length;
 
   return (
     <KeyboardAvoidingView
@@ -208,6 +281,15 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
             <Text style={styles.inputLabel}>Fotos del producto (hasta 5)</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
               <View style={styles.imagesRow}>
+                {editingItem && existingImages.map((filename) => (
+                  <View key={filename} style={styles.imagePreviewContainer}>
+                    <Image source={{ uri: getFileUrl(editingItem, filename, '200x200') }} style={styles.previewImage} />
+                    <TouchableOpacity style={styles.removeImageBtn} onPress={() => handleRemoveExistingImage(filename)}>
+                      <Feather name="x" size={12} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
                 {previews.map((uri, idx) => (
                   <View key={idx} style={styles.imagePreviewContainer}>
                     <Image source={{ uri }} style={styles.previewImage} />
@@ -217,7 +299,7 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
                   </View>
                 ))}
 
-                {previews.length < 5 && (
+                {totalPhotoCount < 5 && (
                   <TouchableOpacity
                     style={styles.addImageBtn}
                     onPress={() => fileInputRef.current?.click()}
@@ -338,7 +420,7 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
             {publishing ? (
               <ActivityIndicator color="#000000" size="small" />
             ) : (
-              <Text style={styles.publishBtnText}>Publicar Producto</Text>
+              <Text style={styles.publishBtnText}>{isEditMode ? 'Guardar Cambios' : 'Publicar Producto'}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -383,6 +465,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollContent: {
     padding: theme.spacing.lg,

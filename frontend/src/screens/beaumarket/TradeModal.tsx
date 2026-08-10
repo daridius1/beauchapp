@@ -105,7 +105,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
         <TouchableOpacity activeOpacity={1} style={styles.card}>
           <View style={styles.iconContainer}>
-            <Feather name="repeat" size={22} color="#ffffff" />
+            <Feather name={mode === 'buy' ? 'trending-up' : 'trending-down'} size={22} color="#ffffff" />
           </View>
 
           <Text style={styles.title}>"{displayLabel}"</Text>
@@ -140,16 +140,32 @@ export const TradeModal: React.FC<TradeModalProps> = ({
             autoFocus
           />
 
-          {mode === 'buy' && buyPreview && buyPreview.shares > 0 && (
-            <Text style={styles.hint}>
-              ≈ {buyPreview.shares} acciones · precio pasaría a {buyPreview.priceAfterPct.toFixed(1)}%
-            </Text>
-          )}
-          {mode === 'sell' && sellPreview && (
-            <Text style={styles.hint}>
-              ≈ recibirías {sellPreview.proceeds} ℬ · precio pasaría a {sellPreview.priceAfterPct.toFixed(1)}%
-            </Text>
-          )}
+          {/* Caja de resultado, no editable, siempre debajo del input (nunca al lado) —
+              muestra la previsualización de la operación: acciones que se ganan al
+              comprar, o puntos que se recuperan al vender. El % a la derecha es el precio
+              después de la operación, en gris para diferenciarlo del valor principal, sin
+              texto adicional. */}
+          <View style={styles.resultBox}>
+            {mode === 'buy' ? (
+              buyPreview && buyPreview.shares > 0 ? (
+                <View style={styles.resultBoxRow}>
+                  <Text style={styles.resultBoxValue}>≈ {buyPreview.shares} acciones</Text>
+                  <Text style={styles.resultBoxPercent}>{buyPreview.priceAfterPct.toFixed(1)}%</Text>
+                </View>
+              ) : (
+                <Text style={styles.resultBoxPlaceholder}>Ingresa un monto</Text>
+              )
+            ) : (
+              sellPreview ? (
+                <View style={styles.resultBoxRow}>
+                  <Text style={styles.resultBoxValue}>≈ recibirías {sellPreview.proceeds} ℬ</Text>
+                  <Text style={styles.resultBoxPercent}>{sellPreview.priceAfterPct.toFixed(1)}%</Text>
+                </View>
+              ) : (
+                <Text style={styles.resultBoxPlaceholder}>Ingresa una cantidad</Text>
+              )
+            )}
+          </View>
 
           <Text style={styles.hint}>
             {mode === 'buy' ? `Tienes ${balance} ℬ disponibles.` : `Tienes ${displayHeldShares} acciones de este resultado.`}
@@ -260,6 +276,37 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 12,
     marginBottom: theme.spacing.xs,
+  },
+  resultBox: {
+    width: '100%',
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    backgroundColor: '#161616',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: theme.spacing.sm,
+    justifyContent: 'center',
+  },
+  resultBoxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  resultBoxValue: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  resultBoxPercent: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  resultBoxPlaceholder: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
   },
   error: {
     color: theme.colors.error,

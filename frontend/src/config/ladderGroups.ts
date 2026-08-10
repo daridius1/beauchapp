@@ -12,20 +12,6 @@ export interface SportGroup {
 
 export const LADDER_GROUPS: SportGroup[] = [
   {
-    groupSlug: 'karma',
-    groupName: 'Karma',
-    categories: [
-      { id: 'karma', label: 'Karma', slug: 'karma' },
-    ],
-  },
-  {
-    groupSlug: 'beautokens',
-    groupName: 'BeauTokens',
-    categories: [
-      { id: 'beautokens', label: 'BeauTokens', slug: 'beautokens' },
-    ],
-  },
-  {
     groupSlug: 'tenis-de-mesa',
     groupName: 'Tenis de Mesa',
     categories: [
@@ -61,6 +47,20 @@ export const LADDER_GROUPS: SportGroup[] = [
     categories: [
       { id: '1v1', label: '1v1', slug: 'clash-royale' },
       { id: '2v2', label: '2v2', slug: 'clash-royale' },
+    ],
+  },
+  {
+    groupSlug: 'karma',
+    groupName: 'Karma',
+    categories: [
+      { id: 'karma', label: 'Karma', slug: 'karma' },
+    ],
+  },
+  {
+    groupSlug: 'beautokens',
+    groupName: 'BeauTokens',
+    categories: [
+      { id: 'beautokens', label: 'BeauTokens', slug: 'beautokens' },
     ],
   },
 ];

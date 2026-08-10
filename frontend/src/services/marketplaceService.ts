@@ -298,6 +298,53 @@ export const marketplaceService = {
     });
   },
 
+  // Editar producto existente. Las imágenes nuevas se comprimen igual que en la creación;
+  // las que el dueño quitó se eliminan puntualmente con el sufijo "-" (sintaxis de
+  // PocketBase para borrar archivos específicos de un campo multi-archivo sin tocar el
+  // resto) — las que no se tocan quedan intactas.
+  updateItem: async (
+    itemId: string,
+    data: {
+      title: string;
+      description: string;
+      price: number;
+      category: string;
+      tags: string[];
+    },
+    newImages: File[],
+    removedImageFilenames: string[]
+  ): Promise<MarketplaceItemRecord> => {
+    const formData = new FormData();
+    formData.append('title', data.title.trim());
+    formData.append('description', data.description.trim());
+    formData.append('price', data.price.toString());
+    formData.append('category', data.category);
+    formData.append('tags', JSON.stringify(data.tags));
+
+    for (const filename of removedImageFilenames) {
+      formData.append('images-', filename);
+    }
+
+    for (let i = 0; i < newImages.length; i++) {
+      const file = newImages[i];
+      try {
+        const compressedBlob = await compressImage(file);
+        const compressedFile = new File(
+          [compressedBlob],
+          file.name.replace(/\.[^/.]+$/, '') + '.webp',
+          { type: 'image/webp' }
+        );
+        formData.append('images', compressedFile);
+      } catch (e) {
+        formData.append('images', file);
+      }
+    }
+
+    return await pb.collection('marketplace_items').update<MarketplaceItemRecord>(itemId, formData, {
+      expand: 'seller.user,user',
+    });
+  },
+
   // Actualizar estado del producto (Disponible / No disponible)
   updateItemStatus: async (itemId: string, status: 'available' | 'unavailable'): Promise<MarketplaceItemRecord> => {
     return await pb.collection('marketplace_items').update<MarketplaceItemRecord>(

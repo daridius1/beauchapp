@@ -7,11 +7,17 @@ import { styles } from './TinderScreen.styles';
 interface TinderRulesPanelProps {
   savingProfile: boolean;
   onActivate: () => void;
+  onInfoPress: () => void;
 }
 
-export const TinderRulesPanel: React.FC<TinderRulesPanelProps> = ({ savingProfile, onActivate }) => (
+export const TinderRulesPanel: React.FC<TinderRulesPanelProps> = ({ savingProfile, onActivate, onInfoPress }) => (
   <View style={styles.inlineRuleBox}>
-    <Text style={styles.ruleTitle}>Reglas de Tinder Beauchef</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+      <Text style={[styles.ruleTitle, { marginBottom: 0 }]}>Reglas de Tinder Beauchef</Text>
+      <TouchableOpacity style={styles.infoButtonInline} activeOpacity={0.7} onPress={onInfoPress}>
+        <Feather name="info" size={16} color={theme.colors.textMuted} />
+      </TouchableOpacity>
+    </View>
     <View style={styles.ruleItem}>
       <Feather name="shield" size={14} color={theme.colors.primary} />
       <Text style={styles.ruleItemText}>Tus datos de contacto estarán 100% ocultos hasta hacer match mutuo.</Text>

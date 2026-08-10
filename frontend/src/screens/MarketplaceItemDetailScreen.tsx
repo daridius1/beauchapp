@@ -13,6 +13,7 @@ import {
   DeviceEventEmitter,
 } from 'react-native';
 import { withMinimumDelay } from '../utils/refresh';
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
@@ -84,9 +85,11 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
     }
   }, [itemId]);
 
-  useEffect(() => {
-    loadItem();
-  }, [loadItem]);
+  useFocusEffect(
+    useCallback(() => {
+      loadItem();
+    }, [loadItem])
+  );
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
@@ -439,6 +442,14 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
           <View style={styles.ownerPanel}>
             <Text style={styles.sectionHeader}>Administrar Publicación</Text>
             <View style={styles.ownerActionsRow}>
+              <TouchableOpacity
+                style={styles.editActionBtn}
+                onPress={() => navigation.push('MarketplaceItemEditor', { itemId: item.id })}
+              >
+                <Feather name="edit-2" size={14} color={theme.colors.text} />
+                <Text style={styles.editActionBtnText} numberOfLines={1}>Editar</Text>
+              </TouchableOpacity>
+
               {item.status === 'available' ? (
                 <TouchableOpacity
                   style={styles.unavailableActionBtn}
@@ -446,7 +457,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
                   disabled={statusLoading}
                 >
                   <Feather name="slash" size={14} color="#ffffff" />
-                  <Text style={styles.unavailableActionBtnText} numberOfLines={1}>Marcar No Disponible</Text>
+                  <Text style={styles.unavailableActionBtnText} numberOfLines={1}>No Disponible</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -455,7 +466,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
                   disabled={statusLoading}
                 >
                   <Feather name="check-circle" size={14} color="#000000" />
-                  <Text style={styles.availableActionBtnText} numberOfLines={1}>Marcar Disponible</Text>
+                  <Text style={styles.availableActionBtnText} numberOfLines={1}>Disponible</Text>
                 </TouchableOpacity>
               )}
 
@@ -464,7 +475,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
                 onPress={() => setShowDeleteModal(true)}
               >
                 <Feather name="trash-2" size={14} color="#ef4444" />
-                <Text style={styles.deleteActionBtnText} numberOfLines={1}>Eliminar Producto</Text>
+                <Text style={styles.deleteActionBtnText} numberOfLines={1}>Eliminar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -844,6 +855,24 @@ const styles = StyleSheet.create({
   },
   availableActionBtnText: {
     color: '#000000',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  editActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  editActionBtnText: {
+    color: theme.colors.text,
     fontSize: 12,
     fontWeight: '800',
   },
