@@ -108,4 +108,39 @@ function compareGuessToSecret(guessPlace, secretPlace) {
     return { ubicacion, edificio, piso, tipo, tie, solved };
 }
 
-module.exports = { MAX_GUESSES, PLACES, fnv1aHash, pickSecretForDay, compareSet, compareGuessToSecret };
+// Numeración de "Beaudle #N": no se calcula por diff de fechas contra un día épico fijo
+// — se asigna sobre la marcha, incrementando desde el último beaudle_daily_stats que
+// exista para esa variante (0 si es el primero). Si un día calendario entero pasa sin
+// que nadie juegue, ese día nunca genera fila y no consume número — no hay huecos que
+// rellenar ni backfill posible.
+function nextDayNumber(prevDayNumber) {
+    return (prevDayNumber || 0) + 1;
+}
+
+// Actualiza la racha de un usuario al completar (ganar o perder, da lo mismo) el Beaudle
+// del día EXACTO en que le tocaba (nunca al jugar un día atrasado — eso lo filtra quien
+// llama a esta función, pasándole solo completions on-time). Si completedDay es
+// exactamente el día siguiente a lastStreakDay, la racha sigue; en cualquier otro caso
+// (primera vez, hueco, dato raro) arranca de nuevo en 1. Comparación de fechas vía
+// Date.UTC sobre strings puros "YYYY-MM-DD" (sin hora) — el diff en días es exacto sin
+// importar el huso horario del server.
+function computeStreakUpdate(prevStreak, prevBestStreak, lastStreakDay, completedDay) {
+    let continuesStreak = false;
+    if (lastStreakDay) {
+        const prevParts = lastStreakDay.split('-').map(Number);
+        const curParts = completedDay.split('-').map(Number);
+        const prevMs = Date.UTC(prevParts[0], prevParts[1] - 1, prevParts[2]);
+        const curMs = Date.UTC(curParts[0], curParts[1] - 1, curParts[2]);
+        const diffDays = Math.round((curMs - prevMs) / 86400000);
+        continuesStreak = diffDays === 1;
+    }
+
+    const streak = continuesStreak ? (prevStreak || 0) + 1 : 1;
+    const bestStreak = Math.max(prevBestStreak || 0, streak);
+    return { streak, bestStreak, lastStreakDay: completedDay };
+}
+
+module.exports = {
+    MAX_GUESSES, PLACES, fnv1aHash, pickSecretForDay, compareSet, compareGuessToSecret,
+    nextDayNumber, computeStreakUpdate,
+};

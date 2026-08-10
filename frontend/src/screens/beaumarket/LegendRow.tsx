@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
+import { mixWithGray } from './chartColors';
 
 const BAR_HEIGHT = 20;
 // Verde tipo "check" de confirmación (mismo tono que el estado "Abierto" en la lista de
@@ -22,7 +23,7 @@ interface LegendRowProps {
   isLast?: boolean;
   onPress?: () => void;
   disabled?: boolean;
-  positionBar?: { trackWidthPct: number; solidPct: number; extPct: number; caption: string } | null;
+  positionBar?: { trackWidthPct: number; solidPct: number; extPct: number; caption: string; isLoser?: boolean } | null;
 }
 
 export const LegendRow: React.FC<LegendRowProps> = ({
@@ -56,21 +57,28 @@ export const LegendRow: React.FC<LegendRowProps> = ({
         {interactive && <Feather name="chevron-right" size={16} color={theme.colors.textMuted} style={styles.chevron} />}
       </View>
 
-      {positionBar && (
-        <View style={styles.barBlock}>
-          <View style={styles.trackOuter}>
-            <View style={[styles.track, { width: `${positionBar.trackWidthPct}%` }]}>
-              <View style={styles.barRow}>
-                <View style={[styles.bar, { width: `${positionBar.solidPct}%`, backgroundColor: color }]} />
-                {positionBar.extPct > 0 && (
-                  <View style={[styles.bar, styles.barExtension, { width: `${positionBar.extPct}%`, backgroundColor: color }]} />
-                )}
+      {positionBar && (() => {
+        // Barra de un resultado perdedor: mucho más gris que el color normal (pero sin
+        // perderlo del todo) — únicamente la barra, el texto de abajo mantiene su color
+        // habitual. Los dos tramos (apostado/acciones) se siguen viendo igual de
+        // diferenciados entre sí (misma opacidad relativa de siempre).
+        const barColor = positionBar.isLoser ? mixWithGray(color, 0.7) : color;
+        return (
+          <View style={styles.barBlock}>
+            <View style={styles.trackOuter}>
+              <View style={[styles.track, { width: `${positionBar.trackWidthPct}%` }]}>
+                <View style={styles.barRow}>
+                  <View style={[styles.bar, { width: `${positionBar.solidPct}%`, backgroundColor: barColor }]} />
+                  {positionBar.extPct > 0 && (
+                    <View style={[styles.bar, styles.barExtension, { width: `${positionBar.extPct}%`, backgroundColor: barColor }]} />
+                  )}
+                </View>
               </View>
             </View>
+            <Text style={[styles.caption, { color }]}>{positionBar.caption}</Text>
           </View>
-          <Text style={[styles.caption, { color }]}>{positionBar.caption}</Text>
-        </View>
-      )}
+        );
+      })()}
     </TouchableOpacity>
   );
 };

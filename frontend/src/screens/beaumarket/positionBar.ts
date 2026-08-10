@@ -20,15 +20,16 @@ export interface PositionBarSegments {
 }
 
 // La barra siempre tiene el mismo formato de dos tramos, sin importar el estado del
-// mercado: lo que efectivamente llevas invertido (costBasis, sólido) y una extensión más
-// transparente hasta lo que recibirías si ese resultado gana (shares — 1 ℬ por acción,
-// siempre, sin importar el precio). Antes de resolver, esa extensión es una proyección;
-// al resolver a favor, la extensión pasa a ser simplemente lo ganado (shares == lo
-// recibido), así que el formato no cambia — solo cambia el texto de abajo. La extensión
+// mercado (incluida una posición perdedora): lo que efectivamente llevas invertido
+// (costBasis, sólido) y una extensión hasta lo que recibirías si ese resultado gana
+// (shares — 1 ℬ por acción, siempre, sin importar el precio). Antes de resolver, esa
+// extensión es una proyección; al resolver a favor, pasa a ser simplemente lo ganado; al
+// resolver en contra, sigue mostrando lo que se pudo haber ganado (nunca desaparece) —
+// el formato de dos tramos no cambia en ningún estado, solo el texto de abajo y, para el
+// caso perdedor, el color de la barra en sí (ver isLoser en LegendRow.tsx). La extensión
 // nunca es negativa porque el precio LMSR siempre es menor a 100%: comprar una acción
 // siempre cuesta menos de 1 ℬ, y costBasis se calcula con costo promedio ponderado (ver
-// computeCostBasis en el backend), así que costBasis <= shares siempre. El único caso
-// realmente distinto es haber perdido: ahí no hay nada que mostrar como extensión.
+// computeCostBasis en el backend), así que costBasis <= shares siempre.
 //
 // maxScale = la posición más grande (en acciones) entre TODAS las que tiene el usuario en
 // ese mercado — define qué tan largo se ve el pill de cada fila entre sí. El reparto
@@ -48,10 +49,7 @@ export function computePositionBar(
 
   const solidShares = Math.min(position.costBasis, position.shares);
   const solidPct = (solidShares / shares) * 100;
-  // Si perdiste no queda nada que proyectar como extensión — en cualquier otro caso
-  // (abierto, cerrado, ganaste, cancelado) la extensión llega hasta "shares", que es
-  // exactamente lo que recibes en todos esos casos.
-  let extPct = isLoser ? 0 : 100 - solidPct;
+  let extPct = 100 - solidPct;
   // Piso mínimo de ancho para que la extensión nunca sea un hilo invisible cuando el
   // precio ya está muy cerca del 100% — mismo espíritu que el colchón que ya tiene
   // OddsChart para que los puntos del final de línea no queden cortados.
@@ -61,7 +59,7 @@ export function computePositionBar(
   if (status === 'resolved') {
     caption = isWinner
       ? `${position.costBasis} ℬ apostados → ${position.shares} ℬ ganados`
-      : `${position.costBasis} ℬ apostados → Perdida`;
+      : `${position.costBasis} ℬ apostados → ${position.shares} ℬ que pudiste ganar`;
   } else if (status === 'cancelled') {
     caption = `${position.costBasis} ℬ apostados → ${position.shares} ℬ reembolsados`;
   } else {

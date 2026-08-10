@@ -349,7 +349,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   };
 
-  const handleTargetPress = (targetType?: string, targetId?: string) => {
+  const handleTargetPress = (targetType?: string, targetId?: string, targetMeta?: any) => {
     if (!targetType || !targetId) return;
     if (targetType === 'post') {
       navigation.push('PostDetail', { postId: targetId });
@@ -366,7 +366,11 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     } else if (targetType === 'beaumarket') {
       navigation.push('BeaumarketDetail', { marketId: targetId });
     } else if (targetType === 'beaudle') {
-      navigation.push('Beaudle');
+      if (targetMeta?.day) {
+        navigation.push('BeaudleDay', { day: targetMeta.day });
+      } else {
+        navigation.push('Beaudle');
+      }
     }
   };
 
@@ -623,7 +627,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               onAuthorPress={() => navigation.push('UserProfile', { userId: post.author })}
               onTagPress={(t) => activateTagFilter(t)}
               onRepostPress={() => handleRepost(post)}
-              onTargetPress={() => handleTargetPress(post.targetType, post.targetId)}
+              onTargetPress={() => handleTargetPress(post.targetType, post.targetId, post.targetMeta)}
             />
           ))
         )}

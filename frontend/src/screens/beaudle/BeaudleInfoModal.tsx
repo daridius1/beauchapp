@@ -32,7 +32,11 @@ const SECTIONS: Section[] = [
   },
   {
     title: 'Recompensa',
-    body: 'Al terminar el Beaudle del día —lo adivines o se te acaben los intentos— recibes 10 ℬ BeauTokens, una sola vez por día.',
+    body: 'Al terminar el Beaudle del día —lo adivines o se te acaben los intentos— recibes 10 ℬ BeauTokens, una sola vez por día. Solo aplica si lo respondes el mismo día, no en días atrasados.',
+  },
+  {
+    title: 'Racha',
+    body: 'Tu racha sube en 1 cada vez que respondes el Beaudle del día exactamente ese mismo día. Si te saltas un día completo, se reinicia en 1 la próxima vez que respondas a tiempo. Puedes responder días pasados que te hayas saltado, pero eso nunca cuenta para la racha ni da BeauTokens.',
   },
 ];
 

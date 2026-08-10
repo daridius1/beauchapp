@@ -379,7 +379,7 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
 
   // 9. RENDERIZADO DE RESULTADO DE BEAUDLE CITADO (sin spoilers: nunca el lugar/código)
   if (targetType === 'beaudle') {
-    const day = targetMeta?.day || '';
+    const dayNumber = targetMeta?.dayNumber;
     const maxGuesses = targetMeta?.maxGuesses || 6;
     const solvedAtGuess = targetMeta?.solvedAtGuess;
     const won = targetMeta?.status === 'won';
@@ -390,9 +390,9 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
           <Feather name="grid" size={18} color="#38bdf8" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.problemSubtitle}>Beaudle{day ? ` · ${day}` : ''}</Text>
+          <Text style={styles.problemSubtitle}>{dayNumber ? `Beaudle #${dayNumber}` : 'Beaudle'}</Text>
           <Text style={styles.problemTitle} numberOfLines={1}>
-            {won ? `Resuelto en ${solvedAtGuess}/${maxGuesses} intentos` : 'No lo logró hoy'}
+            {won ? `Resuelto en ${solvedAtGuess}/${maxGuesses} intentos` : 'No lo logró'}
           </Text>
         </View>
         <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />

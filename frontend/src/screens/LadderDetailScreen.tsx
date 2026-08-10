@@ -34,9 +34,11 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const isKarmaLadder = slug === 'karma' || sportGroupInfo.group.groupSlug === 'karma';
   const isBeautokensLadder = slug === 'beautokens' || sportGroupInfo.group.groupSlug === 'beautokens';
+  const isBeaudleStreakLadder = slug === 'beaudle-racha' || sportGroupInfo.group.groupSlug === 'beaudle-racha';
   const [ladder, setLadder] = useState<Ladder | null>(null);
   const [karmaUsers, setKarmaUsers] = useState<any[]>([]);
   const [beautokensUsers, setBeautokensUsers] = useState<any[]>([]);
+  const [beaudleStreakUsers, setBeaudleStreakUsers] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<LadderRank[]>([]);
   const [matches, setMatches] = useState<LadderMatch[]>([]);
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'matches' | 'my_matches'>('leaderboard');
@@ -72,6 +74,16 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             filter: 'type != "organization"'
           });
           setBeautokensUsers(res.items);
+          return;
+        }
+
+        if (isBeaudleStreakLadder) {
+          navigation.setParams({ name: 'Racha de Beaudle' });
+          const res = await pb.collection('users').getList(1, 100, {
+            sort: '-beaudle_streak',
+            filter: 'type != "organization"'
+          });
+          setBeaudleStreakUsers(res.items);
           return;
         }
 
@@ -298,6 +310,90 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         visible={infoVisible}
         title={LADDER_INFO.beautokens.title}
         sections={LADDER_INFO.beautokens.sections}
+        onClose={() => setInfoVisible(false)}
+      />
+      </>
+    );
+  }
+
+  if (isBeaudleStreakLadder) {
+    return (
+      <>
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
+      >
+        <View style={styles.infoRow}>
+          <TouchableOpacity style={styles.infoButtonInline} activeOpacity={0.7} onPress={() => setInfoVisible(true)}>
+            <Feather name="info" size={16} color={theme.colors.text} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.sectionContainer}>
+          {beaudleStreakUsers.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No hay usuarios registrados en el ranking de Racha de Beaudle.</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.tableHeaderRow}>
+                <Text style={styles.thPos}>POS</Text>
+                <Text style={styles.thName}>USUARIO</Text>
+                <Text style={styles.thScore}>RACHA</Text>
+              </View>
+
+              {beaudleStreakUsers.map((u, index) => {
+                const position = index + 1;
+                const avatarUser = {
+                  id: u.id,
+                  collectionId: '_pb_users_auth_',
+                  avatar: u.avatar,
+                  name: u.name,
+                  username: u.username
+                };
+
+                return (
+                  <TouchableOpacity
+                    key={u.id}
+                    style={styles.rankRow}
+                    activeOpacity={0.7}
+                    onPress={() => navigation.push('UserProfile', { userId: u.id })}
+                  >
+                    <Text style={[styles.rankPosNumber, position <= 3 && styles.rankPosTop]}>
+                      {position}
+                    </Text>
+
+                    <Avatar user={avatarUser} size={34} />
+
+                    <View style={styles.rankInfo}>
+                      <Text style={styles.rankUserName} numberOfLines={1}>
+                        {u.name || u.username || 'Alumno FCFM'}
+                      </Text>
+                      <Text style={styles.rankUserMeta}>Mejor racha: {u.beaudle_best_streak || 0}</Text>
+                    </View>
+
+                    <Text style={styles.ratingScore}>{u.beaudle_streak || 0}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </>
+          )}
+        </View>
+      </ScrollView>
+
+      <InfoModal
+        visible={infoVisible}
+        title={LADDER_INFO['beaudle-racha'].title}
+        sections={LADDER_INFO['beaudle-racha'].sections}
         onClose={() => setInfoVisible(false)}
       />
       </>

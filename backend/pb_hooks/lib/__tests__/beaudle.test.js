@@ -1,6 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { MAX_GUESSES, PLACES, fnv1aHash, pickSecretForDay, compareSet, compareGuessToSecret } = require('../beaudle.js');
+const {
+    MAX_GUESSES, PLACES, fnv1aHash, pickSecretForDay, compareSet, compareGuessToSecret,
+    nextDayNumber, computeStreakUpdate,
+} = require('../beaudle.js');
 
 function byCode(code) {
     const p = PLACES.find((x) => x.code === code);
@@ -169,4 +172,40 @@ test('compareGuessToSecret: el único par empatado en los datos reales es hall-s
     }
     const uniqueTies = Array.from(new Set(ties));
     assert.deepEqual(uniqueTies, ['hall-sur/terraza-sobria']);
+});
+
+test('nextDayNumber: el primero (sin fila previa) es 1', () => {
+    assert.equal(nextDayNumber(0), 1);
+    assert.equal(nextDayNumber(null), 1);
+    assert.equal(nextDayNumber(undefined), 1);
+});
+
+test('nextDayNumber: incrementa sobre el anterior', () => {
+    assert.equal(nextDayNumber(1), 2);
+    assert.equal(nextDayNumber(41), 42);
+});
+
+test('computeStreakUpdate: primera vez (sin lastStreakDay) arranca en 1', () => {
+    const res = computeStreakUpdate(0, 0, null, '2026-08-10');
+    assert.deepEqual(res, { streak: 1, bestStreak: 1, lastStreakDay: '2026-08-10' });
+});
+
+test('computeStreakUpdate: día consecutivo extiende la racha', () => {
+    const res = computeStreakUpdate(3, 5, '2026-08-09', '2026-08-10');
+    assert.deepEqual(res, { streak: 4, bestStreak: 5, lastStreakDay: '2026-08-10' });
+});
+
+test('computeStreakUpdate: la racha nueva supera la mejor histórica, la actualiza', () => {
+    const res = computeStreakUpdate(5, 5, '2026-08-09', '2026-08-10');
+    assert.deepEqual(res, { streak: 6, bestStreak: 6, lastStreakDay: '2026-08-10' });
+});
+
+test('computeStreakUpdate: un hueco (se saltó un día) resetea la racha a 1', () => {
+    const res = computeStreakUpdate(10, 10, '2026-08-05', '2026-08-10');
+    assert.deepEqual(res, { streak: 1, bestStreak: 10, lastStreakDay: '2026-08-10' });
+});
+
+test('computeStreakUpdate: cruce de mes/año se calcula correctamente (no es un simple diff de substring)', () => {
+    const res = computeStreakUpdate(1, 1, '2026-07-31', '2026-08-01');
+    assert.deepEqual(res, { streak: 2, bestStreak: 2, lastStreakDay: '2026-08-01' });
 });

@@ -46,6 +46,7 @@ import { ProfessorDetailScreen } from './src/screens/ProfessorDetailScreen';
 import { InfoScreen } from './src/screens/InfoScreen';
 import { InstallAppScreen } from './src/screens/InstallAppScreen';
 import { BeaudleScreen } from './src/screens/BeaudleScreen';
+import { BeaudleDayScreen } from './src/screens/BeaudleDayScreen';
 import { BeaumarketScreen } from './src/screens/BeaumarketScreen';
 import { BeaumarketDetailScreen } from './src/screens/BeaumarketDetailScreen';
 import { AnnouncementModal } from './src/components/AnnouncementModal';
@@ -287,6 +288,7 @@ function AppContent() {
       case 'Info': return 'Info y Políticas';
       case 'InstallApp': return 'Instalar Aplicación';
       case 'Beaudle': return 'Beaudle';
+      case 'BeaudleDay': return params?.name || 'Beaudle';
       case 'Beaumarket': return 'Beaumarket';
       case 'BeaumarketDetail': return 'Mercado';
       case 'LadderDetail':
@@ -395,6 +397,7 @@ function AppContent() {
                 Info: 'info',
                 InstallApp: 'instalar',
                 Beaudle: 'beaudle',
+                BeaudleDay: 'beaudle/:day',
                 Beaumarket: 'beaumarket',
                 BeaumarketDetail: 'beaumarket/:marketId',
               }
@@ -435,7 +438,7 @@ function AppContent() {
                     title={getScreenTitle(currentRouteName, currentRouteParams)} 
                     onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                     onBack={showBackButton ? handleBack : undefined}
-                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'Beaumarket', 'BeaumarketDetail'].includes(currentRouteName) ? () => {
+                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail'].includes(currentRouteName) ? () => {
                       DeviceEventEmitter.emit('onGlobalRefresh');
                     } : undefined}
                     hasUnreadNotifications={hasUnreadNotifications}
@@ -481,6 +484,7 @@ function AppContent() {
                       <Stack.Screen name="Info" component={InfoScreen} />
                       <Stack.Screen name="InstallApp" component={InstallAppScreen} />
                       <Stack.Screen name="Beaudle" component={BeaudleScreen} />
+                      <Stack.Screen name="BeaudleDay" component={BeaudleDayScreen} />
                       <Stack.Screen name="Beaumarket" component={BeaumarketScreen} />
                       <Stack.Screen name="BeaumarketDetail" component={BeaumarketDetailScreen} />
                       <Stack.Screen name="NotFound" component={NotFoundScreen} />

@@ -63,6 +63,13 @@ export const LADDER_GROUPS: SportGroup[] = [
       { id: 'beautokens', label: 'BeauTokens', slug: 'beautokens' },
     ],
   },
+  {
+    groupSlug: 'beaudle-racha',
+    groupName: 'Racha de Beaudle',
+    categories: [
+      { id: 'beaudle-racha', label: 'Racha', slug: 'beaudle-racha' },
+    ],
+  },
 ];
 
 export const getSportGroup = (slugInput: string): { group: SportGroup; activeCategory: CategoryOption } => {

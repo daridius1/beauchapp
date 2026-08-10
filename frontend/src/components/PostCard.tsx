@@ -112,7 +112,11 @@ export const PostCard: React.FC<PostCardProps> = ({
     } else if (post.targetType === 'beaumarket') {
       navigation.push('BeaumarketDetail', { marketId: post.targetId });
     } else if (post.targetType === 'beaudle') {
-      navigation.push('Beaudle');
+      if (post.targetMeta?.day) {
+        navigation.push('BeaudleDay', { day: post.targetMeta.day });
+      } else {
+        navigation.push('Beaudle');
+      }
     }
   };
 
@@ -305,7 +309,8 @@ export const PostCard: React.FC<PostCardProps> = ({
                 post.targetType === 'beaudle' ? 'Beaudle: ' : ''
               }
               <Text style={{ fontWeight: '700', textDecorationLine: 'underline' }}>
-                {post.targetMeta?.title || post.targetMeta?.sportName || post.targetMeta?.sellerName || post.targetMeta?.nombre || (
+                {post.targetMeta?.title || post.targetMeta?.sportName || post.targetMeta?.sellerName || post.targetMeta?.nombre ||
+                (post.targetType === 'beaudle' && post.targetMeta?.dayNumber ? `#${post.targetMeta.dayNumber}` : null) || (
                   post.targetType === 'problem' ? 'Ver problema' :
                   post.targetType === 'match' ? 'Ver partido' :
                   (post.targetType === 'marketplace_item' || post.targetType === 'product') ? 'Ver producto' :

@@ -110,4 +110,17 @@ export const LADDER_INFO: Record<string, { title: string; sections: InfoModalSec
       },
     ],
   },
+  'beaudle-racha': {
+    title: 'Racha de Beaudle',
+    sections: [
+      {
+        title: '¿Cómo se mantiene la racha?',
+        body: 'La racha sube en 1 cada vez que respondes el Beaudle del día exactamente ese mismo día (ganes o pierdas). Si te saltas un día completo, la racha se reinicia en 1 la próxima vez que respondas a tiempo.',
+      },
+      {
+        title: 'Días atrasados',
+        body: 'Puedes responder Beaudles de días pasados que te hayas saltado, pero esas respuestas nunca cuentan para la racha ni otorgan BeauTokens — solo sirven para ver el lugar y jugar por diversión.',
+      },
+    ],
+  },
 };
