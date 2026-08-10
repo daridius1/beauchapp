@@ -39,7 +39,7 @@ export const BeaudleDayScreen: React.FC<Props> = ({ route, navigation }) => {
   const loadComments = async (statsId: string) => {
     try {
       const res = await pb.collection('posts').getList(1, 50, {
-        filter: `targetType = "beaudle" && targetId = "${statsId}" && deleted = false`,
+        filter: `targetType = "beaudle" && targetId = "${statsId}" && actionType = "comment" && deleted = false`,
         sort: 'created',
         expand: 'author,replyTo.author',
       });

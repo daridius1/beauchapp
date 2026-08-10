@@ -36,7 +36,7 @@ export const BeaumarketDetailScreen: React.FC<Props> = ({ route, navigation }) =
         beaumarketService.getMarketDetail(marketId),
         refreshUser(),
         pb.collection('posts').getList(1, 50, {
-          filter: `targetType = "beaumarket" && targetId = "${marketId}" && deleted = false`,
+          filter: `targetType = "beaumarket" && targetId = "${marketId}" && actionType = "comment" && deleted = false`,
           sort: 'created',
           expand: 'author,replyTo.author',
         }),

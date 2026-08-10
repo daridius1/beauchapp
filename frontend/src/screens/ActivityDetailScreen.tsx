@@ -45,7 +45,7 @@ export const ActivityDetailScreen = ({ route, navigation }: any) => {
         activityService.getActivityById(targetActivityId),
         user?.id ? activityService.checkUserInteractions(targetActivityId, user.id) : Promise.resolve(null),
         pb.collection('posts').getList(1, 50, {
-          filter: `targetType = "activity" && targetId = "${targetActivityId}" && deleted = false`,
+          filter: `targetType = "activity" && targetId = "${targetActivityId}" && actionType = "comment" && deleted = false`,
           sort: 'created',
           expand: 'author,replyTo.author',
         }),
