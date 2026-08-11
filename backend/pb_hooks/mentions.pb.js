@@ -116,11 +116,18 @@ onRecordAfterCreateSuccess((e) => {
                         url: "https://api.deepseek.com/chat/completions",
                         method: "POST",
                         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
+                        // thinking:disabled — deepseek-v4-flash piensa (reasoning_content)
+                        // por defecto, y con max_tokens bajo el razonamiento se comía todo
+                        // el presupuesto sin dejar nada para la respuesta final (probado en
+                        // local: volvía content vacío, finish_reason "length"). Sin pensar
+                        // responde directo, más barato y más rápido — justo lo que hace
+                        // falta para una respuesta de una frase.
                         body: JSON.stringify({
-                            model: "deepseek-chat",
+                            model: "deepseek-v4-flash",
                             messages: [{ role: "system", content: system }, { role: "user", content: userMsg }],
                             max_tokens: 120,
                             temperature: 0.9,
+                            thinking: { type: "disabled" },
                         }),
                         timeout: 25,
                     });
