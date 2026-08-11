@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, LayoutChangeEvent } from 'react-native';
 import Svg, { Polyline, Line as SvgLine, Circle } from 'react-native-svg';
 import { theme } from '../../theme/theme';
 import { BeaumarketOddsHistoryPoint, BeaumarketPosition } from '../../services/beaumarketService';
@@ -7,12 +7,18 @@ import { OUTCOME_COLORS } from './chartColors';
 import { LegendRow } from './LegendRow';
 import { computePositionBar } from './positionBar';
 
+// Ancho de referencia SOLO para el primer render (antes de medir el contenedor real por
+// onLayout) — nunca se usa para dibujar de verdad, así que no importa que no coincida
+// con el ancho final.
 const CHART_W = 300;
 const CHART_H = 140;
 const MARKER_RADIUS = 3;
-// Deja aire a los costados para que el puntito del final de cada línea no quede pegado
-// al borde del viewBox y se recorte a la mitad — el radio del punto más un colchón.
+// Deja aire a los costados y arriba/abajo para que el puntito del final de cada línea no
+// quede pegado al borde del viewBox y se recorte a la mitad — el radio del punto más un
+// colchón. Antes solo existía en X (el eje Y llegaba hasta el borde exacto en 0%/100%,
+// así que la pelotita se cortaba a la mitad justo en esos casos).
 const PLOT_PADDING_X = MARKER_RADIUS + 1;
+const PLOT_PADDING_Y = MARKER_RADIUS + 1;
 
 interface OddsChartProps {
   outcomes: string[];
@@ -72,6 +78,18 @@ function computeDateAxisLabels(minT: number, maxT: number): string[] {
 }
 
 export const OddsChart: React.FC<OddsChartProps> = ({ outcomes, history, winningOutcomeIndex, status, myPositions, onSelectOutcome, disabled }) => {
+  // El viewBox del SVG usa el ancho REAL medido del contenedor (onLayout), no un ancho
+  // fijo — con `width="100%"` pero un viewBox de ancho fijo (300), en un contenedor más
+  // ancho el SVG estiraba el contenido horizontalmente sin estirarlo verticalmente
+  // (distorsionaba la pelotita a óvalo y engrosaba las líneas de forma pareja). Al medir
+  // el ancho real y usarlo también como viewBox, la escala siempre es 1:1 — cero
+  // distorsión, sin importar qué tan ancha quede la vista.
+  const [chartAreaWidth, setChartAreaWidth] = useState(CHART_W);
+  const handleChartAreaLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0 && Math.abs(w - chartAreaWidth) > 0.5) setChartAreaWidth(w);
+  };
+
   if (!history || history.length === 0) return null;
 
   // Referencia para que el pill de cada posición sea comparable en tamaño entre sí: la
@@ -86,9 +104,10 @@ export const OddsChart: React.FC<OddsChartProps> = ({ outcomes, history, winning
   const minT = history[0].t;
   const maxT = history[history.length - 1].t;
   const span = maxT - minT;
-  const plotW = CHART_W - PLOT_PADDING_X * 2;
+  const plotW = chartAreaWidth - PLOT_PADDING_X * 2;
+  const plotH = CHART_H - PLOT_PADDING_Y * 2;
   const xFor = (t: number) => PLOT_PADDING_X + (span > 0 ? ((t - minT) / span) * plotW : plotW / 2);
-  const yFor = (pct: number) => CHART_H - (pct / 100) * CHART_H;
+  const yFor = (pct: number) => PLOT_PADDING_Y + plotH - (pct / 100) * plotH;
   const dateLabels = computeDateAxisLabels(minT, maxT);
 
   return (
@@ -96,13 +115,13 @@ export const OddsChart: React.FC<OddsChartProps> = ({ outcomes, history, winning
       <Text style={styles.title}>Evolución de probabilidades</Text>
 
       <View style={styles.chartRow}>
-        <View style={styles.chartArea}>
-          <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none">
+        <View style={styles.chartArea} onLayout={handleChartAreaLayout}>
+          <Svg width="100%" height={CHART_H} viewBox={`0 0 ${chartAreaWidth} ${CHART_H}`}>
             {[0, 25, 50, 75, 100].map((pct) => (
               <SvgLine
                 key={pct}
                 x1={0}
-                x2={CHART_W}
+                x2={chartAreaWidth}
                 y1={yFor(pct)}
                 y2={yFor(pct)}
                 stroke={theme.colors.border}
