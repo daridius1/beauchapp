@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { User } from '../context/AuthContext';
+import { chipBaseStyles } from './chipStyles';
 
 interface Props {
   organization: User;
@@ -18,8 +19,9 @@ export const OrgChip: React.FC<Props> = ({ organization, onPress, size = 'md' })
   return (
     <TouchableOpacity
       style={[
+        chipBaseStyles.chip,
+        isSmall ? chipBaseStyles.chipSm : chipBaseStyles.chipMd,
         styles.chip,
-        isSmall ? styles.chipSm : styles.chipMd,
         {
           borderColor: chipColor,
           backgroundColor: `${chipColor}15`, // Translucidez al 15%
@@ -29,7 +31,7 @@ export const OrgChip: React.FC<Props> = ({ organization, onPress, size = 'md' })
       onPress={onPress}
       disabled={!onPress}
     >
-      <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, { color: chipColor }]} numberOfLines={1}>
+      <Text style={[chipBaseStyles.chipText, isSmall ? chipBaseStyles.chipTextSm : chipBaseStyles.chipTextMd, { color: chipColor }]} numberOfLines={1}>
         {chipText}
       </Text>
     </TouchableOpacity>
@@ -40,18 +42,6 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 16,
-    marginRight: 6,
-    marginBottom: 6,
-  },
-  chipMd: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  chipSm: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
   },
   iconCircle: {
     width: 14,
@@ -60,14 +50,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 6,
-  },
-  chipText: {
-    fontWeight: '700',
-  },
-  chipTextMd: {
-    fontSize: 11,
-  },
-  chipTextSm: {
-    fontSize: 10,
   },
 });

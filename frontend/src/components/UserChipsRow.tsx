@@ -5,6 +5,7 @@ import { User } from '../context/AuthContext';
 import { OrganizationMemberRecord } from '../services/organizationService';
 import { SportIcon } from './SportIcon';
 import { OrgChip } from './OrgChip';
+import { chipBaseStyles } from './chipStyles';
 
 interface Props {
   user: User;
@@ -121,12 +122,12 @@ export const UserChipsRow: React.FC<Props> = ({
       {/* Pin de Karma */}
       {showKarma && (
         <TouchableOpacity
-          style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.karmaChip]}
+          style={[chipBaseStyles.chip, isSmall ? chipBaseStyles.chipSm : chipBaseStyles.chipMd, styles.karmaChip]}
           onPress={onLadderPress ? () => onLadderPress('karma') : undefined}
           disabled={!onLadderPress}
           activeOpacity={0.7}
         >
-          <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.karmaChipText]}>
+          <Text style={[chipBaseStyles.chipText, isSmall ? chipBaseStyles.chipTextSm : chipBaseStyles.chipTextMd, styles.karmaChipText]}>
             Karma {karmaVal}
           </Text>
         </TouchableOpacity>
@@ -135,12 +136,12 @@ export const UserChipsRow: React.FC<Props> = ({
       {/* Pin de BeauTokens */}
       {showBeautokens && (
         <TouchableOpacity
-          style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.beautokensChip]}
+          style={[chipBaseStyles.chip, isSmall ? chipBaseStyles.chipSm : chipBaseStyles.chipMd, styles.beautokensChip]}
           onPress={onLadderPress ? () => onLadderPress('beautokens') : undefined}
           disabled={!onLadderPress}
           activeOpacity={0.7}
         >
-          <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.beautokensChipText]}>
+          <Text style={[chipBaseStyles.chipText, isSmall ? chipBaseStyles.chipTextSm : chipBaseStyles.chipTextMd, styles.beautokensChipText]}>
             {beautokensVal} ℬ
           </Text>
         </TouchableOpacity>
@@ -149,12 +150,12 @@ export const UserChipsRow: React.FC<Props> = ({
       {/* Pin de Racha de Beaudle */}
       {showBeaudleStreak && (
         <TouchableOpacity
-          style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.beaudleStreakChip]}
+          style={[chipBaseStyles.chip, isSmall ? chipBaseStyles.chipSm : chipBaseStyles.chipMd, styles.beaudleStreakChip]}
           onPress={onLadderPress ? () => onLadderPress('beaudle-racha') : undefined}
           disabled={!onLadderPress}
           activeOpacity={0.7}
         >
-          <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.beaudleStreakChipText]}>
+          <Text style={[chipBaseStyles.chipText, isSmall ? chipBaseStyles.chipTextSm : chipBaseStyles.chipTextMd, styles.beaudleStreakChipText]}>
             Racha {beaudleStreakVal}
           </Text>
         </TouchableOpacity>
@@ -162,8 +163,8 @@ export const UserChipsRow: React.FC<Props> = ({
 
       {/* Pin de Año de Ingreso (Generación) */}
       {!!entryYearText && (
-        <View style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.yearChip]}>
-          <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.yearChipText]}>
+        <View style={[chipBaseStyles.chip, isSmall ? chipBaseStyles.chipSm : chipBaseStyles.chipMd, styles.yearChip]}>
+          <Text style={[chipBaseStyles.chipText, isSmall ? chipBaseStyles.chipTextSm : chipBaseStyles.chipTextMd, styles.yearChipText]}>
             {entryYearText}
           </Text>
         </View>
@@ -171,8 +172,8 @@ export const UserChipsRow: React.FC<Props> = ({
 
       {/* Pin de Departamento */}
       {!!deptText && (
-        <View style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.deptChip]}>
-          <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.deptChipText]}>
+        <View style={[chipBaseStyles.chip, isSmall ? chipBaseStyles.chipSm : chipBaseStyles.chipMd, styles.deptChip]}>
+          <Text style={[chipBaseStyles.chipText, isSmall ? chipBaseStyles.chipTextSm : chipBaseStyles.chipTextMd, styles.deptChipText]}>
             {deptText}
           </Text>
         </View>
@@ -192,7 +193,7 @@ export const UserChipsRow: React.FC<Props> = ({
           <TouchableOpacity
             key={rank.id || `${sportSlug}-${mode}`}
             activeOpacity={0.7}
-            style={[styles.chip, isSmall ? styles.chipSm : styles.chipMd, styles.ladderChip, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
+            style={[chipBaseStyles.chip, isSmall ? chipBaseStyles.chipSm : chipBaseStyles.chipMd, styles.ladderChip, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
             onPress={onLadderPress ? () => onLadderPress(sportSlug, mode) : undefined}
             disabled={!onLadderPress}
           >
@@ -200,7 +201,7 @@ export const UserChipsRow: React.FC<Props> = ({
             {is2v2 && (
               <Feather name="users" size={isSmall ? 10 : 11} color="#38bdf8" style={{ marginLeft: -1, marginRight: 1 }} />
             )}
-            <Text style={[styles.chipText, isSmall ? styles.chipTextSm : styles.chipTextMd, styles.ladderChipText]}>
+            <Text style={[chipBaseStyles.chipText, isSmall ? chipBaseStyles.chipTextSm : chipBaseStyles.chipTextMd, styles.ladderChipText]}>
               {eloVal}
             </Text>
           </TouchableOpacity>
@@ -231,29 +232,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
-  },
-  chip: {
-    borderWidth: 1,
-    borderRadius: 16,
-    marginHorizontal: 3,
-    marginBottom: 6,
-  },
-  chipMd: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  chipSm: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  chipText: {
-    fontWeight: '700',
-  },
-  chipTextMd: {
-    fontSize: 11,
-  },
-  chipTextSm: {
-    fontSize: 10,
   },
   yearChip: {
     borderColor: '#10b981',
