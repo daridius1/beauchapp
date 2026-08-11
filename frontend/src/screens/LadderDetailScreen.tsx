@@ -461,8 +461,8 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               name: sportGroupInfo.group.groupName
             })}
           >
-            <Feather name="play-circle" color={theme.colors.text} size={14} style={{ marginRight: 6 }} />
-            <Text style={styles.arbitrateButtonText}>Arbitrar</Text>
+            <Feather name="play-circle" color="#000" size={14} style={{ marginRight: 6 }} />
+            <Text style={styles.arbitrateButtonText}>Jugar</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.infoButtonInline} activeOpacity={0.7} onPress={() => setInfoVisible(true)}>
@@ -817,18 +817,18 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   arbitrateButtonInline: {
-    backgroundColor: theme.colors.cardBg,
+    backgroundColor: theme.colors.primary,
     borderRadius: 6,
     paddingVertical: 7,
-    paddingHorizontal: 12,
+    // Más padding horizontal que el botón viejo ("Arbitrar", más largo) para que el
+    // ancho se mantenga similar ahora que el texto es más corto ("Jugar").
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
   },
   arbitrateButtonText: {
-    color: theme.colors.text,
+    color: '#000',
     fontSize: 12,
     fontWeight: '700',
   },

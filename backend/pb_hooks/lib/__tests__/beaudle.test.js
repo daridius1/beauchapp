@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     MAX_GUESSES, PLACES, fnv1aHash, pickSecretForDay, compareSet, compareGuessToSecret,
-    nextDayNumber, computeStreakUpdate,
+    nextDayNumber, computeStreakUpdate, BEAUDLE_LAUNCH_DAY, isValidBeaudleDay,
 } = require('../beaudle.js');
 
 function byCode(code) {
@@ -208,4 +208,19 @@ test('computeStreakUpdate: un hueco (se saltó un día) resetea la racha a 1', (
 test('computeStreakUpdate: cruce de mes/año se calcula correctamente (no es un simple diff de substring)', () => {
     const res = computeStreakUpdate(1, 1, '2026-07-31', '2026-08-01');
     assert.deepEqual(res, { streak: 2, bestStreak: 2, lastStreakDay: '2026-08-01' });
+});
+
+test('isValidBeaudleDay: rechaza cualquier día anterior al lanzamiento (ej. cambiando la URL)', () => {
+    assert.equal(isValidBeaudleDay('2020-01-01', '2026-08-15'), false);
+    assert.equal(isValidBeaudleDay('2026-08-09', '2026-08-15'), false);
+});
+
+test('isValidBeaudleDay: rechaza cualquier día futuro', () => {
+    assert.equal(isValidBeaudleDay('2026-08-16', '2026-08-15'), false);
+});
+
+test('isValidBeaudleDay: acepta el día de lanzamiento, hoy, y cualquier día intermedio', () => {
+    assert.equal(isValidBeaudleDay(BEAUDLE_LAUNCH_DAY, '2026-08-15'), true);
+    assert.equal(isValidBeaudleDay('2026-08-12', '2026-08-15'), true);
+    assert.equal(isValidBeaudleDay('2026-08-15', '2026-08-15'), true);
 });

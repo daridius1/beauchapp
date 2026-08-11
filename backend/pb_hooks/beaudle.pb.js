@@ -30,7 +30,7 @@
 
 routerAdd("GET", "/api/beaudle/today", (e) => {
     try {
-        const { PLACES, MAX_GUESSES } = require(`${__hooks}/lib/beaudle.js`);
+        const { PLACES, MAX_GUESSES, isValidBeaudleDay } = require(`${__hooks}/lib/beaudle.js`);
 
         const variant = e.requestInfo().query["variant"] || "classic";
         if (variant !== "classic") {
@@ -43,10 +43,13 @@ routerAdd("GET", "/api/beaudle/today", (e) => {
 
         // "day" es opcional — sin él, es el comportamiento de siempre (hoy). Con él, sirve
         // para ver/jugar un día pasado específico (ej. desde la lista de días o al tocar
-        // "Ver Beaudle" en una cita/comentario de ese día). Nunca se permite un día futuro.
+        // "Ver Beaudle" en una cita/comentario de ese día). Nunca se permite un día futuro
+        // ni uno anterior al lanzamiento real (ver BEAUDLE_LAUNCH_DAY en lib/beaudle.js —
+        // sin este piso, cambiar el "day" de la URL a mano permitía crear un
+        // beaudle_daily_stats fechado antes del primer día real).
         const day = String(e.requestInfo().query["day"] || today);
-        if (day > today) {
-            return e.json(400, { error: "Ese día todavía no existe." });
+        if (!isValidBeaudleDay(day, today)) {
+            return e.json(400, { error: "Ese día no existe." });
         }
 
         let game = null;
@@ -162,7 +165,7 @@ routerAdd("GET", "/api/beaudle/days", (e) => {
 
 routerAdd("POST", "/api/beaudle/guess", (e) => {
     try {
-        const { PLACES, MAX_GUESSES, pickSecretForDay, compareGuessToSecret, nextDayNumber, computeStreakUpdate } = require(`${__hooks}/lib/beaudle.js`);
+        const { PLACES, MAX_GUESSES, pickSecretForDay, compareGuessToSecret, nextDayNumber, computeStreakUpdate, isValidBeaudleDay } = require(`${__hooks}/lib/beaudle.js`);
 
         const body = e.requestInfo().body || {};
         const variant = body.variant || "classic";
@@ -181,11 +184,12 @@ routerAdd("POST", "/api/beaudle/guess", (e) => {
         const today = `${t.year()}-${pad(Number(t.month()))}-${pad(t.day())}`;
 
         // "day" opcional en el body — permite adivinar sobre un día pasado (partida
-        // retroactiva). Nunca se permite un día futuro. onTime decide si esta partida
-        // otorga BeauTokens y mueve la racha, más abajo.
+        // retroactiva). Nunca se permite un día futuro ni uno anterior al lanzamiento
+        // real (mismo piso que GET /today, ver BEAUDLE_LAUNCH_DAY en lib/beaudle.js).
+        // onTime decide si esta partida otorga BeauTokens y mueve la racha, más abajo.
         const day = String(body.day || today);
-        if (day > today) {
-            return e.json(400, { error: "Ese día todavía no existe." });
+        if (!isValidBeaudleDay(day, today)) {
+            return e.json(400, { error: "Ese día no existe." });
         }
         const onTime = day === today;
 

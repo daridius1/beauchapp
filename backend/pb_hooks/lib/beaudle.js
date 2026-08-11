@@ -117,6 +117,23 @@ function nextDayNumber(prevDayNumber) {
     return (prevDayNumber || 0) + 1;
 }
 
+// Día calendario (hora Chile) en que se jugó el primer Beaudle real en producción —
+// nunca hubo beaudle_daily_stats antes de esta fecha. GET /today y POST /guess reciben
+// "day" directo de la URL/body sin más validación que "no sea futuro", así que sin este
+// piso cualquiera podía pedir un día arbitrariamente anterior (ej. "2020-01-01") y crear
+// una fila de beaudle_daily_stats con esa fecha — nextDayNumber() la numera igual (a
+// partir del último day_number que exista, nunca por fecha), así que esa fila fantasma
+// terminaba con un "Beaudle #N" más alto que el real #1 pese a tener un "day" anterior,
+// rompiendo la promesa de que #1 es siempre el primer día que existió.
+const BEAUDLE_LAUNCH_DAY = "2026-08-10";
+
+// Válido = no es anterior al lanzamiento real ni posterior a hoy. Centralizado acá (en
+// vez de repetir las dos comparaciones de string en cada ruta) para que GET /today y
+// POST /guess apliquen exactamente la misma regla.
+function isValidBeaudleDay(day, today) {
+    return day >= BEAUDLE_LAUNCH_DAY && day <= today;
+}
+
 // Actualiza la racha de un usuario al completar (ganar o perder, da lo mismo) el Beaudle
 // del día EXACTO en que le tocaba (nunca al jugar un día atrasado — eso lo filtra quien
 // llama a esta función, pasándole solo completions on-time). Si completedDay es
@@ -142,5 +159,5 @@ function computeStreakUpdate(prevStreak, prevBestStreak, lastStreakDay, complete
 
 module.exports = {
     MAX_GUESSES, PLACES, fnv1aHash, pickSecretForDay, compareSet, compareGuessToSecret,
-    nextDayNumber, computeStreakUpdate,
+    nextDayNumber, computeStreakUpdate, BEAUDLE_LAUNCH_DAY, isValidBeaudleDay,
 };
