@@ -146,8 +146,35 @@ onRecordAfterCreateSuccess((e) => {
                     reply.set("targetType", "post");
                     reply.set("targetId", post.id);
                     reply.set("replyTo", post.id);
+                    reply.set("root", post.getString("root") || post.id);
+                    reply.set("tags", []);
+                    reply.set("commentCount", 0);
+                    reply.set("quoteCount", 0);
                     reply.set("targetMeta", JSON.stringify({ authorName, authorUsername, content }));
                     $app.save(reply);
+
+                    // forum.pb.js sube la cadena de ancestros incrementando commentCount,
+                    // pero solo dentro de onRecordCreateRequest — un hook atado al pipeline
+                    // de la request HTTP que $app.save() (llamado directo acá) nunca
+                    // dispara. Se replica la misma lógica a propósito (mismo motivo de
+                    // siempre: no se puede compartir una función de nivel de archivo entre
+                    // hooks registrados por separado, ni siquiera entre dos archivos
+                    // distintos como forum.pb.js y este).
+                    try {
+                        let ancestorId = post.id;
+                        let depth = 0;
+                        const visited = new Set();
+                        while (ancestorId && depth < 20 && !visited.has(ancestorId)) {
+                            visited.add(ancestorId);
+                            const ancestor = $app.findRecordById("posts", ancestorId);
+                            ancestor.set("commentCount", (ancestor.getInt("commentCount") || 0) + 1);
+                            $app.save(ancestor);
+                            ancestorId = ancestor.getString("replyTo") || (ancestor.getString("actionType") === "reply" ? ancestor.getString("targetId") : "");
+                            depth++;
+                        }
+                    } catch (countErr) {
+                        console.error("[BeauRok] Error incrementando commentCount:", countErr.message || countErr);
+                    }
                 } catch (beaurokErr) {
                     console.error("[BeauRok] Error generando respuesta:", beaurokErr.message || beaurokErr);
                 }
