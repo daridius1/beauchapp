@@ -49,6 +49,24 @@ export const BeaudleDayScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
+  const toggleLike = async (post: any) => {
+    if (!user) return;
+    try {
+      const currentLikes = post.likes || [];
+      let newLikes = [...currentLikes];
+      if (newLikes.includes(user.id)) {
+        newLikes = newLikes.filter((id: string) => id !== user.id);
+      } else {
+        newLikes.push(user.id);
+      }
+      setComments(current => current.map(c => c.id === post.id ? { ...c, likes: newLikes } : c));
+      await pb.collection('posts').update(post.id, { likes: newLikes });
+    } catch (err) {
+      console.error(err);
+      setComments(current => current.map(c => c.id === post.id ? { ...c, likes: post.likes || [] } : c));
+    }
+  };
+
   const fetchDay = async (hideLoading = false) => {
     try {
       if (!hideLoading) setLoading(true);
@@ -257,6 +275,7 @@ export const BeaudleDayScreen: React.FC<Props> = ({ route, navigation }) => {
                 currentUser={user}
                 hideTargetContext={true}
                 onPress={() => navigation.push('PostDetail', { postId: comment.id })}
+                onLikePress={() => toggleLike(comment)}
                 onAuthorPress={() => navigation.navigate('UserProfile', { userId: comment.author })}
               />
             </View>

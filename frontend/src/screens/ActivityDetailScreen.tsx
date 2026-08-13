@@ -143,6 +143,26 @@ export const ActivityDetailScreen = ({ route, navigation }: any) => {
     }
   };
 
+  // Like a un COMENTARIO (post polimórfico) — distinto de handleToggleLike de arriba, que
+  // es el like a la actividad misma (activity_likes, otra colección).
+  const toggleCommentLike = async (post: any) => {
+    if (!user) return;
+    try {
+      const currentLikes = post.likes || [];
+      let newLikes = [...currentLikes];
+      if (newLikes.includes(user.id)) {
+        newLikes = newLikes.filter((id: string) => id !== user.id);
+      } else {
+        newLikes.push(user.id);
+      }
+      setComments(current => current.map(c => c.id === post.id ? { ...c, likes: newLikes } : c));
+      await pb.collection('posts').update(post.id, { likes: newLikes });
+    } catch (err) {
+      console.error(err);
+      setComments(current => current.map(c => c.id === post.id ? { ...c, likes: post.likes || [] } : c));
+    }
+  };
+
   const handleToggleAttendance = async () => {
     if (!user) {
       Toast.show({ type: 'info', text1: 'Inicia sesión', text2: 'Debes iniciar sesión para confirmar tu asistencia.' });
@@ -396,6 +416,7 @@ export const ActivityDetailScreen = ({ route, navigation }: any) => {
               currentUser={user}
               hideTargetContext={true}
               onPress={() => navigation.push('PostDetail', { postId: comment.id })}
+              onLikePress={() => toggleCommentLike(comment)}
               onAuthorPress={() => navigation.navigate('UserProfile', { userId: comment.author })}
             />
           ))}
