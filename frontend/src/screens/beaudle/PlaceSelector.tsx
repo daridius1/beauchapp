@@ -14,6 +14,19 @@ function labelFor(place: BeaudlePlace) {
   return place.shortName === place.name ? place.name : `${place.shortName} — ${place.name}`;
 }
 
+// BEAUDLE_PLACES está agrupado por edificio (ver places.ts) — mostrarlo tal cual en la
+// lista de alternativas se sentía como un catálogo ordenado en vez de una lista de
+// candidatos. Se baraja una vez por montaje (no en cada render, para que la lista no
+// salte de orden mientras el usuario va descartando opciones jugadas).
+function shuffle<T>(arr: T[]): T[] {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 interface PlaceSelectorProps {
   disabledCodes: string[];
   disabled?: boolean;
@@ -23,8 +36,9 @@ interface PlaceSelectorProps {
 export const PlaceSelector: React.FC<PlaceSelectorProps> = ({ disabledCodes, disabled, onConfirm }) => {
   const [selected, setSelected] = useState<BeaudlePlace | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [shuffledPlaces] = useState(() => shuffle(BEAUDLE_PLACES));
 
-  const available = BEAUDLE_PLACES.filter((p) => !disabledCodes.includes(p.code));
+  const available = shuffledPlaces.filter((p) => !disabledCodes.includes(p.code));
   const suggestions = available.map(labelFor);
 
   const handleSelect = (val: string) => {

@@ -45,7 +45,7 @@ const PLACES = [
     { code: "multicancha-850", name: "Multicancha 850", shortName: "Multicancha 850", ubicacion: "850", edificio: ["Patio 850"], piso: [1], tipo: ["Deportivo", "Cancha"] },
     { code: "terraza-ebria", name: "Terraza Ebria", shortName: "Terraza Ebria", ubicacion: "850", edificio: ["Patio 850"], piso: [2], tipo: ["Áreas comunes"] },
     { code: "el-muerto", name: "El Muerto", shortName: "El Muerto", ubicacion: "850", edificio: ["Patio 850"], piso: [1], tipo: ["Patrimonio"] },
-    { code: "carrito", name: "Carrito", shortName: "Carrito", ubicacion: "850", edificio: ["Patio 850"], piso: [1], tipo: ["Servicio"] },
+    { code: "carrito", name: "Carrito de Comida", shortName: "Carrito de Comida", ubicacion: "850", edificio: ["Patio 850"], piso: [1], tipo: ["Servicio"] },
     { code: "pajarera", name: "Pajarera", shortName: "Pajarera", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [2], tipo: ["Áreas comunes", "Estudio"] },
     { code: "a2ic", name: "A2IC", shortName: "A2IC", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [3], tipo: ["Centro", "Oficina"] },
     { code: "zocalo", name: "Zócalo", shortName: "Zócalo", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [-1], tipo: ["Sala", "Área común"] },
@@ -65,6 +65,17 @@ const PLACES = [
     { code: "muro-escalada", name: "Muro de Escalada", shortName: "Muro de Escalada", ubicacion: "Domeyko", edificio: ["Domeyko"], piso: [1], tipo: ["Deportivo"] },
 ];
 
+// Día calendario (hora Chile) en que se jugó el primer Beaudle real en producción —
+// nunca hubo beaudle_daily_stats antes de esta fecha. GET /today y POST /guess reciben
+// "day" directo de la URL/body sin más validación que "no sea futuro", así que sin este
+// piso cualquiera podía pedir un día arbitrariamente anterior (ej. "2020-01-01") y crear
+// una fila de beaudle_daily_stats con esa fecha — nextDayNumber() la numera igual (a
+// partir del último day_number que exista, nunca por fecha), así que esa fila fantasma
+// terminaba con un "Beaudle #N" más alto que el real #1 pese a tener un "day" anterior,
+// rompiendo la promesa de que #1 es siempre el primer día que existió. También sirve como
+// ancla del día 0 del esquema de "bolsa sin repetición" de pickSecretForDay, más abajo.
+const BEAUDLE_LAUNCH_DAY = "2026-08-10";
+
 // FNV-1a de 32 bits, escrito a mano — goja no expone ninguna librería de hashing al JSVM.
 function fnv1aHash(str) {
     let hash = 0x811c9dc5; // offset basis
@@ -76,12 +87,90 @@ function fnv1aHash(str) {
     return hash >>> 0;
 }
 
+// Multiplicación de 32 bits sin signo, hecha a mano (equivalente a Math.imul) — evita
+// depender de que goja implemente Math.imul, con el mismo criterio defensivo que ya usa
+// fnv1aHash para no salirse de 32 bits. Descompone cada operando en mitad alta/baja de 16
+// bits: (aHi*2^16+aLo)*(bHi*2^16+bLo) mod 2^32 = ((aHi*bLo+aLo*bHi) mod 2^16)*2^16 + aLo*bLo.
+function mul32(a, b) {
+    const aLo = a & 0xffff;
+    const aHi = a >>> 16;
+    const bLo = b & 0xffff;
+    const bHi = b >>> 16;
+    const low = aLo * bLo;
+    const high = ((aHi * bLo + aLo * bHi) & 0xffff) * 0x10000;
+    return (low + high) >>> 0;
+}
+
+// Finalizador de avalancha (el "fmix32" de MurmurHash3). fnv1aHash por sí solo NO alcanza
+// para este uso: para strings que difieren solo en el último carácter (ej. "...:2026-08-10"
+// vs "...:2026-08-11"), el hash crudo cambia en una cantidad casi constante (~el primo FNV)
+// en vez de dispersarse — confirmado empíricamente: sin este paso, `pickSecretForDay` daba
+// índices CONSECUTIVOS para días consecutivos (el bug real reportado: "los 4 beaudles del
+// día han sido días consecutivos"). Aplicar este mezclador extra al resultado de
+// fnv1aHash rompe esa correlación sin cambiar la firma de nada.
+function fmix32(h) {
+    h ^= h >>> 16;
+    h = mul32(h, 0x85ebca6b);
+    h ^= h >>> 13;
+    h = mul32(h, 0xc2b2ae35);
+    h ^= h >>> 16;
+    return h >>> 0;
+}
+
+function mixedHash(str) {
+    return fmix32(fnv1aHash(str));
+}
+
+// Módulo que siempre da un resultado no negativo (a diferencia de `%` en JS), para poder
+// usar `daysBetween` incluso con días anteriores a `desde` (pasa en los tests con fechas
+// arbitrarias; en producción `dayKey` siempre es >= BEAUDLE_LAUNCH_DAY porque la ruta ya
+// lo valida con isValidBeaudleDay antes de llamar acá).
+function safeMod(n, m) {
+    return ((n % m) + m) % m;
+}
+
+// Días completos entre dos fechas "YYYY-MM-DD" (puede ser negativo). Vía Date.UTC sobre
+// las partes numéricas — mismo patrón que computeStreakUpdate, exacto sin importar el
+// huso horario del server ni cruces de mes/año.
+function daysBetween(fromDay, toDay) {
+    const from = fromDay.split('-').map(Number);
+    const to = toDay.split('-').map(Number);
+    const fromMs = Date.UTC(from[0], from[1] - 1, from[2]);
+    const toMs = Date.UTC(to[0], to[1] - 1, to[2]);
+    return Math.round((toMs - fromMs) / 86400000);
+}
+
+// Permutación determinística de [0..n-1] a partir de una seed (Fisher-Yates, usando
+// mixedHash en vez de un PRNG con estado para no necesitar generador con memoria).
+function shuffledIndices(n, seed) {
+    const arr = [];
+    for (let i = 0; i < n; i++) arr.push(i);
+    for (let i = n - 1; i > 0; i--) {
+        const j = mixedHash(`${seed}:${i}`) % (i + 1);
+        const tmp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = tmp;
+    }
+    return arr;
+}
+
 // Elección determinística del lugar secreto del día: mismo (dayKey, salt) -> mismo
 // lugar, siempre. La salt evita que la secuencia sea trivialmente adivinable leyendo el
 // código fuente (ver $os.getenv("BEAUDLE_SEED_SALT") en beaudle.pb.js).
+//
+// Esquema "bolsa sin repetición" (como el randomizer de 7 piezas de Tetris): los días se
+// numeran consecutivamente desde BEAUDLE_LAUNCH_DAY y se agrupan en "ciclos" de
+// places.length días. Cada ciclo baraja una permutación distinta (determinística, según
+// su número de ciclo + salt) de TODOS los lugares y la recorre una posición por día — así
+// ningún lugar puede repetirse hasta que el ciclo entero (todos los lugares) se agotó, y
+// al terminar un ciclo empieza uno nuevo con un orden distinto.
 function pickSecretForDay(dayKey, places, salt) {
-    const idx = fnv1aHash(`${salt}:${dayKey}`) % places.length;
-    return places[idx];
+    const n = places.length;
+    const dayIndex = daysBetween(BEAUDLE_LAUNCH_DAY, dayKey);
+    const cycle = Math.floor(dayIndex / n);
+    const position = safeMod(dayIndex, n);
+    const permutation = shuffledIndices(n, `${salt}:cycle:${cycle}`);
+    return places[permutation[position]];
 }
 
 // Comparación de atributos con VARIOS valores a la vez (edificio/piso/tipo): "correct"
@@ -117,16 +206,6 @@ function nextDayNumber(prevDayNumber) {
     return (prevDayNumber || 0) + 1;
 }
 
-// Día calendario (hora Chile) en que se jugó el primer Beaudle real en producción —
-// nunca hubo beaudle_daily_stats antes de esta fecha. GET /today y POST /guess reciben
-// "day" directo de la URL/body sin más validación que "no sea futuro", así que sin este
-// piso cualquiera podía pedir un día arbitrariamente anterior (ej. "2020-01-01") y crear
-// una fila de beaudle_daily_stats con esa fecha — nextDayNumber() la numera igual (a
-// partir del último day_number que exista, nunca por fecha), así que esa fila fantasma
-// terminaba con un "Beaudle #N" más alto que el real #1 pese a tener un "day" anterior,
-// rompiendo la promesa de que #1 es siempre el primer día que existió.
-const BEAUDLE_LAUNCH_DAY = "2026-08-10";
-
 // Válido = no es anterior al lanzamiento real ni posterior a hoy. Centralizado acá (en
 // vez de repetir las dos comparaciones de string en cada ruta) para que GET /today y
 // POST /guess apliquen exactamente la misma regla.
@@ -158,6 +237,7 @@ function computeStreakUpdate(prevStreak, prevBestStreak, lastStreakDay, complete
 }
 
 module.exports = {
-    MAX_GUESSES, PLACES, fnv1aHash, pickSecretForDay, compareSet, compareGuessToSecret,
-    nextDayNumber, computeStreakUpdate, BEAUDLE_LAUNCH_DAY, isValidBeaudleDay,
+    MAX_GUESSES, PLACES, fnv1aHash, mixedHash, daysBetween, shuffledIndices, pickSecretForDay,
+    compareSet, compareGuessToSecret, nextDayNumber, computeStreakUpdate, BEAUDLE_LAUNCH_DAY,
+    isValidBeaudleDay,
 };

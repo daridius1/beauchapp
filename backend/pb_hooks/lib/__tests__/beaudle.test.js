@@ -1,14 +1,22 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-    MAX_GUESSES, PLACES, fnv1aHash, pickSecretForDay, compareSet, compareGuessToSecret,
-    nextDayNumber, computeStreakUpdate, BEAUDLE_LAUNCH_DAY, isValidBeaudleDay,
+    MAX_GUESSES, PLACES, fnv1aHash, mixedHash, daysBetween, shuffledIndices, pickSecretForDay,
+    compareSet, compareGuessToSecret, nextDayNumber, computeStreakUpdate, BEAUDLE_LAUNCH_DAY,
+    isValidBeaudleDay,
 } = require('../beaudle.js');
 
 function byCode(code) {
     const p = PLACES.find((x) => x.code === code);
     assert.ok(p, `lugar de prueba ${code} no existe en PLACES`);
     return p;
+}
+
+function nextDay(day) {
+    const [y, m, d] = day.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + 1);
+    return dt.toISOString().slice(0, 10);
 }
 
 test('PLACES: tiene exactamente 45 lugares', () => {
@@ -77,6 +85,91 @@ test('pickSecretForDay: recorre varios lugares distintos a lo largo de muchos d�
         seen.add(pickSecretForDay(day, PLACES, 'beaudle-default-salt-v1').code);
     }
     assert.ok(seen.size > 1, 'se esperaba que la selección variara entre distintos días');
+});
+
+test('pickSecretForDay: NO repite ningún lugar hasta que el ciclo completo (todos los lugares) se agotó', () => {
+    // Regresión directa del bug reportado: 4 días de lanzamiento consecutivos habían dado
+    // 4 lugares con índices consecutivos en PLACES. Un ciclo entero (PLACES.length días
+    // seguidos desde el lanzamiento) debe cubrir cada lugar EXACTAMENTE una vez.
+    const seenCodes = new Set();
+    let day = BEAUDLE_LAUNCH_DAY;
+    for (let i = 0; i < PLACES.length; i++) {
+        const code = pickSecretForDay(day, PLACES, 'beaudle-default-salt-v1').code;
+        assert.ok(!seenCodes.has(code), `"${code}" se repitió dentro del mismo ciclo (día ${day})`);
+        seenCodes.add(code);
+        day = nextDay(day);
+    }
+    assert.equal(seenCodes.size, PLACES.length);
+});
+
+test('pickSecretForDay: el ciclo siguiente vuelve a cubrir todos los lugares una vez, en otro orden', () => {
+    const cycleOne = [];
+    const cycleTwo = [];
+    let day = BEAUDLE_LAUNCH_DAY;
+    for (let i = 0; i < PLACES.length; i++) {
+        cycleOne.push(pickSecretForDay(day, PLACES, 'beaudle-default-salt-v1').code);
+        day = nextDay(day);
+    }
+    for (let i = 0; i < PLACES.length; i++) {
+        cycleTwo.push(pickSecretForDay(day, PLACES, 'beaudle-default-salt-v1').code);
+        day = nextDay(day);
+    }
+    assert.equal(new Set(cycleTwo).size, PLACES.length, 'el segundo ciclo también debe cubrir todos los lugares sin repetir');
+    assert.notDeepEqual(cycleOne, cycleTwo, 'se esperaba que el segundo ciclo barajara en un orden distinto al primero');
+});
+
+test('pickSecretForDay: días consecutivos ya no dan índices consecutivos/correlacionados en PLACES (regresión del bug reportado)', () => {
+    const indexes = [];
+    let day = BEAUDLE_LAUNCH_DAY;
+    for (let i = 0; i < 10; i++) {
+        const code = pickSecretForDay(day, PLACES, 'beaudle-default-salt-v1').code;
+        indexes.push(PLACES.findIndex((p) => p.code === code));
+        day = nextDay(day);
+    }
+    let consecutiveRun = 1;
+    let maxConsecutiveRun = 1;
+    for (let i = 1; i < indexes.length; i++) {
+        consecutiveRun = indexes[i] === indexes[i - 1] + 1 ? consecutiveRun + 1 : 1;
+        maxConsecutiveRun = Math.max(maxConsecutiveRun, consecutiveRun);
+    }
+    assert.ok(maxConsecutiveRun < 4, `se encontró una racha de ${maxConsecutiveRun} índices consecutivos en PLACES — mismo patrón que el bug reportado`);
+});
+
+test('mixedHash: determinístico, entero de 32 bits sin signo', () => {
+    assert.equal(mixedHash('a:2026-08-10'), mixedHash('a:2026-08-10'));
+    const h = mixedHash('a:2026-08-10');
+    assert.ok(Number.isInteger(h) && h >= 0 && h <= 0xffffffff);
+});
+
+test('mixedHash: decorrelaciona strings que difieren solo en el último carácter (root cause del bug)', () => {
+    // Con fnv1aHash puro, hash("s:2026-08-10") - hash("s:2026-08-11") daba ~exactamente
+    // el primo FNV (16777619) para varios pares consecutivos — de ahí la racha de índices
+    // consecutivos. mixedHash no debería mostrar ese patrón.
+    const deltas = [];
+    for (let d = 10; d <= 18; d++) {
+        const a = mixedHash(`s:2026-08-${String(d).padStart(2, '0')}`);
+        const b = mixedHash(`s:2026-08-${String(d + 1).padStart(2, '0')}`);
+        deltas.push(Math.abs(a - b));
+    }
+    const FNV_PRIME = 16777619;
+    const suspicious = deltas.filter((d) => Math.abs(d - FNV_PRIME) < 1000).length;
+    assert.ok(suspicious === 0, 'se esperaba que ningún delta quedara pegado al primo FNV como en el bug original');
+});
+
+test('daysBetween: 0 para el mismo día, exacto cruzando meses', () => {
+    assert.equal(daysBetween('2026-08-10', '2026-08-10'), 0);
+    assert.equal(daysBetween('2026-08-10', '2026-08-11'), 1);
+    assert.equal(daysBetween('2026-07-31', '2026-08-01'), 1);
+});
+
+test('shuffledIndices: devuelve una permutación completa de [0..n-1], determinística por seed', () => {
+    const a = shuffledIndices(45, 'seed-1');
+    const b = shuffledIndices(45, 'seed-1');
+    const c = shuffledIndices(45, 'seed-2');
+    assert.deepEqual(a, b);
+    assert.equal(new Set(a).size, 45);
+    assert.deepEqual([...a].sort((x, y) => x - y), Array.from({ length: 45 }, (_, i) => i));
+    assert.notDeepEqual(a, c);
 });
 
 test('compareSet: mismo conjunto exacto -> correct, sin importar el orden', () => {

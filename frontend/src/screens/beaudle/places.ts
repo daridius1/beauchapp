@@ -43,7 +43,7 @@ export const BEAUDLE_PLACES: BeaudlePlace[] = [
   { code: 'multicancha-850', name: "Multicancha 850", shortName: "Multicancha 850", ubicacion: "850", edificio: ["Patio 850"], piso: [1], tipo: ["Deportivo","Cancha"] },
   { code: 'terraza-ebria', name: "Terraza Ebria", shortName: "Terraza Ebria", ubicacion: "850", edificio: ["Patio 850"], piso: [2], tipo: ["Áreas comunes"] },
   { code: 'el-muerto', name: "El Muerto", shortName: "El Muerto", ubicacion: "850", edificio: ["Patio 850"], piso: [1], tipo: ["Patrimonio"] },
-  { code: 'carrito', name: "Carrito", shortName: "Carrito", ubicacion: "850", edificio: ["Patio 850"], piso: [1], tipo: ["Servicio"] },
+  { code: 'carrito', name: "Carrito de Comida", shortName: "Carrito de Comida", ubicacion: "850", edificio: ["Patio 850"], piso: [1], tipo: ["Servicio"] },
   { code: 'pajarera', name: "Pajarera", shortName: "Pajarera", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [2], tipo: ["Áreas comunes","Estudio"] },
   { code: 'a2ic', name: "A2IC", shortName: "A2IC", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [3], tipo: ["Centro","Oficina"] },
   { code: 'zocalo', name: "Zócalo", shortName: "Zócalo", ubicacion: "850", edificio: ["Edificio Escuela"], piso: [-1], tipo: ["Sala","Área común"] },
