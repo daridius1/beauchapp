@@ -263,7 +263,7 @@ function AppContent() {
       case 'Students': return 'Personas';
       case 'FollowList': {
         const type = params?.type;
-        return type === 'followers' ? 'Seguidores' : type === 'following' ? 'Siguiendo' : type === 'recommendations' ? 'Recomendaciones' : 'Integrantes';
+        return type === 'followers' ? 'Seguidores' : type === 'following' ? 'Siguiendo' : type === 'recommendations' ? 'Recomendaciones' : type === 'poll_voters' ? (params?.title || 'Votos') : 'Integrantes';
       }
       case 'ProblemsList': return 'Problemas';
       case 'ProblemDetail': {

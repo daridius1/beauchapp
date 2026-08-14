@@ -18,7 +18,7 @@ export type RootStackParamList = {
   Directory: undefined;
   Beauchapps: undefined;
   Students: undefined;
-  FollowList: { userId: string; type: 'followers' | 'following' | 'members' | 'recommendations' | 'attendees'; username?: string; title?: string };
+  FollowList: { userId: string; type: 'followers' | 'following' | 'members' | 'recommendations' | 'attendees' | 'poll_voters'; username?: string; title?: string; optionIndex?: number };
   ProblemsList: undefined;
   ProblemDetail: { problemId: string; type?: 'problem' | 'solution' };
   ProblemEditor: { problemId?: string; answerId?: string; type: 'problem' | 'answer'; initialContent?: string; problemTitle?: string };

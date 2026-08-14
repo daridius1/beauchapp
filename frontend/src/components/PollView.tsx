@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { theme } from '../theme/theme';
 import { pb } from '../services/pocketbase';
 
@@ -11,10 +12,19 @@ interface PollViewProps {
 
 // Se embebe en PostCard cuando el post tiene pollOptions. Antes de votar solo se ven
 // las opciones (sin porcentajes); una vez que el usuario vota, se ven los porcentajes
-// agregados y su propia opción resaltada, y sigue pudiendo tocar otra opción para
-// cambiar el voto (create la primera vez, update del mismo registro después).
+// agregados y su propia opción resaltada, y sigue pudiendo tocar la barra para cambiar
+// el voto (create la primera vez, update del mismo registro después). Los votos no son
+// anónimos: cada opción tiene su propio botón (aparte de la barra, para no chocar con
+// el gesto de cambiar de voto) que lleva a la vista de lista de usuarios (FollowList,
+// la misma que ya usan seguidores/integrantes/etc.) con quién votó por esa opción —
+// poll_votes ya es listable por cualquier usuario autenticado, así que no hace falta
+// backend nuevo para esto. Las cuentas de organización no pueden votar (ver
+// polls.pb.js, que también lo bloquea del lado del servidor) — para ellas se muestran
+// los resultados de una vez, como si ya hubieran votado.
 export const PollView: React.FC<PollViewProps> = ({ post, currentUser }) => {
+  const navigation = useNavigation<any>();
   const options: string[] = post.pollOptions || [];
+  const isOrganization = currentUser?.type === 'organization';
   const [counts, setCounts] = useState<number[]>(() => options.map(() => 0));
   const [myVote, setMyVote] = useState<number | null>(null);
   const [myVoteRecordId, setMyVoteRecordId] = useState<string | null>(null);
@@ -29,9 +39,12 @@ export const PollView: React.FC<PollViewProps> = ({ post, currentUser }) => {
     const load = async () => {
       try {
         const [voteRecord, countLists] = await Promise.all([
-          pb.collection('poll_votes')
-            .getFirstListItem(`post = "${post.id}" && user = "${currentUser.id}"`)
-            .catch(() => null),
+          // Las organizaciones nunca votan, así que no hace falta buscar su propio voto.
+          isOrganization
+            ? Promise.resolve(null)
+            : pb.collection('poll_votes')
+                .getFirstListItem(`post = "${post.id}" && user = "${currentUser.id}"`)
+                .catch(() => null),
           Promise.all(
             options.map((_, i) =>
               pb.collection('poll_votes').getList(1, 1, { filter: `post = "${post.id}" && optionIndex = ${i}` })
@@ -56,7 +69,7 @@ export const PollView: React.FC<PollViewProps> = ({ post, currentUser }) => {
   }, [post.id, currentUser?.id]);
 
   const handleVote = async (index: number) => {
-    if (!currentUser || index === myVote || loading) return;
+    if (!currentUser || isOrganization || index === myVote || loading) return;
     const prevVote = myVote;
     const prevCounts = counts;
     const prevRecordId = myVoteRecordId;
@@ -81,6 +94,15 @@ export const PollView: React.FC<PollViewProps> = ({ post, currentUser }) => {
     }
   };
 
+  const handleOpenVoters = (index: number) => {
+    navigation.push('FollowList', {
+      userId: post.id,
+      type: 'poll_voters',
+      optionIndex: index,
+      title: `Votos: "${options[index]}"`,
+    });
+  };
+
   if (options.length < 2) return null;
 
   if (!currentUser) {
@@ -97,7 +119,7 @@ export const PollView: React.FC<PollViewProps> = ({ post, currentUser }) => {
   }
 
   const totalVotes = counts.reduce((a, b) => a + b, 0);
-  const hasVoted = myVote !== null;
+  const hasVoted = myVote !== null || isOrganization;
 
   return (
     <View style={styles.container}>
@@ -108,7 +130,8 @@ export const PollView: React.FC<PollViewProps> = ({ post, currentUser }) => {
           <TouchableOpacity
             key={i}
             style={[styles.optionRow, isMine && styles.optionRowSelected]}
-            activeOpacity={0.7}
+            activeOpacity={isOrganization ? 1 : 0.7}
+            disabled={isOrganization}
             onPress={(e: any) => { e.stopPropagation && e.stopPropagation(); handleVote(i); }}
           >
             {hasVoted && <View style={[styles.barFill, { width: `${pct}%` }]} />}
@@ -116,12 +139,25 @@ export const PollView: React.FC<PollViewProps> = ({ post, currentUser }) => {
               {isMine && <Feather name="check-circle" size={14} color={theme.colors.primary} style={{ marginRight: 6 }} />}
               <Text style={styles.optionText}>{opt}</Text>
             </View>
-            {hasVoted && <Text style={styles.optionPct}>{pct}%</Text>}
+            {hasVoted && (
+              <View style={styles.optionRightGroup}>
+                <Text style={styles.optionPct}>{pct}%</Text>
+                <TouchableOpacity
+                  style={styles.votersBtn}
+                  onPress={(e: any) => { e.stopPropagation && e.stopPropagation(); handleOpenVoters(i); }}
+                >
+                  <Feather name="users" size={13} color={theme.colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            )}
           </TouchableOpacity>
         );
       })}
       {hasVoted && (
         <Text style={styles.totalVotes}>{totalVotes} voto{totalVotes !== 1 ? 's' : ''}</Text>
+      )}
+      {isOrganization && (
+        <Text style={styles.hint}>Las cuentas de organización no pueden votar.</Text>
       )}
     </View>
   );
@@ -165,10 +201,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
+  optionRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   optionPct: {
     color: theme.colors.textMuted,
     fontSize: 12,
     fontWeight: '700',
+  },
+  votersBtn: {
+    padding: 4,
   },
   totalVotes: {
     color: theme.colors.textMuted,

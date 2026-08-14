@@ -140,6 +140,18 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
             .map((item) => item.expand?.user)
             .filter((user) => !!user);
           setProfiles(mappedUsers);
+        } else if (type === 'poll_voters') {
+          // Acá "userId" es en realidad el ID del post con la encuesta (mismo overload
+          // genérico que ya usan members/recommendations/attendees).
+          const res = await pb.collection('poll_votes').getList(1, 200, {
+            filter: `post = "${userId}" && optionIndex = ${routeParams?.optionIndex}`,
+            expand: 'user',
+            sort: '-created',
+          });
+          const mappedUsers = res.items
+            .map((item) => item.expand?.user)
+            .filter((user) => !!user);
+          setProfiles(mappedUsers);
         } else {
           const isFollowers = type === 'followers';
           const filterStr = isFollowers ? `following = "${userId}"` : `follower = "${userId}"`;
@@ -248,6 +260,8 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
         ? 'Aún nadie ha recomendado a este vendedor.'
         : routeParams?.type === 'attendees'
         ? 'Aún nadie ha confirmado asistencia a esta actividad.'
+        : routeParams?.type === 'poll_voters'
+        ? 'Nadie ha votado esta opción todavía.'
         : 'Esta organización aún no tiene integrantes registrados.'
       : 'No se encontraron perfiles con los filtros seleccionados.';
 
