@@ -100,7 +100,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
     return () => sub.remove();
   }, [loadItem]);
 
-  const handleSendComment = async (content: string, photoFile: File | null) => {
+  const handleSendComment = async (content: string, photoFile: File | null, pollOptions: string[] | null) => {
     if ((!content.trim() && !photoFile) || !currentUser || !item) return;
     try {
       const postData: any = {
@@ -116,6 +116,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
         },
       };
       if (photoFile) postData.photo = photoFile;
+      if (pollOptions && pollOptions.length >= 2) postData.pollOptions = pollOptions;
 
       const created = await pb.collection('posts').create(postData, { expand: 'author' });
       setComments((prev) => [...prev, created]);

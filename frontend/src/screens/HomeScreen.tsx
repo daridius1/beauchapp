@@ -12,6 +12,7 @@ import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
 import { TargetPreview } from '../components/TargetPreview';
 import { MentionTextInput } from '../components/MentionTextInput';
+import { PollComposer, isValidPoll } from '../components/PollComposer';
 import { withMinimumDelay } from '../utils/refresh';
 import Toast from 'react-native-toast-message';
 
@@ -28,6 +29,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   
   // Target pre-seleccionado para citar
   const [quotedTarget, setQuotedTarget] = useState<{ targetType: string; targetId: string; targetMeta: any } | null>(null);
+  const [pollOptions, setPollOptions] = useState<string[] | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -267,6 +269,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         author: user.id
       };
       if (photo) postData.photo = photo;
+      if (isValidPoll(pollOptions)) {
+        postData.pollOptions = (pollOptions as string[]).map((o) => o.trim()).filter(Boolean);
+      }
 
       if (quotedTarget) {
         postData.actionType = 'quote';
@@ -281,6 +286,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       setTagInput('');
       setPhoto(null);
       setQuotedTarget(null);
+      setPollOptions(null);
       fetchPosts(1, false);
     } catch (err) {
       console.error(err);
@@ -517,6 +523,14 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               </View>
             )}
 
+            {pollOptions && (
+              <PollComposer
+                options={pollOptions}
+                onChange={setPollOptions}
+                onRemove={() => setPollOptions(null)}
+              />
+            )}
+
             {photoPreview && (
               <View style={styles.previewContainer}>
                 <Image source={{ uri: photoPreview }} style={styles.previewImage} resizeMode="cover" />
@@ -553,7 +567,13 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               </View>
               <View style={styles.footerActions}>
                 <ImagePicker onImageReady={(f) => setPhoto(f)} value={photo} />
-                <TouchableOpacity 
+                <TouchableOpacity
+                  style={styles.pollToggleBtn}
+                  onPress={() => setPollOptions(pollOptions ? null : ['', ''])}
+                >
+                  <Feather name="bar-chart-2" size={20} color={pollOptions ? theme.colors.primary : theme.colors.textMuted} />
+                </TouchableOpacity>
+                <TouchableOpacity
                   style={[styles.postBtn, ((!content.trim() && !photo && !quotedTarget) || posting) && styles.postBtnDisabled]}
                   onPress={handlePost}
                   disabled={(!content.trim() && !photo && !quotedTarget) || posting}
@@ -883,6 +903,11 @@ const styles = StyleSheet.create({
   footerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  pollToggleBtn: {
+    padding: 8,
+    borderRadius: 8,
+    marginRight: 12,
   },
   loginPromptBtn: {
     backgroundColor: theme.colors.primary,

@@ -69,7 +69,7 @@ export const BeaumarketDetailScreen: React.FC<Props> = ({ route, navigation }) =
     }
   };
 
-  const handleSendComment = async (content: string, photo: File | null) => {
+  const handleSendComment = async (content: string, photo: File | null, pollOptions: string[] | null) => {
     if (!user || !market) return;
 
     const formData = new FormData();
@@ -81,6 +81,9 @@ export const BeaumarketDetailScreen: React.FC<Props> = ({ route, navigation }) =
 
     if (photo) {
       formData.append('photo', photo);
+    }
+    if (pollOptions && pollOptions.length >= 2) {
+      formData.append('pollOptions', JSON.stringify(pollOptions));
     }
 
     await pb.collection('posts').create(formData);

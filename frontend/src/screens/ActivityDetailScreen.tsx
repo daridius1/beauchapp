@@ -194,7 +194,7 @@ export const ActivityDetailScreen = ({ route, navigation }: any) => {
     }
   };
 
-  const handleSendComment = async (content: string, photo: File | null) => {
+  const handleSendComment = async (content: string, photo: File | null, pollOptions: string[] | null) => {
     if (!user || !activity) return;
 
     const formData = new FormData();
@@ -206,6 +206,9 @@ export const ActivityDetailScreen = ({ route, navigation }: any) => {
 
     if (photo) {
       formData.append('photo', photo);
+    }
+    if (pollOptions && pollOptions.length >= 2) {
+      formData.append('pollOptions', JSON.stringify(pollOptions));
     }
 
     await pb.collection('posts').create(formData);

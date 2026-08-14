@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { ImagePicker } from './ImagePicker';
 import { MentionTextInput } from './MentionTextInput';
+import { PollComposer, isValidPoll } from './PollComposer';
 
 export interface EntityCommentBoxProps {
-  onSendComment: (content: string, photo: File | null) => Promise<void>;
+  onSendComment: (content: string, photo: File | null, pollOptions: string[] | null) => Promise<void>;
   placeholder?: string;
   buttonText?: string;
   style?: any;
+  allowPoll?: boolean;
 }
 
 export const EntityCommentBox: React.FC<EntityCommentBoxProps> = ({
@@ -16,10 +19,12 @@ export const EntityCommentBox: React.FC<EntityCommentBoxProps> = ({
   placeholder = 'Escribe un comentario...',
   buttonText = 'Publicar',
   style,
+  allowPoll = true,
 }) => {
   const [content, setContent] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [pollOptions, setPollOptions] = useState<string[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -36,10 +41,12 @@ export const EntityCommentBox: React.FC<EntityCommentBoxProps> = ({
     if ((!content.trim() && !photo) || submitting) return;
     setSubmitting(true);
     try {
-      await onSendComment(content.trim(), photo);
+      const validPoll = isValidPoll(pollOptions) ? (pollOptions as string[]).map((o) => o.trim()).filter(Boolean) : null;
+      await onSendComment(content.trim(), photo, validPoll);
       setContent('');
       setPhoto(null);
       setPhotoPreview(null);
+      setPollOptions(null);
     } catch (err) {
       console.error('Error publishing comment:', err);
     } finally {
@@ -71,8 +78,26 @@ export const EntityCommentBox: React.FC<EntityCommentBoxProps> = ({
         />
       </View>
 
+      {pollOptions && (
+        <PollComposer
+          options={pollOptions}
+          onChange={setPollOptions}
+          onRemove={() => setPollOptions(null)}
+        />
+      )}
+
       <View style={styles.footerRow}>
-        <ImagePicker onImageReady={(f) => setPhoto(f)} value={photo} />
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <ImagePicker onImageReady={(f) => setPhoto(f)} value={photo} />
+          {allowPoll && (
+            <TouchableOpacity
+              style={styles.pollToggleBtn}
+              onPress={() => setPollOptions(pollOptions ? null : ['', ''])}
+            >
+              <Feather name="bar-chart-2" size={20} color={pollOptions ? theme.colors.primary : theme.colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
         <TouchableOpacity
           style={[styles.publishBtn, isBtnDisabled && styles.publishBtnDisabled]}
           onPress={handlePublish}
@@ -147,6 +172,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  pollToggleBtn: {
+    padding: 8,
+    borderRadius: 8,
   },
   publishBtn: {
     backgroundColor: theme.colors.primary,

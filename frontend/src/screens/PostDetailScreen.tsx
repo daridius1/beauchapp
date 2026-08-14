@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, DeviceEventEmitter, Alert, Platform, RefreshControl } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, DeviceEventEmitter, Alert, Platform, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,8 @@ import { ImagePicker } from '../components/ImagePicker';
 import { Avatar } from '../components/Avatar';
 import { Feather } from '@expo/vector-icons';
 import { PostCard } from '../components/PostCard';
+import { MentionTextInput } from '../components/MentionTextInput';
+import { PollComposer, isValidPoll } from '../components/PollComposer';
 import { withMinimumDelay } from '../utils/refresh';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PostDetail'>;
@@ -28,6 +30,7 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   
   const [content, setContent] = useState('');
+  const [pollOptions, setPollOptions] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [activeMenuPostId, setActiveMenuPostId] = useState<string | null>(null);
@@ -163,11 +166,15 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         }
       };
       if (photo) postData.photo = photo;
+      if (isValidPoll(pollOptions)) {
+        postData.pollOptions = (pollOptions as string[]).map((o) => o.trim()).filter(Boolean);
+      }
 
       await pb.collection('posts').create(postData);
       setMainPost((prev: any) => prev ? { ...prev, commentCount: (prev.commentCount || 0) + 1 } : prev);
       setPhoto(null);
       setContent('');
+      setPollOptions(null);
       fetchData(true);
     } catch (err) {
       console.error('Error replying', err);
@@ -309,9 +316,16 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               </TouchableOpacity>
             </View>
           )}
+          {pollOptions && (
+            <PollComposer
+              options={pollOptions}
+              onChange={setPollOptions}
+              onRemove={() => setPollOptions(null)}
+            />
+          )}
           <View style={styles.replyBox}>
             <View style={{ flex: 1 }}>
-              <TextInput
+              <MentionTextInput
                 style={styles.replyInput}
                 placeholder="Escribe tu respuesta..."
                 placeholderTextColor={theme.colors.textMuted}
@@ -322,7 +336,13 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
             <View style={styles.footerActions}>
               <ImagePicker onImageReady={(f) => setPhoto(f)} value={photo} />
-              <TouchableOpacity 
+              <TouchableOpacity
+                style={styles.pollToggleBtn}
+                onPress={() => setPollOptions(pollOptions ? null : ['', ''])}
+              >
+                <Feather name="bar-chart-2" size={20} color={pollOptions ? theme.colors.primary : theme.colors.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={[styles.replyBtn, ((!content.trim() && !photo) || posting) && styles.replyBtnDisabled]}
                 onPress={handleReply}
                 disabled={(!content.trim() && !photo) || posting}
@@ -542,6 +562,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
+  },
+  pollToggleBtn: {
+    padding: 8,
+    borderRadius: 8,
+    marginRight: 12,
   },
   previewContainer: {
     position: 'relative',

@@ -140,7 +140,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
     }
   };
 
-  const handleSendComment = async (content: string, photoFile: File | null) => {
+  const handleSendComment = async (content: string, photoFile: File | null, pollOptions: string[] | null) => {
     if ((!content.trim() && !photoFile) || !currentUser || !match) return;
     try {
       const postData: any = {
@@ -157,6 +157,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
         }
       };
       if (photoFile) postData.photo = photoFile;
+      if (pollOptions && pollOptions.length >= 2) postData.pollOptions = pollOptions;
 
       const created = await pb.collection('posts').create(postData, { expand: 'author' });
       setComments(prev => [...prev, created]);

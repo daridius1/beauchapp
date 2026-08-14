@@ -13,6 +13,7 @@ import { TargetPreview } from './TargetPreview';
 import { ContentActionsMenu, ContentAction } from './ContentActionsMenu';
 import { ReportModal } from './ReportModal';
 import { LinkConfirmModal } from './LinkConfirmModal';
+import { PollView } from './PollView';
 
 export interface PostCardProps {
   post: any;
@@ -360,6 +361,11 @@ export const PostCard: React.FC<PostCardProps> = ({
             expandedTarget={post.expandedTarget}
             onPress={handleDefaultTargetPress}
           />
+        )}
+
+        {/* Encuesta */}
+        {!isDeleted && post.pollOptions && post.pollOptions.length >= 2 && (
+          <PollView post={post} currentUser={currentUser} />
         )}
 
         {/* Tags (solo se muestran en publicaciones o citas principales, no en respuestas ni comentarios) */}

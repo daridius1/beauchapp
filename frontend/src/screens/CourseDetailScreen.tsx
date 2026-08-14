@@ -187,7 +187,7 @@ export const CourseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     return stars;
   };
 
-  const handleSendComment = async (content: string, photoFile: File | null) => {
+  const handleSendComment = async (content: string, photoFile: File | null, pollOptions: string[] | null) => {
     if ((!content.trim() && !photoFile) || !user || !course) return;
     try {
       const postData: any = {
@@ -199,6 +199,7 @@ export const CourseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         targetMeta: { codigo: course.codigo, nombre: course.nombre, area: course.area },
       };
       if (photoFile) postData.photo = photoFile;
+      if (pollOptions && pollOptions.length >= 2) postData.pollOptions = pollOptions;
 
       const created = await pb.collection('posts').create(postData, { expand: 'author' });
       setComments((prev) => [...prev, created]);
