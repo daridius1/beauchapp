@@ -50,7 +50,6 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
   const [match, setMatch] = useState<any>(null);
   const [approvedReport, setApprovedReport] = useState<any>(null);
   const [approvedEvents, setApprovedEvents] = useState<MatchEvent[]>([]);
-  const [userReport, setUserReport] = useState<any>(null);
   const [comments, setComments] = useState<any[]>([]);
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -96,15 +95,6 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
               } catch (err) {
                 setApprovedReport(null);
                 setApprovedEvents([]);
-              }
-            } else if (matchRecord.status === 'confirmed' && user) {
-              try {
-                const myReport = await pb.collection('match_reports').getFirstListItem(
-                  `match = "${matchId}" && referee = "${user.id}"`
-                );
-                setUserReport(myReport);
-              } catch (err) {
-                setUserReport(null);
               }
             }
           }
@@ -297,36 +287,13 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
             <Feather name="flag" size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
             <Text style={styles.arbitrateTitle}>Arbitraje Abierto</Text>
           </View>
-          <Text style={styles.arbitrateDescription}>
-            Cualquier integrante de la comunidad puede arbitrar este partido desde la app. Si varias personas arbitran
-            en simultáneo, la administración de la liga aprobará un único informe como oficial.
-          </Text>
-
-          {userReport ? (
-            <View style={styles.userReportNotice}>
-              <Feather
-                name={userReport.status === 'submitted' ? 'check-circle' : 'edit-3'}
-                size={14}
-                color={userReport.status === 'submitted' ? '#22c55e' : '#38bdf8'}
-                style={{ marginRight: 6 }}
-              />
-              <Text style={styles.userReportNoticeText}>
-                {userReport.status === 'submitted'
-                  ? 'Tu informe ya fue enviado y está en revisión.'
-                  : 'Tienes un informe en borrador en este dispositivo.'}
-              </Text>
-            </View>
-          ) : null}
-
           <TouchableOpacity
             style={styles.arbitrateBtn}
             activeOpacity={0.8}
             onPress={() => navigation.push('LeagueMatchArbitrator', { matchId })}
           >
             <Feather name="play" size={14} color="#000000" style={{ marginRight: 6 }} />
-            <Text style={styles.arbitrateBtnText}>
-              {userReport?.status === 'in_progress' ? 'Continuar Arbitraje' : 'Arbitrar Partido'}
-            </Text>
+            <Text style={styles.arbitrateBtnText}>Arbitrar</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -351,6 +318,13 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
             teamBName={teamBName}
             events={approvedEvents}
           />
+
+          {!!approvedReport?.notes && (
+            <>
+              <Text style={styles.sectionHeader}>Informe del árbitro</Text>
+              <Text style={styles.refereeNotesText}>{approvedReport.notes}</Text>
+            </>
+          )}
         </View>
       )}
 
@@ -464,28 +438,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  arbitrateDescription: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  userReportNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: '#222222',
-    borderRadius: 4,
-    padding: 8,
-    marginBottom: 12,
-  },
-  userReportNoticeText: {
-    color: theme.colors.text,
-    fontSize: 12,
-    fontWeight: '500',
-    flex: 1,
-  },
   arbitrateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -510,6 +462,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 8,
     marginTop: 12,
+  },
+  refereeNotesText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    lineHeight: 19,
   },
   commentsSection: {
     marginTop: 8,

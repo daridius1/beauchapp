@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { isValidEvent, summarizeEvents } = require("../matchEvents.js");
+const { isValidEvent, isClockGatedSequenceValid, summarizeEvents } = require("../matchEvents.js");
 
 test("isValidEvent: acepta cada tipo bien formado", () => {
     assert.equal(isValidEvent({ type: "lineup", team: "A", players: ["Pedro"] }), true);
@@ -19,6 +19,11 @@ test("isValidEvent: rechaza tipos desconocidos o campos faltantes/mal tipados", 
     assert.equal(isValidEvent({ type: "goal", team: "C", player: "Pedro", ownGoal: false }), false); // team inválido
     assert.equal(isValidEvent({ type: "half_start", half: 3 }), false);
     assert.equal(isValidEvent({ type: "penalty", team: "A", player: "Ana" }), false); // falta scored
+});
+
+test("isValidEvent: pause/resume no necesitan ningún campo extra", () => {
+    assert.equal(isValidEvent({ type: "pause" }), true);
+    assert.equal(isValidEvent({ type: "resume" }), true);
 });
 
 test("summarizeEvents: arreglo vacío devuelve estado en cero", () => {
@@ -93,6 +98,58 @@ test("summarizeEvents: eventos inválidos dentro del arreglo se ignoran en vez d
     ]);
     assert.equal(s.scoreA, 1);
     assert.equal(s.scoreB, 1);
+});
+
+test("summarizeEvents: clockRunning refleja pause/resume además de half_start/half_end", () => {
+    assert.equal(summarizeEvents([]).clockRunning, false);
+    assert.equal(summarizeEvents([{ type: "half_start", half: 1 }]).clockRunning, true);
+    assert.equal(summarizeEvents([{ type: "half_start", half: 1 }, { type: "pause" }]).clockRunning, false);
+    assert.equal(
+        summarizeEvents([{ type: "half_start", half: 1 }, { type: "pause" }, { type: "resume" }]).clockRunning,
+        true
+    );
+    assert.equal(
+        summarizeEvents([{ type: "half_start", half: 1 }, { type: "half_end", half: 1 }]).clockRunning,
+        false
+    );
+});
+
+test("isClockGatedSequenceValid: goles/tarjetas/penales solo son válidos con el reloj corriendo", () => {
+    assert.equal(
+        isClockGatedSequenceValid([
+            { type: "half_start", half: 1 },
+            { type: "goal", team: "A", player: "Pedro", ownGoal: false },
+        ]),
+        true
+    );
+    // Sin ningún half_start antes -> reloj parado -> inválido.
+    assert.equal(
+        isClockGatedSequenceValid([{ type: "goal", team: "A", player: "Pedro", ownGoal: false }]),
+        false
+    );
+    // Gol durante una pausa -> inválido.
+    assert.equal(
+        isClockGatedSequenceValid([
+            { type: "half_start", half: 1 },
+            { type: "pause" },
+            { type: "goal", team: "A", player: "Pedro", ownGoal: false },
+        ]),
+        false
+    );
+    // Gol en el entretiempo (después de half_end, antes de half_start del 2do) -> inválido.
+    assert.equal(
+        isClockGatedSequenceValid([
+            { type: "half_start", half: 1 },
+            { type: "half_end", half: 1 },
+            { type: "goal", team: "A", player: "Pedro", ownGoal: false },
+        ]),
+        false
+    );
+    // Convocatoria no está sujeta al reloj -> siempre válida.
+    assert.equal(
+        isClockGatedSequenceValid([{ type: "lineup", team: "A", players: ["Pedro"] }]),
+        true
+    );
 });
 
 test("summarizeEvents: 'deshacer' es simplemente re-resumir con el último elemento sacado", () => {

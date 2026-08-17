@@ -111,12 +111,6 @@ routerAdd("GET", "/admin/liga", (e) => {
         <div class="alert alert-danger" id="panelError"></div>
 
         <div class="card">
-            <h2 style="margin-top:0;">Informes por validar</h2>
-            <p class="hint">Cualquier persona puede arbitrar un partido desde la app, incluso varias a la vez — cada una manda su propio informe. Acá se aprueba UNO por partido (el resto queda sin efecto) o se rechaza individualmente.</p>
-            <div id="pendingReviewList"><p class="hint">Cargando...</p></div>
-        </div>
-
-        <div class="card">
             <h2 style="margin-top:0;">Equipos de la liga</h2>
             <div id="rosterList"><p class="hint">Cargando...</p></div>
         </div>
@@ -179,7 +173,6 @@ routerAdd("GET", "/admin/liga", (e) => {
             myLeagueId = leagueId || "";
             loadRoster();
             loadStages();
-            loadPendingReview();
         }
         function showLogin() { loginPage.style.display = "block"; panelPage.style.display = "none"; }
 
@@ -223,99 +216,6 @@ routerAdd("GET", "/admin/liga", (e) => {
                 throw new Error(data.error || data.message || "Error.");
             }
             return data;
-        }
-
-        // --- Partidos por validar (arbitrajes enviados, esperando aprobación) ---
-        // Réplica en JS de navegador de backend/pb_hooks/lib/matchEvents.js#summarizeEvents
-        // — mismo motivo que el resto de helpers duplicados entre el panel admin y los
-        // hooks del servidor (son runtimes distintos, esto corre en el navegador).
-        function summarizeEventsClient(events) {
-            let scoreA = 0, scoreB = 0;
-            const cardsA = { yellow: 0, red: 0 }, cardsB = { yellow: 0, red: 0 };
-            (events || []).forEach((ev) => {
-                if (ev.type === "goal") {
-                    const scoringTeam = ev.ownGoal ? (ev.team === "A" ? "B" : "A") : ev.team;
-                    if (scoringTeam === "A") scoreA++; else scoreB++;
-                } else if (ev.type === "penalty" && ev.scored) {
-                    if (ev.team === "A") scoreA++; else scoreB++;
-                } else if (ev.type === "yellow_card") {
-                    (ev.team === "A" ? cardsA : cardsB).yellow++;
-                } else if (ev.type === "red_card") {
-                    (ev.team === "A" ? cardsA : cardsB).red++;
-                }
-            });
-            return { scoreA, scoreB, cardsA, cardsB };
-        }
-
-        const pendingReviewList = document.getElementById("pendingReviewList");
-
-        async function loadPendingReview() {
-            hideError(panelError);
-            pendingReviewList.innerHTML = '<p class="hint">Cargando...</p>';
-            try {
-                const filter = 'match.league = "' + myLeagueId + '" && status = "submitted"';
-                const res = await fetch(
-                    "/api/collections/match_reports/records?filter=" + encodeURIComponent(filter) +
-                    "&expand=" + encodeURIComponent("match,match.teamA,match.teamB,referee") + "&perPage=100&sort=created",
-                    { headers: { "Authorization": "Bearer " + token } }
-                );
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.message || "Error.");
-                const reports = data.items || [];
-                if (!reports.length) {
-                    pendingReviewList.innerHTML = '<p class="hint">No hay informes esperando aprobación.</p>';
-                    return;
-                }
-                pendingReviewList.innerHTML = "";
-                reports.forEach((r) => {
-                    const s = summarizeEventsClient(r.events);
-                    const m = (r.expand && r.expand.match) || {};
-                    const mExpand = m.expand || {};
-                    const nameA = (mExpand.teamA && (mExpand.teamA.name || mExpand.teamA.username)) || "Equipo A";
-                    const nameB = (mExpand.teamB && (mExpand.teamB.name || mExpand.teamB.username)) || "Equipo B";
-                    const refereeName = (r.expand && r.expand.referee && (r.expand.referee.name || r.expand.referee.username)) || "Alguien";
-                    const row = document.createElement("div");
-                    row.className = "match-row";
-                    const info = document.createElement("span");
-                    info.textContent = nameA + " " + s.scoreA + " - " + s.scoreB + " " + nameB +
-                        " · 🟨" + (s.cardsA.yellow + s.cardsB.yellow) + " 🟥" + (s.cardsA.red + s.cardsB.red) +
-                        " · " + formatBlockLabel(m.blockCode || "") +
-                        " · arbitrado por " + refereeName;
-                    row.appendChild(info);
-
-                    const actions = document.createElement("div");
-                    actions.className = "match-actions";
-                    const approveBtn = document.createElement("button");
-                    approveBtn.className = "btn btn-sm btn-accept";
-                    approveBtn.textContent = "Aprobar";
-                    approveBtn.addEventListener("click", async () => {
-                        if (!confirm("¿Aprobar este informe como resultado oficial? Cualquier otro informe enviado para el mismo partido queda sin efecto.")) return;
-                        approveBtn.disabled = true;
-                        try {
-                            await apiCall("/api/liga/matches/approve", "POST", { reportId: r.id });
-                            loadPendingReview();
-                        } catch (err) { showError(panelError, err.message); approveBtn.disabled = false; }
-                    });
-                    const rejectBtn = document.createElement("button");
-                    rejectBtn.className = "btn btn-sm btn-reject";
-                    rejectBtn.textContent = "Rechazar";
-                    rejectBtn.addEventListener("click", async () => {
-                        if (!confirm("¿Rechazar este informe puntual? El partido sigue abierto para que cualquiera lo arbitre (incluso la misma persona, de nuevo).")) return;
-                        rejectBtn.disabled = true;
-                        try {
-                            await apiCall("/api/liga/matches/reject", "POST", { reportId: r.id });
-                            loadPendingReview();
-                        } catch (err) { showError(panelError, err.message); rejectBtn.disabled = false; }
-                    });
-                    actions.appendChild(approveBtn);
-                    actions.appendChild(rejectBtn);
-                    row.appendChild(actions);
-                    pendingReviewList.appendChild(row);
-                });
-            } catch (err) {
-                pendingReviewList.innerHTML = "";
-                showError(panelError, err.message);
-            }
         }
 
         // --- Equipos de la liga ---
@@ -526,7 +426,15 @@ routerAdd("GET", "/admin/liga", (e) => {
                 data.matches.forEach((m) => {
                     const row = document.createElement("div");
                     row.className = "match-row";
-                    row.innerHTML = '<span>' + m.teamAName + ' vs ' + m.teamBName + '</span><span class="gap-tag">' + formatBlockLabel(m.blockCode) + '</span>';
+                    let statusTag = "";
+                    if (m.status === "played") {
+                        statusTag = "Jugado";
+                    } else if (m.status === "cancelled") {
+                        statusTag = "Cancelado";
+                    } else {
+                        statusTag = "Código: " + m.code;
+                    }
+                    row.innerHTML = '<span>' + m.teamAName + ' vs ' + m.teamBName + '</span><span class="gap-tag">' + formatBlockLabel(m.blockCode) + ' &middot; ' + statusTag + '</span>';
                     list.appendChild(row);
                 });
             } catch (err) { showError(panelError, err.message); }
@@ -677,6 +585,18 @@ routerAdd("GET", "/api/liga/matches", (e) => {
             }
         }
 
+        // El código de arbitraje (league_matches.code) es un campo "hidden" — no viaja
+        // en una lectura normal de la colección para cuentas no-superusuario, así que
+        // la única forma de que la liga lo vea (para poder compartirlo) es que una ruta
+        // con $app, como esta, lo incluya explícitamente en su propia respuesta.
+        function reportStatusFor(matchId) {
+            try {
+                return $app.findFirstRecordByFilter("match_reports", "match = {:match}", { match: matchId }).getString("status");
+            } catch (err) {
+                return null;
+            }
+        }
+
         const matches = $app.findRecordsByFilter("league_matches", "stage = {:stage}", "-created", 0, 0, { stage: stageId });
         return e.json(200, {
             matches: matches.map((m) => ({
@@ -687,6 +607,8 @@ routerAdd("GET", "/api/liga/matches", (e) => {
                 teamBName: teamDisplay(m.getString("teamB")),
                 blockCode: m.getString("blockCode"),
                 status: m.getString("status"),
+                code: m.getString("code"),
+                reportStatus: reportStatusFor(m.id),
             })),
         });
     } catch (err) {
@@ -830,6 +752,7 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
             throw new BadRequestError("Esta cuenta no es una liga.");
         }
         const { windowBlockCodes, computeValidBlocks } = require(`${__hooks}/lib/teamSchedule.js`);
+        const { CODE_ALPHABET, CODE_LENGTH } = require(`${__hooks}/lib/matchEvents.js`);
 
         const body = e.requestInfo().body || {};
         const stageId = String(body.stageId || "");
@@ -896,6 +819,9 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
         if (happinessB !== null) record.set("happinessB", happinessB);
         if (gap !== null) record.set("gap", gap);
         record.set("status", "confirmed");
+        // El código de arbitraje se genera acá, junto con el partido — hace falta desde
+        // el primer intento de arbitrarlo, no solo para quien se suma después.
+        record.set("code", $security.randomStringWithAlphabet(CODE_LENGTH, CODE_ALPHABET));
         $app.save(record);
 
         return e.json(200, { success: true, id: record.id });

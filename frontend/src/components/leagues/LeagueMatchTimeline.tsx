@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
-import { MatchEvent, Team } from '../../utils/matchEvents';
+import { MatchEvent, Team, annotateEventsWithHalfTime, formatClockTime } from '../../utils/matchEvents';
 import { LeagueBadge, EventBadgeType } from './LeagueBadge';
 
 interface LeagueMatchTimelineProps {
@@ -26,14 +26,21 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
     );
   }
 
-  // Separar y formatear eventos
+  // Separar y formatear eventos. El minuto relativo se deriva siempre de `events`
+  // (nunca de un `ev.minute` guardado suelto) para que un historial viejo, grabado
+  // bajo una versión anterior del cronómetro, se muestre corregido sin migrar datos.
   const renderedItems: React.ReactNode[] = [];
   let runningScoreA = 0;
   let runningScoreB = 0;
 
-  const timelineEvents = events.filter((e) => e.type !== 'lineup' && e.type !== 'half_end');
+  const annotated = annotateEventsWithHalfTime(events).filter(
+    ({ event: e }) => e.type !== 'lineup' && e.type !== 'half_end'
+  );
 
-  timelineEvents.forEach((ev, idx) => {
+  annotated.forEach(({ event: ev, relativeMs }, idx) => {
+    const relativeLabel = relativeMs !== null ? Math.floor(relativeMs / 60000) : null;
+    const clockTime = formatClockTime(ev.at);
+
     if (ev.type === 'half_start') {
       const halfLabel = `${ev.half}° Tiempo`;
       renderedItems.push(
@@ -44,7 +51,7 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
       return;
     }
 
-    const nextEv = timelineEvents[idx + 1];
+    const nextEv = annotated[idx + 1]?.event;
     const isLastInBlock = !nextEv || nextEv.type === 'half_start';
 
     if (ev.type === 'goal') {
@@ -66,9 +73,10 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
             <Text style={styles.teamTag} numberOfLines={1}>
               ({teamName})
             </Text>
-            {!!ev.minute && (
-              <Text style={styles.minuteTag}>{ev.minute}'</Text>
-            )}
+            <View style={styles.timeCol}>
+              {relativeLabel !== null && <Text style={styles.minuteTag}>{relativeLabel}'</Text>}
+              <Text style={styles.clockTag}>{clockTime}</Text>
+            </View>
           </View>
           <View style={styles.eventRight}>
             <Text style={styles.runningScore}>
@@ -95,9 +103,10 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
             <Text style={styles.teamTag} numberOfLines={1}>
               ({teamName})
             </Text>
-            {!!ev.minute && (
-              <Text style={styles.minuteTag}>{ev.minute}'</Text>
-            )}
+            <View style={styles.timeCol}>
+              {relativeLabel !== null && <Text style={styles.minuteTag}>{relativeLabel}'</Text>}
+              <Text style={styles.clockTag}>{clockTime}</Text>
+            </View>
           </View>
         </View>
       );
@@ -124,9 +133,10 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
             <Text style={styles.teamTag} numberOfLines={1}>
               ({teamName})
             </Text>
-            {!!ev.minute && (
-              <Text style={styles.minuteTag}>{ev.minute}'</Text>
-            )}
+            <View style={styles.timeCol}>
+              {relativeLabel !== null && <Text style={styles.minuteTag}>{relativeLabel}'</Text>}
+              <Text style={styles.clockTag}>{clockTime}</Text>
+            </View>
           </View>
           {ev.scored && (
             <View style={styles.eventRight}>
@@ -193,12 +203,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
+  timeCol: {
+    marginLeft: 2,
+    alignItems: 'flex-end',
+  },
   minuteTag: {
-    color: '#888888',
-    fontSize: 11,
+    color: theme.colors.primary,
+    fontSize: 12,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
-    marginLeft: 2,
+  },
+  clockTag: {
+    color: theme.colors.textMuted,
+    fontSize: 9,
+    fontVariant: ['tabular-nums'],
   },
   eventRight: {
     alignItems: 'flex-end',
