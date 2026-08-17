@@ -45,6 +45,9 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
         } else if (targetType === 'league_match') {
           const record = await pb.collection('league_matches').getOne(targetId, { expand: 'league,stage,teamA,teamB' });
           if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'league') {
+          const record = await pb.collection('users').getOne(targetId);
+          if (isMounted) setFetchedTarget(record);
         } else if (targetType === 'marketplace_item' || targetType === 'product') {
           const record = await pb.collection('marketplace_items').getOne(targetId, { expand: 'seller.user' });
           if (isMounted) setFetchedTarget(record);
@@ -260,6 +263,41 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
             </View>
           </View>
         </View>
+      </Wrapper>
+    );
+  }
+
+  // 3b. RENDERIZADO DE LIGA CITADA
+  if (targetType === 'league') {
+    if (isDeleted) {
+      return (
+        <View style={styles.fallbackBox}>
+          <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.fallbackText}>Esta liga ya no está disponible.</Text>
+        </View>
+      );
+    }
+
+    const leagueName = resolved?.name || resolved?.username || targetMeta?.name || 'Liga';
+    const username = resolved?.username || targetMeta?.username;
+    const avatar = resolved?.avatar || targetMeta?.avatar;
+    const bio = resolved?.bio || targetMeta?.bio;
+
+    return (
+      <Wrapper {...wrapperProps} style={styles.previewCardProblem}>
+        <Avatar user={{ id: targetId, collectionId: 'users', avatar, name: leagueName, username }} size={36} />
+        <View style={{ flex: 1, marginLeft: 8 }}>
+          <Text style={styles.problemSubtitle}>Liga / Torneo{username ? ` · @${username}` : ''}</Text>
+          <Text style={styles.problemTitle} numberOfLines={1}>
+            {leagueName}
+          </Text>
+          {!!bio && (
+            <Text style={{ color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
+              {bio}
+            </Text>
+          )}
+        </View>
+        <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
       </Wrapper>
     );
   }

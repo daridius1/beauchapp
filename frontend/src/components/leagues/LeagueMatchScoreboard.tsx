@@ -136,9 +136,7 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
               </Text>
             </View>
           ) : (
-            <View style={styles.vsBadge}>
-              <Text style={styles.vsText}>{isCancelled ? 'CANCELADO' : 'VS'}</Text>
-            </View>
+            <Text style={styles.vsText}>{isCancelled ? 'CANCELADO' : 'vs'}</Text>
           )}
         </View>
 
@@ -306,19 +304,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#333333',
   },
-  vsBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 3,
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: '#222222',
-  },
   vsText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: theme.colors.textMuted,
-    letterSpacing: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#666666',
+    textTransform: 'lowercase',
   },
   footerMeta: {
     flexDirection: 'row',

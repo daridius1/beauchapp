@@ -104,6 +104,8 @@ export const PostCard: React.FC<PostCardProps> = ({
       navigation.push('LadderMatchDetail', { matchId: post.targetId });
     } else if (post.targetType === 'league_match') {
       navigation.push('LeagueMatchDetail', { matchId: post.targetId });
+    } else if (post.targetType === 'league') {
+      navigation.push('LeagueDetail', { leagueId: post.targetId });
     } else if (post.targetType === 'marketplace_item' || post.targetType === 'product') {
       navigation.push('MarketplaceItemDetail', { itemId: post.targetId });
     } else if (post.targetType === 'seller_profile' || post.targetType === 'seller') {
@@ -305,6 +307,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                 post.targetType === 'problem' ? 'Problema: ' :
                 post.targetType === 'match' ? 'Partido: ' :
                 post.targetType === 'league_match' ? 'Partido: ' :
+                post.targetType === 'league' ? 'Liga: ' :
                 (post.targetType === 'marketplace_item' || post.targetType === 'product') ? 'Producto: ' :
                 (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Vendedor: ' :
                 post.targetType === 'activity' ? 'Actividad: ' :
@@ -314,12 +317,14 @@ export const PostCard: React.FC<PostCardProps> = ({
               }
               <Text style={{ fontWeight: '700', textDecorationLine: 'underline' }}>
                 {post.targetMeta?.title || post.targetMeta?.sportName || post.targetMeta?.sellerName || post.targetMeta?.nombre ||
+                post.targetMeta?.name ||
                 (post.targetType === 'beaudle' && post.targetMeta?.dayNumber ? `#${post.targetMeta.dayNumber}` : null) ||
                 (post.targetType === 'league_match' && post.targetMeta?.teamAName && post.targetMeta?.teamBName
                   ? `${post.targetMeta.teamAName} vs ${post.targetMeta.teamBName}` : null) || (
                   post.targetType === 'problem' ? 'Ver problema' :
                   post.targetType === 'match' ? 'Ver partido' :
                   post.targetType === 'league_match' ? 'Ver partido' :
+                  post.targetType === 'league' ? 'Ver liga' :
                   (post.targetType === 'marketplace_item' || post.targetType === 'product') ? 'Ver producto' :
                   (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Ver tienda' :
                   post.targetType === 'activity' ? 'Ver actividad' :

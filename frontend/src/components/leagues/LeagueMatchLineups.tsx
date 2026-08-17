@@ -42,6 +42,10 @@ export const LeagueMatchLineups: React.FC<LeagueMatchLineupsProps> = ({
       const map = ev.team === 'A' ? playerEventsA : playerEventsB;
       if (!map[ev.player]) map[ev.player] = { goals: 0, yellow: 0, red: false };
       map[ev.player].goals += 1;
+    } else if (ev.type === 'penalty' && ev.scored) {
+      const map = ev.team === 'A' ? playerEventsA : playerEventsB;
+      if (!map[ev.player]) map[ev.player] = { goals: 0, yellow: 0, red: false };
+      map[ev.player].goals += 1;
     } else if (ev.type === 'yellow_card') {
       const map = ev.team === 'A' ? playerEventsA : playerEventsB;
       if (!map[ev.player]) map[ev.player] = { goals: 0, yellow: 0, red: false };
@@ -59,7 +63,6 @@ export const LeagueMatchLineups: React.FC<LeagueMatchLineupsProps> = ({
         <Text style={styles.teamTitle} numberOfLines={1}>
           {name}
         </Text>
-        <Text style={styles.playerCount}>({lineup.length})</Text>
       </View>
 
       {lineup.length === 0 ? (
@@ -67,19 +70,26 @@ export const LeagueMatchLineups: React.FC<LeagueMatchLineupsProps> = ({
       ) : (
         lineup.map((player, idx) => {
           const stats = eventMap[player];
+          const hasGoals = stats && stats.goals > 0;
+          const hasRed = stats && stats.red;
+          const hasYellow = stats && !hasRed && stats.yellow > 0;
+
           return (
             <View key={idx} style={styles.playerRow}>
-              <Text style={styles.playerNum}>{idx + 1}.</Text>
               <Text style={styles.playerName} numberOfLines={1}>
                 {player}
               </Text>
               {!!stats && (
                 <View style={styles.playerBadges}>
-                  {stats.goals > 0 && (
-                    <LeagueBadge type="goal" count={stats.goals} size="sm" />
-                  )}
-                  {stats.yellow && <LeagueBadge type="yellow_card" size="sm" />}
-                  {stats.red && <LeagueBadge type="red_card" size="sm" />}
+                  {/* Mostrar tantas pelotitas de fútbol como goles haya metido */}
+                  {hasGoals &&
+                    Array.from({ length: stats.goals }).map((_, gIdx) => (
+                      <LeagueBadge key={`goal-${gIdx}`} type="goal" size="sm" />
+                    ))}
+
+                  {/* Si tuvo roja, solo se muestra la roja, no las amarillas */}
+                  {hasRed && <LeagueBadge type="red_card" size="sm" />}
+                  {hasYellow && <LeagueBadge type="yellow_card" size="sm" />}
                 </View>
               )}
             </View>
@@ -121,7 +131,6 @@ const styles = StyleSheet.create({
   columnHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#222222',
@@ -133,36 +142,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flex: 1,
   },
-  playerCount: {
-    color: theme.colors.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    justifyContent: 'space-between',
+    paddingVertical: 7,
     borderBottomWidth: 1,
     borderBottomColor: '#141414',
-  },
-  playerNum: {
-    color: '#555555',
-    fontSize: 11,
-    fontWeight: '600',
-    width: 20,
   },
   playerName: {
     color: '#dddddd',
     fontSize: 13,
     fontWeight: '500',
     flex: 1,
+    marginRight: 6,
   },
   playerBadges: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginLeft: 6,
   },
   mutedText: {
     color: theme.colors.textMuted,

@@ -1,58 +1,73 @@
 import React from 'react';
-import { StyleSheet, View, Text } from 'react-native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { StyleSheet, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
 
-export type EventBadgeType = 'goal' | 'own_goal' | 'yellow_card' | 'red_card' | 'penalty_scored' | 'penalty_missed';
+export type EventBadgeType =
+  | 'goal'
+  | 'own_goal'
+  | 'yellow_card'
+  | 'red_card'
+  | 'penalty_scored'
+  | 'penalty_missed';
 
 interface LeagueBadgeProps {
   type: EventBadgeType;
-  count?: number;
   size?: 'sm' | 'md';
 }
 
-export const LeagueBadge: React.FC<LeagueBadgeProps> = ({ type, count, size = 'sm' }) => {
+/**
+ * Ícono vectorial de arco de fútbol para penales.
+ */
+const SoccerGoalIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 20 20"
+    fill="none"
+    stroke={color}
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {/* Postes y travesaño frontal */}
+    <Path d="M3 17.5V4.5h14v13" />
+    {/* Malla / Red del arco */}
+    <Path d="M3 9h14" strokeWidth={1} opacity={0.55} />
+    <Path d="M3 13.5h14" strokeWidth={1} opacity={0.55} />
+    <Path d="M7.6 4.5v13" strokeWidth={1} opacity={0.55} />
+    <Path d="M12.4 4.5v13" strokeWidth={1} opacity={0.55} />
+  </Svg>
+);
+
+export const LeagueBadge: React.FC<LeagueBadgeProps> = ({ type, size = 'sm' }) => {
   const isSm = size === 'sm';
-  const iconSize = isSm ? 14 : 16;
-  const subIconSize = isSm ? 10 : 12;
+  const iconSize = isSm ? 14 : 17;
 
   switch (type) {
+    case 'goal':
+      // Gol regular: Balón de fútbol blanco
+      return <MaterialCommunityIcons name="soccer" size={iconSize} color="#ffffff" />;
+
+    case 'own_goal':
+      // Autogol: Balón de fútbol rojo
+      return <MaterialCommunityIcons name="soccer" size={iconSize} color="#ef4444" />;
+
+    case 'penalty_scored':
+      // Penal anotado: Arco de fútbol verde
+      return <SoccerGoalIcon size={iconSize} color="#22c55e" />;
+
+    case 'penalty_missed':
+      // Penal fallado: Arco de fútbol rojo
+      return <SoccerGoalIcon size={iconSize} color="#ef4444" />;
+
     case 'yellow_card':
+      // Tarjeta amarilla: Rectángulo amarillo
       return <View style={[styles.cardYellow, isSm ? styles.cardSm : styles.cardMd]} />;
 
     case 'red_card':
+      // Tarjeta roja: Rectángulo rojo
       return <View style={[styles.cardRed, isSm ? styles.cardSm : styles.cardMd]} />;
-
-    case 'goal':
-      return (
-        <View style={styles.iconWrapper}>
-          <MaterialCommunityIcons name="soccer" size={iconSize} color="#ffffff" />
-          {count && count > 1 ? <Text style={styles.countText}>x{count}</Text> : null}
-        </View>
-      );
-
-    case 'own_goal':
-      return (
-        <View style={styles.compoundIcon}>
-          <MaterialCommunityIcons name="soccer" size={iconSize} color="#ef4444" />
-          <Feather name="corner-down-left" size={subIconSize} color="#ef4444" style={styles.subIcon} />
-        </View>
-      );
-
-    case 'penalty_scored':
-      return (
-        <View style={styles.compoundIcon}>
-          <MaterialCommunityIcons name="soccer" size={iconSize} color="#ffffff" />
-          <Feather name="check" size={subIconSize} color="#22c55e" style={styles.subIcon} />
-        </View>
-      );
-
-    case 'penalty_missed':
-      return (
-        <View style={styles.compoundIcon}>
-          <MaterialCommunityIcons name="soccer" size={iconSize} color="#666666" />
-          <Feather name="x" size={subIconSize} color="#ef4444" style={styles.subIcon} />
-        </View>
-      );
 
     default:
       return null;
@@ -60,29 +75,6 @@ export const LeagueBadge: React.FC<LeagueBadgeProps> = ({ type, count, size = 's
 };
 
 const styles = StyleSheet.create({
-  inlineCards: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  compoundIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  subIcon: {
-    marginLeft: 2,
-  },
-  countText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '800',
-    marginLeft: 2,
-  },
   cardYellow: {
     backgroundColor: '#eab308',
     borderColor: '#ca8a04',

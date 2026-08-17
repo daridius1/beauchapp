@@ -14,11 +14,6 @@ export const LeagueMatchStats: React.FC<LeagueMatchStatsProps> = ({
   teamAName,
   teamBName,
 }) => {
-  const penaltiesA = summary.penalties.filter((p) => p.team === 'A');
-  const penaltiesB = summary.penalties.filter((p) => p.team === 'B');
-  const scoredPenaltiesA = penaltiesA.filter((p) => p.scored).length;
-  const scoredPenaltiesB = penaltiesB.filter((p) => p.scored).length;
-
   const statRows = [
     {
       label: 'Goles',
@@ -36,14 +31,6 @@ export const LeagueMatchStats: React.FC<LeagueMatchStatsProps> = ({
       valB: summary.cardsB.red,
     },
   ];
-
-  if (penaltiesA.length > 0 || penaltiesB.length > 0) {
-    statRows.push({
-      label: 'Penales',
-      valA: `${scoredPenaltiesA}/${penaltiesA.length}` as any,
-      valB: `${scoredPenaltiesB}/${penaltiesB.length}` as any,
-    });
-  }
 
   return (
     <View style={styles.container}>

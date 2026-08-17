@@ -283,16 +283,11 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
       {/* Acciones de Arbitraje si el partido está por jugar */}
       {isConfirmed && (
         <View style={styles.arbitrateCard}>
-          <View style={styles.arbitrateHeader}>
-            <Feather name="flag" size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
-            <Text style={styles.arbitrateTitle}>Arbitraje Abierto</Text>
-          </View>
           <TouchableOpacity
             style={styles.arbitrateBtn}
             activeOpacity={0.8}
             onPress={() => navigation.push('LeagueMatchArbitrator', { matchId })}
           >
-            <Feather name="play" size={14} color="#000000" style={{ marginRight: 6 }} />
             <Text style={styles.arbitrateBtnText}>Arbitrar</Text>
           </TouchableOpacity>
         </View>
@@ -427,16 +422,6 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md,
     paddingHorizontal: 0,
     marginBottom: theme.spacing.lg,
-  },
-  arbitrateHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  arbitrateTitle: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
   },
   arbitrateBtn: {
     flexDirection: 'row',

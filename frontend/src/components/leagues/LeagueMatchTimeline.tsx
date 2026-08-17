@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
-import { MatchEvent, Team, annotateEventsWithHalfTime, formatClockTime } from '../../utils/matchEvents';
+import { MatchEvent, Team, annotateEventsWithHalfTime } from '../../utils/matchEvents';
 import { LeagueBadge, EventBadgeType } from './LeagueBadge';
 
 interface LeagueMatchTimelineProps {
@@ -26,12 +26,7 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
     );
   }
 
-  // Separar y formatear eventos. El minuto relativo se deriva siempre de `events`
-  // (nunca de un `ev.minute` guardado suelto) para que un historial viejo, grabado
-  // bajo una versión anterior del cronómetro, se muestre corregido sin migrar datos.
   const renderedItems: React.ReactNode[] = [];
-  let runningScoreA = 0;
-  let runningScoreB = 0;
 
   const annotated = annotateEventsWithHalfTime(events).filter(
     ({ event: e }) => e.type !== 'lineup' && e.type !== 'half_end'
@@ -39,7 +34,6 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
 
   annotated.forEach(({ event: ev, relativeMs }, idx) => {
     const relativeLabel = relativeMs !== null ? Math.floor(relativeMs / 60000) : null;
-    const clockTime = formatClockTime(ev.at);
 
     if (ev.type === 'half_start') {
       const halfLabel = `${ev.half}° Tiempo`;
@@ -55,10 +49,6 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
     const isLastInBlock = !nextEv || nextEv.type === 'half_start';
 
     if (ev.type === 'goal') {
-      const scoringTeam: Team = ev.ownGoal ? (ev.team === 'A' ? 'B' : 'A') : ev.team;
-      if (scoringTeam === 'A') runningScoreA++;
-      else runningScoreB++;
-
       const isA = ev.team === 'A';
       const teamName = isA ? teamAName : teamBName;
       const badgeType: EventBadgeType = ev.ownGoal ? 'own_goal' : 'goal';
@@ -71,17 +61,14 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
               {ev.player}
             </Text>
             <Text style={styles.teamTag} numberOfLines={1}>
-              ({teamName})
+              {teamName}
             </Text>
-            <View style={styles.timeCol}>
-              {relativeLabel !== null && <Text style={styles.minuteTag}>{relativeLabel}'</Text>}
-              <Text style={styles.clockTag}>{clockTime}</Text>
-            </View>
           </View>
+
           <View style={styles.eventRight}>
-            <Text style={styles.runningScore}>
-              {runningScoreA} - {runningScoreB}
-            </Text>
+            {relativeLabel !== null && (
+              <Text style={styles.minuteTag}>{relativeLabel}'</Text>
+            )}
           </View>
         </View>
       );
@@ -101,12 +88,14 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
               {ev.player}
             </Text>
             <Text style={styles.teamTag} numberOfLines={1}>
-              ({teamName})
+              {teamName}
             </Text>
-            <View style={styles.timeCol}>
-              {relativeLabel !== null && <Text style={styles.minuteTag}>{relativeLabel}'</Text>}
-              <Text style={styles.clockTag}>{clockTime}</Text>
-            </View>
+          </View>
+
+          <View style={styles.eventRight}>
+            {relativeLabel !== null && (
+              <Text style={styles.minuteTag}>{relativeLabel}'</Text>
+            )}
           </View>
         </View>
       );
@@ -114,11 +103,6 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
     }
 
     if (ev.type === 'penalty') {
-      if (ev.scored) {
-        if (ev.team === 'A') runningScoreA++;
-        else runningScoreB++;
-      }
-
       const isA = ev.team === 'A';
       const teamName = isA ? teamAName : teamBName;
       const badgeType: EventBadgeType = ev.scored ? 'penalty_scored' : 'penalty_missed';
@@ -131,20 +115,15 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
               {ev.player}
             </Text>
             <Text style={styles.teamTag} numberOfLines={1}>
-              ({teamName})
+              {teamName}
             </Text>
-            <View style={styles.timeCol}>
-              {relativeLabel !== null && <Text style={styles.minuteTag}>{relativeLabel}'</Text>}
-              <Text style={styles.clockTag}>{clockTime}</Text>
-            </View>
           </View>
-          {ev.scored && (
-            <View style={styles.eventRight}>
-              <Text style={styles.runningScore}>
-                {runningScoreA} - {runningScoreB}
-              </Text>
-            </View>
-          )}
+
+          <View style={styles.eventRight}>
+            {relativeLabel !== null && (
+              <Text style={styles.minuteTag}>{relativeLabel}'</Text>
+            )}
+          </View>
         </View>
       );
       return;
@@ -157,24 +136,24 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: 'transparent',
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: 0,
     marginBottom: theme.spacing.md,
   },
   periodMarker: {
-    backgroundColor: '#0d0d0d',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#222222',
     borderTopWidth: 1,
-    borderTopColor: '#222222',
-    marginTop: 10,
-    marginBottom: 2,
+    borderColor: '#222222',
+    backgroundColor: '#0a0a0a',
+    alignItems: 'center',
+    marginVertical: 4,
   },
   periodMarkerText: {
-    fontSize: 11,
-    fontWeight: '800',
     color: '#ffffff',
-    letterSpacing: 0.5,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
   eventRow: {
@@ -182,7 +161,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 10,
-    paddingHorizontal: 0,
+    paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#161616',
   },
@@ -203,26 +182,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  timeCol: {
-    marginLeft: 2,
-    alignItems: 'flex-end',
-  },
-  minuteTag: {
-    color: theme.colors.primary,
-    fontSize: 12,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
-  },
-  clockTag: {
-    color: theme.colors.textMuted,
-    fontSize: 9,
-    fontVariant: ['tabular-nums'],
-  },
   eventRight: {
     alignItems: 'flex-end',
+    justifyContent: 'center',
+    minWidth: 32,
   },
-  runningScore: {
-    color: theme.colors.textMuted,
+  minuteTag: {
+    color: '#aaaaaa',
     fontSize: 12,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
