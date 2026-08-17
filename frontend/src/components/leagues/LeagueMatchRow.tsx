@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { theme } from '../../theme/theme';
-import { Avatar } from '../Avatar';
+import { TeamCrest, matchDisplayName } from './TeamCrest';
 import { hourLabel } from '../schedule/AvailabilityGrid';
 
 interface TeamData {
@@ -9,13 +9,15 @@ interface TeamData {
   name?: string;
   username?: string;
   avatar?: string;
+  matchAlias?: string;
+  matchPhoto?: string;
 }
 
 export interface LeagueMatchRowData {
   id: string;
   scoreA?: number;
   scoreB?: number;
-  status: 'confirmed' | 'played' | 'cancelled';
+  status: 'confirmed' | 'played' | 'cancelled' | 'suspended';
   blockCode: string;
   stage?: string;
   expand?: {
@@ -25,8 +27,15 @@ export interface LeagueMatchRowData {
   };
 }
 
+export interface LiveMatchInfo {
+  scoreA: number;
+  scoreB: number;
+  statusLabel: string;
+}
+
 interface LeagueMatchRowProps {
   match: LeagueMatchRowData;
+  live?: LiveMatchInfo;
   onPress: () => void;
   onPressTeamA?: () => void;
   onPressTeamB?: () => void;
@@ -47,6 +56,7 @@ function formatBlockCode(code: string): string {
 
 export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
   match,
+  live,
   onPress,
   onPressTeamA,
   onPressTeamB,
@@ -56,15 +66,17 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
   const teamB = match.expand?.teamB;
   const stage = match.expand?.stage;
 
-  const nameA = teamA?.name || teamA?.username || 'Equipo A';
-  const nameB = teamB?.name || teamB?.username || 'Equipo B';
+  const nameA = matchDisplayName(teamA, 'Equipo A');
+  const nameB = matchDisplayName(teamB, 'Equipo B');
 
+  const isLive = !!live;
   const isPlayed = match.status === 'played';
   const isConfirmed = match.status === 'confirmed';
   const isCancelled = match.status === 'cancelled';
+  const isSuspended = match.status === 'suspended';
 
-  const scoreA = match.scoreA ?? 0;
-  const scoreB = match.scoreB ?? 0;
+  const scoreA = isLive ? live!.scoreA : match.scoreA ?? 0;
+  const scoreB = isLive ? live!.scoreB : match.scoreB ?? 0;
   const aWon = isPlayed && scoreA > scoreB;
   const bWon = isPlayed && scoreB > scoreA;
 
@@ -81,16 +93,28 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
           <Text style={styles.dateTimeText}>{formatBlockCode(match.blockCode)}</Text>
         </View>
 
-        <Text
-          style={[
-            styles.statusText,
-            isPlayed && styles.statusPlayed,
-            isConfirmed && styles.statusConfirmed,
-            isCancelled && styles.statusCancelled,
-          ]}
-        >
-          {isPlayed ? 'FINALIZADO' : isConfirmed ? 'POR JUGAR' : 'CANCELADO'}
-        </Text>
+        <View style={styles.statusRow}>
+          {isLive && <View style={styles.liveDot} />}
+          <Text
+            style={[
+              styles.statusText,
+              isLive && styles.statusLive,
+              isPlayed && styles.statusPlayed,
+              isConfirmed && !isLive && styles.statusConfirmed,
+              (isCancelled || isSuspended) && styles.statusCancelled,
+            ]}
+          >
+            {isLive
+              ? 'EN VIVO'
+              : isPlayed
+              ? 'FINALIZADO'
+              : isConfirmed
+              ? 'POR JUGAR'
+              : isSuspended
+              ? 'SUSPENDIDO'
+              : 'CANCELADO'}
+          </Text>
+        </View>
       </View>
 
       {/* Fila principal del Marcador (3 Columnas) */}
@@ -108,36 +132,28 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
           >
             {nameA}
           </Text>
-          <Avatar
-            user={
-              teamA
-                ? {
-                    id: teamA.id,
-                    collectionId: 'users',
-                    avatar: teamA.avatar,
-                    name: teamA.name,
-                    username: teamA.username,
-                  }
-                : { name: nameA }
-            }
-            size={32}
-          />
+          <TeamCrest team={teamA ? { ...teamA, collectionId: 'users' } : { name: nameA }} size={32} />
         </TouchableOpacity>
 
         {/* Marcador Central / VS */}
         <View style={styles.centerCol}>
-          {isPlayed ? (
+          {isPlayed || isLive ? (
             <View style={styles.scoreBox}>
-              <Text style={[styles.scoreDigit, aWon && styles.scoreDigitWinner]}>
+              <Text style={[styles.scoreDigit, aWon && styles.scoreDigitWinner, isLive && styles.scoreDigitLive]}>
                 {scoreA}
               </Text>
               <Text style={styles.scoreDash}>-</Text>
-              <Text style={[styles.scoreDigit, bWon && styles.scoreDigitWinner]}>
+              <Text style={[styles.scoreDigit, bWon && styles.scoreDigitWinner, isLive && styles.scoreDigitLive]}>
                 {scoreB}
               </Text>
             </View>
           ) : (
-            <Text style={styles.vsText}>{isCancelled ? 'CANCELADO' : 'vs'}</Text>
+            <Text style={styles.vsText}>{isCancelled ? 'CANCELADO' : isSuspended ? 'SUSPENDIDO' : 'vs'}</Text>
+          )}
+          {isLive && (
+            <Text style={styles.liveStatusLabel} numberOfLines={1}>
+              {live!.statusLabel}
+            </Text>
           )}
         </View>
 
@@ -148,20 +164,7 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
           activeOpacity={0.7}
           disabled={!onPressTeamB}
         >
-          <Avatar
-            user={
-              teamB
-                ? {
-                    id: teamB.id,
-                    collectionId: 'users',
-                    avatar: teamB.avatar,
-                    name: teamB.name,
-                    username: teamB.username,
-                  }
-                : { name: nameB }
-            }
-            size={32}
-          />
+          <TeamCrest team={teamB ? { ...teamB, collectionId: 'users' } : { name: nameB }} size={32} />
           <Text
             style={[styles.teamNameRight, bWon && styles.teamNameWinner]}
             numberOfLines={1}
@@ -206,10 +209,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#ef4444',
+  },
   statusText: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  statusLive: {
+    color: '#ef4444',
   },
   statusPlayed: {
     color: '#888888',
@@ -280,6 +297,17 @@ const styles = StyleSheet.create({
   },
   scoreDigitWinner: {
     color: '#ffffff',
+  },
+  scoreDigitLive: {
+    color: '#ffffff',
+  },
+  liveStatusLabel: {
+    color: '#ef4444',
+    fontSize: 9,
+    fontWeight: '700',
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   scoreDash: {
     fontSize: 15,

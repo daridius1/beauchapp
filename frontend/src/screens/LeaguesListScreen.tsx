@@ -1,11 +1,12 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet, DeviceEventEmitter } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { pb } from '../services/pocketbase';
 import { RootStackParamList } from '../types/navigation';
+import { withMinimumDelay } from '../utils/refresh';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeaguesList'>;
 
@@ -13,18 +14,20 @@ export const LeaguesListScreen: React.FC<Props> = ({ navigation }) => {
   const [leagues, setLeagues] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchLeagues = useCallback(async () => {
+  const fetchLeagues = useCallback(async (hideLoading = false) => {
     try {
-      setLoading(true);
-      const res = await pb.collection('users').getFullList({
-        filter: `type = "organization" && subtype = "league"`,
-        sort: 'name',
-      });
-      setLeagues(res);
+      if (!hideLoading) setLoading(true);
+      await withMinimumDelay(async () => {
+        const res = await pb.collection('users').getFullList({
+          filter: `type = "organization" && subtype = "league"`,
+          sort: 'name',
+        });
+        setLeagues(res);
+      }, 400);
     } catch (err) {
       console.error('Error cargando ligas:', err);
     } finally {
-      setLoading(false);
+      if (!hideLoading) setLoading(false);
     }
   }, []);
 
@@ -33,6 +36,15 @@ export const LeaguesListScreen: React.FC<Props> = ({ navigation }) => {
       fetchLeagues();
     }, [fetchLeagues])
   );
+
+  useEffect(() => {
+    const subRefresh = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await fetchLeagues(true);
+      setLoading(false);
+    });
+    return () => subRefresh.remove();
+  }, [fetchLeagues]);
 
   if (loading) {
     return (

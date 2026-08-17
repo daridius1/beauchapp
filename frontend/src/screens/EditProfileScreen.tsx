@@ -11,17 +11,26 @@ import { OrgChip } from '../components/OrgChip';
 import { UserChipsRow, YEARS_LIST, DEPARTMENTS_LIST } from '../components/UserChipsRow';
 import { SocialInput } from '../components/SocialInput';
 import { SportIcon } from '../components/SportIcon';
+import { TeamCrest } from '../components/leagues/TeamCrest';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditProfile'>;
 
 export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, developerMode } = useAuth();
 
   const [name, setName] = useState(user?.name || '');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  // Perfil de partidos (jugador/equipo) — solo alias + foto, se usa en vistas de
+  // partidos y tablas (ej. como escudo del equipo). Foto en webp para poder tener
+  // fondo transparente (a diferencia del avatar general, que fuerza jpeg).
+  const [matchAlias, setMatchAlias] = useState(user?.matchAlias || '');
+  const [matchPhotoFile, setMatchPhotoFile] = useState<File | null>(null);
+  const [matchPhotoPreview, setMatchPhotoPreview] = useState<string | null>(null);
+  const matchPhotoInputRef = useRef<HTMLInputElement>(null);
 
   // Configuración de Chip para Organizaciones
   const [chipText, setChipText] = useState(user?.chip_text || '');
@@ -121,6 +130,50 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  const handleMatchPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      Toast.show({
+        type: 'error',
+        text1: 'Archivo inválido',
+        text2: 'Solo se permiten archivos de imagen.',
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // webp (a diferencia del jpeg que usa el avatar general) preserva transparencia.
+      const compressedBlob = await compressImage(file, true, 'image/webp');
+      const compressedFile = new File(
+        [compressedBlob],
+        file.name.replace(/\.[^/.]+$/, "") + ".webp",
+        { type: 'image/webp' }
+      );
+
+      if (matchPhotoPreview) URL.revokeObjectURL(matchPhotoPreview);
+      setMatchPhotoPreview(URL.createObjectURL(compressedFile));
+      setMatchPhotoFile(compressedFile);
+    } catch (err) {
+      console.error('Error procesando la foto de partidos:', err);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'No se pudo procesar la imagen seleccionada.',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const triggerMatchPhotoSelect = () => {
+    if (Platform.OS === 'web' && matchPhotoInputRef.current) {
+      matchPhotoInputRef.current.click();
+    }
+  };
+
   const handleSave = async () => {
     if (!name.trim()) {
       Toast.show({
@@ -156,6 +209,11 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
 
       if (avatarFile) {
         formData.append('avatar', avatarFile);
+      }
+
+      formData.append('matchAlias', matchAlias.trim());
+      if (matchPhotoFile) {
+        formData.append('matchPhoto', matchPhotoFile);
       }
 
       await pb.collection('users').update(user.id, formData);
@@ -250,6 +308,51 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
           editable={!isSaving}
         />
       </View>
+
+      {/* Perfil de partidos — alias + foto usados en vistas de partidos y tablas
+          (ej. como escudo del equipo o apodo del jugador). Foto separada del avatar
+          general porque puede tener fondo transparente. Todavía en desarrollo activo
+          (depende de Ligas), solo visible con el modo desarrollador prendido. */}
+      {developerMode && (
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>
+            {user.type === 'organization' ? 'Perfil de equipo (partidos)' : 'Perfil de jugador (partidos)'}
+          </Text>
+          <Text style={styles.helpText}>
+            Alias y foto que se muestran en partidos y tablas de posiciones — la foto puede tener fondo transparente.
+          </Text>
+          <View style={styles.matchProfileRow}>
+            <TouchableOpacity onPress={triggerMatchPhotoSelect} disabled={isSaving} style={styles.matchPhotoTouch}>
+              {matchPhotoPreview ? (
+                <Image source={{ uri: matchPhotoPreview }} style={styles.matchPhotoImg} resizeMode="contain" />
+              ) : (
+                <TeamCrest team={{ ...user, matchAlias }} size={64} />
+              )}
+              <View style={styles.cameraOverlaySmall}>
+                <Feather name="camera" size={12} color="#000000" />
+              </View>
+            </TouchableOpacity>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              value={matchAlias}
+              onChangeText={setMatchAlias}
+              placeholder={user.type === 'organization' ? 'Alias del equipo...' : 'Alias de jugador...'}
+              placeholderTextColor={theme.colors.textMuted}
+              maxLength={40}
+              editable={!isSaving}
+            />
+          </View>
+          {Platform.OS === 'web' && (
+            <input
+              type="file"
+              ref={matchPhotoInputRef}
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleMatchPhotoChange}
+            />
+          )}
+        </View>
+      )}
 
       {/* Configuración de Chip / Badge personalizada para organizaciones */}
       {user.type === 'organization' && (
@@ -595,6 +698,35 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: theme.spacing.lg,
+  },
+  matchProfileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.sm,
+  },
+  matchPhotoTouch: {
+    position: 'relative',
+    width: 64,
+    height: 64,
+  },
+  matchPhotoImg: {
+    width: 64,
+    height: 64,
+  },
+  cameraOverlaySmall: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: theme.colors.primary,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#0c0c0c',
+    zIndex: 10,
   },
   inputLabel: {
     color: theme.colors.text,

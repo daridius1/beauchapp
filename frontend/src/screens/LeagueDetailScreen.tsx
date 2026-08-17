@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -18,11 +18,13 @@ import { pb } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
 import { withMinimumDelay } from '../utils/refresh';
+import { summarizeEvents, computeLiveElapsedMs, MatchEvent } from '../utils/matchEvents';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
 import { EntityCommentBox } from '../components/EntityCommentBox';
-import { LeagueMatchRow, LeagueMatchRowData } from '../components/leagues/LeagueMatchRow';
+import { LeagueMatchRow, LeagueMatchRowData, LiveMatchInfo } from '../components/leagues/LeagueMatchRow';
 import { LeagueStandingsTable } from '../components/leagues/LeagueStandingsTable';
+import { TeamCrest, matchDisplayName } from '../components/leagues/TeamCrest';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueDetail'>;
 
@@ -36,10 +38,12 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [leagueUser, setLeagueUser] = useState<any>(null);
-  const [stages, setStages] = useState<{ id: string; name: string }[]>([]);
+  const [stages, setStages] = useState<{ id: string; name: string; type: 'groups' | 'knockout' }[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [matches, setMatches] = useState<LeagueMatchRowData[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
   const [comments, setComments] = useState<any[]>([]);
+  const [now, setNow] = useState(Date.now());
 
   // Pestaña activa
   const [activeTab, setActiveTab] = useState<TabType>('matches');
@@ -57,7 +61,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       try {
         if (!isPullRefresh) setLoading(true);
 
-        const [userRes, stagesRes, teamsRes, matchesRes, commentsRes] = await Promise.all([
+        const [userRes, stagesRes, teamsRes, matchesRes, reportsRes, commentsRes] = await Promise.all([
           pb.collection('users').getOne(leagueId).catch(() => null),
           pb.collection('league_stages').getFullList({
             filter: `league = "${leagueId}"`,
@@ -73,6 +77,11 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             sort: '-created',
             expand: 'teamA,teamB,stage',
           }).catch(() => ({ items: [] })),
+          // Estado en vivo de partidos siendo arbitrados ahora mismo — lectura pública
+          // para cualquier autenticado (el código solo protege ESCRIBIR, no mirar).
+          pb.collection('match_reports').getFullList({
+            filter: `match.league = "${leagueId}"`,
+          }).catch(() => []),
           pb.collection('posts').getList(1, 50, {
             filter: `targetType = "league" && targetId = "${leagueId}" && actionType = "comment" && deleted = false`,
             sort: '+created',
@@ -81,9 +90,10 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         ]);
 
         setLeagueUser(userRes);
-        setStages((stagesRes as any[]).map((s) => ({ id: s.id, name: s.name || 'Etapa' })));
+        setStages((stagesRes as any[]).map((s) => ({ id: s.id, name: s.name || 'Etapa', type: s.type === 'knockout' ? 'knockout' : 'groups' })));
         setTeams(teamsRes);
         setMatches(matchesRes.items as LeagueMatchRowData[]);
+        setReports(reportsRes as any[]);
         setComments(commentsRes.items);
       } catch (err) {
         console.error('Error cargando los datos de la liga:', err);
@@ -100,6 +110,12 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       fetchData();
     }, [fetchData])
   );
+
+  // Solo para refrescar el minuto en vivo mostrado — no dispara ningún fetch.
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 20000);
+    return () => clearInterval(interval);
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -180,9 +196,53 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
-  // Partidos filtrados
+  // Estado en vivo por partido — se deriva siempre de los eventos del informe, nunca de
+  // un campo guardado suelto (mismo criterio que el resto del sistema de arbitraje).
+  // Un partido está "en vivo" mientras siga 'confirmed' y ya se haya marcado el inicio
+  // del 1er tiempo — apenas termina el 2do tiempo el partido pasa a 'played' de
+  // inmediato (se hace oficial ahí mismo), así que nunca queda "en vivo" ya terminado.
+  const liveInfoByMatch = useMemo(() => {
+    const reportByMatch: Record<string, any> = {};
+    reports.forEach((r) => { reportByMatch[r.match] = r; });
+
+    const map: Record<string, LiveMatchInfo> = {};
+    matches.forEach((m) => {
+      if (m.status !== 'confirmed') return;
+      const report = reportByMatch[m.id];
+      if (!report) return;
+      const events: MatchEvent[] = report.events || [];
+      const summary = summarizeEvents(events);
+      if (!summary.halfStarted[1]) return;
+
+      let statusLabel: string;
+      if (summary.halfEnded[1] && !summary.halfStarted[2]) {
+        statusLabel = 'Entretiempo';
+      } else {
+        const { elapsedMs, running } = computeLiveElapsedMs(events, now);
+        const minute = Math.floor(elapsedMs / 60000);
+        statusLabel = `${running ? '' : 'Pausado · '}${summary.currentHalf}° T · ${minute}'`;
+      }
+
+      map[m.id] = { scoreA: summary.scoreA, scoreB: summary.scoreB, statusLabel };
+    });
+    return map;
+  }, [matches, reports, now]);
+
+  // Partidos filtrados y ordenados: primero en vivo, luego pendientes, luego jugados
+  // (cancelados/suspendidos al final) — dentro de cada grupo, del más nuevo al más
+  // viejo (el fetch ya trae `-created`, y el sort de JS es estable).
+  const matchPriority = useCallback(
+    (m: LeagueMatchRowData) => {
+      if (liveInfoByMatch[m.id]) return 0;
+      if (m.status === 'confirmed') return 1;
+      if (m.status === 'played') return 2;
+      return 3;
+    },
+    [liveInfoByMatch]
+  );
+
   const filteredMatches = useMemo(() => {
-    return matches.filter((m) => {
+    const filtered = matches.filter((m) => {
       // Filtro por etapa
       if (selectedStageId !== 'all') {
         const matchStageId = m.expand?.stage?.id || m.stage;
@@ -195,7 +255,38 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
       return true;
     });
-  }, [matches, selectedStageId, statusFilter]);
+
+    return [...filtered].sort((a, b) => matchPriority(a) - matchPriority(b));
+  }, [matches, selectedStageId, statusFilter, matchPriority]);
+
+  // "Posiciones" depende del tipo de la etapa elegida: una fase de grupos muestra la
+  // tabla de puntos (solo con los partidos — y equipos — de esa etapa); una etapa de
+  // enfrentamiento directo no tiene tabla, muestra simplemente sus partidos. Con
+  // "Todas las etapas" se arma la tabla agregada excluyendo las etapas knockout (mezclar
+  // eliminatoria con puntos de liga no tiene sentido).
+  const selectedStage = useMemo(() => stages.find((s) => s.id === selectedStageId) || null, [selectedStageId, stages]);
+  const isKnockoutSelected = selectedStage?.type === 'knockout';
+
+  const standingsMatches = useMemo(() => {
+    const stageIdOf = (m: LeagueMatchRowData) => m.expand?.stage?.id || (m as any).stage;
+    if (selectedStageId === 'all') {
+      const knockoutStageIds = new Set(stages.filter((s) => s.type === 'knockout').map((s) => s.id));
+      return matches.filter((m) => !knockoutStageIds.has(stageIdOf(m)));
+    }
+    return matches.filter((m) => stageIdOf(m) === selectedStageId);
+  }, [matches, selectedStageId, stages]);
+
+  const standingsTeams = useMemo(() => {
+    if (selectedStageId === 'all') return teams;
+    const participantIds = new Set<string>();
+    standingsMatches.forEach((m) => {
+      const aId = m.expand?.teamA?.id || (m as any).teamA;
+      const bId = m.expand?.teamB?.id || (m as any).teamB;
+      if (aId) participantIds.add(aId);
+      if (bId) participantIds.add(bId);
+    });
+    return teams.filter((t) => participantIds.has(t.expand?.team?.id));
+  }, [teams, standingsMatches, selectedStageId]);
 
   const playedCount = useMemo(() => matches.filter((m) => m.status === 'played').length, [matches]);
   const upcomingCount = useMemo(() => matches.filter((m) => m.status === 'confirmed').length, [matches]);
@@ -334,6 +425,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <LeagueMatchRow
                 key={m.id}
                 match={m}
+                live={liveInfoByMatch[m.id]}
                 isLast={idx === filteredMatches.length - 1}
                 onPress={() => navigation.push('LeagueMatchDetail', { matchId: m.id })}
                 onPressTeamA={
@@ -352,14 +444,57 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
       )}
 
-      {/* 2. PESTAÑA: POSICIONES */}
+      {/* 2. PESTAÑA: POSICIONES — tabla de puntos si la etapa es de grupos, o
+          simplemente los partidos si es de enfrentamiento directo (eliminatoria) */}
       {activeTab === 'standings' && (
         <View style={styles.tabContent}>
-          <LeagueStandingsTable
-            teams={teams}
-            matches={matches}
-            onPressTeam={(teamId) => navigation.push('UserProfile', { userId: teamId })}
-          />
+          <TouchableOpacity
+            style={[styles.selectorBtn, { marginBottom: 12 }]}
+            onPress={() => setShowStageModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.selectorBtnContent}>
+              <Text style={styles.selectorLabel}>Etapa</Text>
+              <Text style={styles.selectorValue} numberOfLines={1}>
+                {selectedStageName}
+              </Text>
+            </View>
+            <Feather name="chevron-down" size={14} color={theme.colors.textMuted} />
+          </TouchableOpacity>
+
+          {isKnockoutSelected ? (
+            standingsMatches.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Todavía no hay partidos en esta etapa.</Text>
+              </View>
+            ) : (
+              standingsMatches.map((m, idx) => (
+                <LeagueMatchRow
+                  key={m.id}
+                  match={m}
+                  live={liveInfoByMatch[m.id]}
+                  isLast={idx === standingsMatches.length - 1}
+                  onPress={() => navigation.push('LeagueMatchDetail', { matchId: m.id })}
+                  onPressTeamA={
+                    m.expand?.teamA
+                      ? () => navigation.push('UserProfile', { userId: m.expand!.teamA!.id })
+                      : undefined
+                  }
+                  onPressTeamB={
+                    m.expand?.teamB
+                      ? () => navigation.push('UserProfile', { userId: m.expand!.teamB!.id })
+                      : undefined
+                  }
+                />
+              ))
+            )
+          ) : (
+            <LeagueStandingsTable
+              teams={standingsTeams}
+              matches={standingsMatches}
+              onPressTeam={(teamId) => navigation.push('UserProfile', { userId: teamId })}
+            />
+          )}
         </View>
       )}
 
@@ -373,7 +508,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           ) : (
             teams.map((item, idx) => {
               const team = item.expand?.team;
-              const name = team?.name || team?.username || 'Equipo';
+              const name = matchDisplayName(team, 'Equipo');
               const isLast = idx === teams.length - 1;
 
               return (
@@ -389,11 +524,12 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   disabled={!team?.id}
                 >
                   <View style={styles.teamRowLeft}>
-                    <Avatar
-                      user={{
+                    <TeamCrest
+                      team={{
                         id: team?.id,
                         collectionId: 'users',
                         avatar: team?.avatar,
+                        matchPhoto: team?.matchPhoto,
                         name: team?.name,
                         username: team?.username,
                       }}

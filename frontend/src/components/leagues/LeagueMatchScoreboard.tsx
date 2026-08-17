@@ -2,13 +2,15 @@ import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
-import { Avatar } from '../Avatar';
+import { TeamCrest, matchDisplayName } from './TeamCrest';
 
 interface TeamData {
   id: string;
   name?: string;
   username?: string;
   avatar?: string;
+  matchAlias?: string;
+  matchPhoto?: string;
 }
 
 interface LeagueMatchScoreboardProps {
@@ -16,7 +18,7 @@ interface LeagueMatchScoreboardProps {
     id: string;
     scoreA?: number;
     scoreB?: number;
-    status: 'confirmed' | 'played' | 'cancelled';
+    status: 'confirmed' | 'played' | 'cancelled' | 'suspended';
     blockCode: string;
     expand?: {
       teamA?: TeamData;
@@ -52,11 +54,12 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
   const stage = match.expand?.stage;
   const league = match.expand?.league;
 
-  const nameA = teamA?.name || teamA?.username || 'Equipo A';
-  const nameB = teamB?.name || teamB?.username || 'Equipo B';
+  const nameA = matchDisplayName(teamA, 'Equipo A');
+  const nameB = matchDisplayName(teamB, 'Equipo B');
 
   const isPlayed = match.status === 'played';
   const isCancelled = match.status === 'cancelled';
+  const isSuspended = match.status === 'suspended';
   const isConfirmed = match.status === 'confirmed';
 
   const scoreA = match.scoreA ?? 0;
@@ -86,10 +89,10 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
             styles.statusText,
             isPlayed && styles.statusPlayed,
             isConfirmed && styles.statusConfirmed,
-            isCancelled && styles.statusCancelled,
+            (isCancelled || isSuspended) && styles.statusCancelled,
           ]}
         >
-          {isPlayed ? 'FINALIZADO' : isConfirmed ? 'POR JUGAR' : 'CANCELADO'}
+          {isPlayed ? 'FINALIZADO' : isConfirmed ? 'POR JUGAR' : isSuspended ? 'SUSPENDIDO' : 'CANCELADO'}
         </Text>
       </View>
 
@@ -103,20 +106,7 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
           disabled={!onPressTeamA}
         >
           <View style={styles.avatarWrapper}>
-            <Avatar
-              user={
-                teamA
-                  ? {
-                      id: teamA.id,
-                      collectionId: 'users',
-                      avatar: teamA.avatar,
-                      name: teamA.name,
-                      username: teamA.username,
-                    }
-                  : { name: nameA }
-              }
-              size={56}
-            />
+            <TeamCrest team={teamA ? { ...teamA, collectionId: 'users' } : { name: nameA }} size={56} />
           </View>
           <Text style={[styles.teamName, aWon && styles.teamNameWinner]} numberOfLines={2}>
             {nameA}
@@ -136,7 +126,7 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
               </Text>
             </View>
           ) : (
-            <Text style={styles.vsText}>{isCancelled ? 'CANCELADO' : 'vs'}</Text>
+            <Text style={styles.vsText}>{isCancelled ? 'CANCELADO' : isSuspended ? 'SUSPENDIDO' : 'vs'}</Text>
           )}
         </View>
 
@@ -148,20 +138,7 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
           disabled={!onPressTeamB}
         >
           <View style={styles.avatarWrapper}>
-            <Avatar
-              user={
-                teamB
-                  ? {
-                      id: teamB.id,
-                      collectionId: 'users',
-                      avatar: teamB.avatar,
-                      name: teamB.name,
-                      username: teamB.username,
-                    }
-                  : { name: nameB }
-              }
-              size={56}
-            />
+            <TeamCrest team={teamB ? { ...teamB, collectionId: 'users' } : { name: nameB }} size={56} />
           </View>
           <Text style={[styles.teamName, bWon && styles.teamNameWinner]} numberOfLines={2}>
             {nameB}

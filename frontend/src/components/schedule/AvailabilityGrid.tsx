@@ -7,7 +7,7 @@ export const START_HOUR = 9;
 export const END_HOUR = 19;
 const WEEKS_WINDOW = 3;
 
-const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie']; // sin sábado ni domingo
 const MONTH_LABELS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 // Nivel 1 (peor) a 4 (mejor) — no existe un valor especial de "no disponible", una
@@ -83,7 +83,7 @@ export function getScheduleWindow(referenceDate: Date = new Date(), weeks: numbe
   const result: WeekInfo[] = [];
   for (let w = 0; w < weeks; w++) {
     const days: WeekDay[] = [];
-    for (let d = 0; d < 7; d++) {
+    for (let d = 0; d < DAY_LABELS.length; d++) {
       const day = new Date(start);
       day.setDate(day.getDate() + w * 7 + d);
       days.push({ dateStr: formatDateStr(day), dayOfMonth: day.getDate(), dayLabel: DAY_LABELS[d] });
@@ -95,7 +95,7 @@ export function getScheduleWindow(referenceDate: Date = new Date(), weeks: numbe
 
 function weekRangeLabel(days: WeekDay[]): string {
   const first = days[0];
-  const last = days[6];
+  const last = days[days.length - 1];
   const firstMonthIdx = Number(first.dateStr.split('-')[1]) - 1;
   const lastMonthIdx = Number(last.dateStr.split('-')[1]) - 1;
   if (firstMonthIdx === lastMonthIdx) {
@@ -118,16 +118,38 @@ export function scheduleWindowBlockCodes(referenceDate: Date = new Date(), weeks
   return codes;
 }
 
+// "Puede" (level >= punto medio) vs "No puede" — usado para el modo binario de
+// jugadores individuales, donde no tiene sentido la escala fina de 4 niveles que sí
+// usan los equipos (esa alimenta el algoritmo de emparejamiento, esto no).
+const MID_LEVEL = (MIN_LEVEL + MAX_LEVEL) / 2;
+export function canPlay(level: number): boolean {
+  return level > MID_LEVEL;
+}
+
 // Explicación de qué significa cada color — pensado para mostrarse ANTES de la
-// grilla, no como referencia al final.
-export const ScheduleLegend: React.FC = () => (
+// grilla, no como referencia al final. En modo binario solo hay Puede/No puede (sin
+// la escala fina de 4 niveles, que no aplica a disponibilidad individual).
+export const ScheduleLegend: React.FC<{ binary?: boolean }> = ({ binary }) => (
   <View style={styles.legend}>
-    {([1, 2, 3, 4] as const).map((level) => (
-      <View key={level} style={styles.legendItem}>
-        <View style={[styles.legendSwatch, { backgroundColor: LEVEL_COLORS[level] }]} />
-        <Text style={styles.legendText}>{LEVEL_LABELS[level]}</Text>
-      </View>
-    ))}
+    {binary ? (
+      <>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendSwatch, { backgroundColor: LEVEL_COLORS[MAX_LEVEL] }]} />
+          <Text style={styles.legendText}>Puede</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendSwatch, { backgroundColor: LEVEL_COLORS[MIN_LEVEL] }]} />
+          <Text style={styles.legendText}>No puede</Text>
+        </View>
+      </>
+    ) : (
+      ([1, 2, 3, 4] as const).map((level) => (
+        <View key={level} style={styles.legendItem}>
+          <View style={[styles.legendSwatch, { backgroundColor: LEVEL_COLORS[level] }]} />
+          <Text style={styles.legendText}>{LEVEL_LABELS[level]}</Text>
+        </View>
+      ))
+    )}
     <View style={styles.legendItem}>
       <View style={[styles.legendSwatch, styles.legendSwatchBlocked]}>
         <Feather name="slash" size={8} color={theme.colors.textMuted} />
@@ -149,13 +171,17 @@ interface AvailabilityGridProps {
   blockedBlocks?: Set<string>;
   occupiedBlocks?: Set<string>;
   disabled?: boolean;
+  // Jugadores individuales: la celda solo alterna Puede/No puede en vez de ciclar por
+  // los 4 niveles de "qué tan feliz estaría" — esa escala fina es para el emparejamiento
+  // entre equipos, no tiene sentido para "puedo o no puedo jugar a esa hora".
+  binary?: boolean;
 }
 
-// Calendario de 3 semanas (la actual + 2), cada una como una tabla de 7 días x 11
-// horas (9 a 19). Tocar una celda avanza al siguiente nivel (1..4, cíclico); los
-// bloques que el admin cerró (blockedBlocks) o que ya tienen un partido asignado
-// (occupiedBlocks) se muestran aparte y no son tocables.
-export const AvailabilityGrid: React.FC<AvailabilityGridProps> = ({ values, onChange, blockedBlocks, occupiedBlocks, disabled }) => {
+// Calendario de 3 semanas (la actual + 2), cada una como una tabla de 5 días (lun-vie)
+// x 11 horas (9 a 19). Tocar una celda avanza al siguiente nivel (1..4, cíclico, o
+// Puede/No puede si `binary`); los bloques que el admin cerró (blockedBlocks) o que ya
+// tienen un partido asignado (occupiedBlocks) se muestran aparte y no son tocables.
+export const AvailabilityGrid: React.FC<AvailabilityGridProps> = ({ values, onChange, blockedBlocks, occupiedBlocks, disabled, binary }) => {
   const weeks = getScheduleWindow();
 
   return (
@@ -195,6 +221,22 @@ export const AvailabilityGrid: React.FC<AvailabilityGridProps> = ({ values, onCh
                   );
                 }
                 const level = values[block] ?? MIN_LEVEL;
+                if (binary) {
+                  const available = canPlay(level);
+                  const color = available ? LEVEL_COLORS[MAX_LEVEL] : LEVEL_COLORS[MIN_LEVEL];
+                  const textColor = available ? LEVEL_TEXT_COLORS[MAX_LEVEL] : LEVEL_TEXT_COLORS[MIN_LEVEL];
+                  return (
+                    <TouchableOpacity
+                      key={block}
+                      style={[styles.cell, { backgroundColor: color }]}
+                      activeOpacity={0.7}
+                      disabled={disabled}
+                      onPress={() => onChange(block, available ? MIN_LEVEL : MAX_LEVEL)}
+                    >
+                      <Feather name={available ? 'check' : 'x'} size={11} color={textColor} />
+                    </TouchableOpacity>
+                  );
+                }
                 return (
                   <TouchableOpacity
                     key={block}

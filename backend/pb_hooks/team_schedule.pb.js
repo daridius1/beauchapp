@@ -3,24 +3,16 @@
 // ---------------------------------------------------------------------------------
 // Validación de horario_availability — lo que las reglas declarativas de PocketBase
 // no pueden expresar (completitud de los bloques de la ventana vigente sin contar los
-// que el admin bloqueó, que quien envía sea realmente un equipo). Mismo estilo que
-// polls.pb.js.
+// que el admin bloqueó). Cualquier cuenta autenticada puede enviar su propia
+// disponibilidad — equipos Y jugadores individuales por igual, el campo `team` en
+// realidad es solo "quién envía esto" (nombre heredado de cuando era exclusivo de
+// equipos). Mismo estilo que polls.pb.js.
 // ---------------------------------------------------------------------------------
 
 const validateAvailabilitySubmission = (e) => {
     const teamId = e.record.getString("team");
     if (teamId !== e.auth.id) {
-        throw new BadRequestError("No puedes enviar disponibilidad en nombre de otro equipo.");
-    }
-
-    let teamUser;
-    try {
-        teamUser = $app.findRecordById("users", teamId);
-    } catch (err) {
-        throw new BadRequestError("El equipo indicado no existe.");
-    }
-    if (teamUser.getString("type") !== "organization" || teamUser.getString("subtype") !== "team") {
-        throw new BadRequestError("Solo las cuentas de organización de tipo equipo pueden enviar disponibilidad.");
+        throw new BadRequestError("No puedes enviar disponibilidad en nombre de otra cuenta.");
     }
 
     const { windowBlockCodes, computeValidBlocks } = require(`${__hooks}/lib/teamSchedule.js`);
@@ -70,7 +62,7 @@ onRecordUpdateRequest(validateAvailabilitySubmission, "horario_availability");
 // ---------------------------------------------------------------------------------
 
 routerAdd("GET", "/admin/horarios", (e) => {
-    const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+    const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie"]; // sin sábado ni domingo
     const MONTH_LABELS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
     const htmlContent = `
 <!DOCTYPE html>
@@ -211,12 +203,12 @@ routerAdd("GET", "/admin/horarios", (e) => {
             const weeks = [];
             for (let w = 0; w < WEEKS_WINDOW; w++) {
                 const days = [];
-                for (let d = 0; d < 7; d++) {
+                for (let d = 0; d < DAY_LABELS.length; d++) {
                     const day = new Date(start);
                     day.setDate(day.getDate() + w * 7 + d);
                     days.push({ dateStr: formatDateStr(day), dayOfMonth: day.getDate(), monthIdx: day.getMonth(), dayLabel: DAY_LABELS[d] });
                 }
-                const first = days[0], last = days[6];
+                const first = days[0], last = days[days.length - 1];
                 const label = first.monthIdx === last.monthIdx
                     ? first.dayOfMonth + " al " + last.dayOfMonth + " de " + MONTH_LABELS[first.monthIdx]
                     : first.dayOfMonth + " " + MONTH_LABELS[first.monthIdx] + " al " + last.dayOfMonth + " " + MONTH_LABELS[last.monthIdx];
@@ -394,4 +386,60 @@ routerAdd("POST", "/api/admin/horarios/blocked/toggle", (e) => {
         return e.json(400, { error: (err && err.message) || "No se pudo actualizar el bloque." });
     }
 }, $apis.requireSuperuserAuth());
+
+// ---------------------------------------------------------------------------------
+// Disponibilidad de los integrantes de un equipo para un bloque puntual — un equipo
+// no puede leer la disponibilidad de OTRO equipo (eso sigue protegido: es lo que hace
+// el anti-trampa de la normalización tener sentido), pero SÍ debe poder ver la de sus
+// propios integrantes para decidir bien. horario_availability.viewRule solo permite
+// `@request.auth.id = team`, así que hace falta una ruta con $app (bypassea reglas)
+// que arme esto explícitamente.
+// ---------------------------------------------------------------------------------
+
+routerAdd("GET", "/api/team-schedule/roster-availability", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "team") {
+            throw new BadRequestError("Solo las cuentas de equipo pueden ver la disponibilidad de sus integrantes.");
+        }
+        const blockCode = String(e.requestInfo().query.blockCode || "");
+        if (!blockCode) throw new BadRequestError("Falta blockCode.");
+
+        const members = $app.findRecordsByFilter(
+            "organization_members",
+            "organization = {:org} && status = 'active'",
+            "",
+            0,
+            0,
+            { org: e.auth.id }
+        );
+
+        const result = members.map((m) => {
+            const userId = m.getString("user");
+            let name = userId;
+            try {
+                const userRec = $app.findRecordById("users", userId);
+                name = userRec.getString("name") || userRec.getString("username") || userId;
+            } catch (err) {
+                // usuario eliminado — se muestra igual con el id crudo como fallback
+            }
+
+            let happiness = null;
+            try {
+                const avail = $app.findFirstRecordByFilter("horario_availability", "team = {:u}", { u: userId });
+                const parsed = JSON.parse(avail.getString("happiness") || "{}");
+                if (blockCode in parsed) happiness = parsed[blockCode];
+            } catch (err) {
+                // nunca envió disponibilidad — happiness queda null (distinto de un 1
+                // real, para no mostrarlo como "mala disponibilidad" sin serlo)
+            }
+
+            return { memberId: userId, memberName: name, happiness };
+        });
+
+        return e.json(200, { members: result });
+    } catch (err) {
+        console.error("[team_schedule.pb.js] Error en GET /api/team-schedule/roster-availability:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo cargar la disponibilidad del equipo." });
+    }
+}, $apis.requireAuth("users"));
 

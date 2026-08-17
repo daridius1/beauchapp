@@ -8,6 +8,7 @@ const {
     computeValidBlocks,
     fillDefaultHappiness,
     computePairEdge,
+    pairKey,
     buildEdges,
     findTightestThreshold,
     maxWeightMatching,
@@ -27,13 +28,17 @@ test("startOfWeek: devuelve el lunes de la semana, sin importar qué día de la 
     assert.equal(sunday.getDate(), 10);
 });
 
-test("windowBlockCodes: 3 semanas x 7 días x 11 horas (9 a 19) = 231 bloques, empezando el lunes de la semana actual", () => {
+test("windowBlockCodes: 3 semanas x 5 días (lun-vie) x 11 horas (9 a 19) = 165 bloques, sin sábado ni domingo", () => {
     const codes = windowBlockCodes(new Date(2026, 7, 19), 3);
-    assert.equal(codes.length, 231);
-    assert.equal(codes[0], "2026-08-17-09");
+    assert.equal(codes.length, 165);
+    assert.equal(codes[0], "2026-08-17-09"); // lunes
     assert.equal(codes[10], "2026-08-17-19");
-    assert.equal(codes[11], "2026-08-18-09");
-    assert.equal(codes[codes.length - 1], "2026-09-06-19"); // último día de la 3ra semana
+    assert.equal(codes[11], "2026-08-18-09"); // martes
+    assert.equal(codes[codes.length - 1], "2026-09-04-19"); // viernes de la 3ra semana
+
+    // Ningún bloque cae en sábado (2026-08-22) ni domingo (2026-08-23) de la 1ra semana.
+    assert.ok(!codes.some((c) => c.startsWith("2026-08-22")));
+    assert.ok(!codes.some((c) => c.startsWith("2026-08-23")));
 });
 
 test("normalizeTeamHappiness: min-max estándar sobre todos los bloques (sin ningún valor excluido)", () => {
@@ -180,6 +185,70 @@ test("proposeMatches: par sin ningún solapamiento es infactible", () => {
     });
     assert.equal(result.infeasible, true);
     assert.equal(result.matches, null);
+});
+
+test("proposeMatches: dos partidos del mismo batch no pueden quedar en el mismo bloque horario", () => {
+    // Los 4 equipos tienen exactamente el mismo perfil (aman el bloque "09", son
+    // indiferentes al "10") — sin la corrección, T1-T2 y T3-T4 elegirían de forma
+    // independiente el mismo "mejor" bloque ("09"), agendando dos partidos a la vez.
+    const happiness = {
+        T1: { "2026-08-17-09": 4, "2026-08-17-10": 1 },
+        T2: { "2026-08-17-09": 4, "2026-08-17-10": 1 },
+        T3: { "2026-08-17-09": 4, "2026-08-17-10": 1 },
+        T4: { "2026-08-17-09": 4, "2026-08-17-10": 1 },
+    };
+    const result = proposeMatches(["T1", "T2", "T3", "T4"], happiness);
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches.length, 2);
+
+    const blocks = result.matches.map((m) => m.block);
+    assert.notEqual(blocks[0], blocks[1]);
+    assert.deepEqual(new Set(blocks), new Set(["2026-08-17-09", "2026-08-17-10"]));
+});
+
+test("proposeMatches: si no hay ningún bloque alternativo en común, el choque queda como límite conocido (no revienta)", () => {
+    const happiness = {
+        T1: { "2026-08-17-09": 3 },
+        T2: { "2026-08-17-09": 3 },
+        T3: { "2026-08-17-09": 3 },
+        T4: { "2026-08-17-09": 3 },
+    };
+    const result = proposeMatches(["T1", "T2", "T3", "T4"], happiness);
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches.length, 2);
+    assert.equal(result.matches[0].block, "2026-08-17-09");
+    assert.equal(result.matches[1].block, "2026-08-17-09");
+});
+
+test("pairKey: es simétrico sin importar el orden de los ids", () => {
+    assert.equal(pairKey("x", "y"), pairKey("y", "x"));
+});
+
+test("proposeMatches: excludedPairs evita agendar un partido entre 2 equipos que ya se enfrentaron", () => {
+    const happiness = {
+        A: { "2026-08-17-09": 3 },
+        B: { "2026-08-17-09": 3 },
+        C: { "2026-08-17-09": 3 },
+        D: { "2026-08-17-09": 3 },
+    };
+    const excluded = new Set([pairKey("A", "B")]);
+    const result = proposeMatches(["A", "B", "C", "D"], happiness, excluded);
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches.length, 2);
+    const hasABTogether = result.matches.some(
+        (m) => (m.teamA === "A" && m.teamB === "B") || (m.teamA === "B" && m.teamB === "A")
+    );
+    assert.equal(hasABTogether, false);
+});
+
+test("proposeMatches: si excludedPairs deja a un equipo sin ningún rival posible, el resultado es infactible", () => {
+    const happiness = {
+        A: { "2026-08-17-09": 3 },
+        B: { "2026-08-17-09": 3 },
+    };
+    const excluded = new Set([pairKey("A", "B")]);
+    const result = proposeMatches(["A", "B"], happiness, excluded);
+    assert.equal(result.infeasible, true);
 });
 
 test("proposeMatches: equipo que marca todo igual no se beneficia frente a uno que sí diferencia", () => {

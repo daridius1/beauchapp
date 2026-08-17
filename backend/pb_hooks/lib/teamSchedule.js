@@ -5,7 +5,8 @@
 
 const START_HOUR = 9;
 const END_HOUR = 19; // último bloque: 19:00-20:00
-const DAYS_PER_WEEK = 7;
+const DAYS_PER_WEEK = 7; // largo real de una semana calendario, para el offset entre semanas
+const WEEKDAYS_PER_WEEK = 5; // lunes a viernes — sábado/domingo quedan fuera de horarios
 const WEEKS_WINDOW = 3; // semana actual + 2 más
 const DEFAULT_HAPPINESS_LEVEL = 2; // "Regular" — el default para todo equipo que no calificó un bloque
 
@@ -42,19 +43,21 @@ function parseBlockCode(code) {
 // Todos los códigos de bloque de la ventana móvil de `weeks` semanas (incluyendo la
 // semana que contiene `referenceDate`) — es lo único que reemplaza al concepto de
 // "ronda": la ventana marcable es siempre la misma regla relativa a hoy, ningún admin
-// tiene que abrir nada de antemano.
+// tiene que abrir nada de antemano. Solo lunes a viernes — sábado y domingo no forman
+// parte de ningún horario marcable ni agendable.
 function windowBlockCodes(referenceDate, weeks) {
     const ref = referenceDate || new Date();
     const totalWeeks = weeks || WEEKS_WINDOW;
     const start = startOfWeek(ref);
     const codes = [];
-    const totalDays = totalWeeks * DAYS_PER_WEEK;
-    for (let i = 0; i < totalDays; i++) {
-        const day = new Date(start);
-        day.setDate(day.getDate() + i);
-        const dateStr = formatDate(day);
-        for (let hour = START_HOUR; hour <= END_HOUR; hour++) {
-            codes.push(blockCode(dateStr, hour));
+    for (let w = 0; w < totalWeeks; w++) {
+        for (let d = 0; d < WEEKDAYS_PER_WEEK; d++) {
+            const day = new Date(start);
+            day.setDate(day.getDate() + w * DAYS_PER_WEEK + d);
+            const dateStr = formatDate(day);
+            for (let hour = START_HOUR; hour <= END_HOUR; hour++) {
+                codes.push(blockCode(dateStr, hour));
+            }
         }
     }
     return codes;
@@ -141,16 +144,28 @@ function computePairEdge(normA, normB) {
     return best;
 }
 
+// Clave estable para un par de equipos, sin importar el orden en que se pasen — usada
+// tanto para excluir rivales que ya se enfrentaron como para que el caller (league.pb.js)
+// arme el set de pares excluidos con el mismo criterio.
+function pairKey(teamIdA, teamIdB) {
+    return teamIdA < teamIdB ? `${teamIdA}|${teamIdB}` : `${teamIdB}|${teamIdA}`;
+}
+
 // edges[i][j] (i<j) = computePairEdge(equipo i, equipo j) | null, para cada índice
-// en el arreglo `teams`.
-function buildEdges(teams, happinessByTeam) {
+// en el arreglo `teams`. `excludedPairs` (Set de pairKey) fuerza esos pares a null —
+// mismo tratamiento que un par sin ningún bloque en común (infactible para el matching).
+function buildEdges(teams, happinessByTeam, excludedPairs) {
     const normalized = teams.map((t) => normalizeTeamHappiness((happinessByTeam || {})[t] || {}));
     const n = teams.length;
     const edges = {};
     for (let i = 0; i < n; i++) {
         edges[i] = {};
         for (let j = i + 1; j < n; j++) {
-            edges[i][j] = computePairEdge(normalized[i], normalized[j]);
+            if (excludedPairs && excludedPairs.has(pairKey(teams[i], teams[j]))) {
+                edges[i][j] = null;
+            } else {
+                edges[i][j] = computePairEdge(normalized[i], normalized[j]);
+            }
         }
     }
     return edges;
@@ -287,9 +302,56 @@ function suggestByeTeam(teams, happinessByTeam) {
     return leastFlexible;
 }
 
+// buildEdges elige el mejor bloque de cada PAR de forma independiente — dos pares
+// distintos del mismo batch pueden terminar apuntando al mismo "mejor" bloque si
+// ambos lo calificaron alto (ej. todos prefieren el mismo horario popular). Esta
+// pasada evita que dos partidos del mismo batch queden agendados a la misma hora:
+// procesa los pares de menor a mayor gap (los más ajustados tienen prioridad sobre
+// su mejor bloque) y, si el bloque ya está tomado, busca el siguiente mejor bloque en
+// común que siga libre. Si un par no tiene NINGÚN bloque en común alternativo, el
+// choque queda como último recurso — límite conocido, documentado en vez de reventar.
+function resolveBlockCollisions(pairEdges, normalized) {
+    const used = new Set();
+    const order = [...pairEdges].sort((a, b) => a.edge.gap - b.edge.gap);
+
+    for (const p of order) {
+        if (!used.has(p.edge.block)) {
+            used.add(p.edge.block);
+            continue;
+        }
+
+        const normA = normalized[p.i];
+        const normB = normalized[p.j];
+        const alternatives = Object.keys(normA).filter((b) => b in normB && !used.has(b));
+        if (alternatives.length === 0) {
+            used.add(p.edge.block);
+            continue;
+        }
+
+        let best = null;
+        for (const block of alternatives) {
+            const a = normA[block];
+            const b = normB[block];
+            const gap = Math.abs(a - b);
+            const score = a + b;
+            if (
+                best === null ||
+                gap < best.gap - EPS ||
+                (Math.abs(gap - best.gap) <= EPS && score > best.score)
+            ) {
+                best = { block, gap, score };
+            }
+        }
+        p.edge = best;
+        used.add(best.block);
+    }
+}
+
 // Orquestación completa: recibe una cantidad PAR de equipos (el caller resuelve el
 // bye antes de llamar) y devuelve la propuesta de emparejamiento con ids reales.
-function proposeMatches(teams, happinessByTeam) {
+// `excludedPairs` (Set de pairKey, opcional) evita que el batch proponga un partido
+// entre dos equipos que ya se enfrentaron (según el criterio que decida el caller).
+function proposeMatches(teams, happinessByTeam, excludedPairs) {
     if (teams.length % 2 !== 0) {
         throw new Error("proposeMatches requiere una cantidad par de equipos.");
     }
@@ -297,15 +359,20 @@ function proposeMatches(teams, happinessByTeam) {
         return { threshold: null, totalScore: 0, matches: [], infeasible: false };
     }
 
-    const edges = buildEdges(teams, happinessByTeam);
+    const edges = buildEdges(teams, happinessByTeam, excludedPairs);
     const threshold = findTightestThreshold(teams.length, edges);
     if (threshold === null) {
         return { threshold: null, totalScore: null, matches: null, infeasible: true };
     }
 
     const result = maxWeightMatching(teams.length, edges, threshold);
-    const matches = result.pairs.map(([i, j]) => {
-        const edge = edgeBetween(edges, i, j);
+
+    const normalized = teams.map((t) => normalizeTeamHappiness((happinessByTeam || {})[t] || {}));
+    const pairEdges = result.pairs.map(([i, j]) => ({ i, j, edge: edgeBetween(edges, i, j) }));
+    resolveBlockCollisions(pairEdges, normalized);
+
+    const totalScore = pairEdges.reduce((sum, p) => sum + p.edge.score, 0);
+    const matches = pairEdges.map(({ i, j, edge }) => {
         const teamA = teams[i];
         const teamB = teams[j];
         return {
@@ -318,13 +385,14 @@ function proposeMatches(teams, happinessByTeam) {
         };
     });
 
-    return { threshold, totalScore: result.totalScore, matches, infeasible: false };
+    return { threshold, totalScore, matches, infeasible: false };
 }
 
 module.exports = {
     START_HOUR,
     END_HOUR,
     DAYS_PER_WEEK,
+    WEEKDAYS_PER_WEEK,
     WEEKS_WINDOW,
     DEFAULT_HAPPINESS_LEVEL,
     formatDate,
@@ -337,6 +405,7 @@ module.exports = {
     computeValidBlocks,
     fillDefaultHappiness,
     computePairEdge,
+    pairKey,
     buildEdges,
     findTightestThreshold,
     maxWeightMatching,

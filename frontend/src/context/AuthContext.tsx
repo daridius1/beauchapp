@@ -8,6 +8,8 @@ export interface User {
   name: string;
   username: string;
   avatar?: string;
+  matchAlias?: string;
+  matchPhoto?: string;
   collectionId: string;
   type: 'student' | 'organization';
   subtype?: 'center' | 'team' | 'community' | 'band' | 'organization';

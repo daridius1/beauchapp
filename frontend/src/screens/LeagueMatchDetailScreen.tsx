@@ -24,6 +24,7 @@ import { LeagueMatchScoreboard } from '../components/leagues/LeagueMatchScoreboa
 import { LeagueMatchTimeline } from '../components/leagues/LeagueMatchTimeline';
 import { LeagueMatchLineups } from '../components/leagues/LeagueMatchLineups';
 import { LeagueMatchStats } from '../components/leagues/LeagueMatchStats';
+import { matchDisplayName } from '../components/leagues/TeamCrest';
 import { EntityCommentBox } from '../components/EntityCommentBox';
 import { PostCard } from '../components/PostCard';
 
@@ -244,8 +245,8 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
 
   const teamA = match.expand?.teamA;
   const teamB = match.expand?.teamB;
-  const teamAName = teamA?.name || teamA?.username || 'Equipo A';
-  const teamBName = teamB?.name || teamB?.username || 'Equipo B';
+  const teamAName = matchDisplayName(teamA, 'Equipo A');
+  const teamBName = matchDisplayName(teamB, 'Equipo B');
   const referee = approvedReport?.expand?.referee;
   const summary = summarizeEvents(approvedEvents);
   const formattedDate = matchBlockLabel(match.blockCode);

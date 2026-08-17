@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { theme } from '../../theme/theme';
-import { Avatar } from '../Avatar';
+import { TeamCrest, matchDisplayName } from './TeamCrest';
 import { LeagueMatchRowData } from './LeagueMatchRow';
 
 interface TeamData {
@@ -9,6 +9,8 @@ interface TeamData {
   name?: string;
   username?: string;
   avatar?: string;
+  matchAlias?: string;
+  matchPhoto?: string;
 }
 
 interface LeagueStandingsTableProps {
@@ -22,6 +24,8 @@ interface TeamStanding {
   name: string;
   username?: string;
   avatar?: string;
+  matchAlias?: string;
+  matchPhoto?: string;
   pj: number;
   pg: number;
   pe: number;
@@ -46,9 +50,11 @@ export const LeagueStandingsTable: React.FC<LeagueStandingsTableProps> = ({
       if (!team) return;
       map[team.id] = {
         id: team.id,
-        name: team.name || team.username || 'Equipo',
+        name: matchDisplayName(team, 'Equipo'),
         username: team.username,
         avatar: team.avatar,
+        matchAlias: team.matchAlias,
+        matchPhoto: team.matchPhoto,
         pj: 0,
         pg: 0,
         pe: 0,
@@ -151,11 +157,12 @@ export const LeagueStandingsTable: React.FC<LeagueStandingsTableProps> = ({
             <Text style={[styles.posText, isTop && styles.posTextTop]}>{idx + 1}</Text>
 
             <View style={styles.teamCell}>
-              <Avatar
-                user={{
+              <TeamCrest
+                team={{
                   id: team.id,
                   collectionId: 'users',
                   avatar: team.avatar,
+                  matchPhoto: team.matchPhoto,
                   name: team.name,
                   username: team.username,
                 }}

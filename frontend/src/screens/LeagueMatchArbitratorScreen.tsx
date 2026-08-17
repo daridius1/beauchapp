@@ -363,11 +363,19 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
       () => pushEvent({ type: 'half_start', half, at: new Date().toISOString() })
     );
   };
+  // Terminar el 2do tiempo YA finaliza el partido — no hay un paso aparte de
+  // "enviar a revisión": el código ya es la garantía de que quien lo hace tiene
+  // derecho a arbitrarlo, así que el resultado se hace oficial en la misma confirmación.
   const requestHalfEnd = (half: 1 | 2) => {
     askConfirm(
       half === 1 ? 'Terminar el 1er tiempo' : 'Terminar el partido',
-      half === 1 ? '¿Confirmas terminar el 1er tiempo?' : '¿Confirmas terminar el partido? No se podrán registrar más eventos.',
-      () => pushEvent({ type: 'half_end', half, at: new Date().toISOString() })
+      half === 1
+        ? '¿Confirmas terminar el 1er tiempo?'
+        : '¿Confirmas terminar el partido? El resultado se hace oficial de inmediato y no se podrán registrar más eventos.',
+      async () => {
+        await pushEvent({ type: 'half_end', half, at: new Date().toISOString() });
+        if (half === 2) await finalizeMatch();
+      }
     );
   };
   const requestPause = () => {
@@ -435,24 +443,17 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     closeActionModal();
   };
 
-  const handleSubmit = () => {
-    askConfirm(
-      'Finalizar el partido',
-      '¿Confirmas finalizar el partido? El resultado se hace oficial de inmediato y nadie va a poder seguir editándolo.',
-      async () => {
-        setSubmitting(true);
-        try {
-          await pb.send('/api/league-matches/submit', { method: 'POST', body: { matchId, code: codeRef.current } });
-          Toast.show({ type: 'success', text1: 'Partido finalizado', text2: 'El resultado ya es oficial.' });
-          navigation.replace('LeagueMatchDetail', { matchId });
-        } catch (err: any) {
-          Toast.show({ type: 'error', text1: 'No se pudo finalizar', text2: err?.data?.error || err?.message });
-        } finally {
-          setSubmitting(false);
-        }
-      },
-      { confirmLabel: 'Finalizar' }
-    );
+  const finalizeMatch = async () => {
+    setSubmitting(true);
+    try {
+      await pb.send('/api/league-matches/submit', { method: 'POST', body: { matchId, code: codeRef.current } });
+      Toast.show({ type: 'success', text1: 'Partido finalizado', text2: 'El resultado ya es oficial.' });
+      navigation.replace('LeagueMatchDetail', { matchId });
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'No se pudo finalizar', text2: err?.data?.error || err?.message });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const openNotesModal = () => {
@@ -497,6 +498,14 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.mutedText}>Este partido fue cancelado.</Text>
+      </View>
+    );
+  }
+
+  if (match.status === 'suspended') {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.mutedText}>Este partido fue suspendido por la liga — todavía no se puede arbitrar.</Text>
       </View>
     );
   }
@@ -806,21 +815,6 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
           );
         })}
       </View>
-
-      {/* Envío final — solo se puede finalizar habiendo terminado el 2do tiempo */}
-      <View style={styles.divider} />
-      <TouchableOpacity
-        style={[styles.submitMainBtn, (submitting || !summary.halfEnded[2]) && styles.btnDisabled]}
-        onPress={handleSubmit}
-        disabled={submitting || !summary.halfEnded[2]}
-      >
-        <Text style={styles.submitMainBtnText}>{submitting ? 'Finalizando...' : 'Finalizar Partido'}</Text>
-      </TouchableOpacity>
-      {!summary.halfEnded[2] && (
-        <Text style={[styles.mutedTextSmall, { textAlign: 'center', marginTop: 6 }]}>
-          Hay que terminar el 2do tiempo para poder finalizar el partido.
-        </Text>
-      )}
 
       {/* Modal de Acción (Gol, Penal, Tarjetas) */}
       <Modal visible={!!pendingAction} transparent animationType="fade" onRequestClose={closeActionModal}>

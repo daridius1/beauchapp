@@ -117,17 +117,29 @@ routerAdd("GET", "/admin/liga", (e) => {
 
         <div class="card">
             <h2 style="margin-top:0;">Etapas</h2>
-            <form id="createStageForm" style="display:flex; gap:8px; margin-bottom:14px;">
-                <input type="text" id="stageName" placeholder="Ej. Fase de grupos" required style="flex:1;">
-                <button type="submit" class="btn btn-sm" style="margin-top:0;">Crear</button>
+            <form id="createStageForm">
+                <div style="display:flex; gap:8px; margin-bottom:8px;">
+                    <input type="text" id="stageName" placeholder="Ej. Fase de grupos" required style="flex:1;">
+                    <button type="submit" class="btn btn-sm" style="margin-top:0;">Crear</button>
+                </div>
+                <label style="display:inline-flex; align-items:center; gap:4px; font-size:13px; font-weight:400; margin-right:14px;">
+                    <input type="radio" name="stageType" value="groups" checked> Fase de grupos (tabla de posiciones)
+                </label>
+                <label style="display:inline-flex; align-items:center; gap:4px; font-size:13px; font-weight:400;">
+                    <input type="radio" name="stageType" value="knockout"> Enfrentamiento directo (eliminatoria)
+                </label>
             </form>
-            <div id="stagesList"><p class="hint">Cargando...</p></div>
+            <div id="stagesList" style="margin-top:14px;"><p class="hint">Cargando...</p></div>
         </div>
 
         <div class="card" id="addMatchesCard" style="display:none;">
             <h2 style="margin-top:0;">Agregar partidos — <span id="activeStageName"></span></h2>
             <p class="hint">Elige los equipos de la liga que van a jugar y corre el algoritmo. Cada sugerencia se acepta o descarta individualmente.</p>
             <div id="stageTeamsList"></div>
+            <label style="display:flex; align-items:center; gap:6px; margin-top:10px; font-size:13px;">
+                <input type="checkbox" id="avoidRematchesCheck">
+                Evitar repetir rivales (agendados o ya jugados)
+            </label>
             <button class="btn btn-sm" id="proposeBtn" style="margin-top:10px;">Sugerir partidos</button>
             <div id="proposalsWrap"></div>
         </div>
@@ -264,8 +276,9 @@ routerAdd("GET", "/admin/liga", (e) => {
             const input = document.getElementById("stageName");
             const name = input.value.trim();
             if (!name) return;
+            const type = document.querySelector('input[name="stageType"]:checked').value;
             try {
-                await apiCall("/api/liga/stages/create", "POST", { name });
+                await apiCall("/api/liga/stages/create", "POST", { name, type });
                 input.value = "";
                 await loadStages();
             } catch (err) { showError(panelError, err.message); }
@@ -285,7 +298,8 @@ routerAdd("GET", "/admin/liga", (e) => {
                 stages.forEach((s) => {
                     const row = document.createElement("div");
                     row.className = "team-checkbox-row";
-                    row.innerHTML = '<span style="flex:1;">' + s.name + '</span>';
+                    const typeLabel = s.type === "knockout" ? "Enfrentamiento directo" : "Fase de grupos";
+                    row.innerHTML = '<span style="flex:1;">' + s.name + ' <span class="hint" style="margin:0;">(' + typeLabel + ')</span></span>';
                     const btn = document.createElement("button");
                     btn.className = "btn btn-sm";
                     btn.style.marginTop = "0";
@@ -330,6 +344,7 @@ routerAdd("GET", "/admin/liga", (e) => {
             try {
                 const payload = { stageId: activeStage.id, teamIds: selected };
                 if (lastByeTeamId) payload.byeTeamId = lastByeTeamId;
+                if (document.getElementById("avoidRematchesCheck").checked) payload.avoidRematches = true;
                 const res = await apiCall("/api/liga/matches/propose", "POST", payload);
                 renderProposals(res, (byeId) => { lastByeTeamId = byeId; btn.click(); });
             } catch (err) { showError(panelError, err.message); }
@@ -431,10 +446,42 @@ routerAdd("GET", "/admin/liga", (e) => {
                         statusTag = "Jugado";
                     } else if (m.status === "cancelled") {
                         statusTag = "Cancelado";
+                    } else if (m.status === "suspended") {
+                        statusTag = "Suspendido";
                     } else {
                         statusTag = "Código: " + m.code;
                     }
-                    row.innerHTML = '<span>' + m.teamAName + ' vs ' + m.teamBName + '</span><span class="gap-tag">' + formatBlockLabel(m.blockCode) + ' &middot; ' + statusTag + '</span>';
+                    const info = document.createElement("span");
+                    info.textContent = m.teamAName + " vs " + m.teamBName;
+                    const meta = document.createElement("span");
+                    meta.className = "gap-tag";
+                    meta.textContent = formatBlockLabel(m.blockCode) + " · " + statusTag;
+                    row.appendChild(info);
+                    row.appendChild(meta);
+
+                    if (m.status === "confirmed" || m.status === "suspended") {
+                        const actions = document.createElement("div");
+                        actions.className = "match-actions";
+                        const btn = document.createElement("button");
+                        btn.className = "btn btn-sm " + (m.status === "confirmed" ? "btn-secondary" : "btn-accept");
+                        btn.textContent = m.status === "confirmed" ? "Suspender" : "Reactivar";
+                        btn.addEventListener("click", async () => {
+                            const verb = m.status === "confirmed" ? "suspender" : "reactivar";
+                            if (!confirm("¿" + verb.charAt(0).toUpperCase() + verb.slice(1) + " este partido?")) return;
+                            btn.disabled = true;
+                            try {
+                                await apiCall(
+                                    "/api/liga/matches/" + (m.status === "confirmed" ? "suspend" : "reactivate"),
+                                    "POST",
+                                    { matchId: m.id }
+                                );
+                                loadStageMatches();
+                            } catch (err) { showError(panelError, err.message); btn.disabled = false; }
+                        });
+                        actions.appendChild(btn);
+                        row.appendChild(actions);
+                    }
+
                     list.appendChild(row);
                 });
             } catch (err) { showError(panelError, err.message); }
@@ -530,7 +577,7 @@ routerAdd("GET", "/api/liga/stages", (e) => {
             throw new BadRequestError("Esta cuenta no es una liga.");
         }
         const stages = $app.findRecordsByFilter("league_stages", "league = {:league}", "-created", 0, 0, { league: e.auth.id });
-        return e.json(200, { stages: stages.map((s) => ({ id: s.id, name: s.getString("name") })) });
+        return e.json(200, { stages: stages.map((s) => ({ id: s.id, name: s.getString("name"), type: s.getString("type") })) });
     } catch (err) {
         console.error("[league.pb.js] Error en GET /api/liga/stages:", err);
         return e.json(400, { error: (err && err.message) || "No se pudieron cargar las etapas." });
@@ -545,11 +592,16 @@ routerAdd("POST", "/api/liga/stages/create", (e) => {
         const body = e.requestInfo().body || {};
         const name = String(body.name || "").trim();
         if (!name) throw new BadRequestError("El nombre es requerido.");
+        const type = String(body.type || "groups");
+        if (type !== "groups" && type !== "knockout") {
+            throw new BadRequestError("El tipo de etapa debe ser 'groups' o 'knockout'.");
+        }
 
         const coll = $app.findCollectionByNameOrId("league_stages");
         const record = new Record(coll);
         record.set("league", e.auth.id);
         record.set("name", name);
+        record.set("type", type);
         $app.save(record);
         return e.json(200, { success: true, id: record.id });
     } catch (err) {
@@ -617,6 +669,73 @@ routerAdd("GET", "/api/liga/matches", (e) => {
     }
 }, $apis.requireAuth("users"));
 
+// Suspender/reactivar — para cuando un partido agendado no se puede jugar en su
+// horario (cancha, clima) pero no se quiere cancelar del todo: sale de "por jugar"
+// y se puede reactivar más tarde a "confirmed" para reagendarlo con el mismo código.
+routerAdd("POST", "/api/liga/matches/suspend", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        const body = e.requestInfo().body || {};
+        const matchId = String(body.matchId || "");
+        if (!matchId) throw new BadRequestError("Falta matchId.");
+
+        let match;
+        try {
+            match = $app.findRecordById("league_matches", matchId);
+        } catch (err) {
+            throw new BadRequestError("El partido indicado no existe.");
+        }
+        if (match.getString("league") !== e.auth.id) {
+            throw new BadRequestError("Ese partido no pertenece a tu liga.");
+        }
+        if (match.getString("status") !== "confirmed") {
+            throw new BadRequestError("Solo se puede suspender un partido que esté por jugar.");
+        }
+
+        match.set("status", "suspended");
+        $app.save(match);
+
+        return e.json(200, { success: true });
+    } catch (err) {
+        console.error("[league.pb.js] Error en POST /api/liga/matches/suspend:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo suspender el partido." });
+    }
+}, $apis.requireAuth("users"));
+
+routerAdd("POST", "/api/liga/matches/reactivate", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        const body = e.requestInfo().body || {};
+        const matchId = String(body.matchId || "");
+        if (!matchId) throw new BadRequestError("Falta matchId.");
+
+        let match;
+        try {
+            match = $app.findRecordById("league_matches", matchId);
+        } catch (err) {
+            throw new BadRequestError("El partido indicado no existe.");
+        }
+        if (match.getString("league") !== e.auth.id) {
+            throw new BadRequestError("Ese partido no pertenece a tu liga.");
+        }
+        if (match.getString("status") !== "suspended") {
+            throw new BadRequestError("Este partido no está suspendido.");
+        }
+
+        match.set("status", "confirmed");
+        $app.save(match);
+
+        return e.json(200, { success: true });
+    } catch (err) {
+        console.error("[league.pb.js] Error en POST /api/liga/matches/reactivate:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo reactivar el partido." });
+    }
+}, $apis.requireAuth("users"));
+
 // teamDisplay/loadValidBlocks/loadMatchInputs se definen DENTRO de cada routerAdd que
 // las usa — ver la nota equivalente en team_schedule.pb.js sobre por qué una función
 // top-level de este archivo no se puede llamar de forma confiable desde el closure de
@@ -634,12 +753,14 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
             DEFAULT_HAPPINESS_LEVEL,
             suggestByeTeam,
             proposeMatches,
+            pairKey,
         } = require(`${__hooks}/lib/teamSchedule.js`);
 
         const body = e.requestInfo().body || {};
         const stageId = String(body.stageId || "");
         let teamIds = Array.isArray(body.teamIds) ? body.teamIds.map(String) : [];
         const byeTeamId = body.byeTeamId ? String(body.byeTeamId) : null;
+        const avoidRematches = !!body.avoidRematches;
 
         if (!stageId) throw new BadRequestError("Falta stageId.");
         if (teamIds.length < 2) throw new BadRequestError("Elige al menos 2 equipos.");
@@ -721,7 +842,24 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
             teamIds = teamIds.filter((id) => id !== byeTeamId);
         }
 
-        const result = proposeMatches(teamIds, happinessByTeam);
+        // "Ya se enfrentaron" cuenta agendados (confirmed) y ya jugados (played) —
+        // los suspendidos NO cuentan, se pueden volver a agendar libremente.
+        let excludedPairs = null;
+        if (avoidRematches) {
+            const alreadyPlayed = $app.findRecordsByFilter(
+                "league_matches",
+                "league = {:league} && (status = 'confirmed' || status = 'played')",
+                "",
+                0,
+                0,
+                { league: e.auth.id }
+            );
+            excludedPairs = new Set(
+                alreadyPlayed.map((m) => pairKey(m.getString("teamA"), m.getString("teamB")))
+            );
+        }
+
+        const result = proposeMatches(teamIds, happinessByTeam, excludedPairs);
         if (result.infeasible) {
             return e.json(200, { infeasible: true, byeTeamId: byeTeamId || null });
         }
