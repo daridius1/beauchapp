@@ -1,0 +1,190 @@
+import React from 'react';
+import { StyleSheet, View, Text } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { theme } from '../../theme/theme';
+import { MatchEvent, Team } from '../../utils/matchEvents';
+import { LeagueBadge } from './LeagueBadge';
+
+interface LeagueMatchLineupsProps {
+  lineupA: string[];
+  lineupB: string[];
+  teamAName: string;
+  teamBName: string;
+  events: MatchEvent[];
+}
+
+export const LeagueMatchLineups: React.FC<LeagueMatchLineupsProps> = ({
+  lineupA,
+  lineupB,
+  teamAName,
+  teamBName,
+  events,
+}) => {
+  const hasLineupA = lineupA && lineupA.length > 0;
+  const hasLineupB = lineupB && lineupB.length > 0;
+
+  if (!hasLineupA && !hasLineupB) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Feather name="users" size={24} color={theme.colors.textMuted} style={{ marginBottom: 8 }} />
+        <Text style={styles.emptyTitle}>Sin convocatoria registrada</Text>
+        <Text style={styles.emptySub}>No se especificaron planteles de jugadores para este partido.</Text>
+      </View>
+    );
+  }
+
+  // Mapear eventos por jugador para mostrar distintivos (goles, tarjetas)
+  const playerEventsA: Record<string, { goals: number; yellow: number; red: boolean }> = {};
+  const playerEventsB: Record<string, { goals: number; yellow: number; red: boolean }> = {};
+
+  (events || []).forEach((ev) => {
+    if (ev.type === 'goal' && !ev.ownGoal) {
+      const map = ev.team === 'A' ? playerEventsA : playerEventsB;
+      if (!map[ev.player]) map[ev.player] = { goals: 0, yellow: 0, red: false };
+      map[ev.player].goals += 1;
+    } else if (ev.type === 'yellow_card') {
+      const map = ev.team === 'A' ? playerEventsA : playerEventsB;
+      if (!map[ev.player]) map[ev.player] = { goals: 0, yellow: 0, red: false };
+      map[ev.player].yellow += 1;
+    } else if (ev.type === 'red_card') {
+      const map = ev.team === 'A' ? playerEventsA : playerEventsB;
+      if (!map[ev.player]) map[ev.player] = { goals: 0, yellow: 0, red: false };
+      map[ev.player].red = true;
+    }
+  });
+
+  const renderTeamColumn = (team: Team, name: string, lineup: string[], eventMap: Record<string, any>) => (
+    <View style={styles.column}>
+      <View style={styles.columnHeader}>
+        <Text style={styles.teamTitle} numberOfLines={1}>
+          {name}
+        </Text>
+        <Text style={styles.playerCount}>({lineup.length})</Text>
+      </View>
+
+      {lineup.length === 0 ? (
+        <Text style={styles.mutedText}>Sin registrar</Text>
+      ) : (
+        lineup.map((player, idx) => {
+          const stats = eventMap[player];
+          return (
+            <View key={idx} style={styles.playerRow}>
+              <Text style={styles.playerNum}>{idx + 1}.</Text>
+              <Text style={styles.playerName} numberOfLines={1}>
+                {player}
+              </Text>
+              {!!stats && (
+                <View style={styles.playerBadges}>
+                  {stats.goals > 0 && (
+                    <LeagueBadge type="goal" count={stats.goals} size="sm" />
+                  )}
+                  {stats.yellow && <LeagueBadge type="yellow_card" size="sm" />}
+                  {stats.red && <LeagueBadge type="red_card" size="sm" />}
+                </View>
+              )}
+            </View>
+          );
+        })
+      )}
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.columnsRow}>
+        {renderTeamColumn('A', teamAName, lineupA || [], playerEventsA)}
+        <View style={styles.columnDivider} />
+        {renderTeamColumn('B', teamBName, lineupB || [], playerEventsB)}
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: 'transparent',
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: 0,
+    marginBottom: theme.spacing.md,
+  },
+  columnsRow: {
+    flexDirection: 'row',
+  },
+  column: {
+    flex: 1,
+  },
+  columnDivider: {
+    width: 1,
+    backgroundColor: '#1f1f1f',
+    marginHorizontal: theme.spacing.md,
+  },
+  columnHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222222',
+    marginBottom: 8,
+  },
+  teamTitle: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+    flex: 1,
+  },
+  playerCount: {
+    color: theme.colors.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  playerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#141414',
+  },
+  playerNum: {
+    color: '#555555',
+    fontSize: 11,
+    fontWeight: '600',
+    width: 20,
+  },
+  playerName: {
+    color: '#dddddd',
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+  },
+  playerBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 6,
+  },
+  mutedText: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontStyle: 'italic',
+    paddingVertical: 8,
+  },
+  emptyContainer: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    marginBottom: theme.spacing.md,
+  },
+  emptyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  emptySub: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+  },
+});

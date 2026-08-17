@@ -9,10 +9,10 @@ export type MatchEvent =
   | { type: 'lineup'; team: Team; players: string[]; at: string }
   | { type: 'half_start'; half: 1 | 2; at: string }
   | { type: 'half_end'; half: 1 | 2; at: string }
-  | { type: 'goal'; team: Team; player: string; ownGoal: boolean; at: string }
-  | { type: 'yellow_card'; team: Team; player: string; at: string }
-  | { type: 'red_card'; team: Team; player: string; at: string }
-  | { type: 'penalty'; team: Team; player: string; scored: boolean; at: string };
+  | { type: 'goal'; team: Team; player: string; ownGoal: boolean; at: string; minute?: number; half?: 1 | 2 }
+  | { type: 'yellow_card'; team: Team; player: string; at: string; minute?: number; half?: 1 | 2 }
+  | { type: 'red_card'; team: Team; player: string; at: string; minute?: number; half?: 1 | 2 }
+  | { type: 'penalty'; team: Team; player: string; scored: boolean; at: string; minute?: number; half?: 1 | 2 };
 
 export interface MatchSummary {
   scoreA: number;

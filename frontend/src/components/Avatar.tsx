@@ -4,8 +4,8 @@ import { getFileUrl } from '../services/pocketbase';
 
 interface AvatarProps {
   user: {
-    id: string;
-    collectionId: string;
+    id?: string;
+    collectionId?: string;
     avatar?: string;
     name?: string;
     username?: string;

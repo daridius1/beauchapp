@@ -42,6 +42,9 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
         } else if (targetType === 'match') {
           const record = await pb.collection('ladder_matches').getOne(targetId, { expand: 'ladder,team_red,team_blue' });
           if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'league_match') {
+          const record = await pb.collection('league_matches').getOne(targetId, { expand: 'league,stage,teamA,teamB' });
+          if (isMounted) setFetchedTarget(record);
         } else if (targetType === 'marketplace_item' || targetType === 'product') {
           const record = await pb.collection('marketplace_items').getOne(targetId, { expand: 'seller.user' });
           if (isMounted) setFetchedTarget(record);
@@ -199,6 +202,60 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
               </Text>
               <Text style={[styles.teamScoreText, blueWon && styles.teamScoreWinner]}>
                 {scoreBlue}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Wrapper>
+    );
+  }
+
+  // 3.5. RENDERIZADO DE PARTIDO DE LIGA CITADO
+  if (targetType === 'league_match') {
+    if (isDeleted) {
+      return (
+        <View style={styles.fallbackBox}>
+          <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.fallbackText}>Este partido de liga ya no está disponible.</Text>
+        </View>
+      );
+    }
+
+    const leagueName = resolved?.expand?.league?.name || targetMeta?.leagueName || 'Liga';
+    const stageName = resolved?.expand?.stage?.name || targetMeta?.stageName || 'Etapa';
+    const scoreA = resolved?.scoreA ?? targetMeta?.scoreA ?? 0;
+    const scoreB = resolved?.scoreB ?? targetMeta?.scoreB ?? 0;
+    const status = resolved?.status || targetMeta?.status || 'confirmed';
+    const isPlayed = status === 'played';
+    const teamAName = resolved?.expand?.teamA?.name || resolved?.expand?.teamA?.username || targetMeta?.teamAName || 'Equipo A';
+    const teamBName = resolved?.expand?.teamB?.name || resolved?.expand?.teamB?.username || targetMeta?.teamBName || 'Equipo B';
+
+    const aWon = isPlayed && scoreA > scoreB;
+    const bWon = isPlayed && scoreB > scoreA;
+
+    return (
+      <Wrapper {...wrapperProps} style={styles.previewCardMatch}>
+        <Text style={styles.matchHeaderCategory}>{leagueName} · {stageName}</Text>
+        
+        <View style={styles.matchBodyRow}>
+          <View style={{ flex: 1, gap: 6 }}>
+            <View style={styles.teamRow}>
+              <View style={[styles.teamDot, { backgroundColor: '#ffffff' }]} />
+              <Text style={[styles.teamNameText, aWon && styles.teamNameWinner]} numberOfLines={1}>
+                {teamAName}
+              </Text>
+              <Text style={[styles.teamScoreText, aWon && styles.teamScoreWinner]}>
+                {isPlayed ? scoreA : '-'}
+              </Text>
+            </View>
+
+            <View style={styles.teamRow}>
+              <View style={[styles.teamDot, { backgroundColor: '#888888' }]} />
+              <Text style={[styles.teamNameText, bWon && styles.teamNameWinner]} numberOfLines={1}>
+                {teamBName}
+              </Text>
+              <Text style={[styles.teamScoreText, bWon && styles.teamScoreWinner]}>
+                {isPlayed ? scoreB : '-'}
               </Text>
             </View>
           </View>

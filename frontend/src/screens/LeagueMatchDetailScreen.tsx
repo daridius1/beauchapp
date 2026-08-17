@@ -1,12 +1,31 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+  StyleSheet,
+  RefreshControl,
+  DeviceEventEmitter,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Feather, FontAwesome } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { theme } from '../theme/theme';
 import { pb } from '../services/pocketbase';
+import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
-import { summarizeEvents } from '../utils/matchEvents';
+import { summarizeEvents, MatchEvent } from '../utils/matchEvents';
 import { hourLabel } from '../components/schedule/AvailabilityGrid';
+import { withMinimumDelay } from '../utils/refresh';
+import { LeagueMatchScoreboard } from '../components/leagues/LeagueMatchScoreboard';
+import { LeagueMatchTimeline } from '../components/leagues/LeagueMatchTimeline';
+import { LeagueMatchLineups } from '../components/leagues/LeagueMatchLineups';
+import { LeagueMatchStats } from '../components/leagues/LeagueMatchStats';
+import { EntityCommentBox } from '../components/EntityCommentBox';
+import { PostCard } from '../components/PostCard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueMatchDetail'>;
 
@@ -14,6 +33,7 @@ const DAY_LABELS_FULL = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const MONTH_LABELS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 function matchBlockLabel(code: string): string {
+  if (!code || code.length < 13) return code || 'Por definir';
   const hour = Number(code.slice(-2));
   const [y, m, d] = code.slice(0, -3).split('-').map(Number);
   const date = new Date(y, m - 1, d);
@@ -23,41 +43,191 @@ function matchBlockLabel(code: string): string {
 
 export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { matchId } = route.params;
+  const { user } = useAuth();
+
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [match, setMatch] = useState<any>(null);
-  const [approvedEvents, setApprovedEvents] = useState<any[]>([]);
+  const [approvedReport, setApprovedReport] = useState<any>(null);
+  const [approvedEvents, setApprovedEvents] = useState<MatchEvent[]>([]);
+  const [userReport, setUserReport] = useState<any>(null);
+  const [comments, setComments] = useState<any[]>([]);
 
-  const fetchMatch = useCallback(async () => {
-    try {
-      setLoading(true);
-      const record = await pb.collection('league_matches').getOne(matchId, { expand: 'teamA,teamB' });
-      setMatch(record);
+  const scrollViewRef = useRef<ScrollView>(null);
 
-      // El resumen de un partido jugado viene del informe que se aprobó como oficial
-      // (puede haber varios informes distintos para el mismo partido — solo uno queda
-      // aprobado).
-      if (record.status === 'played') {
-        try {
-          const report = await pb.collection('match_reports').getFirstListItem(
-            `match = "${matchId}" && status = "approved"`
-          );
-          setApprovedEvents(report.events || []);
-        } catch (err) {
-          setApprovedEvents([]);
-        }
+  const fetchData = useCallback(
+    async (hideLoading = false) => {
+      try {
+        if (!hideLoading) setLoading(true);
+
+        await withMinimumDelay(async () => {
+          const [matchRes, commentsRes] = await Promise.allSettled([
+            pb.collection('league_matches').getOne(matchId, {
+              expand: 'teamA,teamB,stage,league',
+            }),
+            pb.collection('posts').getList(1, 50, {
+              filter: `targetType = "league_match" && targetId = "${matchId}" && actionType = "comment" && deleted = false`,
+              sort: '+created',
+              expand: 'author',
+            }),
+          ]);
+
+          let matchRecord: any = null;
+          if (matchRes.status === 'fulfilled') {
+            matchRecord = matchRes.value;
+            setMatch(matchRecord);
+          } else {
+            console.error('Error cargando partido de liga:', matchRes.reason);
+          }
+
+          if (commentsRes.status === 'fulfilled') {
+            setComments(commentsRes.value.items);
+          }
+
+          if (matchRecord) {
+            if (matchRecord.status === 'played') {
+              try {
+                const report = await pb.collection('match_reports').getFirstListItem(
+                  `match = "${matchId}" && status = "approved"`,
+                  { expand: 'referee' }
+                );
+                setApprovedReport(report);
+                setApprovedEvents(report.events || []);
+              } catch (err) {
+                setApprovedReport(null);
+                setApprovedEvents([]);
+              }
+            } else if (matchRecord.status === 'confirmed' && user) {
+              try {
+                const myReport = await pb.collection('match_reports').getFirstListItem(
+                  `match = "${matchId}" && referee = "${user.id}"`
+                );
+                setUserReport(myReport);
+              } catch (err) {
+                setUserReport(null);
+              }
+            }
+          }
+        }, 400);
+      } catch (err) {
+        console.error('Error general en LeagueMatchDetailScreen:', err);
+      } finally {
+        if (!hideLoading) setLoading(false);
       }
-    } catch (err) {
-      console.error('Error cargando el partido:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [matchId]);
+    },
+    [matchId, user?.id]
+  );
 
   useFocusEffect(
     useCallback(() => {
-      fetchMatch();
-    }, [fetchMatch])
+      fetchData();
+    }, [fetchData])
   );
+
+  useEffect(() => {
+    const subScroll = DeviceEventEmitter.addListener('onScrollToTop', () => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    });
+    const subRefresh = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await fetchData(true);
+      setLoading(false);
+    });
+    return () => {
+      subScroll.remove();
+      subRefresh.remove();
+    };
+  }, [fetchData]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData(true);
+    setRefreshing(false);
+  };
+
+  const handleShareMatchToFeed = () => {
+    if (!match) return;
+    if (!user) {
+      Toast.show({ type: 'info', text1: 'Inicia sesión', text2: 'Debes iniciar sesión para citar.' });
+      return;
+    }
+
+    const teamAName = match.expand?.teamA?.name || match.expand?.teamA?.username || 'Equipo A';
+    const teamBName = match.expand?.teamB?.name || match.expand?.teamB?.username || 'Equipo B';
+    const stageName = match.expand?.stage?.name || 'Etapa';
+    const leagueName = match.expand?.league?.name || 'Liga';
+
+    navigation.navigate('Home', {
+      quoteTargetType: 'league_match',
+      quoteTargetId: match.id,
+      quoteTargetMeta: {
+        stageName,
+        leagueName,
+        teamAName,
+        teamBName,
+        scoreA: match.scoreA ?? 0,
+        scoreB: match.scoreB ?? 0,
+        status: match.status,
+        blockCode: match.blockCode,
+      },
+    });
+  };
+
+  const handleSendComment = async (content: string, photo: File | null, pollOptions: string[] | null) => {
+    if (!user || !match) return;
+    try {
+      const postData: any = {
+        author: user.id,
+        actionType: 'comment',
+        targetType: 'league_match',
+        targetId: match.id,
+        content: content.trim() || ' ',
+        targetMeta: {
+          teamAName: match.expand?.teamA?.name || 'Equipo A',
+          teamBName: match.expand?.teamB?.name || 'Equipo B',
+          scoreA: match.scoreA ?? 0,
+          scoreB: match.scoreB ?? 0,
+          stageName: match.expand?.stage?.name || '',
+          leagueName: match.expand?.league?.name || '',
+        },
+      };
+      if (photo) postData.photo = photo;
+      if (pollOptions && pollOptions.length >= 2) postData.pollOptions = pollOptions;
+
+      const created = await pb.collection('posts').create(postData, { expand: 'author' });
+      setComments((prev) => [...prev, created]);
+      Toast.show({ type: 'success', text1: 'Comentario publicado' });
+    } catch (err) {
+      console.error('Error enviando comentario:', err);
+      Toast.show({ type: 'error', text1: 'Error al enviar comentario' });
+      throw err;
+    }
+  };
+
+  const toggleCommentLike = async (post: any) => {
+    if (!user) return;
+    try {
+      const likes = post.likes || [];
+      const hasLiked = likes.includes(user.id);
+      const updatedLikes = hasLiked ? likes.filter((id: string) => id !== user.id) : [...likes, user.id];
+      setComments((prev) => prev.map((c) => (c.id === post.id ? { ...c, likes: updatedLikes } : c)));
+      await pb.collection('posts').update(post.id, { likes: updatedLikes });
+    } catch (err) {
+      console.error('Error actualizando like:', err);
+      fetchData(true);
+    }
+  };
+
+  const handleDeleteComment = async (postId: string) => {
+    try {
+      setComments((prev) => prev.filter((c) => c.id !== postId));
+      await pb.collection('posts').update(postId, { deleted: true });
+      Toast.show({ type: 'success', text1: 'Comentario eliminado' });
+    } catch (err) {
+      console.error('Error eliminando comentario:', err);
+      fetchData(true);
+    }
+  };
 
   if (loading) {
     return (
@@ -70,112 +240,311 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
   if (!match) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.mutedText}>No se encontró el partido.</Text>
+        <Text style={styles.emptyTitle}>Partido no encontrado</Text>
+        <Text style={styles.emptySub}>No fue posible cargar la información del encuentro.</Text>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('LeaguesList'))}
+        >
+          <Text style={styles.backBtnText}>Volver a Ligas</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   const teamA = match.expand?.teamA;
   const teamB = match.expand?.teamB;
+  const teamAName = teamA?.name || teamA?.username || 'Equipo A';
+  const teamBName = teamB?.name || teamB?.username || 'Equipo B';
+  const referee = approvedReport?.expand?.referee;
   const summary = summarizeEvents(approvedEvents);
+  const formattedDate = matchBlockLabel(match.blockCode);
+
+  const isPlayed = match.status === 'played';
+  const isConfirmed = match.status === 'confirmed';
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.teamsRow}>
-        <TouchableOpacity onPress={() => navigation.push('UserProfile', { userId: teamA?.id })} style={styles.teamCol}>
-          <Text style={styles.teamName}>{teamA?.name || 'Equipo A'}</Text>
-        </TouchableOpacity>
-        <Text style={styles.vsText}>
-          {match.status === 'played' ? `${match.scoreA} - ${match.scoreB}` : 'vs'}
-        </Text>
-        <TouchableOpacity onPress={() => navigation.push('UserProfile', { userId: teamB?.id })} style={styles.teamCol}>
-          <Text style={styles.teamName}>{teamB?.name || 'Equipo B'}</Text>
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.blockText}>{matchBlockLabel(match.blockCode)}</Text>
+    <ScrollView
+      ref={scrollViewRef}
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor={theme.colors.primary}
+          colors={[theme.colors.primary]}
+        />
+      }
+    >
+      {/* Marcador Principal */}
+      <LeagueMatchScoreboard
+        match={match}
+        referee={referee}
+        formattedDate={formattedDate}
+        onPressTeamA={teamA ? () => navigation.push('UserProfile', { userId: teamA.id }) : undefined}
+        onPressTeamB={teamB ? () => navigation.push('UserProfile', { userId: teamB.id }) : undefined}
+        onPressLeague={
+          match.expand?.league ? () => navigation.push('UserProfile', { userId: match.expand.league.id }) : undefined
+        }
+        onPressReferee={referee ? () => navigation.push('UserProfile', { userId: referee.id }) : undefined}
+      />
 
-      <View style={styles.divider} />
-
-      {match.status === 'confirmed' && (
-        <View>
-          <Text style={styles.mutedText}>
-            Este partido todavía no se ha jugado. Cualquier persona puede arbitrarlo — incluso puede haber varios
-            informes en paralelo, el administrador de la liga aprueba uno solo como oficial.
+      {/* Acciones de Arbitraje si el partido está por jugar */}
+      {isConfirmed && (
+        <View style={styles.arbitrateCard}>
+          <View style={styles.arbitrateHeader}>
+            <Feather name="flag" size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
+            <Text style={styles.arbitrateTitle}>Arbitraje Abierto</Text>
+          </View>
+          <Text style={styles.arbitrateDescription}>
+            Cualquier integrante de la comunidad puede arbitrar este partido desde la app. Si varias personas arbitran
+            en simultáneo, la administración de la liga aprobará un único informe como oficial.
           </Text>
+
+          {userReport ? (
+            <View style={styles.userReportNotice}>
+              <Feather
+                name={userReport.status === 'submitted' ? 'check-circle' : 'edit-3'}
+                size={14}
+                color={userReport.status === 'submitted' ? '#22c55e' : '#38bdf8'}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.userReportNoticeText}>
+                {userReport.status === 'submitted'
+                  ? 'Tu informe ya fue enviado y está en revisión.'
+                  : 'Tienes un informe en borrador en este dispositivo.'}
+              </Text>
+            </View>
+          ) : null}
+
           <TouchableOpacity
             style={styles.arbitrateBtn}
+            activeOpacity={0.8}
             onPress={() => navigation.push('LeagueMatchArbitrator', { matchId })}
           >
-            <Text style={styles.arbitrateBtnText}>Arbitrar</Text>
+            <Feather name="play" size={14} color="#000000" style={{ marginRight: 6 }} />
+            <Text style={styles.arbitrateBtnText}>
+              {userReport?.status === 'in_progress' ? 'Continuar Arbitraje' : 'Arbitrar Partido'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {match.status === 'cancelled' && <Text style={styles.mutedText}>Este partido fue cancelado.</Text>}
+      {/* Si el partido ya se jugó: Estadísticas, Cronología y Planteles en la misma vista */}
+      {isPlayed && (
+        <View style={styles.playedDetailsSection}>
+          {/* Estadísticas */}
+          <Text style={styles.sectionHeader}>Estadísticas</Text>
+          <LeagueMatchStats summary={summary} teamAName={teamAName} teamBName={teamBName} />
 
-      {match.status === 'played' && (
-        <View>
-          <Text style={styles.sectionTitle}>Resumen</Text>
-          <Text style={styles.summaryLine}>
-            🟨 {teamA?.name}: {summary.cardsA.yellow} · {teamB?.name}: {summary.cardsB.yellow}
-          </Text>
-          <Text style={styles.summaryLine}>
-            🟥 {teamA?.name}: {summary.cardsA.red} · {teamB?.name}: {summary.cardsB.red}
-          </Text>
+          {/* Cronología */}
+          <Text style={styles.sectionHeader}>Cronología</Text>
+          <LeagueMatchTimeline events={approvedEvents} teamAName={teamAName} teamBName={teamBName} />
 
-          {summary.goals.length > 0 && (
-            <>
-              <Text style={styles.subTitle}>Goles</Text>
-              {summary.goals.map((g, i) => (
-                <Text key={i} style={styles.eventLine}>
-                  ⚽ {g.player} ({g.team === 'A' ? teamA?.name : teamB?.name}){g.ownGoal ? ' — autogol' : ''}
-                </Text>
-              ))}
-            </>
-          )}
-
-          {summary.penalties.length > 0 && (
-            <>
-              <Text style={styles.subTitle}>Penales</Text>
-              {summary.penalties.map((p, i) => (
-                <Text key={i} style={styles.eventLine}>
-                  🎯 {p.player} ({p.team === 'A' ? teamA?.name : teamB?.name}) — {p.scored ? 'gol' : 'errado'}
-                </Text>
-              ))}
-            </>
-          )}
-
-          {summary.cards.length > 0 && (
-            <>
-              <Text style={styles.subTitle}>Tarjetas</Text>
-              {summary.cards.map((c, i) => (
-                <Text key={i} style={styles.eventLine}>
-                  {c.type === 'yellow_card' ? '🟨' : '🟥'} {c.player} ({c.team === 'A' ? teamA?.name : teamB?.name})
-                </Text>
-              ))}
-            </>
-          )}
+          {/* Planteles */}
+          <Text style={styles.sectionHeader}>Planteles</Text>
+          <LeagueMatchLineups
+            lineupA={summary.lineupA}
+            lineupB={summary.lineupB}
+            teamAName={teamAName}
+            teamBName={teamBName}
+            events={approvedEvents}
+          />
         </View>
       )}
+
+      {/* Sección de Comentarios al final */}
+      <View style={styles.commentsSection}>
+        <View style={styles.commentsHeaderRow}>
+          <Text style={styles.sectionTitle}>Comentarios ({comments.length})</Text>
+
+          <TouchableOpacity
+            style={styles.quoteHeaderBtn}
+            activeOpacity={0.7}
+            onPress={handleShareMatchToFeed}
+          >
+            <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
+            <Text style={styles.quoteHeaderBtnText}>Citar</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Caja para publicar comentarios */}
+        {user && (
+          <EntityCommentBox
+            placeholder="Comenta sobre este partido..."
+            style={{ marginHorizontal: -theme.spacing.md }}
+            onSendComment={handleSendComment}
+          />
+        )}
+
+        {/* Listado de comentarios */}
+        {comments.length === 0 ? (
+          <View style={styles.emptyCommentsContainer}>
+            <Feather name="message-square" size={24} color={theme.colors.textMuted} style={{ marginBottom: 8 }} />
+            <Text style={styles.emptyTitle}>Aún no hay comentarios</Text>
+            <Text style={styles.emptySub}>Sé la primera persona en comentar sobre este encuentro.</Text>
+          </View>
+        ) : (
+          comments.map((comment) => (
+            <View key={comment.id} style={{ marginHorizontal: -theme.spacing.md }}>
+              <PostCard
+                post={comment}
+                currentUser={user}
+                hideTargetContext={true}
+                onPress={() => navigation.push('PostDetail', { postId: comment.id })}
+                onLikePress={() => toggleCommentLike(comment)}
+                onDeletePress={() => handleDeleteComment(comment.id)}
+                onAuthorPress={() => navigation.push('UserProfile', { userId: comment.author })}
+              />
+            </View>
+          ))
+        )}
+      </View>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  content: { padding: theme.spacing.md, paddingBottom: 40 },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background, padding: theme.spacing.lg },
-  mutedText: { color: theme.colors.textMuted, fontSize: 14, marginBottom: theme.spacing.md },
-  teamsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  teamCol: { flex: 1 },
-  teamName: { color: theme.colors.text, fontSize: 16, fontWeight: '700' },
-  vsText: { color: theme.colors.textMuted, fontSize: 16, fontWeight: '700', marginHorizontal: theme.spacing.sm },
-  blockText: { color: theme.colors.textMuted, fontSize: 12, marginTop: 6 },
-  divider: { height: 1, backgroundColor: theme.colors.border, marginVertical: theme.spacing.lg },
-  arbitrateBtn: { backgroundColor: theme.colors.primary, borderRadius: 8, paddingVertical: 14, alignItems: 'center' },
-  arbitrateBtnText: { color: '#000', fontWeight: '800', fontSize: 15 },
-  sectionTitle: { color: theme.colors.text, fontSize: 16, fontWeight: '700', marginBottom: theme.spacing.sm },
-  subTitle: { color: theme.colors.text, fontSize: 13, fontWeight: '700', marginTop: theme.spacing.md, marginBottom: 4 },
-  summaryLine: { color: theme.colors.textMuted, fontSize: 13, marginBottom: 2 },
-  eventLine: { color: theme.colors.textMuted, fontSize: 13, marginBottom: 2 },
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  content: {
+    padding: theme.spacing.md,
+    paddingBottom: 60,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    padding: theme.spacing.lg,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  emptySub: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  backBtn: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 6,
+  },
+  backBtnText: {
+    color: '#000000',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  arbitrateCard: {
+    backgroundColor: 'transparent',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#1e1e1e',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: 0,
+    marginBottom: theme.spacing.lg,
+  },
+  arbitrateHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  arbitrateTitle: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  arbitrateDescription: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  userReportNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: '#222222',
+    borderRadius: 4,
+    padding: 8,
+    marginBottom: 12,
+  },
+  userReportNoticeText: {
+    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: '500',
+    flex: 1,
+  },
+  arbitrateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 6,
+    paddingVertical: 12,
+  },
+  arbitrateBtnText: {
+    color: '#000000',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  playedDetailsSection: {
+    marginBottom: theme.spacing.md,
+  },
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  commentsSection: {
+    marginTop: 8,
+  },
+  commentsHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  quoteHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 4,
+  },
+  quoteHeaderBtnText: {
+    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  emptyCommentsContainer: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    marginVertical: theme.spacing.sm,
+  },
 });
