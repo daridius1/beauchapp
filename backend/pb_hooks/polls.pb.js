@@ -13,7 +13,12 @@ const validatePollVote = (e) => {
     let options = [];
     try {
         const post = $app.findRecordById("posts", postId);
-        options = post.get("pollOptions") || [];
+        // .get() sobre un campo JSON dentro de un hook de registro (onRecordCreateRequest/
+        // onRecordUpdateRequest) no devuelve el valor ya parseado — hay que pasar por
+        // getString()+JSON.parse() explícito, si no options.length termina siendo el largo
+        // en bytes del JSON serializado en vez de la cantidad real de opciones, dejando pasar
+        // cualquier optionIndex menor a eso (bug real, encontrado al escribir team_schedule.pb.js).
+        options = JSON.parse(post.getString("pollOptions") || "[]");
     } catch (err) {
         throw new BadRequestError("La publicación de esta encuesta no existe.");
     }

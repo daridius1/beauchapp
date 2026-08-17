@@ -49,6 +49,11 @@ import { BeaudleScreen } from './src/screens/BeaudleScreen';
 import { BeaudleDayScreen } from './src/screens/BeaudleDayScreen';
 import { BeaumarketScreen } from './src/screens/BeaumarketScreen';
 import { BeaumarketDetailScreen } from './src/screens/BeaumarketDetailScreen';
+import { TeamScheduleScreen } from './src/screens/TeamScheduleScreen';
+import { LeaguesListScreen } from './src/screens/LeaguesListScreen';
+import { LeagueDetailScreen } from './src/screens/LeagueDetailScreen';
+import { LeagueMatchDetailScreen } from './src/screens/LeagueMatchDetailScreen';
+import { LeagueMatchArbitratorScreen } from './src/screens/LeagueMatchArbitratorScreen';
 import { AnnouncementModal } from './src/components/AnnouncementModal';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
@@ -291,6 +296,11 @@ function AppContent() {
       case 'BeaudleDay': return params?.name || 'Beaudle';
       case 'Beaumarket': return 'Beaumarket';
       case 'BeaumarketDetail': return 'Mercado';
+      case 'TeamSchedule': return 'Horarios';
+      case 'LeaguesList': return 'Ligas';
+      case 'LeagueDetail': return params?.name || 'Liga';
+      case 'LeagueMatchDetail': return 'Partido';
+      case 'LeagueMatchArbitrator': return 'Arbitrar';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
       case 'LadderMatchDetail':
@@ -331,7 +341,11 @@ function AppContent() {
       navigationRef.navigate('Beaumarket' as never);
     } else if (currentRouteName === 'BeaudleDay') {
       navigationRef.navigate('Beaudle' as never);
-    } else if (['LaddersList', 'ProblemsList', 'Marketplace', 'Tinder', 'Reviews', 'Beaudle', 'Beaumarket'].includes(currentRouteName)) {
+    } else if (currentRouteName === 'LeagueDetail') {
+      navigationRef.navigate('LeaguesList' as never);
+    } else if (['LeagueMatchDetail', 'LeagueMatchArbitrator'].includes(currentRouteName)) {
+      navigationRef.navigate('LeaguesList' as never);
+    } else if (['LaddersList', 'ProblemsList', 'Marketplace', 'Tinder', 'Reviews', 'Beaudle', 'Beaumarket', 'TeamSchedule', 'LeaguesList'].includes(currentRouteName)) {
       navigationRef.navigate('Beauchapps' as never);
     } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'FollowList'].includes(currentRouteName)) {
       navigationRef.navigate('Directory' as never);
@@ -409,6 +423,11 @@ function AppContent() {
                 BeaudleDay: 'beaudle/:day',
                 Beaumarket: 'beaumarket',
                 BeaumarketDetail: 'beaumarket/:marketId',
+                TeamSchedule: 'horarios',
+                LeaguesList: 'ligas',
+                LeagueDetail: 'ligas/:leagueId',
+                LeagueMatchDetail: 'partidos/:matchId',
+                LeagueMatchArbitrator: 'partidos/:matchId/arbitrar',
               }
             }
           }}
@@ -447,7 +466,7 @@ function AppContent() {
                     title={getScreenTitle(currentRouteName, currentRouteParams)} 
                     onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                     onBack={showBackButton ? handleBack : undefined}
-                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail'].includes(currentRouteName) ? () => {
+                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'TeamSchedule', 'LeaguesList', 'LeagueDetail', 'LeagueMatchDetail', 'LeagueMatchArbitrator'].includes(currentRouteName) ? () => {
                       DeviceEventEmitter.emit('onGlobalRefresh');
                     } : undefined}
                     hasUnreadNotifications={hasUnreadNotifications}
@@ -496,6 +515,11 @@ function AppContent() {
                       <Stack.Screen name="BeaudleDay" component={BeaudleDayScreen} />
                       <Stack.Screen name="Beaumarket" component={BeaumarketScreen} />
                       <Stack.Screen name="BeaumarketDetail" component={BeaumarketDetailScreen} />
+                      <Stack.Screen name="TeamSchedule" component={TeamScheduleScreen} />
+                      <Stack.Screen name="LeaguesList" component={LeaguesListScreen} />
+                      <Stack.Screen name="LeagueDetail" component={LeagueDetailScreen} />
+                      <Stack.Screen name="LeagueMatchDetail" component={LeagueMatchDetailScreen} />
+                      <Stack.Screen name="LeagueMatchArbitrator" component={LeagueMatchArbitratorScreen} />
                       <Stack.Screen name="NotFound" component={NotFoundScreen} />
                     </Stack.Navigator>
                   </View>

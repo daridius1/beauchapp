@@ -46,4 +46,9 @@ export type RootStackParamList = {
   BeaudleDay: { day?: string; name?: string };
   Beaumarket: undefined;
   BeaumarketDetail: { marketId: string; title?: string };
+  TeamSchedule: undefined;
+  LeaguesList: undefined;
+  LeagueDetail: { leagueId: string; name?: string };
+  LeagueMatchDetail: { matchId: string };
+  LeagueMatchArbitrator: { matchId: string };
 };

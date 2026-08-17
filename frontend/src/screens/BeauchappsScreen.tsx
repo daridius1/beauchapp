@@ -48,6 +48,12 @@ export const BeauchappsScreen: React.FC<Props> = ({ navigation }) => {
       icon: 'trending-up',
       screen: 'Beaumarket',
     },
+    {
+      id: 'LeaguesList',
+      title: 'Ligas',
+      icon: 'flag',
+      screen: 'LeaguesList',
+    },
     ...(user && user.type !== 'organization'
       ? [
           {
@@ -55,6 +61,16 @@ export const BeauchappsScreen: React.FC<Props> = ({ navigation }) => {
             title: 'Tinder Beauchef',
             icon: 'heart',
             screen: 'Tinder',
+          },
+        ]
+      : []),
+    ...(user && user.type === 'organization' && user.subtype === 'team'
+      ? [
+          {
+            id: 'TeamSchedule',
+            title: 'Horarios',
+            icon: 'calendar',
+            screen: 'TeamSchedule',
           },
         ]
       : []),
