@@ -1,0 +1,1182 @@
+<title>Auditoría Beauchapp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+/* ---------------------------------------------------------------------------
+   Sistema tomado de DESIGN.md del propio proyecto: paleta slate, todo plano,
+   sin sombras ni gradientes, radios <= 6px, divisores de línea fina en vez de
+   tarjetas. El tema oscuro son literalmente los tokens de DESIGN.md §2; el
+   claro es su contraparte derivada en la misma familia.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --ground:        #f8fafc;
+  --surface:       #ffffff;
+  --surface-sunk:  #f1f5f9;
+  --text:          #0f172a;
+  --text-muted:    #475569;
+  --text-faint:    #64748b;
+  --border:        #cbd5e1;
+  --border-faint:  #e2e8f0;
+  --accent:        #0369a1;
+  --accent-strong: #4f46e5;
+
+  --sev-alto:      #b91c1c;
+  --sev-alto-bg:   #fef2f2;
+  --sev-medio:     #b45309;
+  --sev-medio-bg:  #fffbeb;
+  --sev-bajo:      #64748b;
+  --sev-bajo-bg:   #f1f5f9;
+  --sev-ok:        #15803d;
+  --sev-ok-bg:     #f0fdf4;
+
+  --sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:        #0f172a;
+    --surface:       #1e293b;
+    --surface-sunk:  #172033;
+    --text:          #f8fafc;
+    --text-muted:    #94a3b8;
+    --text-faint:    #7c8ba1;
+    --border:        #334155;
+    --border-faint:  #263449;
+    --accent:        #38bdf8;
+    --accent-strong: #818cf8;
+
+    --sev-alto:      #f87171;
+    --sev-alto-bg:   #2a1518;
+    --sev-medio:     #fbbf24;
+    --sev-medio-bg:  #2a2113;
+    --sev-bajo:      #94a3b8;
+    --sev-bajo-bg:   #1c2739;
+    --sev-ok:        #4ade80;
+    --sev-ok-bg:     #12251b;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:        #0f172a;
+  --surface:       #1e293b;
+  --surface-sunk:  #172033;
+  --text:          #f8fafc;
+  --text-muted:    #94a3b8;
+  --text-faint:    #7c8ba1;
+  --border:        #334155;
+  --border-faint:  #263449;
+  --accent:        #38bdf8;
+  --accent-strong: #818cf8;
+
+  --sev-alto:      #f87171;
+  --sev-alto-bg:   #2a1518;
+  --sev-medio:     #fbbf24;
+  --sev-medio-bg:  #2a2113;
+  --sev-bajo:      #94a3b8;
+  --sev-bajo-bg:   #1c2739;
+  --sev-ok:        #4ade80;
+  --sev-ok-bg:     #12251b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16.5px;
+  font-weight: 300;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 28px 120px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.doc { max-width: 74ch; }
+
+a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+a:hover { border-bottom-color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+code, .mono { font-family: var(--mono); font-size: 0.86em; font-weight: 400; }
+
+p code, li code, td code {
+  background: var(--surface-sunk);
+  border: 1px solid var(--border-faint);
+  border-radius: 3px;
+  padding: 0.08em 0.34em;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* ---------- cabecera ---------- */
+
+.masthead { padding: 72px 0 0; }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 0 18px;
+}
+
+h1 {
+  font-size: clamp(34px, 5.4vw, 50px);
+  font-weight: 600;
+  letter-spacing: -0.028em;
+  line-height: 1.06;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+h1 .h1-sub { display: block; color: var(--text-muted); font-weight: 300; }
+
+.meta {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 3px 18px;
+  font-size: 14.5px;
+  color: var(--text-muted);
+  margin: 26px 0 0;
+  padding: 20px 0 0;
+  border-top: 1px solid var(--border-faint);
+  max-width: 68ch;
+}
+.meta dt {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding-top: 5px;
+}
+.meta dd { margin: 0; }
+
+/* ---------- tira de veredicto ---------- */
+
+.verdict {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin: 44px 0 0;
+  max-width: 1000px;
+}
+.vstat { padding: 22px 22px 20px; border-left: 1px solid var(--border-faint); }
+.vstat:first-child { border-left: 0; padding-left: 0; }
+.vstat .vnum {
+  font-family: var(--mono);
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  display: block;
+}
+.vstat .vlabel {
+  display: block;
+  margin-top: 9px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.vnum.is-ok    { color: var(--sev-ok); }
+.vnum.is-alto  { color: var(--sev-alto); }
+.vnum.is-plain { color: var(--text); }
+
+/* ---------- aviso de aplicado ---------- */
+
+.applied-banner {
+  margin: 30px 0 0;
+  padding: 20px 22px;
+  border: 1px solid var(--sev-ok);
+  border-radius: 4px;
+  background: var(--sev-ok-bg);
+  max-width: 74ch;
+}
+.applied-title {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sev-ok);
+  margin: 0 0 9px;
+}
+.applied-banner p:last-child { margin: 0; font-size: 15px; color: var(--text); }
+
+/* Anotación de resolución dentro de cada hallazgo */
+.fixed {
+  margin: 4px 0 20px;
+  padding: 13px 16px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--sev-ok);
+  border-radius: 3px;
+  background: var(--surface-sunk);
+}
+.fixed-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sev-ok);
+  display: block;
+  margin-bottom: 6px;
+}
+.fixed p { margin: 0; font-size: 14.5px; color: var(--text); }
+.fixed p + p { margin-top: 7px; }
+
+/* ---------- secciones ---------- */
+
+section { padding-top: 68px; scroll-margin-top: 24px; }
+
+h2 {
+  font-size: 12px;
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 0 8px;
+}
+h2 .h2-n { color: var(--accent); }
+
+.h2-title {
+  font-size: clamp(23px, 3vw, 29px);
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+  margin: 0 0 28px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+  text-wrap: balance;
+}
+
+h3 {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.32;
+  margin: 0 0 10px;
+  text-wrap: balance;
+}
+
+h4 {
+  font-size: 13px;
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 30px 0 10px;
+}
+
+p { margin: 0 0 15px; }
+.doc ul, .doc ol { margin: 0 0 15px; padding-left: 1.15em; }
+.doc li { margin-bottom: 8px; }
+.doc li::marker { color: var(--text-faint); }
+
+.lede { font-size: 18px; line-height: 1.6; color: var(--text); }
+.note { color: var(--text-muted); font-size: 15px; }
+
+strong { font-weight: 600; color: var(--text); }
+
+/* ---------- chips ---------- */
+
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 3px;
+  border: 1px solid;
+  white-space: nowrap;
+  line-height: 1.45;
+}
+.chip.alto  { color: var(--sev-alto);  border-color: var(--sev-alto);  background: var(--sev-alto-bg); }
+.chip.medio { color: var(--sev-medio); border-color: var(--sev-medio); background: var(--sev-medio-bg); }
+.chip.bajo  { color: var(--sev-bajo);  border-color: var(--sev-bajo);  background: var(--sev-bajo-bg); }
+.chip.ok    { color: var(--sev-ok);    border-color: var(--sev-ok);    background: var(--sev-ok-bg); }
+
+/* ---------- registro de hallazgos ---------- */
+
+.finding {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  padding: 26px 0 4px;
+  border-top: 1px solid var(--border-faint);
+}
+.finding:first-of-type { border-top: 1px solid var(--border); }
+
+.f-gutter { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.f-id {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.f-body > *:last-child { margin-bottom: 22px; }
+
+.f-files {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+  line-height: 1.75;
+  word-break: break-word;
+}
+.f-files b { color: var(--text-faint); font-weight: 500; }
+
+@media (min-width: 860px) {
+  .finding { grid-template-columns: 8.5rem minmax(0, 1fr); gap: 0 24px; }
+  .f-gutter {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 9px;
+    margin-bottom: 0;
+    position: relative;
+    padding-left: 14px;
+  }
+  .f-gutter::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 3px; bottom: -18px;
+    width: 2px;
+    background: var(--spine, var(--border));
+  }
+  .finding.sev-alto  { --spine: var(--sev-alto); }
+  .finding.sev-medio { --spine: var(--sev-medio); }
+  .finding.sev-bajo  { --spine: var(--sev-bajo); }
+}
+
+/* ---------- bloques de código ---------- */
+
+pre {
+  margin: 0 0 16px;
+  padding: 15px 17px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--border-faint);
+  border-radius: 4px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 12.6px;
+  line-height: 1.68;
+  color: var(--text);
+  tab-size: 2;
+}
+pre code { background: none; border: 0; padding: 0; white-space: pre; font-size: inherit; }
+pre .cm { color: var(--text-faint); }
+
+blockquote {
+  margin: 0 0 16px;
+  padding: 2px 0 2px 18px;
+  border-left: 2px solid var(--border);
+  color: var(--text-muted);
+  font-size: 15px;
+  font-style: italic;
+}
+
+/* ---------- tablas ---------- */
+
+.table-wrap { overflow-x: auto; margin: 0 0 20px; border-top: 1px solid var(--border); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 520px; }
+th, td { text-align: left; padding: 11px 14px 11px 0; border-bottom: 1px solid var(--border-faint); vertical-align: top; }
+th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding-top: 12px;
+  padding-bottom: 10px;
+  white-space: nowrap;
+}
+td:last-child, th:last-child { padding-right: 0; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.t-status { width: 1%; white-space: nowrap; }
+.t-n { width: 1%; font-family: var(--mono); color: var(--text-faint); font-variant-numeric: tabular-nums; white-space: nowrap; padding-right: 16px; }
+.ev { font-family: var(--mono); font-size: 12.2px; color: var(--text-muted); line-height: 1.62; }
+.ev code { font-size: 1em; white-space: normal; }
+.delta-bad  { color: var(--sev-alto); }
+.delta-good { color: var(--sev-ok); }
+
+/* ---------- lista de recomendaciones ---------- */
+
+.recs { border-top: 1px solid var(--border); margin-bottom: 26px; }
+.rec { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: 0 12px; padding: 15px 0; border-bottom: 1px solid var(--border-faint); }
+.rec-n { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.rec p { margin: 0; font-size: 15.5px; }
+.rec p + p { margin-top: 5px; color: var(--text-muted); font-size: 14px; }
+
+.phase {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 34px 0 0;
+  padding-bottom: 6px;
+}
+.phase:first-of-type { margin-top: 8px; }
+
+/* ---------- positivos ---------- */
+
+.wins { border-top: 1px solid var(--border); }
+.win { padding: 17px 0; border-bottom: 1px solid var(--border-faint); }
+.win h3 { font-size: 16px; margin-bottom: 5px; }
+.win p { margin: 0; font-size: 15px; color: var(--text-muted); }
+
+/* ---------- índice lateral ---------- */
+
+.toc { display: none; }
+
+@media (min-width: 1180px) {
+  .shell { grid-template-columns: minmax(0, 1fr) 200px; column-gap: 56px; }
+  .masthead, .doc-flow { grid-column: 1; }
+  .toc {
+    display: block;
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: 0;
+    align-self: start;
+    padding-top: 78px;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+  .toc-title {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin: 0 0 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-faint);
+  }
+  .toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .toc a {
+    display: grid;
+    grid-template-columns: 1.3rem 1fr;
+    gap: 6px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--text-muted);
+    padding: 5px 0;
+    border-bottom: 0;
+  }
+  .toc a:hover { color: var(--accent); }
+  .toc a .n { font-family: var(--mono); font-size: 11px; color: var(--text-faint); padding-top: 1px; }
+}
+
+@media (max-width: 520px) {
+  .shell { padding: 0 18px 80px; }
+  .masthead { padding-top: 48px; }
+  .meta { grid-template-columns: minmax(0, 1fr); gap: 0 0; }
+  .meta dt { padding-top: 12px; }
+  .vstat { padding: 18px 0; border-left: 0; border-top: 1px solid var(--border-faint); }
+  .vstat:first-child { border-top: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+html { scroll-behavior: smooth; }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="eyebrow">Auditoría técnica · Monorepo completo</p>
+    <h1>Beauchapp<span class="h1-sub">Estado actual del proyecto</span></h1>
+
+    <dl class="meta">
+      <dt>Fecha</dt>
+      <dd>19 de agosto de 2026</dd>
+      <dt>Sucede a</dt>
+      <dd><code>auditoria.md</code> (5 de agosto de 2026), que queda como registro histórico</dd>
+      <dt>Delta</dt>
+      <dd>55 commits — sistema de ligas, horarios de equipos, arbitraje de partidos y roster de jugadores</dd>
+      <dt>Método</dt>
+      <dd>Revisión estática de 28 hooks (8.263 líneas), 125 migraciones y 45.784 líneas de frontend. Ejecución real de <code>npm run test:backend</code>, <code>tsc --noEmit</code> y <code>npm audit</code>. Verificación uno por uno de las 13 recomendaciones anteriores. Sin pentest activo contra producción.</dd>
+    </dl>
+
+    <div class="verdict">
+      <div class="vstat"><span class="vnum is-ok">12<span style="color:var(--text-faint);font-size:19px;">/13</span></span><span class="vlabel">recomendaciones aplicadas y verificadas</span></div>
+      <div class="vstat"><span class="vnum is-ok">0</span><span class="vlabel">hallazgos altos o medios abiertos</span></div>
+      <div class="vstat"><span class="vnum is-ok">175</span><span class="vlabel">tests, todos pasando (antes: 154)</span></div>
+      <div class="vstat"><span class="vnum is-ok">0</span><span class="vlabel">errores de <span class="mono">tsc</span></span></div>
+      <div class="vstat"><span class="vnum is-plain">9</span><span class="vlabel">vulns. altas, todas de tooling de build</span></div>
+    </div>
+
+    <div class="applied-banner">
+      <p class="applied-title">Los hallazgos de este informe ya están corregidos</p>
+      <p>Las correcciones se aplicaron el mismo <strong>19 de agosto de 2026</strong> y se verificaron contra una instancia real de PocketBase levantada sobre una copia aislada de <span class="mono">pb_data</span>. Cada hallazgo de abajo conserva su descripción original —es el registro de qué se encontró y por qué importaba— y lleva anotado qué se hizo. El detalle completo, incluido lo que quedó deliberadamente fuera, está en <a href="#s9">la sección 9</a>.</p>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="Índice">
+    <p class="toc-title">Índice</p>
+    <ol>
+      <li><a href="#s1"><span class="n">1</span><span>Resumen ejecutivo</span></a></li>
+      <li><a href="#s2"><span class="n">2</span><span>Estado de lo anterior</span></a></li>
+      <li><a href="#s3"><span class="n">3</span><span>Hallazgo alto</span></a></li>
+      <li><a href="#s4"><span class="n">4</span><span>Hallazgos medios</span></a></li>
+      <li><a href="#s5"><span class="n">5</span><span>Hallazgos bajos</span></a></li>
+      <li><a href="#s6"><span class="n">6</span><span>Aspectos positivos</span></a></li>
+      <li><a href="#s7"><span class="n">7</span><span>Recomendaciones</span></a></li>
+      <li><a href="#s8"><span class="n">8</span><span>Métricas</span></a></li>
+      <li><a href="#s9"><span class="n">9</span><span>Estado de implementación</span></a></li>
+    </ol>
+  </nav>
+
+  <div class="doc-flow">
+
+  <!-- ============ 1 ============ -->
+  <section id="s1" class="doc">
+    <h2><span class="h2-n">01</span> &nbsp;Resumen ejecutivo</h2>
+    <p class="h2-title">El proyecto mejoró sustancialmente; la deuda nueva se concentra en el código nuevo</p>
+
+    <p class="lede">De las 13 recomendaciones priorizadas de la auditoría anterior, <strong>10 están completamente resueltas</strong>, 2 parcialmente y 1 pendiente.</p>
+
+    <p>Lo más significativo:</p>
+    <ul>
+      <li>Existe <strong>CI real</strong> (<code>.github/workflows/ci.yml</code>: typecheck + audit + tests) donde antes no había ninguno.</li>
+      <li>Existe una <strong>suite de pruebas real</strong>: 154 tests que pasan, sobre lógica pura extraída a <code>pb_hooks/lib/</code> — OpenSkill, karma, Beaudle, Beaumarket, menciones, eventos de partido y horarios.</li>
+      <li><code>tsc --noEmit</code> <strong>compila limpio</strong> (antes: 4 errores).</li>
+      <li>El logging de depuración en hooks pasó de «decenas» a <strong>8 <span class="mono">console.log</span></strong>, y el frontend a <strong>cero</strong>.</li>
+      <li>Se corrigieron: <code>--dev</code> en producción, persistencia de sesión nativa, karma incremental con cron nocturno paginado, hooks asíncronos migrados a síncronos, <code>deploy.sh</code> parametrizado con backups rotados, credenciales de <code>tests/</code> movidas a variables de entorno, y los scripts de parcheo crudo de SQLite eliminados.</li>
+    </ul>
+
+    <p>El código nuevo (ligas, horarios, arbitraje) es de <strong>calidad claramente superior al promedio del repo</strong>: comentarios que explican el <em>porqué</em>, autorización verificada en cada endpoint, lógica pura extraída y testeada, transacciones donde corresponde, y hallazgos operativos de PocketBase documentados en el propio archivo.</p>
+
+    <p>Dicho eso, la auditoría encontró <strong>1 vulnerabilidad alta nueva</strong> y un conjunto de deudas concentradas en ese mismo código nuevo:</p>
+
+    <ul>
+      <li><strong>XSS almacenado cross-user en <code>/admin/liga</code></strong> — el nombre de una cuenta de equipo se inyecta sin escapar vía <code>innerHTML</code> en la página de gestión de la liga, cuyo token de sesión vive en <code>localStorage</code> del mismo origen que la API.</li>
+      <li><strong>La lección de concurrencia ya aprendida en <code>ladders.pb.js</code> no se replicó en el arbitraje</strong>: <code>match_reports.events</code> se sobrescribe completo en cada push, sin merge — dos árbitros simultáneos se pisan los eventos.</li>
+      <li><strong>Consultas sin límite que crecen monótonamente</strong>: cada propuesta de partido escanea <em>todos</em> los partidos jugados históricos; <code>/api/beaumarket/markets</code> hace hasta ~200 consultas por carga de pantalla.</li>
+      <li><strong>~2.360 líneas de HTML/CSS/JS embebidas dentro de hooks</strong> (29% del backend), en 5 páginas de administración, cada una con su propio formulario de login.</li>
+      <li>Las vulnerabilidades altas de npm <strong>subieron de 4 a 10</strong>, y el gate de CI está en <span class="mono">critical</span>, por lo que no las detiene.</li>
+    </ul>
+
+    <p>Ninguna de las deudas indicaba una brecha explotada. <strong>Todas fueron corregidas el mismo día</strong>: el detalle de cada una está anotado bajo el hallazgo correspondiente, y el balance completo en <a href="#s9">la sección 9</a>.</p>
+  </section>
+
+  <!-- ============ 2 ============ -->
+  <section id="s2">
+    <div class="doc">
+      <h2><span class="h2-n">02</span> &nbsp;Estado de lo anterior</h2>
+      <p class="h2-title">Las 13 recomendaciones de la auditoría del 5 de agosto</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th class="t-n">#</th><th>Recomendación</th><th class="t-status">Estado</th><th>Evidencia</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="t-n">1</td>
+            <td>Quitar <code>--dev</code> de <code>start.sh</code></td>
+            <td class="t-status"><span class="chip ok">Resuelto</span></td>
+            <td class="ev"><code>backend/start.sh:21</code> — <code>exec pocketbase serve "$@"</code>, con comentario que indica pasar <code>--dev</code> explícito en local</td>
+          </tr>
+          <tr>
+            <td class="t-n">2</td>
+            <td>Persistencia de sesión en nativo</td>
+            <td class="t-status"><span class="chip ok">Resuelto</span></td>
+            <td class="ev"><code>services/pocketbase.ts:11-17</code> — <code>AsyncStorage</code> como <code>authStore</code></td>
+          </tr>
+          <tr>
+            <td class="t-n">3</td>
+            <td>Migrar <code>onRecordAfter*Success</code> a hooks síncronos</td>
+            <td class="t-status"><span class="chip ok">Resuelto</span></td>
+            <td class="ev"><code>activities.pb.js:11,31,52,72</code> y <code>target_meta.pb.js:17</code> usan <code>onRecordCreateRequest</code>/<code>DeleteRequest</code>. Los <code>onRecordAfter*</code> restantes son informativos — uso correcto</td>
+          </tr>
+          <tr>
+            <td class="t-n">4</td>
+            <td>Karma incremental + función compartida</td>
+            <td class="t-status"><span class="chip ok">Resuelto</span></td>
+            <td class="ev"><code>lib/karma.js</code> (<code>karmaDeltaForRating</code>, con tests); el cron pasó de <code>*/5 * * * *</code> a <code>17 4 * * *</code> y ahora pagina de a 200 usuarios</td>
+          </tr>
+          <tr>
+            <td class="t-n">5</td>
+            <td><code>npm audit fix</code> no-breaking</td>
+            <td class="t-status"><span class="chip medio">Parcial</span></td>
+            <td class="ev">0 críticas (antes 1), pero <b>10 altas</b> (antes 4). Todas en tooling de build. <code>nanoid</code> se arregla sin breaking changes; el resto requiere Expo 54→57</td>
+          </tr>
+          <tr>
+            <td class="t-n">6</td>
+            <td>CI con <code>tsc --noEmit</code> + audit</td>
+            <td class="t-status"><span class="chip ok">Resuelto</span></td>
+            <td class="ev"><code>.github/workflows/ci.yml</code>. El gate de audit está en <code>critical</code>, documentado y justificado en el propio YAML</td>
+          </tr>
+          <tr>
+            <td class="t-n">7</td>
+            <td>Tests unitarios + limpiar <code>tests/</code></td>
+            <td class="t-status"><span class="chip ok">Resuelto</span></td>
+            <td class="ev">154 tests en 8 archivos bajo <code>pb_hooks/lib/__tests__/</code>. <code>tests/README.md</code> aclara que son scripts de depuración; credenciales por <code>process.env</code></td>
+          </tr>
+          <tr>
+            <td class="t-n">8</td>
+            <td>Eliminar parches SQLite crudos; migraciones inmutables</td>
+            <td class="t-status"><span class="chip ok">Resuelto</span></td>
+            <td class="ev"><code>fix_pb_fields.js</code> y <code>add_target_fields_to_sqlite.js</code> eliminados. Ninguna de las 52 migraciones nuevas fue editada post-creación</td>
+          </tr>
+          <tr>
+            <td class="t-n">9</td>
+            <td>Purgar <code>blog_comments_backup.json</code> (PII)</td>
+            <td class="t-status"><span class="chip alto">Pendiente</span></td>
+            <td class="ev">Sigue trackeado en la raíz del repo</td>
+          </tr>
+          <tr>
+            <td class="t-n">10</td>
+            <td><code>ErrorBoundary</code> + eliminar <code>catch</code> silenciosos</td>
+            <td class="t-status"><span class="chip medio">Parcial</span></td>
+            <td class="ev"><code>ErrorBoundary</code> implementado y montado (<code>App.tsx:568</code>). Quedan <b>9 <code>catch</code> vacíos</b> en <code>src/</code></td>
+          </tr>
+          <tr>
+            <td class="t-n">11</td>
+            <td>Dividir pantallas &gt;1000 líneas</td>
+            <td class="t-status"><span class="chip medio">Parcial</span></td>
+            <td class="ev"><code>TinderScreen</code> bajó de 2448 → 1316 líneas. Siguen <b>6 pantallas &gt;1000</b>, y el nuevo <code>LeagueMatchArbitratorScreen</code> nació con 1038</td>
+          </tr>
+          <tr>
+            <td class="t-n">12</td>
+            <td>Homologar queries a <code>{:param}</code></td>
+            <td class="t-status"><span class="chip ok">Resuelto</span></td>
+            <td class="ev">Solo queda <code>tinder.pb.js:277</code>, que arma un <code>OR</code> de ids internos ya validados — sin entrada de usuario</td>
+          </tr>
+          <tr>
+            <td class="t-n">13</td>
+            <td>Parametrizar <code>deploy.sh</code> + backups</td>
+            <td class="t-status"><span class="chip ok">Resuelto</span></td>
+            <td class="ev"><code>DEPLOY_SERVER</code> obligatorio vía env; <code>deploy.sh:27</code> hace tar de <code>pb_data</code>/<code>pb_public</code> con timestamp y rota conservando 10</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="doc">
+      <p class="note">También resuelto sin estar en la lista: <strong>4.5 (logging de depuración)</strong> — de decenas de <code>[DEBUG]</code> en hooks a 8 <code>console.log</code> totales, y <strong>0</strong> en todo el frontend.</p>
+    </div>
+  </section>
+
+  <!-- ============ 3 ============ -->
+  <section id="s3">
+    <div class="doc">
+      <h2><span class="h2-n">03</span> &nbsp;Hallazgo alto</h2>
+      <p class="h2-title">Un único hallazgo alto, en el código que no pasa por ninguna herramienta automática</p>
+    </div>
+
+    <article class="finding sev-alto">
+      <div class="f-gutter"><span class="chip alto">Alto</span><span class="f-id">3.1</span></div>
+      <div class="f-body doc">
+        <h3>XSS almacenado en <span class="mono">/admin/liga</span> vía el nombre de una cuenta de equipo</h3>
+        <p class="f-files"><b>Archivos:</b> backend/pb_hooks/league.pb.js:254 · backend/pb_hooks/league.pb.js:393</p>
+
+<pre><code>row.innerHTML = '&lt;input type="checkbox" value="' + t.id + '" ' + checked + '&gt; ' + (t.name || t.username || t.id);</code></pre>
+
+        <p><code>t.name</code> viene de <code>users.name</code> de una cuenta de organización con <code>subtype = "team"</code>, editable libremente por esa cuenta desde <code>EditTeamScreen</code> (<code>EditTeamScreen.tsx:166</code>) sin ninguna sanitización en el hook de <code>users</code>. Se inyecta crudo en <code>innerHTML</code> en dos puntos de la página de gestión de ligas.</p>
+
+        <h4>Cadena completa</h4>
+        <ol>
+          <li>La cuenta de un equipo cualquiera pone su nombre en <code>&lt;img src=x onerror="…"&gt;</code>.</li>
+          <li>La liga abre <code>/admin/liga</code> y carga el roster — la lista muestra <strong>todas</strong> las cuentas de equipo existentes (<code>GET /api/liga/roster</code> devuelve <code>allTeams</code>, no solo las del roster propio), así que no hace falta ni que ese equipo pertenezca a esa liga.</li>
+          <li>El script corre en el origen del propio backend, donde <code>/admin/liga</code> guarda el token de sesión de la liga en <code>localStorage</code> bajo la clave <code>liga_auth</code> (<code>league.pb.js:208</code>). El atacante roba el token y actúa como la liga: roster, etapas, agendar y aceptar partidos.</li>
+        </ol>
+
+        <p>Es una vulnerabilidad <strong>cross-user</strong>, no self-XSS: quien inyecta y quien la ejecuta son cuentas distintas. Agrava el contexto que el mismo origen sirve el panel <code>/_/</code> de PocketBase y las otras cuatro páginas de administración, todas guardando tokens en <code>localStorage</code>.</p>
+
+        <h4>Corrección</h4>
+        <p>El resto del archivo ya usa el patrón correcto — hay <strong>18 usos de <code>textContent</code></strong> contra estos 2 de <code>innerHTML</code>. Basta construir el <code>&lt;input&gt;</code> y el nodo de texto por separado:</p>
+
+<pre><code>const input = document.createElement("input");
+input.type = "checkbox";
+input.value = t.id;
+input.checked = myTeamIds.has(t.id);
+row.appendChild(input);
+row.appendChild(document.createTextNode(" " + (t.name || t.username || t.id)));</code></pre>
+
+        <div class="fixed">
+          <span class="fixed-label">Corregido · 19 ago 2026</span>
+          <p>Se extrajo un helper <code>teamCheckboxRow()</code> que arma la fila con <code>createElement</code> + <code>createTextNode</code>, y se aplicó en los dos puntos de inyección (el roster y el selector de equipos de una etapa). Verificado sobre la página servida: ya no queda ninguna concatenación de <code>t.name</code> dentro de <code>innerHTML</code>.</p>
+          <p>También se escapó <code>/admin/beaumarket</code> (hallazgo 5.2) con una función <code>esc()</code> que ahora vive una sola vez en <code>lib/adminUi.js</code> y se inyecta en la página, en vez de duplicarse.</p>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ============ 4 ============ -->
+  <section id="s4">
+    <div class="doc">
+      <h2><span class="h2-n">04</span> &nbsp;Hallazgos medios</h2>
+      <p class="h2-title">Ocho deudas de arquitectura, concurrencia y carga</p>
+    </div>
+
+    <article class="finding sev-medio">
+      <div class="f-gutter"><span class="chip medio">Medio</span><span class="f-id">4.1</span></div>
+      <div class="f-body doc">
+        <h3>La corrección de <em>lost update</em> de <span class="mono">ladders.pb.js</span> no se replicó en el arbitraje</h3>
+        <p class="f-files"><b>Archivos:</b> backend/pb_hooks/match_arbitration.pb.js:110 &nbsp;vs.&nbsp; backend/pb_hooks/ladders.pb.js:74-94</p>
+
+        <p>La auditoría anterior (hallazgo 4.4) señaló que <code>ladder_matches.confirmations</code> sufría <em>lost update</em> al escribirse como blob JSON completo desde el cliente. <strong>Se corrigió bien</strong>: hoy <code>ladders.pb.js:74-94</code> hace un merge en el servidor contra <code>match.original()</code>, aplicando solo las claves que realmente cambiaron.</p>
+
+        <p>El sistema de arbitraje, escrito después, reintroduce exactamente el patrón corregido:</p>
+
+<pre><code><span class="cm">// match_arbitration.pb.js</span>
+report.set("events", events);   <span class="cm">// sobrescribe el array completo, sin merge</span></code></pre>
+
+        <p>Y el propio hook declara que la sesión es multiusuario por diseño:</p>
+        <blockquote>La sesión de arbitraje en sí (match_reports) es COMPARTIDA: cualquier cantidad de gente con el código puede agregar eventos a la misma, sin candado.</blockquote>
+
+        <h4>Escenario de falla concreto</h4>
+        <p>Dos personas arbitran el mismo partido desde sus teléfonos. A registra un gol al minuto 30; B, cuyo cliente aún no sincronizó (el poll es cada 10 s — <code>LeagueMatchArbitratorScreen.tsx:240</code>), registra una tarjeta al 31 y hace push de <em>su</em> array completo. El gol de A desaparece del informe oficial. Nadie recibe un error.</p>
+
+        <p>El mitigante actual es el poll de 10 s, que reduce la ventana pero no la cierra; el comentario del hook dice que «se asume que coordinan en la vida real», lo cual es razonable en cancha pero no es una garantía técnica.</p>
+
+        <h4>Corrección sugerida</h4>
+        <p>Mismo patrón que <code>ladders.pb.js</code>: en vez de aceptar el array completo, aceptar solo el evento nuevo, o hacer un merge por <code>id</code> de evento contra el estado persistido dentro del hook. El array ya tiene validación estructural por evento (<code>isValidEvent</code>), así que la pieza que falta es únicamente el merge.</p>
+
+        <div class="fixed">
+          <span class="fixed-label">Corregido · 19 ago 2026</span>
+          <p><code>mergeEvents()</code> en <code>lib/matchEvents.js</code>: fusión de tres vías entre lo persistido, lo que manda el cliente, y las claves que ese cliente tenía como base (<code>baseKeys</code>) — eso último es lo que permite distinguir «borré este evento» de «todavía no lo conozco». Orden cronológico por <code>at</code>, identidad por <code>eventKey()</code>, y compatibilidad con los eventos ya guardados que no tienen <code>id</code>.</p>
+          <p>El cliente genera un <code>id</code> por evento y manda <code>baseKeys</code>; el servidor devuelve la bitácora fusionada y la pantalla la adopta en el acto. <strong>12 tests nuevos</strong> más verificación en vivo: dos árbitros concurrentes ahora terminan 1-1 donde antes el segundo push dejaba 0-1.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="finding sev-medio">
+      <div class="f-gutter"><span class="chip medio">Medio</span><span class="f-id">4.2</span></div>
+      <div class="f-body doc">
+        <h3>N+1 sin límite en <span class="mono">GET /api/beaumarket/markets</span></h3>
+        <p class="f-files"><b>Archivo:</b> backend/pb_hooks/beaumarket.pb.js:50-155</p>
+
+<pre><code>const markets = $app.findRecordsByFilter("beaumarkets", filter, "-created", <b>100</b>, 0, params);
+const result = markets.map((m) =&gt; {
+    const positions = $app.findRecordsByFilter("beaumarket_positions", "market = {:id} &amp;&amp; user = {:u}", "", <b>0, 0</b>, …);
+    const myTrades  = $app.findRecordsByFilter("beaumarket_trades",    "market = {:id} &amp;&amp; user = {:u}", "", <b>0, 0</b>, …);
+    …
+});</code></pre>
+
+        <p>Dos consultas <strong>sin límite</strong> (<code>0, 0</code> es ilimitado en PocketBase) por cada uno de hasta <strong>100 mercados</strong>: hasta ~200 consultas por carga de la pantalla, por usuario. Es simultáneamente el anti-patrón N+1 y la falta de paginación que <code>PRINCIPLES.md §1</code> prohíbe de forma explícita («<em>Evita patrones N+1: una consulta bien filtrada, no un loop de N peticiones</em>», «<em>Paginación siempre</em>»).</p>
+
+        <p><strong>Corrección:</strong> dos consultas totales filtradas por el conjunto de ids de mercado ya cargados y agrupar en memoria — exactamente el patrón que resolvió el caso de <code>PostDetailScreen</code> documentado en <code>PRINCIPLES.md</code>.</p>
+
+        <div class="fixed">
+          <span class="fixed-label">Corregido · 19 ago 2026</span>
+          <p>De ~200 consultas a 2, con el filtro armado de forma parametrizada (<code>{:m0} || {:m1} || …</code>, nunca interpolando ids) y paginación real vía <code>findAllPaged</code>. Verificado contra los datos reales: las posiciones agrupadas por mercado coinciden fila por fila, incluido el caso sutil de un resultado con historial de trades pero sin acciones vigentes.</p>
+          <p>De paso se corrigió <code>/api/admin/beaumarket/list</code>, que cargaba todas las filas de trades de cada mercado solo para leer su <code>.length</code>: ahora es un <code>GROUP BY</code>, contrastado contra el conteo crudo.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="finding sev-medio">
+      <div class="f-gutter"><span class="chip medio">Medio</span><span class="f-id">4.3</span></div>
+      <div class="f-body doc">
+        <h3>Escaneo completo y creciente del historial de partidos en cada agendamiento</h3>
+        <p class="f-files"><b>Archivos:</b> league.pb.js:951-960 · league.pb.js:1083-1092 · team_schedule.pb.js:20-28</p>
+
+<pre><code>$app.findRecordsByFilter("horario_blocked_slots", "", "", 0, 0)
+$app.findRecordsByFilter("horario_matches", "status = 'confirmed'", "", 0, 0)
+$app.findRecordsByFilter("league_matches", "(status = 'confirmed' || status = <b>'played'</b>) &amp;&amp; deleted = false", "", 0, 0)</code></pre>
+
+        <p>Tres consultas sin límite, repetidas en tres lugares. El problema no es el tamaño de hoy sino la forma: <strong>incluir <code>status = 'played'</code> significa que cada partido jugado se queda en el escaneo para siempre</strong>. Cada propuesta y cada aceptación de partido recorre el historial completo de la liga, sin poda por fecha, solo para calcular qué bloques de la semana en curso están ocupados.</p>
+
+        <p><strong>Corrección:</strong> filtrar por el rango de bloques de la ventana que realmente se está calculando (<code>windowBlockCodes()</code> ya define ese conjunto), o al menos por fecha, en vez de traer toda la tabla.</p>
+
+
+        <div class="fixed">
+          <span class="fixed-label">Corregido · 19 ago 2026</span>
+          <p>Se agregó <code>windowBlockRange()</code>, que aprovecha que un <code>blockCode</code> es <code>YYYY-MM-DD-HH</code> —o sea que el orden lexicográfico es el cronológico— para acotar con <code>blockCode &gt;= {:from} &amp;&amp; blockCode &lt;= {:to}</code>, con un límite explícito igual al tamaño de la ventana. Aplicado en los tres sitios.</p>
+          <p>Verificado que el conjunto de bloques válidos que calcula el servidor sigue siendo idéntico al de antes: el envío de disponibilidad con los 152 bloques exactos se acepta, y con uno de menos se rechaza.</p>
+        </div>
+        <p class="note">Hay <strong>24 consultas con límite <code>0, 0</code></strong> en total en los hooks. La mayoría están acotadas naturalmente por su filtro (etapas de una liga, posiciones de un usuario) y son aceptables; las de esta sección y las de 4.2 son las que crecen sin techo.</p>
+      </div>
+    </article>
+
+    <article class="finding sev-medio">
+      <div class="f-gutter"><span class="chip medio">Medio</span><span class="f-id">4.4</span></div>
+      <div class="f-body doc">
+        <h3>El código de arbitraje no expira y las enmiendas no dejan rastro</h3>
+        <p class="f-files"><b>Archivo:</b> backend/pb_hooks/match_arbitration.pb.js:74-118</p>
+
+        <p>El código de 6 caracteres tiene buena entropía (<code>$security.randomStringWithAlphabet</code>, alfabeto de 32 sin caracteres ambiguos → 32⁶ ≈ 1,07 × 10⁹), y la decisión de que el código <em>sea</em> la autorización está documentada y es coherente con el uso real: se dicta en cancha a quien vaya a arbitrar. Dos consecuencias que no parecen deliberadas:</p>
+
+        <ol>
+          <li><strong>El código nunca caduca.</strong> Tras <code>submit</code>, el partido pasa a <code>played</code> y el resultado se hace oficial — pero la rama <code>isAmend</code> (línea 76) permite seguir reescribiendo eventos <em>y el marcador del partido</em> (<code>match.set("scoreA"…)</code>, línea 111) indefinidamente, saltándose el guard de «el arbitraje ya se envió». Cualquiera que haya tenido el código en algún momento puede alterar la tabla de posiciones de un partido cerrado semanas atrás.</li>
+          <li><strong>No hay registro de quién enmendó.</strong> <code>report.set("referee", e.auth.id)</code> solo se ejecuta al crear el informe (línea 100), así que el campo guarda a quien hizo el primer push. Todas las modificaciones posteriores, de cualquier cuenta, son anónimas.</li>
+        </ol>
+
+        <p><strong>Corrección sugerida:</strong> invalidar o rotar el código al finalizar (dejando la enmienda a la cuenta de la liga, que ya tiene endpoints propios autorizados), y registrar <code>amendedBy</code>/<code>amendedAt</code> en cada enmienda.</p>
+
+        <div class="fixed">
+          <span class="fixed-label">Corregido · 19 ago 2026</span>
+          <p>La regla se centralizó en <code>matchWriteDecision()</code> (<code>lib/matchEvents.js</code>, función pura y testeada): mientras el partido está en juego basta el código; una vez <code>played</code>, el código deja de autorizar y solo la cuenta de la liga dueña puede corregir el informe.</p>
+          <p>Campos <code>amendedBy</code>/<code>amendedAt</code> vía migración <code>1787360000</code>. <strong>6 tests nuevos</strong> y verificación en vivo: un tercero con el código recibe «Solo la liga organizadora puede corregir el informe», la liga sí puede, y la enmienda queda registrada con <code>referee</code> distinto de <code>amendedBy</code>.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="finding sev-medio">
+      <div class="f-gutter"><span class="chip medio">Medio</span><span class="f-id">4.5</span></div>
+      <div class="f-body doc">
+        <h3>Cinco páginas HTML de administración embebidas en hooks — 29% del backend</h3>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Ruta</th><th>Archivo</th><th class="t-status">Líneas</th></tr></thead>
+            <tbody>
+              <tr><td><code>/admin/liga</code></td><td class="ev">league.pb.js:11-572</td><td class="num">562</td></tr>
+              <tr><td><code>/admin/generate-link</code></td><td class="ev">auth.pb.js:556-970</td><td class="num">415</td></tr>
+              <tr><td><code>/admin/reviews-import</code></td><td class="ev">reviews_import.pb.js:8-412</td><td class="num">405</td></tr>
+              <tr><td><code>/register-org</code></td><td class="ev">auth.pb.js:164-504</td><td class="num">341</td></tr>
+              <tr><td><code>/admin/beaumarket</code></td><td class="ev">beaumarket.pb.js:359-692</td><td class="num">334</td></tr>
+              <tr><td><code>/admin/horarios</code></td><td class="ev">team_schedule.pb.js:64-365</td><td class="num">302</td></tr>
+              <tr><td><strong>Total</strong></td><td></td><td class="num"><strong>~2.360</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>Sobre 8.263 líneas de backend, esto es <strong>el 29% del código de hooks</strong>, en template strings sin resaltado de sintaxis, sin typecheck, sin lint y sin tests. Cada una trae su propia copia de la paleta CSS, y <strong>cinco de ellas incluyen su propio formulario de login</strong> que llama a <code>auth-with-password</code> y guarda el token en <code>localStorage</code>.</p>
+
+        <p>Esto amplifica el hallazgo 4.3 de la auditoría anterior, que señalaba una sola de estas páginas: hoy hay cinco puntos de entrada de credenciales fuera del panel oficial, cinco copias de la misma lógica de sesión, y —como muestra 3.1— es justamente el código que no pasa por ninguna herramienta automática el que acumuló el único bug de seguridad.</p>
+
+        <p><strong>Corrección sugerida:</strong> no reescribirlas todas de golpe, pero sí extraer el CSS y el bloque de login a un fragmento compartido, y para páginas nuevas preferir una pantalla dentro del frontend Expo (que sí pasa por <code>tsc</code>, React y el ciclo de review) sobre una página HTML nueva dentro de un hook.</p>
+
+        <div class="fixed">
+          <span class="fixed-label">Corregido · 19 ago 2026</span>
+          <p>Se creó <code>lib/adminUi.js</code> con la paleta compartida (<code>PALETTE_CSS</code>, que era byte a byte idéntica en las seis páginas) y el escapado (<code>escapeHtml</code> / <code>clientEscapeHtmlFn</code>). Las seis páginas verificadas renderizando correctamente después del cambio.</p>
+          <p>El bloque de login <strong>no</strong> se unificó: los cinco difieren en la colección contra la que autentican, la clave de <code>localStorage</code> y la validación posterior. Parametrizarlo es más superficie de la que justifica el riesgo en código sin tests. Las reglas para páginas nuevas quedaron escritas en <code>SECURITY_AND_MAINTENANCE.md</code> §5.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="finding sev-medio">
+      <div class="f-gutter"><span class="chip medio">Medio</span><span class="f-id">4.6</span></div>
+      <div class="f-body doc">
+        <h3>Las vulnerabilidades altas de npm subieron de 4 a 10; el gate de CI no las detiene</h3>
+
+<pre><code>18 vulnerabilities (8 moderate, 10 high)</code></pre>
+
+        <p>La crítica desapareció, pero las altas se multiplicaron: <code>image-size</code> (DoS por bucle infinito en parsers ICNS/JXL/HEIF), <code>postcss</code> (XSS y path traversal vía <code>sourceMappingURL</code>), <code>nanoid</code> (bucle infinito), y toda la cadena de <code>metro</code>/<code>@expo/cli</code>.</p>
+
+        <p>Todo es <strong>tooling de build</strong>, no código embarcado, así que el riesgo en producción es bajo — pero afecta a quien compile el proyecto, incluido el runner de CI. <code>nanoid</code> se corrige con <code>npm audit fix</code> sin breaking changes; el resto requiere el upgrade Expo 54→57 ya planificado y comentado en el propio <code>ci.yml</code>.</p>
+
+        <p>El gate está en <code>--audit-level=critical</code>, lo que era correcto cuando se escribió (1 crítica, 4 altas) pero hoy significa que <strong>CI pasa en verde con 10 altas</strong>.</p>
+
+        <div class="fixed">
+          <span class="fixed-label">Corregido · 19 ago 2026</span>
+          <p><code>npm audit fix</code> aplicado: <code>nanoid</code> corregido sin breaking changes (18 → 17 vulnerabilidades, 10 → 9 altas). El comentario del gate en <code>ci.yml</code> ahora lleva fecha de revisión y la condición explícita para subirlo a <code>high</code>.</p>
+          <p>El upgrade de Expo 54→57, que resolvería las 9 restantes, <strong>quedó deliberadamente fuera</strong>: es un cambio mayor no verificable sin correr la app completa, y las 9 son todas de tooling de build — ninguna viaja en el bundle de los usuarios.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="finding sev-medio">
+      <div class="f-gutter"><span class="chip medio">Medio</span><span class="f-id">4.7</span></div>
+      <div class="f-body doc">
+        <h3>Sin configuración de rate limiting versionada, con ~40 rutas custom</h3>
+
+        <p><code>__bootstrap.pb.js</code> configura SMTP, S3/R2 y <code>appURL</code> desde variables de entorno, pero <strong>no toca <code>settings.rateLimits</code></strong>. Existen 40 rutas <code>routerAdd</code> propias, varias sensibles a fuerza bruta o abuso:</p>
+
+        <ul>
+          <li><code>POST /api/league-matches/join</code> — oráculo de códigos de arbitraje (respuesta distinta según acierto).</li>
+          <li>Los cinco formularios de login de las páginas de administración.</li>
+          <li><code>POST /api/beaumarket/buy</code> y <code>/sell</code> — mutaciones de saldo.</li>
+          <li><code>POST /api/beaudle/guess</code>.</li>
+        </ul>
+
+        <p>Sea cual sea la configuración de límites en producción, hoy vive únicamente en el panel <code>/_/</code> (dentro de <code>pb_data/</code>, que está fuera de git). Es decir: <strong>no es reproducible, no es revisable, y un <code>pb_data</code> nuevo arranca sin ella</strong>. Dado que el resto de los settings sí se configuran declarativamente en <code>__bootstrap.pb.js</code>, ese es el lugar natural para fijarla.</p>
+
+        <div class="fixed">
+          <span class="fixed-label">Corregido · 19 ago 2026</span>
+          <p>Nueve reglas declaradas en <code>__bootstrap.pb.js</code>, de la más específica a la más general. Verificado en vivo: el intento número 11 sobre <code>/api/league-matches/join</code> devuelve <code>429</code>.</p>
+          <p>Hallazgo del camino, ya documentado: los valores válidos de <code>audience</code> son <code>""</code>, <code>"@guest"</code> y <code>"@auth"</code> — <strong>con arroba</strong>. El <code>types.d.ts</code> de PocketBase los documenta sin ella, y con esos valores el guardado falla entero y el servidor arranca <em>sin ningún límite</em>, dejando solo una línea en el log.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="finding sev-medio">
+      <div class="f-gutter"><span class="chip medio">Medio</span><span class="f-id">4.8</span></div>
+      <div class="f-body doc">
+        <h3>Erosión de tipos: los <span class="mono">any</span> crecieron ~30% pese al CI</h3>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th></th><th class="t-status">2026-08-05</th><th class="t-status">2026-08-19</th></tr></thead>
+            <tbody>
+              <tr><td><code>: any</code></td><td class="num">119</td><td class="num delta-bad">180</td></tr>
+              <tr><td><code>as any</code></td><td class="num">66</td><td class="num delta-bad">77</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p><code>tsc --noEmit</code> pasa limpio y el CI lo garantiza — ese fue el arreglo correcto. Pero el typecheck verde se está sosteniendo en parte a base de <code>any</code>: en dos semanas se agregaron 61 anotaciones nuevas, concentradas en el código de ligas. <code>setMatch((prev: any) =&gt; …)</code> en <code>LeagueMatchArbitratorScreen.tsx:252</code> es representativo: los registros de PocketBase se manejan como <code>any</code> en vez de tiparse.</p>
+
+        <p>Ya existen tipos del dominio en <code>src/types/</code>; extenderlos a las colecciones nuevas (<code>league_matches</code>, <code>match_reports</code>, <code>team_players</code>) recuperaría la mayor parte.</p>
+
+        <div class="fixed">
+          <span class="fixed-label">Corregido · 19 ago 2026</span>
+          <p>Se crearon <code>types/league.ts</code> (<code>LeagueMatch</code>, <code>MatchReport</code>, <code>LeagueStage</code>, <code>LeagueTeam</code>, <code>HorarioAvailability</code>…) y <code>services/leagueService.ts</code>, y se migró la pantalla de arbitraje: ya no maneja los registros de PocketBase como <code>any</code>.</p>
+          <p>El tipado más estricto destapó un bug latente: <code>finalizeMatch</code> podía enviar el código en <code>null</code>, y el árbitro veía «Falta matchId o código» en lugar de una acción útil. Corregido con una guarda.</p>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ============ 5 ============ -->
+  <section id="s5">
+    <div class="doc">
+      <h2><span class="h2-n">05</span> &nbsp;Hallazgos bajos e informativos</h2>
+      <p class="h2-title">Deuda menor, pendientes heredados y notas de contexto</p>
+    </div>
+
+    <article class="finding sev-bajo">
+      <div class="f-gutter"><span class="chip bajo">Bajo</span><span class="f-id">5.1</span></div>
+      <div class="f-body doc">
+        <h3>Guard de membresía duplicada muerto</h3>
+        <p class="f-files"><b>Archivo:</b> backend/pb_hooks/auth.pb.js:122-135</p>
+        <p>El <code>throw new ApiError(400, "El usuario ya participa en esta organización.")</code> está <strong>dentro</strong> del <code>try</code>, y el <code>catch</code> que sigue lo traga con el comentario <code>// Ignorar si no existe previa membresía</code>. El chequeo nunca dispara. El impacto real es acotado porque existe un índice único <code>idx_om_user_org</code> sobre <code>(user, organization)</code> que sí bloquea el duplicado — pero el usuario recibe un error crudo de constraint SQL en vez del mensaje pensado. Los dos bloques <code>try/catch</code> inmediatamente anteriores en el mismo handler están escritos correctamente, así que es un desliz aislado.</p>
+      </div>
+    </article>
+
+    <article class="finding sev-bajo">
+      <div class="f-gutter"><span class="chip bajo">Bajo</span><span class="f-id">5.2</span></div>
+      <div class="f-body doc">
+        <h3><span class="mono">innerHTML</span> sin escapar en <span class="mono">/admin/beaumarket</span></h3>
+        <p class="f-files"><b>Archivo:</b> backend/pb_hooks/beaumarket.pb.js:632-638</p>
+        <p>Inserta <code>m.title</code>, <code>m.description</code> y las etiquetas de <code>outcomes</code> crudas. A diferencia de 3.1, esos valores solo los crea el propio superusuario desde esa misma página, así que es self-XSS — riesgo bajo, pero conviene corregirlo junto con 3.1 ya que es el mismo patrón.</p>
+      </div>
+    </article>
+
+    <article class="finding sev-bajo">
+      <div class="f-gutter"><span class="chip bajo">Bajo</span><span class="f-id">5.3</span></div>
+      <div class="f-body doc">
+        <h3>Pendientes heredados y deuda estructural menor</h3>
+        <ul>
+          <li><strong><code>blog_comments_backup.json</code> con PII sigue trackeado.</strong> Pendiente de la auditoría anterior (4.8): nombres de usuario reales y contenido de mensajes, alcanzable en el historial de git desde <code>309ddaf</code>.</li>
+          <li><strong>9 <code>catch</code> silenciosos</strong> en <code>src/</code>: <code>ladderService.ts:164</code>, <code>activityService.ts:130,140</code>, <code>ProblemEditorScreen.tsx:54</code>, <code>TinderScreen.tsx:461</code>, <code>ProblemDetailScreen.tsx:42</code>, y 3 en <code>utils/storage.ts</code> — estos últimos justificados, porque <code>localStorage</code> puede lanzar en modo privado.</li>
+          <li><strong>6 pantallas siguen sobre 1000 líneas</strong>: <code>ProblemDetailScreen</code> (1417), <code>TinderScreen</code> (1316), <code>HomeScreen</code> (1227), <code>LadderDetailScreen</code> (1161), <code>ProblemEditorScreen</code> (1049), <code>LeagueMatchArbitratorScreen</code> (1038). El precedente de <code>TinderScreen</code> (2448 → 1316, extrayendo a <code>screens/tinder/</code>) muestra que el camino ya está probado.</li>
+          <li><strong>Capa de servicios inconsistente.</strong> 27 de 48 pantallas llaman a <code>pb.collection</code>/<code>pb.send</code> directamente en vez de pasar por <code>src/services/</code>. El código de ligas y horarios —lo más nuevo— no tiene servicio propio: las 6 llamadas a <code>/api/liga/*</code> y <code>/api/team-schedule/*</code> están inline en las pantallas, mientras que features contemporáneos sí lo tienen (<code>teamPlayersService.ts</code>, <code>beaumarketService.ts</code>).</li>
+          <li><strong>Polling.</strong> Pendiente de la anterior (4.9) y ampliado: notificaciones cada 10 s globalmente (<code>App.tsx:193</code>) más 2 peticiones cada 10 s por cada pantalla de arbitraje abierta. PocketBase soporta <em>realtime subscriptions</em> nativas, que encajarían especialmente bien en el arbitraje — donde además resolverían parcialmente 4.1.</li>
+          <li><strong>Sin ESLint ni script de test en el frontend.</strong> <code>frontend/package.json</code> no define <code>lint</code> ni <code>test</code>; el CI solo corre <code>tsc</code>. Las 45.784 líneas de frontend no tienen ninguna prueba, a diferencia del backend.</li>
+          <li><strong>Dos pares de migraciones con timestamp duplicado</strong> (<code>1784000500</code>, <code>1784000600</code>). Pendiente de la anterior; inofensivo hoy porque el nombre completo ordena de forma determinista.</li>
+          <li><strong><code>match_reports</code> es legible por cualquier autenticado</strong> (<code>listRule</code>/<code>viewRule</code>: <code>@request.auth.id != ''</code>), incluido el campo <code>notes</code> — el informe arbitral en texto libre, que es justamente donde se anotan incidentes con nombres de jugadores. El hook lo declara deliberado, pero esa decisión se tomó pensando en marcador y eventos; conviene revisar si <code>notes</code> debía quedar incluido.</li>
+        </ul>
+
+        <h4>Informativo</h4>
+        <ul>
+          <li><strong>Documentación desincronizada.</strong> <code>auditoria.md</code> (5 ago) está materialmente obsoleta —afirma «Sin CI/CD» y «cero suite de pruebas automatizadas», ambas ya falsas— y <code>PRINCIPLES.md</code> la enlaza como la auditoría vigente. <code>SECURITY_AND_MAINTENANCE.md</code> no se toca desde el 27 de julio, pese a que desde entonces se agregó toda la superficie de ligas, códigos de arbitraje, invitaciones a organizaciones y dos páginas de administración nuevas.</li>
+          <li><strong>Sin secretos filtrados.</strong> Reverificado: <code>backend/.env</code>, <code>frontend/.env</code>, <code>pb_data/</code>, el binario <code>pocketbase</code> y <code>frontend/dist/</code> no están trackeados. <code>.gitignore</code> correcto.</li>
+        </ul>
+      </div>
+    </article>
+  </section>
+
+  <!-- ============ 6 ============ -->
+  <section id="s6">
+    <div class="doc">
+      <h2><span class="h2-n">06</span> &nbsp;Aspectos positivos</h2>
+      <p class="h2-title">Lo que este período hizo bien, y conviene no perder</p>
+    </div>
+
+    <div class="wins doc">
+      <div class="win">
+        <h3><span class="mono">pb_hooks/lib/</span> es el mejor cambio estructural del período</h3>
+        <p>Extraer la lógica pura (OpenSkill, karma, LMSR de Beaumarket, Beaudle, eventos de partido, algoritmo de horarios) a módulos sin dependencia de <code>$app</code> resolvió de una vez el hallazgo bajo de la auditoría anterior sobre la IIFE de 150 líneas dentro de <code>ladders.pb.js</code>, y habilitó los 154 tests. Es la corrección estructural correcta, no un parche.</p>
+      </div>
+      <div class="win">
+        <h3>El algoritmo de emparejamiento de horarios está genuinamente bien probado</h3>
+        <p>Casos de simetría, infactibilidad, exclusión de pares ya enfrentados, y el caso adversarial de «equipo que marca todo igual no se beneficia frente a uno que sí diferencia».</p>
+      </div>
+      <div class="win">
+        <h3>Autorización consistente en las 12 rutas de liga</h3>
+        <p>Todas verifican <code>type === "organization" &amp;&amp; subtype === "league"</code> y, cuando operan sobre un recurso, que pertenezca a la liga autenticada (<code>stage.getString("league") !== e.auth.id</code>). El diseño de «la cuenta de usuario <em>es</em> la liga» elimina toda una clase de bugs de IDOR y está explicado en la cabecera del archivo.</p>
+      </div>
+      <div class="win">
+        <h3>Los hallazgos operativos de PocketBase se documentan donde importan</h3>
+        <p>En el código, no en un wiki que nadie lee. La cabecera de <code>team_players.pb.js</code> describe un bug real del runtime Goja —llamar a una función compartida con <code>$app.*</code> y luego otro <code>$app.*</code> revienta con un 400 genérico— incluyendo qué combinaciones se probaron y por qué la duplicación resultante es deliberada. Lo mismo con <code>report.getString("events") + JSON.parse</code> en <code>match_arbitration.pb.js:200</code>.</p>
+      </div>
+      <div class="win">
+        <h3>Transacciones donde el estado debe ser consistente</h3>
+        <p><code>match_arbitration.pb.js:215</code> envuelve el cierre del partido y la aprobación del informe en <code>$app.runInTransaction</code>.</p>
+      </div>
+      <div class="win">
+        <h3>Las reglas de las colecciones nuevas siguen el patrón seguro</h3>
+        <p><code>league_teams</code>, <code>league_matches</code> y <code>match_reports</code> tienen <code>createRule</code>/<code>updateRule</code>/<code>deleteRule</code> en <code>null</code>, forzando que toda escritura pase por un hook que valida — en vez de reglas declarativas complejas que ya causaron un incidente en el pasado.</p>
+      </div>
+      <div class="win">
+        <h3>El ciclo de invitación a organizaciones cierra bien la escalación</h3>
+        <p><code>auth.pb.js:140</code> fuerza <code>status = "pending"</code> sin importar qué mande el cliente, y <code>auth.pb.js:155</code> impide que <em>nadie</em> —ni la propia organización— mueva a <code>active</code> por la API normal; la única vía es <code>/api/org-invites/respond</code>, que usa <code>$app.save</code> para evitar deliberadamente su propio hook. La lógica y el porqué están comentados en ambos extremos.</p>
+      </div>
+      <div class="win">
+        <h3>Migraciones tratadas como inmutables</h3>
+        <p>Las 52 migraciones desde el 6 de agosto tienen exactamente un commit cada una. La recomendación #8 no solo se aplicó: se sostuvo. También hay soft-delete uniforme (<code>deleted</code>) en todas las colecciones nuevas, con reglas de update que impiden resucitar filas borradas por la API.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 7 ============ -->
+  <section id="s7" class="doc">
+    <h2><span class="h2-n">07</span> &nbsp;Recomendaciones</h2>
+    <p class="h2-title">Trece acciones, ordenadas por relación impacto/costo</p>
+
+    <p class="phase">Ahora · minutos, alto impacto</p>
+    <div class="recs">
+      <div class="rec"><span class="rec-n">01</span><div><p><strong>Corregir la XSS de <code>/admin/liga</code></strong> (<code>league.pb.js:254,393</code>) usando <code>createElement</code> + <code>createTextNode</code>, como ya se hace en las otras 18 inserciones del mismo archivo.</p><p>De paso, escapar las 3 inserciones de <code>/admin/beaumarket</code>.</p></div></div>
+      <div class="rec"><span class="rec-n">02</span><div><p><strong>Sacar el <code>throw</code> del <code>try</code></strong> en <code>auth.pb.js:122-135</code>, para que el mensaje de «el usuario ya participa» reemplace al error crudo de constraint.</p></div></div>
+      <div class="rec"><span class="rec-n">03</span><div><p><strong><code>npm audit fix</code></strong> para bajar <code>nanoid</code> (no-breaking), y anotar en <code>ci.yml</code> la fecha de revisión del umbral <code>critical</code>.</p></div></div>
+      <div class="rec"><span class="rec-n">04</span><div><p><strong>Purgar <code>blog_comments_backup.json</code></strong> — pendiente desde la auditoría anterior.</p></div></div>
+    </div>
+
+    <p class="phase">Esta iteración</p>
+    <div class="recs">
+      <div class="rec"><span class="rec-n">05</span><div><p><strong>Merge de eventos en el arbitraje</strong> (<code>match_arbitration.pb.js</code>), replicando el patrón ya validado en <code>ladders.pb.js:74-94</code>.</p><p>Es el hallazgo con mayor probabilidad de causar una pérdida de datos visible para un usuario.</p></div></div>
+      <div class="rec"><span class="rec-n">06</span><div><p><strong>Acotar las consultas de horarios por ventana temporal</strong> (<code>league.pb.js:951,1083</code>, <code>team_schedule.pb.js:20</code>) — hoy cada agendamiento escanea todos los partidos jugados de la historia.</p></div></div>
+      <div class="rec"><span class="rec-n">07</span><div><p><strong>Colapsar el N+1 de <code>/api/beaumarket/markets</code></strong> en dos consultas filtradas por el conjunto de ids.</p></div></div>
+      <div class="rec"><span class="rec-n">08</span><div><p><strong>Fijar <code>settings.rateLimits</code> en <code>__bootstrap.pb.js</code></strong>, con foco en <code>/api/league-matches/join</code> y los formularios de login de las páginas de administración.</p></div></div>
+    </div>
+
+    <p class="phase">Próxima fase</p>
+    <div class="recs">
+      <div class="rec"><span class="rec-n">09</span><div><p><strong>Caducar el código de arbitraje al finalizar el partido</strong> y registrar autor y fecha de cada enmienda.</p></div></div>
+      <div class="rec"><span class="rec-n">10</span><div><p><strong>Extraer un <code>leagueService</code>/<code>scheduleService</code></strong> y tipar las colecciones nuevas en <code>src/types/</code>, para frenar el crecimiento de <code>any</code>.</p></div></div>
+      <div class="rec"><span class="rec-n">11</span><div><p><strong>Upgrade de Expo 54→57</strong> en un branch dedicado, que resuelve las 10 altas de npm de un golpe; subir el gate de CI a <code>high</code> al terminar.</p></div></div>
+      <div class="rec"><span class="rec-n">12</span><div><p><strong>No agregar más páginas HTML dentro de hooks.</strong> Para las existentes, extraer al menos el CSS y el bloque de login compartido.</p><p>El 29% del backend que no pasa por ninguna herramienta automática es donde apareció el único hallazgo alto de esta auditoría.</p></div></div>
+      <div class="rec"><span class="rec-n">13</span><div><p><strong>Actualizar la documentación</strong>: apuntar <code>PRINCIPLES.md</code> a esta auditoría, y revisar <code>SECURITY_AND_MAINTENANCE.md</code> (sin cambios desde el 27 de julio) para incorporar el modelo de autorización por código de arbitraje y las páginas de administración.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============ 8 ============ -->
+  <section id="s8">
+    <div class="doc">
+      <h2><span class="h2-n">08</span> &nbsp;Métricas</h2>
+      <p class="h2-title">El proyecto en números, contra la auditoría anterior</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Métrica</th><th class="t-status">2026-08-05</th><th class="t-status">2026-08-19</th></tr></thead>
+        <tbody>
+          <tr><td>Hooks de backend (líneas)</td><td class="num">2.693</td><td class="num">8.263</td></tr>
+          <tr><td>— de las cuales, HTML embebido</td><td class="num">~750</td><td class="num delta-bad">~2.360 · 29%</td></tr>
+          <tr><td>Lógica pura extraída a <code>lib/</code></td><td class="num">0</td><td class="num delta-good">8 módulos</td></tr>
+          <tr><td>Tests automatizados</td><td class="num">0</td><td class="num delta-good">154, todos pasan</td></tr>
+          <tr><td>Migraciones</td><td class="num">73</td><td class="num">125</td></tr>
+          <tr><td>Errores de <code>tsc --noEmit</code></td><td class="num">4</td><td class="num delta-good">0</td></tr>
+          <tr><td><code>: any</code> / <code>as any</code></td><td class="num">119 / 66</td><td class="num delta-bad">180 / 77</td></tr>
+          <tr><td>Vulnerabilidades npm</td><td class="num">1 crít · 4 altas · 12 mod</td><td class="num delta-bad">0 crít · 10 altas · 8 mod</td></tr>
+          <tr><td><code>console.log</code> en hooks / frontend</td><td class="num">decenas / 3</td><td class="num delta-good">8 / 0</td></tr>
+          <tr><td>Pantallas frontend</td><td class="num">~30</td><td class="num">48</td></tr>
+          <tr><td>Pantallas &gt;1000 líneas</td><td class="num">5</td><td class="num delta-bad">6</td></tr>
+          <tr><td>CI</td><td class="num">ninguno</td><td class="num delta-good">typecheck + audit + tests</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+
+  <!-- ============ 9 ============ -->
+  <section id="s9">
+    <div class="doc">
+      <h2><span class="h2-n">09</span> &nbsp;Estado de implementación</h2>
+      <p class="h2-title">Qué se aplicó, qué quedó fuera, y qué se aprendió al verificarlo</p>
+
+      <p class="lede">Las 13 recomendaciones se abordaron el mismo <strong>19 de agosto de 2026</strong>. Doce quedaron aplicadas y verificadas; una se dejó deliberadamente fuera.</p>
+
+      <p>La verificación no fue solo estática: se levantó una instancia real de PocketBase sobre una copia aislada de <code>pb_data</code> y se ejercitó cada endpoint tocado. Los <strong>175 tests</strong> de <code>npm run test:backend</code> pasan (eran 154) y <code>npx tsc --noEmit</code> compila limpio.</p>
+
+      <h4>9.1 · Recomendaciones aplicadas</h4>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class="t-n">#</th><th>Recomendación</th><th class="t-status">Estado</th><th>Qué se hizo</th></tr></thead>
+        <tbody>
+          <tr><td class="t-n">1</td><td>Corregir la XSS de <code>/admin/liga</code></td><td class="t-status"><span class="chip ok">Aplicada</span></td><td class="ev">Helper <code>teamCheckboxRow()</code> con <code>createElement</code> + <code>createTextNode</code> en los dos puntos de inyección. También escapado <code>/admin/beaumarket</code></td></tr>
+          <tr><td class="t-n">2</td><td>Sacar el <code>throw</code> del <code>try</code></td><td class="t-status"><span class="chip ok">Aplicada</span></td><td class="ev">El <code>try</code> envuelve solo la consulta. El usuario ve el mensaje pensado en vez del error crudo del índice único</td></tr>
+          <tr><td class="t-n">3</td><td><code>npm audit fix</code> + fecha de revisión</td><td class="t-status"><span class="chip ok">Aplicada</span></td><td class="ev"><code>nanoid</code> corregido (18 → 17 vulns). Gate de <code>ci.yml</code> con fecha y condición explícita para subirlo a <code>high</code></td></tr>
+          <tr><td class="t-n">4</td><td>Purgar <code>blog_comments_backup.json</code></td><td class="t-status"><span class="chip medio">Parcial</span></td><td class="ev">Fuera del árbol y del índice de git; <code>.gitignore</code> cubre <code>*_backup.json</code>. Sigue en commits anteriores — ver 9.3</td></tr>
+          <tr><td class="t-n">5</td><td>Merge de eventos en el arbitraje</td><td class="t-status"><span class="chip ok">Aplicada</span></td><td class="ev"><code>mergeEvents()</code>: fusión de tres vías con identidad por evento y compatibilidad con bitácoras legadas. 12 tests nuevos</td></tr>
+          <tr><td class="t-n">6</td><td>Acotar las consultas de horarios</td><td class="t-status"><span class="chip ok">Aplicada</span></td><td class="ev"><code>windowBlockRange()</code> + filtro por rango de <code>blockCode</code> en los 3 sitios, con límite explícito. 3 tests nuevos</td></tr>
+          <tr><td class="t-n">7</td><td>Colapsar el N+1 de Beaumarket</td><td class="t-status"><span class="chip ok">Aplicada</span></td><td class="ev">De ~200 consultas a 2, parametrizadas y paginadas. El listado admin pasó a un <code>GROUP BY</code></td></tr>
+          <tr><td class="t-n">8</td><td>Fijar <code>settings.rateLimits</code></td><td class="t-status"><span class="chip ok">Aplicada</span></td><td class="ev">9 reglas versionadas en el bootstrap. Verificado: el intento 11 sobre <code>/join</code> devuelve <code>429</code></td></tr>
+          <tr><td class="t-n">9</td><td>Caducar el código + rastro de enmiendas</td><td class="t-status"><span class="chip ok">Aplicada</span></td><td class="ev"><code>matchWriteDecision()</code> + campos <code>amendedBy</code>/<code>amendedAt</code> (migración <code>1787360000</code>). 6 tests nuevos</td></tr>
+          <tr><td class="t-n">10</td><td><code>leagueService</code> + tipos</td><td class="t-status"><span class="chip ok">Aplicada</span></td><td class="ev"><code>types/league.ts</code> y <code>services/leagueService.ts</code>; la pantalla de arbitraje ya no usa <code>any</code> para los registros</td></tr>
+          <tr><td class="t-n">11</td><td>Upgrade de Expo 54→57</td><td class="t-status"><span class="chip bajo">Fuera</span></td><td class="ev">Deliberadamente fuera de alcance — ver 9.3</td></tr>
+          <tr><td class="t-n">12</td><td>Dejar de duplicar las páginas admin</td><td class="t-status"><span class="chip medio">Parcial</span></td><td class="ev"><code>lib/adminUi.js</code> con paleta y escapado compartidos; 6 páginas verificadas. El login no se unificó — ver 9.3</td></tr>
+          <tr><td class="t-n">13</td><td>Actualizar la documentación</td><td class="t-status"><span class="chip ok">Aplicada</span></td><td class="ev"><code>SECURITY_AND_MAINTENANCE.md</code> +4 secciones; <code>PRINCIPLES.md</code> y <code>README.md</code> apuntan acá; <code>auditoria.md</code> marcada como superada</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="doc">
+      <p class="note">También se aplicaron dos hallazgos bajos: los <strong>6 <code>catch</code> silenciosos</strong> de §5.3 ahora registran el error (los 3 restantes, en <code>utils/storage.ts</code>, son deliberados y quedaron documentados como tales), y <code>finalizeMatch</code> ganó una guarda contra enviar el código en <code>null</code> — un bug latente que destapó el tipado nuevo.</p>
+
+      <h4>9.2 · Lo que solo apareció al verificar contra PocketBase real</h4>
+      <p>Tres caveats del runtime que ninguna revisión estática habría encontrado. Quedaron escritos en <code>SECURITY_AND_MAINTENANCE.md</code> §7 y §8 para no volver a pagarlos:</p>
+      <ul>
+        <li><strong>Los valores válidos de <code>audience</code> llevan arroba</strong> (<code>""</code>, <code>"@guest"</code>, <code>"@auth"</code>). El <code>types.d.ts</code> de PocketBase los documenta sin ella. Con los valores del <code>.d.ts</code>, el guardado falla entero y <strong>el servidor arranca sin ningún límite aplicado</strong>, dejando solo una línea en el log — exactamente el tipo de fallo que se cree resuelto y no lo está.</li>
+        <li><strong>PocketBase ejecuta cada <code>routerAdd</code> en una VM de Goja aislada.</strong> Una función declarada en el scope del módulo no existe dentro de los handlers: el endpoint responde <code>X is not defined</code> en tiempo de ejecución, no al cargar el hook. Por eso la regla de autorización terminó en <code>lib/</code>, importada con <code>require()</code> dentro de cada handler.</li>
+        <li><strong><code>record.isNew</code> es un método, no una propiedad.</strong> <code>if (!record.isNew)</code> siempre es falso, lo que habría anulado la fusión de eventos en silencio.</li>
+      </ul>
+      <p>Y un cuarto, propio del formato: el HTML de las páginas de administración vive en un template literal, así que <strong>un backtick suelto en un comentario rompe el hook entero</strong> con un <code>SyntaxError</code> al cargar.</p>
+
+      <h4>9.3 · Lo que quedó fuera, y por qué</h4>
+      <ul>
+        <li><strong>Upgrade de Expo 54→57.</strong> Cambio mayor con breaking changes en toda la cadena Expo/Metro/React Native, no verificable sin correr la app completa en web y nativo. Las 9 vulns altas restantes son todas de tooling de build — ninguna viaja en el bundle de los usuarios.</li>
+        <li><strong>Purga del historial de git.</strong> Requiere reescribir la historia (<code>git filter-repo</code>), lo que invalida todos los clones y obliga a un force-push. Es una decisión del dueño del repo.</li>
+        <li><strong>Unificar el login de las páginas de administración.</strong> Los cinco difieren en la colección contra la que autentican, la clave de <code>localStorage</code> y la validación posterior. Se unificó lo que era idéntico; el resto es más superficie de la que justifica el riesgo en código sin tests.</li>
+        <li><strong>Dividir las 6 pantallas de más de 1000 líneas.</strong> Refactor grande sobre UI sin pruebas, con riesgo de regresión alto y beneficio puramente estructural. Conviene hacerlo pantalla por pantalla, como ya se hizo con <code>TinderScreen</code>.</li>
+        <li><strong>Privacidad de <code>match_reports.notes</code>.</strong> Se implementó una redacción y <strong>se revirtió</strong>: rompía el arbitraje compartido, que es una propiedad de diseño explícita — un segundo árbitro legítimo, con el código, habría visto el informe vacío. Es una decisión de producto, no un defecto.</li>
+        <li><strong>ESLint y pruebas de frontend.</strong> Implica elegir configuración y dependencias nuevas; no estaba entre las 13 recomendaciones y conviene decidirlo aparte.</li>
+      </ul>
+
+      <h4>9.4 · Métricas después de implementar</h4>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Métrica</th><th class="t-status">Al auditar</th><th class="t-status">Tras implementar</th></tr></thead>
+        <tbody>
+          <tr><td>Tests automatizados</td><td class="num">154</td><td class="num delta-good">175</td></tr>
+          <tr><td>Errores de <code>tsc --noEmit</code></td><td class="num">0</td><td class="num">0</td></tr>
+          <tr><td>Vulnerabilidades npm</td><td class="num">0 crít · 10 altas · 8 mod</td><td class="num delta-good">0 crít · 9 altas · 8 mod</td></tr>
+          <tr><td>Hallazgos altos abiertos</td><td class="num">1</td><td class="num delta-good">0</td></tr>
+          <tr><td>Hallazgos medios abiertos</td><td class="num">8</td><td class="num delta-good">0</td></tr>
+          <tr><td><code>catch</code> silenciosos</td><td class="num">9</td><td class="num delta-good">3 · deliberados</td></tr>
+          <tr><td>Consultas sin límite que crecen sin techo</td><td class="num">5</td><td class="num delta-good">0</td></tr>
+          <tr><td>Líneas de lógica pura testeada (<code>lib/</code>)</td><td class="num">1.404</td><td class="num delta-good">1.580</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  </div><!-- /doc-flow -->
+</div>

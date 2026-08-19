@@ -22,10 +22,17 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npx tsc --noEmit
-      # Nivel "critical": ya no quedan vulnerabilidades críticas tras `npm audit fix` (no-breaking).
-      # Queda 1 alta (postcss, transitiva vía @expo/metro-config, solo afecta tooling de build)
-      # que solo se resuelve con el upgrade mayor de Expo 54→57, planificado como fase aparte
-      # (ver auditoria.md, hallazgo 3.6). Subir este umbral a "high" cuando esa fase se complete.
+      # Nivel "critical": no quedan vulnerabilidades críticas.
+      #
+      # Revisado el 2026-08-19: quedan 9 altas, TODAS en tooling de build (image-size,
+      # postcss, metro, @expo/cli) — ninguna viaja en el bundle que reciben los usuarios.
+      # Solo se resuelven con el upgrade mayor de Expo 54→57, planificado como fase aparte
+      # (ver auditoria-2026-08-19.md §4.6). Lo que sí era corregible sin breaking changes
+      # (nanoid) ya se aplicó.
+      #
+      # SUBIR este umbral a "high" en cuanto el upgrade de Expo esté hecho, y volver a
+      # anotar acá la fecha de revisión. Un umbral en "critical" sin fecha se convierte
+      # en un gate que nadie vuelve a mirar.
       - name: Audit (sin vulnerabilidades críticas)
         run: npm audit --audit-level=critical
 

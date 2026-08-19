@@ -263,3 +263,36 @@ test("proposeMatches: equipo que marca todo igual no se beneficia frente a uno q
     assert.equal(result.matches[0].block, "2026-08-17-10");
     assert.equal(result.matches[0].gap, 0.5); // |0.5 - 1.0|
 });
+
+// ---------------------------------------------------------------------------------
+// windowBlockRange — el rango que permite acotar las consultas a la ventana móvil en
+// vez de recorrer todo el historial de partidos. Ver auditoria-2026-08-19.md §4.3.
+// ---------------------------------------------------------------------------------
+
+const { windowBlockRange } = require("../teamSchedule.js");
+
+test("windowBlockRange: cubre exactamente el primer y último bloque de la ventana", () => {
+    const ref = new Date("2026-08-19T12:00:00");
+    const codes = windowBlockCodes(ref);
+    const range = windowBlockRange(ref);
+    assert.equal(range.from, codes[0]);
+    assert.equal(range.to, codes[codes.length - 1]);
+});
+
+test("windowBlockRange: todo bloque de la ventana cae dentro del rango por orden lexicográfico", () => {
+    // Esta es la propiedad de la que depende el filtro `blockCode >= from && <= to`:
+    // el formato YYYY-MM-DD-HH hace que comparar strings equivalga a comparar fechas.
+    const ref = new Date("2026-08-19T12:00:00");
+    const codes = windowBlockCodes(ref);
+    const { from, to } = windowBlockRange(ref);
+    for (const code of codes) {
+        assert.ok(code >= from && code <= to, `${code} fuera de [${from}, ${to}]`);
+    }
+});
+
+test("windowBlockRange: un bloque anterior o posterior a la ventana queda fuera del rango", () => {
+    const ref = new Date("2026-08-19T12:00:00");
+    const { from, to } = windowBlockRange(ref);
+    assert.ok(!("2020-01-01-12" >= from && "2020-01-01-12" <= to));
+    assert.ok(!("2099-01-01-12" >= from && "2099-01-01-12" <= to));
+});

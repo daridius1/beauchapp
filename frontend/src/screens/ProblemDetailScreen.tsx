@@ -39,7 +39,10 @@ const renderContentBlocks = (contentStr: string) => {
     if (contentStr.trim().startsWith('[')) {
       blocks = JSON.parse(contentStr);
     }
-  } catch (e) {}
+  } catch (e) {
+    // No es el JSON de bloques: se trata todo el contenido como un único markdown.
+    console.error('No se pudo parsear el contenido por bloques del problema:', e);
+  }
 
   if (blocks.length === 0) {
     return <MarkdownRenderer content={contentStr} height={150} />;

@@ -161,7 +161,12 @@ export const ladderService = {
     let currentConfirmations: Record<string, string> = {};
     try {
       currentConfirmations = typeof match.confirmations === 'string' ? JSON.parse(match.confirmations as any) : (match.confirmations || {});
-    } catch (e) {}
+    } catch (e) {
+      // `confirmations` corrupto o con formato viejo: se sigue con el objeto vacío
+      // (equivale a "nadie confirmó todavía"), pero queda registrado — es un dato
+      // que se supone que el backend siempre escribe bien.
+      console.error('No se pudieron parsear las confirmaciones del partido:', e);
+    }
 
     currentConfirmations[user.id] = decision;
 

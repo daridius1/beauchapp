@@ -55,3 +55,4 @@ npx expo start --web
 | [`SECURITY_AND_MAINTENANCE.md`](./SECURITY_AND_MAINTENANCE.md) | Reglas de seguridad, caveats técnicos, incidentes pasados |
 | [`DEPLOY.md`](./DEPLOY.md) | Cómo desplegar a producción — manual y para agentes de IA |
 | [`.agents/AGENTS.md`](./.agents/AGENTS.md) | Reglas operativas para agentes de IA trabajando en este repo |
+| [`auditoria-2026-08-19.md`](./auditoria-2026-08-19.md) | Auditoría técnica vigente: estado del proyecto, hallazgos y su resolución |

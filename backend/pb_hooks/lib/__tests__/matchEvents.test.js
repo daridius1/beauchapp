@@ -287,3 +287,245 @@ test("summarizeEvents: escenario completo de partido calculado a mano", () => {
     ]);
     assert.equal(s.halfEnded[2], true);
 });
+
+// ---------------------------------------------------------------------------------
+// mergeEvents — fusión de bitácoras concurrentes. Escenario de fondo: dos personas
+// arbitran el mismo partido con el mismo código, sincronizando cada ~10 s, así que
+// cada una manda su bitácora completa partiendo de una base que ya quedó vieja.
+// Ver auditoria-2026-08-19.md §4.1.
+// ---------------------------------------------------------------------------------
+
+const { eventKey, mergeEvents } = require("../matchEvents.js");
+
+const golA = { id: "e1", type: "goal", team: "A", ownGoal: false, at: "2026-08-19T20:30:00.000Z" };
+const tarjetaB = { id: "e2", type: "yellow_card", team: "B", at: "2026-08-19T20:31:00.000Z" };
+const golB = { id: "e3", type: "goal", team: "B", ownGoal: false, at: "2026-08-19T20:32:00.000Z" };
+
+test("eventKey: usa el id cuando existe y deriva uno estable del contenido cuando no", () => {
+    assert.equal(eventKey(golA), "e1");
+    const legacy = { type: "goal", team: "A", ownGoal: false, at: "2026-08-19T20:30:00.000Z" };
+    assert.equal(eventKey(legacy), "legacy:goal@2026-08-19T20:30:00.000Z");
+    // Mismo evento legado leído dos veces produce la misma clave — es lo que evita
+    // que una bitácora vieja se duplique en cada fusión.
+    assert.equal(eventKey(legacy), eventKey({ ...legacy }));
+});
+
+test("mergeEvents: el evento que subió otro árbitro NO se pierde (el bug original)", () => {
+    // B partió de una base vacía y no vio el gol que A ya había subido.
+    const stored = [golA];
+    const incomingDeB = [tarjetaB];
+    const merged = mergeEvents(stored, incomingDeB, []);
+    assert.deepEqual(merged.map((ev) => ev.id), ["e1", "e2"]);
+});
+
+test("mergeEvents: sin fusión el push de B habría dejado la bitácora en solo su evento", () => {
+    // Documenta explícitamente qué hacía el código anterior, para que no vuelva.
+    const comportamientoViejo = [tarjetaB];
+    const merged = mergeEvents([golA], [tarjetaB], []);
+    assert.notDeepEqual(merged, comportamientoViejo);
+    assert.equal(merged.length, 2);
+});
+
+test("mergeEvents: ordena cronológicamente por `at` aunque lleguen intercalados", () => {
+    const merged = mergeEvents([golB], [golA, tarjetaB], []);
+    assert.deepEqual(merged.map((ev) => ev.id), ["e1", "e2", "e3"]);
+});
+
+test("mergeEvents: un borrado deliberado sí se propaga", () => {
+    // El cliente tenía e1 y e2 en su base, y manda solo e1 => borró e2 a propósito.
+    const merged = mergeEvents([golA, tarjetaB], [golA], ["e1", "e2"]);
+    assert.deepEqual(merged.map((ev) => ev.id), ["e1"]);
+});
+
+test("mergeEvents: no confunde 'no lo conozco' con 'lo borré'", () => {
+    // e3 lo subió otra persona DESPUÉS de que este cliente tomara su base [e1,e2].
+    // No está en incoming, pero tampoco en baseKeys, así que debe sobrevivir.
+    const merged = mergeEvents([golA, tarjetaB, golB], [golA, tarjetaB], ["e1", "e2"]);
+    assert.deepEqual(merged.map((ev) => ev.id), ["e1", "e2", "e3"]);
+});
+
+test("mergeEvents: sin baseKeys la fusión es unión pura (cliente viejo, nunca pierde datos)", () => {
+    const merged = mergeEvents([golA, tarjetaB], [golA], null);
+    assert.deepEqual(merged.map((ev) => ev.id), ["e1", "e2"]);
+});
+
+test("mergeEvents: una edición del cliente sobre un evento existente gana", () => {
+    const editado = { ...golA, player: "Diego" };
+    const merged = mergeEvents([golA], [editado], ["e1"]);
+    assert.equal(merged.length, 1);
+    assert.equal(merged[0].player, "Diego");
+});
+
+test("mergeEvents: no duplica eventos legados sin id al re-sincronizar", () => {
+    const legacy = { type: "goal", team: "A", ownGoal: false, at: "2026-08-19T20:30:00.000Z" };
+    const merged = mergeEvents([legacy], [{ ...legacy }], null);
+    assert.equal(merged.length, 1);
+});
+
+test("mergeEvents: fusiona bitácoras legadas y nuevas sin perder ninguna", () => {
+    const legacy = { type: "half_start", half: 1, at: "2026-08-19T20:00:00.000Z" };
+    const merged = mergeEvents([legacy], [golA], []);
+    assert.deepEqual(merged.map((ev) => ev.type), ["half_start", "goal"]);
+});
+
+test("mergeEvents: tolera entradas no-arreglo sin reventar", () => {
+    assert.deepEqual(mergeEvents(null, null, null), []);
+    assert.deepEqual(mergeEvents(undefined, [golA], undefined).map((ev) => ev.id), ["e1"]);
+});
+
+test("mergeEvents: el marcador resultante cuenta los goles de ambos árbitros", () => {
+    const merged = mergeEvents([golA], [golB], []);
+    const s = summarizeEvents(merged);
+    assert.equal(s.scoreA, 1);
+    assert.equal(s.scoreB, 1);
+});
+
+// ---------------------------------------------------------------------------------
+// matchWriteDecision — quién puede escribir sobre el informe de un partido.
+// Ver auditoria-2026-08-19.md §4.4.
+// ---------------------------------------------------------------------------------
+
+const { matchWriteDecision } = require("../matchEvents.js");
+
+const LIGA = "liga_1";
+const OTRO = "usuario_2";
+const CODE = "ABC123";
+
+test("matchWriteDecision: en juego, el código correcto autoriza a cualquiera", () => {
+    const d = matchWriteDecision("confirmed", LIGA, CODE, OTRO, CODE);
+    assert.equal(d.ok, true);
+    assert.equal(d.isAmend, false);
+});
+
+test("matchWriteDecision: en juego, el código incorrecto no autoriza", () => {
+    const d = matchWriteDecision("confirmed", LIGA, CODE, OTRO, "ZZZZZZ");
+    assert.equal(d.ok, false);
+    assert.match(d.error, /Código incorrecto/);
+});
+
+test("matchWriteDecision: partido finalizado — el código ya no sirve", () => {
+    // Este es el punto del arreglo: antes esto devolvía autorización y permitía
+    // reescribir el marcador oficial de un partido cerrado semanas atrás.
+    const d = matchWriteDecision("played", LIGA, CODE, OTRO, CODE);
+    assert.equal(d.ok, false);
+    assert.match(d.error, /Solo la liga organizadora/);
+});
+
+test("matchWriteDecision: partido finalizado — la liga dueña sí puede enmendar", () => {
+    const d = matchWriteDecision("played", LIGA, CODE, LIGA, CODE);
+    assert.equal(d.ok, true);
+    assert.equal(d.isAmend, true);
+});
+
+test("matchWriteDecision: la liga dueña puede enmendar aunque no mande el código", () => {
+    const d = matchWriteDecision("played", LIGA, CODE, LIGA, "");
+    assert.equal(d.ok, true);
+    assert.equal(d.isAmend, true);
+});
+
+test("matchWriteDecision: un partido suspendido o cancelado no lo escribe nadie", () => {
+    for (const status of ["suspended", "cancelled", "proposed", ""]) {
+        const d = matchWriteDecision(status, LIGA, CODE, LIGA, CODE);
+        assert.equal(d.ok, false, `status ${status} no debería autorizar`);
+        assert.match(d.error, /ya no se puede arbitrar/);
+    }
+});
+
+// ---------------------------------------------------------------------------------
+// computeTopScorers — tabla de goleadores del campeonato.
+// ---------------------------------------------------------------------------------
+
+const { computeTopScorers } = require("../matchEvents.js");
+
+const partido = (teamAId, teamBId, events) => ({ teamAId, teamBId, events });
+
+test("computeTopScorers: suma goles del mismo jugador entre partidos distintos", () => {
+    const tabla = computeTopScorers([
+        partido("rojo", "azul", [
+            { type: "goal", team: "A", player: "Diego", playerId: "p1", ownGoal: false, at: "1" },
+            { type: "goal", team: "A", player: "Diego", playerId: "p1", ownGoal: false, at: "2" },
+        ]),
+        partido("rojo", "verde", [
+            { type: "goal", team: "A", player: "Diego", playerId: "p1", ownGoal: false, at: "3" },
+        ]),
+    ]);
+    assert.equal(tabla.length, 1);
+    assert.equal(tabla[0].goals, 3);
+    assert.equal(tabla[0].teamId, "rojo");
+});
+
+test("computeTopScorers: un penal convertido cuenta, uno errado no", () => {
+    const tabla = computeTopScorers([
+        partido("rojo", "azul", [
+            { type: "penalty", team: "A", player: "Ana", playerId: "p2", scored: true, at: "1" },
+            { type: "penalty", team: "A", player: "Ana", playerId: "p2", scored: false, at: "2" },
+        ]),
+    ]);
+    assert.equal(tabla[0].goals, 1);
+});
+
+test("computeTopScorers: un autogol NO se le acredita a quien lo hizo", () => {
+    const tabla = computeTopScorers([
+        partido("rojo", "azul", [
+            { type: "goal", team: "A", player: "Fabián", playerId: "p3", ownGoal: true, at: "1" },
+        ]),
+    ]);
+    assert.deepEqual(tabla, []);
+});
+
+test("computeTopScorers: un gol sin jugador asignado no entra en la tabla", () => {
+    const tabla = computeTopScorers([
+        partido("rojo", "azul", [{ type: "goal", team: "A", ownGoal: false, at: "1" }]),
+    ]);
+    assert.deepEqual(tabla, []);
+});
+
+test("computeTopScorers: no fusiona homónimos de equipos distintos sin playerId", () => {
+    const tabla = computeTopScorers([
+        partido("rojo", "azul", [
+            { type: "goal", team: "A", player: "Juan", ownGoal: false, at: "1" },
+            { type: "goal", team: "B", player: "Juan", ownGoal: false, at: "2" },
+        ]),
+    ]);
+    assert.equal(tabla.length, 2);
+    assert.deepEqual(tabla.map((s) => s.teamId).sort(), ["azul", "rojo"]);
+});
+
+test("computeTopScorers: el mismo playerId sí se fusiona aunque cambie el nombre mostrado", () => {
+    const tabla = computeTopScorers([
+        partido("rojo", "azul", [
+            { type: "goal", team: "A", player: "Diego", playerId: "p1", ownGoal: false, at: "1" },
+            { type: "goal", team: "A", player: "Diego S.", playerId: "p1", ownGoal: false, at: "2" },
+        ]),
+    ]);
+    assert.equal(tabla.length, 1);
+    assert.equal(tabla[0].goals, 2);
+});
+
+test("computeTopScorers: ordena por goles y desempata alfabéticamente", () => {
+    const tabla = computeTopScorers([
+        partido("rojo", "azul", [
+            { type: "goal", team: "A", player: "Zoe", playerId: "z", ownGoal: false, at: "1" },
+            { type: "goal", team: "A", player: "Ana", playerId: "a", ownGoal: false, at: "2" },
+            { type: "goal", team: "B", player: "Beto", playerId: "b", ownGoal: false, at: "3" },
+            { type: "goal", team: "B", player: "Beto", playerId: "b", ownGoal: false, at: "4" },
+        ]),
+    ]);
+    assert.deepEqual(tabla.map((s) => `${s.name}:${s.goals}`), ["Beto:2", "Ana:1", "Zoe:1"]);
+});
+
+test("computeTopScorers: toma la foto del jugador de la convocatoria del partido", () => {
+    const tabla = computeTopScorers([
+        partido("rojo", "azul", [
+            { type: "lineup", team: "A", players: [{ playerId: "p1", name: "Diego", photo: "d.jpg" }], at: "0" },
+            { type: "goal", team: "A", player: "Diego", playerId: "p1", ownGoal: false, at: "1" },
+        ]),
+    ]);
+    assert.equal(tabla[0].photo, "d.jpg");
+});
+
+test("computeTopScorers: tolera entradas vacías o mal formadas", () => {
+    assert.deepEqual(computeTopScorers(null), []);
+    assert.deepEqual(computeTopScorers([]), []);
+    assert.deepEqual(computeTopScorers([partido("a", "b", null)]), []);
+});

@@ -9,6 +9,8 @@
 // ---------------------------------------------------------------------------------
 
 routerAdd("GET", "/admin/liga", (e) => {
+    const { PALETTE_CSS } = require(`${__hooks}/lib/adminUi.js`);
+
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="es">
@@ -18,17 +20,7 @@ routerAdd("GET", "/admin/liga", (e) => {
     <title>Gestionar Liga</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --border-color: rgba(255, 255, 255, 0.1);
-            --primary-color: #38bdf8;
-            --primary-hover: #0ea5e9;
-            --text-color: #f1f5f9;
-            --text-muted: #94a3b8;
-            --danger-color: #ef4444;
-            --success-color: #22c55e;
-        }
+        ${PALETTE_CSS}
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
         body {
             background-color: var(--bg-color);
@@ -177,6 +169,30 @@ routerAdd("GET", "/admin/liga", (e) => {
         function showError(el, msg) { el.textContent = msg; el.style.display = "block"; }
         function hideError(el) { el.style.display = "none"; }
 
+        // El nombre de un equipo lo controla la propia cuenta de equipo (campo libre de
+        // su perfil), así que NUNCA se concatena dentro de innerHTML: se inserta como
+        // nodo de texto. Antes se armaba con innerHTML acá y en renderStageTeamOptions,
+        // lo que permitía que un equipo cualquiera (la lista muestra TODAS las cuentas
+        // de equipo, no solo las del roster propio) ejecutara JS en esta página — donde
+        // vive el token de la liga en localStorage. Ver auditoria-2026-08-19.md §3.1.
+        function teamCheckboxRow(team, opts) {
+            const options = opts || {};
+            const row = document.createElement("label");
+            row.className = "team-checkbox-row";
+            const input = document.createElement("input");
+            input.type = "checkbox";
+            input.value = team.id;
+            if (options.className) input.className = options.className;
+            input.checked = Boolean(options.checked);
+            row.appendChild(input);
+            row.appendChild(document.createTextNode(" " + teamLabel(team)));
+            return row;
+        }
+
+        function teamLabel(team) {
+            return team.name || team.username || team.id;
+        }
+
         let myLeagueId = "";
 
         function showPanel(name, leagueId) {
@@ -248,16 +264,12 @@ routerAdd("GET", "/admin/liga", (e) => {
                     return;
                 }
                 data.allTeams.forEach((t) => {
-                    const row = document.createElement("label");
-                    row.className = "team-checkbox-row";
-                    const checked = myTeamIds.has(t.id) ? "checked" : "";
-                    row.innerHTML = '<input type="checkbox" value="' + t.id + '" ' + checked + '> ' + (t.name || t.username || t.id);
+                    const row = teamCheckboxRow(t, { checked: myTeamIds.has(t.id) });
                     row.querySelector("input").addEventListener("change", async (ev) => {
                         // Desmarcar = quitar de la liga — se confirma antes de llamar a la
                         // API porque es la acción destructiva; marcar (agregar) no la necesita.
                         if (!ev.target.checked) {
-                            const teamLabel = t.name || t.username || "este equipo";
-                            if (!confirm("¿Quitar a '" + teamLabel + "' de la liga?")) {
+                            if (!confirm("¿Quitar a '" + teamLabel(t) + "' de la liga?")) {
                                 ev.target.checked = true;
                                 return;
                             }
@@ -388,10 +400,7 @@ routerAdd("GET", "/admin/liga", (e) => {
             wrap.innerHTML = "";
             if (!activeStage) return;
             rosterTeams.forEach((t) => {
-                const row = document.createElement("label");
-                row.className = "team-checkbox-row";
-                row.innerHTML = '<input type="checkbox" class="stage-team-check" value="' + t.id + '" checked> ' + (t.name || t.username || t.id);
-                wrap.appendChild(row);
+                wrap.appendChild(teamCheckboxRow(t, { checked: true, className: "stage-team-check" }));
             });
         }
 
@@ -897,6 +906,7 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
         }
         const {
             windowBlockCodes,
+            windowBlockRange,
             computeValidBlocks,
             fillDefaultHappiness,
             DEFAULT_HAPPINESS_LEVEL,
@@ -947,18 +957,27 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
         }
 
         function loadValidBlocks() {
+            // Acotado a la ventana móvil: antes esto recorría todos los partidos
+            // jugados de la historia en cada propuesta. Ver auditoria-2026-08-19.md §4.3.
+            const allWindowBlocks = windowBlockCodes();
+            const range = windowBlockRange();
+            const maxRows = allWindowBlocks.length;
             const blockedCodes = $app
-                .findRecordsByFilter("horario_blocked_slots", "", "", 0, 0)
+                .findRecordsByFilter("horario_blocked_slots", "blockCode >= {:from} && blockCode <= {:to}", "", maxRows, 0, range)
                 .map((r) => r.getString("blockCode"));
             const occupiedCodes = $app
-                .findRecordsByFilter("horario_matches", "status = 'confirmed'", "", 0, 0)
+                .findRecordsByFilter("horario_matches", "status = 'confirmed' && blockCode >= {:from} && blockCode <= {:to}", "", maxRows, 0, range)
                 .map((r) => r.getString("blockCode"))
                 .concat(
                     $app
-                        .findRecordsByFilter("league_matches", "(status = 'confirmed' || status = 'played') && deleted = false", "", 0, 0)
+                        .findRecordsByFilter(
+                            "league_matches",
+                            "(status = 'confirmed' || status = 'played') && deleted = false && blockCode >= {:from} && blockCode <= {:to}",
+                            "", maxRows, 0, range
+                        )
                         .map((r) => r.getString("blockCode"))
                 );
-            return computeValidBlocks(windowBlockCodes(), [blockedCodes, occupiedCodes]);
+            return computeValidBlocks(allWindowBlocks, [blockedCodes, occupiedCodes]);
         }
 
         function loadMatchInputs(ids, validBlocks) {
@@ -1038,7 +1057,7 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
         if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
             throw new BadRequestError("Esta cuenta no es una liga.");
         }
-        const { windowBlockCodes, computeValidBlocks } = require(`${__hooks}/lib/teamSchedule.js`);
+        const { windowBlockCodes, windowBlockRange, computeValidBlocks } = require(`${__hooks}/lib/teamSchedule.js`);
         const { CODE_ALPHABET, CODE_LENGTH } = require(`${__hooks}/lib/matchEvents.js`);
 
         const body = e.requestInfo().body || {};
@@ -1079,18 +1098,26 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
 
         // Re-chequeo defensivo: el bloque pudo haberse ocupado (bloqueado por el admin,
         // o tomado por otro partido) entre que se generó la sugerencia y este click.
+        // Acotado a la ventana móvil — ver auditoria-2026-08-19.md §4.3.
+        const allWindowBlocks = windowBlockCodes();
+        const range = windowBlockRange();
+        const maxRows = allWindowBlocks.length;
         const blockedCodes = $app
-            .findRecordsByFilter("horario_blocked_slots", "", "", 0, 0)
+            .findRecordsByFilter("horario_blocked_slots", "blockCode >= {:from} && blockCode <= {:to}", "", maxRows, 0, range)
             .map((r) => r.getString("blockCode"));
         const occupiedCodes = $app
-            .findRecordsByFilter("horario_matches", "status = 'confirmed'", "", 0, 0)
+            .findRecordsByFilter("horario_matches", "status = 'confirmed' && blockCode >= {:from} && blockCode <= {:to}", "", maxRows, 0, range)
             .map((r) => r.getString("blockCode"))
             .concat(
                 $app
-                    .findRecordsByFilter("league_matches", "(status = 'confirmed' || status = 'played') && deleted = false", "", 0, 0)
+                    .findRecordsByFilter(
+                        "league_matches",
+                        "(status = 'confirmed' || status = 'played') && deleted = false && blockCode >= {:from} && blockCode <= {:to}",
+                        "", maxRows, 0, range
+                    )
                     .map((r) => r.getString("blockCode"))
             );
-        const validBlocks = new Set(computeValidBlocks(windowBlockCodes(), [blockedCodes, occupiedCodes]));
+        const validBlocks = new Set(computeValidBlocks(allWindowBlocks, [blockedCodes, occupiedCodes]));
         if (!validBlocks.has(block)) {
             throw new BadRequestError("Ese bloque ya no está disponible (se bloqueó o se ocupó con otro partido). Vuelve a generar la sugerencia.");
         }

@@ -63,6 +63,21 @@ function windowBlockCodes(referenceDate, weeks) {
     return codes;
 }
 
+// Rango [desde, hasta] de códigos de bloque que cubre la ventana móvil.
+//
+// Un blockCode es "YYYY-MM-DD-HH", así que el orden lexicográfico coincide con el
+// cronológico: eso permite acotar las consultas a la ventana con un simple
+// `blockCode >= {:from} && blockCode <= {:to}` en vez de traer la tabla entera.
+//
+// Importa porque los partidos ya jugados se acumulan para siempre: sin este rango,
+// cada propuesta y cada aceptación de partido recorría TODO el historial de la liga
+// solo para saber qué bloques de esta semana estaban ocupados, y el costo crecía sin
+// techo con cada fecha disputada. Ver auditoria-2026-08-19.md §4.3.
+function windowBlockRange(referenceDate, weeks) {
+    const codes = windowBlockCodes(referenceDate, weeks);
+    return { from: codes[0], to: codes[codes.length - 1] };
+}
+
 // Reescala las respuestas de UN equipo según su propia distribución antes de comparar
 // contra otros equipos — es el mecanismo anti-trampa: si un equipo marca todo con la
 // misma nota (ej. "excelente" en todos lados), max=min y todos sus bloques quedan
@@ -400,6 +415,7 @@ module.exports = {
     blockCode,
     parseBlockCode,
     windowBlockCodes,
+    windowBlockRange,
     normalizeTeamHappiness,
     filterToBlocks,
     computeValidBlocks,

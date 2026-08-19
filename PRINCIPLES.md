@@ -112,4 +112,5 @@ Si alguna respuesta es dudosa, ese es exactamente el tipo de decisión que vale 
 | [`DEPLOY.md`](./DEPLOY.md) | Cómo desplegar a producción — humano y agente de IA |
 | [`.agents/AGENTS.md`](./.agents/AGENTS.md) | Reglas operativas para agentes de IA trabajando en este repo |
 | [`docs/comments_counter_bug_solution.md`](./docs/comments_counter_bug_solution.md) | Post-mortem del bug de race condition en contadores |
-| [`auditoria.md`](./auditoria.md) | Auditoría técnica completa (2026-08-05) |
+| [`auditoria-2026-08-19.md`](./auditoria-2026-08-19.md) | **Auditoría técnica vigente** (2026-08-19) |
+| [`auditoria.md`](./auditoria.md) | Auditoría anterior (2026-08-05), superada — se conserva como registro histórico |

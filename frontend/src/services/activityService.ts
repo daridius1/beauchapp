@@ -127,7 +127,10 @@ export const activityService = {
         liked = true;
         likeRecordId = likesRes.items[0].id;
       }
-    } catch (e) {}
+    } catch (e) {
+      // Sin like propio: se muestra como "no le di like", que es el estado correcto.
+      console.error('No se pudo comprobar el like propio de la actividad:', e);
+    }
 
     try {
       const attendeesRes = await pb.collection('activity_attendees').getList(1, 1, {
@@ -137,7 +140,10 @@ export const activityService = {
         attending = true;
         attendeeRecordId = attendeesRes.items[0].id;
       }
-    } catch (e) {}
+    } catch (e) {
+      // Sin inscripción propia: se muestra como "no voy", que es el estado correcto.
+      console.error('No se pudo comprobar la asistencia propia a la actividad:', e);
+    }
 
     return { liked, attending, likeRecordId, attendeeRecordId };
   },

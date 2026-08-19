@@ -15,19 +15,30 @@ const validateAvailabilitySubmission = (e) => {
         throw new BadRequestError("No puedes enviar disponibilidad en nombre de otra cuenta.");
     }
 
-    const { windowBlockCodes, computeValidBlocks } = require(`${__hooks}/lib/teamSchedule.js`);
+    const { windowBlockCodes, windowBlockRange, computeValidBlocks } = require(`${__hooks}/lib/teamSchedule.js`);
+    // Acotado a la ventana móvil: sin este rango se traían TODOS los partidos jugados
+    // de la historia para calcular qué bloques de las próximas 3 semanas están libres.
+    // El límite es el tamaño de la ventana porque no puede haber más bloques ocupados
+    // que bloques existentes. Ver auditoria-2026-08-19.md §4.3.
+    const allWindowBlocks = windowBlockCodes();
+    const range = windowBlockRange();
+    const maxRows = allWindowBlocks.length;
     const blockedCodes = $app
-        .findRecordsByFilter("horario_blocked_slots", "", "", 0, 0)
+        .findRecordsByFilter("horario_blocked_slots", "blockCode >= {:from} && blockCode <= {:to}", "", maxRows, 0, range)
         .map((r) => r.getString("blockCode"));
     const occupiedCodes = $app
-        .findRecordsByFilter("horario_matches", "status = 'confirmed'", "", 0, 0)
+        .findRecordsByFilter("horario_matches", "status = 'confirmed' && blockCode >= {:from} && blockCode <= {:to}", "", maxRows, 0, range)
         .map((r) => r.getString("blockCode"))
         .concat(
             $app
-                .findRecordsByFilter("league_matches", "(status = 'confirmed' || status = 'played') && deleted = false", "", 0, 0)
+                .findRecordsByFilter(
+                    "league_matches",
+                    "(status = 'confirmed' || status = 'played') && deleted = false && blockCode >= {:from} && blockCode <= {:to}",
+                    "", maxRows, 0, range
+                )
                 .map((r) => r.getString("blockCode"))
         );
-    const validBlocks = computeValidBlocks(windowBlockCodes(), [blockedCodes, occupiedCodes]);
+    const validBlocks = computeValidBlocks(allWindowBlocks, [blockedCodes, occupiedCodes]);
 
     // .get() sobre un campo JSON dentro de un hook de registro NO devuelve el valor
     // parseado (da un objeto indexado por bytes, no el array/objeto real) — hay que
@@ -62,6 +73,8 @@ onRecordUpdateRequest(validateAvailabilitySubmission, "horario_availability");
 // ---------------------------------------------------------------------------------
 
 routerAdd("GET", "/admin/horarios", (e) => {
+    const { PALETTE_CSS } = require(`${__hooks}/lib/adminUi.js`);
+
     const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie"]; // sin sábado ni domingo
     const MONTH_LABELS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
     const htmlContent = `
@@ -73,17 +86,7 @@ routerAdd("GET", "/admin/horarios", (e) => {
     <title>Horarios - Administración</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --border-color: rgba(255, 255, 255, 0.1);
-            --primary-color: #38bdf8;
-            --primary-hover: #0ea5e9;
-            --text-color: #f1f5f9;
-            --text-muted: #94a3b8;
-            --danger-color: #ef4444;
-            --success-color: #22c55e;
-        }
+        ${PALETTE_CSS}
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
         body {
             background-color: var(--bg-color);

@@ -6,6 +6,8 @@
 // solo accesible por URL directa + login de superusuario.
 
 routerAdd("GET", "/admin/reviews-import", (e) => {
+    const { PALETTE_CSS } = require(`${__hooks}/lib/adminUi.js`);
+
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="es">
@@ -15,17 +17,7 @@ routerAdd("GET", "/admin/reviews-import", (e) => {
     <title>Importar Ramos y Profesores - Beauchapp</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --border-color: rgba(255, 255, 255, 0.1);
-            --primary-color: #38bdf8;
-            --primary-hover: #0ea5e9;
-            --text-color: #f1f5f9;
-            --text-muted: #94a3b8;
-            --danger-color: #ef4444;
-            --success-color: #22c55e;
-        }
+        ${PALETTE_CSS}
 
         * {
             box-sizing: border-box;

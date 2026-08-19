@@ -33,3 +33,9 @@ frontend/.env
 # OS files
 .DS_Store
 Thumbs.db
+
+# Volcados de datos con PII de usuarios reales — nunca en el repo.
+# blog_comments_backup.json estuvo trackeado hasta 2026-08-19 (ver
+# auditoria-2026-08-19.md §5.3); sigue alcanzable en commits anteriores.
+blog_comments_backup.json
+*_backup.json

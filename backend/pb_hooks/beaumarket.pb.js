@@ -65,16 +65,54 @@ routerAdd("GET", "/api/beaumarket/markets", (e) => {
 
         const markets = $app.findRecordsByFilter("beaumarkets", filter, "-created", 100, 0, params);
 
-        const result = markets.map((m) => {
-            const outcomes = JSON.parse(m.getString("outcomes") || "[]");
-            const b = m.getFloat("b");
-            const q = JSON.parse(m.getString("q") || "[]");
-            const marketPrices = prices(q, b).map((p) => p * 100);
+        // Antes acá había un N+1: por CADA mercado (hasta 100) se hacían dos consultas
+        // sin límite para traer las posiciones y los trades propios, o sea ~200 consultas
+        // por carga de la pantalla y por usuario. Ahora son dos consultas totales,
+        // filtradas por el conjunto de ids ya cargados y agrupadas en memoria — el mismo
+        // patrón que PRINCIPLES.md §1 documenta para la cadena de ancestros de un hilo.
+        // Ver auditoria-2026-08-19.md §4.2.
+        //
+        // El filtro se arma parametrizado ({:m0} || {:m1} || ...), nunca interpolando
+        // los ids como strings: es la regla que no se negocia de PRINCIPLES.md §4.
+        const marketIds = markets.map((m) => m.id);
+        const PAGE_SIZE = 500;
 
-            const positions = $app.findRecordsByFilter(
-                "beaumarket_positions", "market = {:id} && user = {:u}", "", 0, 0,
-                { id: m.id, u: e.auth.id }
-            );
+        function buildMarketFilter(ids, extraClause) {
+            const clauses = [];
+            const bind = { u: e.auth.id };
+            ids.forEach((id, i) => {
+                clauses.push(`market = {:m${i}}`);
+                bind[`m${i}`] = id;
+            });
+            return { filter: `(${clauses.join(" || ")})${extraClause || ""}`, bind: bind };
+        }
+
+        // Paginación real: la cantidad de trades de un usuario no tiene techo natural,
+        // así que se recorre por páginas en vez de pedir "todo" y confiar en que sea poco.
+        function findAllPaged(collection, filter, bind, sort) {
+            const out = [];
+            let offset = 0;
+            while (true) {
+                const page = $app.findRecordsByFilter(collection, filter, sort || "", PAGE_SIZE, offset, bind);
+                if (!page || page.length === 0) break;
+                for (const rec of page) out.push(rec);
+                if (page.length < PAGE_SIZE) break;
+                offset += PAGE_SIZE;
+            }
+            return out;
+        }
+
+        // { marketId: { outcomeIndex: shares } } y { marketId: { outcomeIndex: netInvested } }
+        const sharesByMarket = {};
+        const netInvestedByMarket = {};
+
+        if (marketIds.length > 0) {
+            const posQuery = buildMarketFilter(marketIds, " && user = {:u}");
+            findAllPaged("beaumarket_positions", posQuery.filter, posQuery.bind).forEach((p) => {
+                const mid = p.getString("market");
+                if (!sharesByMarket[mid]) sharesByMarket[mid] = {};
+                sharesByMarket[mid][p.getInt("outcomeIndex")] = p.getInt("shares");
+            });
 
             // netInvested = neto de caja histórico de esta posición: suma de "cost" de
             // todos los trades propios en ese resultado (positivo al comprar, negativo al
@@ -87,20 +125,24 @@ routerAdd("GET", "/api/beaumarket/markets", (e) => {
             // porque un resultado puede tener historial de trades sin tener ya ninguna
             // acción (se vendió todo, la posición se borra al llegar a 0 en /sell) — igual
             // debe mostrarse cuánto llevas invertido en él.
-            const myTrades = $app.findRecordsByFilter(
-                "beaumarket_trades", "market = {:id} && user = {:u}", "", 0, 0,
-                { id: m.id, u: e.auth.id }
-            );
-            const netInvestedByOutcome = {};
-            myTrades.forEach((t) => {
+            const tradesQuery = buildMarketFilter(marketIds, " && user = {:u}");
+            findAllPaged("beaumarket_trades", tradesQuery.filter, tradesQuery.bind).forEach((t) => {
+                const mid = t.getString("market");
+                if (!netInvestedByMarket[mid]) netInvestedByMarket[mid] = {};
                 const idx = t.getInt("outcomeIndex");
-                netInvestedByOutcome[idx] = (netInvestedByOutcome[idx] || 0) + t.getInt("cost");
+                netInvestedByMarket[mid][idx] = (netInvestedByMarket[mid][idx] || 0) + t.getInt("cost");
             });
+        }
 
-            const sharesByOutcome = {};
-            positions.forEach((p) => {
-                sharesByOutcome[p.getInt("outcomeIndex")] = p.getInt("shares");
-            });
+        const result = markets.map((m) => {
+            const outcomes = JSON.parse(m.getString("outcomes") || "[]");
+            const b = m.getFloat("b");
+            const q = JSON.parse(m.getString("q") || "[]");
+            const marketPrices = prices(q, b).map((p) => p * 100);
+
+            const netInvestedByOutcome = netInvestedByMarket[m.id] || {};
+
+            const sharesByOutcome = sharesByMarket[m.id] || {};
 
             // Unión de resultados con acciones vigentes y resultados con historial de
             // trades (aunque ya no tengan acciones) — cada uno de estos es "una apuesta
@@ -125,7 +167,9 @@ routerAdd("GET", "/api/beaumarket/markets", (e) => {
                 const rangeStartMs = m.getDateTime("created").unix() * 1000;
                 const isFinished = m.getString("status") === "resolved" || m.getString("status") === "cancelled";
                 const rangeEndMs = isFinished ? (m.getDateTime("updated").unix() * 1000) : Date.now();
-                const trades = $app.findRecordsByFilter("beaumarket_trades", "market = {:id}", "created", 0, 0, { id: m.id });
+                // Solo en la vista de detalle (un mercado), y paginado: el volumen de
+                // trades de un mercado no tiene techo. Ver auditoria-2026-08-19.md §4.2.
+                const trades = findAllPaged("beaumarket_trades", "market = {:id}", { id: m.id }, "created");
                 const plainTrades = trades.map((t) => ({
                     outcomeIndex: t.getInt("outcomeIndex"),
                     sharesDelta: t.getInt("sharesDelta"),
@@ -357,6 +401,9 @@ routerAdd("POST", "/api/beaumarket/sell", (e) => {
 // ---------------------------------------------------------------------------------
 
 routerAdd("GET", "/admin/beaumarket", (e) => {
+    const { PALETTE_CSS, clientEscapeHtmlFn } = require(`${__hooks}/lib/adminUi.js`);
+    const ESC_FN = clientEscapeHtmlFn();
+
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="es">
@@ -366,17 +413,7 @@ routerAdd("GET", "/admin/beaumarket", (e) => {
     <title>Beaumarket - Administración</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --border-color: rgba(255, 255, 255, 0.1);
-            --primary-color: #38bdf8;
-            --primary-hover: #0ea5e9;
-            --text-color: #f1f5f9;
-            --text-muted: #94a3b8;
-            --danger-color: #ef4444;
-            --success-color: #22c55e;
-        }
+        ${PALETTE_CSS}
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
         body {
             background-color: var(--bg-color);
@@ -508,56 +545,20 @@ routerAdd("GET", "/admin/beaumarket", (e) => {
         function showError(el, msg) { el.textContent = msg; el.style.display = "block"; }
         function hideError(el) { el.style.display = "none"; }
 
-        function showPanel() { loginPage.style.display = "none"; panelPage.style.display = "block"; loadMarkets(); }
-        function showLogin() { loginPage.style.display = "block"; panelPage.style.display = "none"; }
-
-        if (token) showPanel(); else showLogin();
-
-        document.getElementById("loginForm").addEventListener("submit", async (e) => {
-            e.preventDefault();
-            hideError(loginError);
-            const email = document.getElementById("loginEmail").value;
-            const password = document.getElementById("loginPassword").value;
-            try {
-                const res = await fetch("/api/collections/_superusers/auth-with-password", {
-                    method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ identity: email, password: password })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.message || "Credenciales incorrectas.");
-                token = data.token;
-                localStorage.setItem("pb_auth", JSON.stringify({ token, model: data.record }));
-                showPanel();
-            } catch (err) { showError(loginError, err.message); }
-        });
-
-        document.getElementById("logoutBtn").addEventListener("click", () => {
-            token = ""; localStorage.removeItem("pb_auth"); showLogin();
-        });
-
-        async function apiCall(path, method, payload) {
-            const res = await fetch(path, {
-                method: method,
-                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-                body: payload ? JSON.stringify(payload) : undefined,
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                if (res.status === 401 || res.status === 403) {
-                    token = ""; localStorage.removeItem("pb_auth"); showLogin();
-                    throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
-                }
-                throw new Error(data.error || data.message || "Error.");
-            }
-            return data;
-        }
+        // Título, descripción y etiquetas de resultado de un mercado son texto libre.
+        // Hoy solo los escribe el propio superusuario desde esta página (self-XSS), pero
+        // renderMarket los mete en innerHTML, así que se escapan igual: es la misma clase
+        // de bug que sí era explotable cross-user en /admin/liga (auditoria-2026-08-19.md
+        // §3.1 y §5.2). La función esc() viene de lib/adminUi.js — una sola definición
+        // para todas las páginas de administración, en vez de una copia por página.
+        ${ESC_FN}
 
         // --- Formulario de creación: lista dinámica de resultados + hint de pérdida máxima ---
         const outcomesList = document.getElementById("outcomesList");
         function addOutcomeRow(value) {
             const row = document.createElement("div");
             row.className = "outcome-row";
-            row.innerHTML = '<input type="text" placeholder="Resultado" value="' + (value || "").replace(/"/g, "&quot;") + '">' +
+            row.innerHTML = '<input type="text" placeholder="Resultado" value="' + esc(value) + '">' +
                 '<button type="button" class="btn btn-secondary btn-sm" style="margin:0;">Quitar</button>';
             row.querySelector("button").addEventListener("click", () => {
                 if (outcomesList.children.length > 2) { row.remove(); updateMaxLossHint(); }
@@ -611,7 +612,7 @@ routerAdd("GET", "/admin/beaumarket", (e) => {
                 const pct = m.prices[idx] || 0;
                 const isWinner = m.status === "resolved" && m.winningOutcomeIndex === idx;
                 return '<div class="outcome-line' + (isWinner ? ' winner' : '') + '">' +
-                    '<span>' + (isWinner ? '🏆 ' : '') + label + '</span>' +
+                    '<span>' + (isWinner ? '🏆 ' : '') + esc(label) + '</span>' +
                     '<span>' + pct.toFixed(1) + '%</span></div>';
             }).join("");
 
@@ -625,14 +626,14 @@ routerAdd("GET", "/admin/beaumarket", (e) => {
             }
 
             let resolvePickerHtml = '<div class="resolve-picker" data-resolve-picker>' +
-                m.outcomes.map((label, idx) => '<label><input type="radio" name="winner-' + m.id + '" value="' + idx + '"> ' + label + '</label>').join("") +
+                m.outcomes.map((label, idx) => '<label><input type="radio" name="winner-' + esc(m.id) + '" value="' + idx + '"> ' + esc(label) + '</label>').join("") +
                 '<button class="btn btn-sm" data-action="confirm-resolve" style="margin-top:8px;">Confirmar</button></div>';
 
             const maxLoss = m.b * Math.log(m.outcomes.length);
             div.innerHTML =
-                '<span class="status-badge status-' + m.status + '">' + m.status + '</span>' +
-                '<div class="market-title">' + m.title + '</div>' +
-                (m.description ? '<div class="market-desc">' + m.description + '</div>' : '') +
+                '<span class="status-badge status-' + esc(m.status) + '">' + esc(m.status) + '</span>' +
+                '<div class="market-title">' + esc(m.title) + '</div>' +
+                (m.description ? '<div class="market-desc">' + esc(m.description) + '</div>' : '') +
                 outcomesHtml +
                 '<div style="font-size:11px;color:var(--text-muted);margin-top:8px;">b=' + m.b + ' &middot; pérdida máx.: ' + maxLoss.toFixed(1) + ' ℬ &middot; ' + m.tradeCount + ' operaciones</div>' +
                 '<div style="margin-top:10px;">' + actionsHtml + '</div>' +
@@ -694,11 +695,27 @@ routerAdd("GET", "/api/admin/beaumarket/list", (e) => {
     try {
         const { prices } = require(`${__hooks}/lib/beaumarket.js`);
         const markets = $app.findRecordsByFilter("beaumarkets", "", "-created", 200, 0);
+
+        // tradeCount es solo un número en pantalla, pero antes se traían TODAS las filas
+        // de trades de cada mercado (hasta 200 consultas sin límite) únicamente para leer
+        // su .length. Un solo agregado lo resuelve. Ver auditoria-2026-08-19.md §4.2.
+        const tradeCounts = {};
+        try {
+            const rows = arrayOf(new DynamicModel({ market: "", total: 0 }));
+            $app.db()
+                .newQuery("SELECT market, COUNT(*) AS total FROM beaumarket_trades GROUP BY market")
+                .all(rows);
+            rows.forEach((r) => { tradeCounts[r.market] = r.total; });
+        } catch (err) {
+            // Si el agregado falla, el panel se sigue mostrando con el contador en 0 en
+            // vez de caerse entero: es un dato informativo, no el propósito de la vista.
+            console.error("[beaumarket.pb.js] No se pudo contar trades por mercado:", err);
+        }
+
         const result = markets.map((m) => {
             const outcomes = JSON.parse(m.getString("outcomes") || "[]");
             const b = m.getFloat("b");
             const q = JSON.parse(m.getString("q") || "[]");
-            const trades = $app.findRecordsByFilter("beaumarket_trades", "market = {:id}", "", 0, 0, { id: m.id });
             return {
                 id: m.id,
                 title: m.getString("title"),
@@ -708,7 +725,7 @@ routerAdd("GET", "/api/admin/beaumarket/list", (e) => {
                 winningOutcomeIndex: m.getString("status") === "resolved" ? m.getInt("winningOutcomeIndex") : null,
                 b,
                 prices: prices(q, b).map((p) => p * 100),
-                tradeCount: trades.length,
+                tradeCount: tradeCounts[m.id] || 0,
             };
         });
         return e.json(200, { markets: result });

@@ -458,7 +458,11 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
         let matchedRecord = null;
         try {
           matchedRecord = await tinderService.getMatchBetweenUsers(idA, idB);
-        } catch (_) {}
+        } catch (err) {
+          // Todavía no hay match (lo normal) o falló la consulta: en ambos casos no se
+          // muestra la pantalla de match, pero el fallo real no debería quedar mudo.
+          console.error('No se pudo comprobar si hubo match:', err);
+        }
 
         if (matchedRecord) {
           // MUTUAL MATCH! Show overlay alert

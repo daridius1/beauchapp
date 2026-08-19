@@ -120,18 +120,24 @@ onRecordCreateRequest((e) => {
         throw new ApiError(400, err.message || "La organización no existe.");
     }
 
+    // El throw de "ya participa" va FUERA del try a propósito: antes estaba adentro y
+    // el propio catch se lo tragaba, así que el chequeo nunca disparaba y el usuario
+    // veía el error crudo del índice único idx_om_user_org en vez de este mensaje.
+    // El try solo envuelve la consulta (que puede fallar si no hay ninguna fila).
+    let existing = [];
     try {
-        const existing = $app.findRecordsByFilter(
+        existing = $app.findRecordsByFilter(
             "organization_members",
             "organization = {:orgId} && user = {:userId}",
             "-created", 1, 0,
             { orgId: orgId, userId: userId }
-        );
-        if (existing && existing.length > 0) {
-            throw new ApiError(400, "El usuario ya participa en esta organización.");
-        }
+        ) || [];
     } catch(err) {
-        // Ignorar si no existe previa membresía
+        // Sin membresía previa — es el camino normal, no un error.
+        existing = [];
+    }
+    if (existing.length > 0) {
+        throw new ApiError(400, "El usuario ya participa en esta organización.");
     }
 
     // Sumarse a una organización ya no es instantáneo: toda fila nueva arranca en
@@ -162,6 +168,8 @@ onRecordUpdateRequest((e) => {
 
 // 9. Servir la vista HTML para la activación de organizaciones
 routerAdd("GET", "/register-org", (e) => {
+    const { PALETTE_CSS } = require(`${__hooks}/lib/adminUi.js`);
+
     const token = e.requestInfo().query["token"] || "";
     
     if (!token || token.length !== 15) {
@@ -198,17 +206,7 @@ routerAdd("GET", "/register-org", (e) => {
     <title>Activar Cuenta - Beauchapp</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --border-color: rgba(255, 255, 255, 0.1);
-            --primary-color: #38bdf8;
-            --primary-hover: #0ea5e9;
-            --text-color: #f1f5f9;
-            --text-muted: #94a3b8;
-            --danger-color: #ef4444;
-            --success-color: #22c55e;
-        }
+        ${PALETTE_CSS}
 
         * {
             box-sizing: border-box;
@@ -554,6 +552,8 @@ routerAdd("POST", "/api/register-organization", (e) => {
 
 // 10. Servir la vista del generador de enlaces (para administradores)
 routerAdd("GET", "/admin/generate-link", (e) => {
+    const { PALETTE_CSS } = require(`${__hooks}/lib/adminUi.js`);
+
     let subtypeOptionsHtml = "";
     const subtypeLabels = {
         "center": "Centro de Estudiantes",
@@ -597,17 +597,7 @@ routerAdd("GET", "/admin/generate-link", (e) => {
     <title>Generador de Enlaces - Beauchapp</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --border-color: rgba(255, 255, 255, 0.1);
-            --primary-color: #38bdf8;
-            --primary-hover: #0ea5e9;
-            --text-color: #f1f5f9;
-            --text-muted: #94a3b8;
-            --danger-color: #ef4444;
-            --success-color: #22c55e;
-        }
+        ${PALETTE_CSS}
 
         * {
             box-sizing: border-box;

@@ -51,7 +51,11 @@ export const ProblemEditorScreen: React.FC<Props> = ({ route, navigation }) => {
             value: b.value
           }));
         }
-      } catch (e) {}
+      } catch (e) {
+        // Contenido que no es el JSON de bloques (problema antiguo en texto plano):
+        // se cae al modo de un solo bloque más abajo.
+        console.error('No se pudo parsear el contenido por bloques del problema:', e);
+      }
     }
     return [{ id: 'init-1', type: 'markdown', value: init }];
   });

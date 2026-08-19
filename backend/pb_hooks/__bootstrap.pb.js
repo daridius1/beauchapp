@@ -39,6 +39,50 @@ onBootstrap((e) => {
         settings.s3.forcePathStyle = true;
     }
 
+    // 3.5 Límites de tasa — versionados acá, no configurados a mano en /_/
+    //
+    // El resto de los settings ya se declaran en este archivo; los rate limits vivían
+    // solo en el panel de administración, o sea dentro de pb_data/, que está fuera de
+    // git: no eran reproducibles, no eran revisables, y un pb_data nuevo arrancaba sin
+    // ninguno. Ver auditoria-2026-08-19.md §4.7.
+    //
+    // Las reglas van de la más específica a la más general — PocketBase aplica la
+    // primera que hace match (findRateLimitRule devuelve la primera coincidencia).
+    try {
+        settings.rateLimits.enabled = true;
+        settings.rateLimits.rules = [
+            // Verificar un código de arbitraje es un oráculo: responde distinto según
+            // acierto, así que es el punto natural para fuerza bruta sobre los 32^6
+            // códigos posibles. 10 intentos por minuto hace inviable el barrido sin
+            // molestar a nadie que esté tipeando un código real en cancha.
+            { label: "POST /api/league-matches/join", audience: "", duration: 60, maxRequests: 10 },
+
+            // Entradas de credenciales. Cubre tanto el panel oficial como los cinco
+            // formularios de login de las páginas de administración embebidas en hooks,
+            // que llaman a este mismo endpoint.
+            { label: "POST /api/collections/users/auth-with-password", audience: "", duration: 60, maxRequests: 10 },
+            { label: "POST /api/collections/_superusers/auth-with-password", audience: "", duration: 60, maxRequests: 5 },
+
+            // Mutaciones de saldo: acotan tanto el abuso como un bucle accidental del
+            // cliente que vacíe una cuenta a fuerza de reintentos.
+            { label: "POST /api/beaumarket/buy", audience: "@auth", duration: 60, maxRequests: 30 },
+            { label: "POST /api/beaumarket/sell", audience: "@auth", duration: 60, maxRequests: 30 },
+
+            // El juego diario: una cantidad razonable de intentos, no un bot.
+            { label: "POST /api/beaudle/guess", audience: "@auth", duration: 60, maxRequests: 30 },
+
+            // Escritura de arbitraje: cada evento registrado en cancha es un push, y el
+            // cliente reintenta, así que el techo es holgado a propósito.
+            { label: "POST /api/league-matches/", audience: "@auth", duration: 60, maxRequests: 120 },
+
+            // Redes de seguridad generales, al final para que no pisen a las anteriores.
+            { label: "/api/", audience: "@guest", duration: 60, maxRequests: 120 },
+            { label: "/api/", audience: "@auth", duration: 60, maxRequests: 600 },
+        ];
+    } catch (err) {
+        console.log("[Bootstrap Hook] Error configurando rate limits:", err);
+    }
+
     try {
         $app.save(settings);
     } catch (err) {

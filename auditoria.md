@@ -1,4 +1,16 @@
-# Auditoría Técnica — Beauchapp
+# Auditoría Técnica — Beauchapp (2026-08-05) — SUPERADA
+
+> **⚠️ Este documento ya no describe el estado del proyecto.** Se conserva como registro
+> histórico del punto de partida y de los incidentes documentados en su momento.
+>
+> La auditoría vigente es **[`auditoria-2026-08-19.md`](./auditoria-2026-08-19.md)**, que
+> incluye el estado de cada una de las 13 recomendaciones de acá (todas resueltas al
+> 2026-08-19) y los hallazgos posteriores.
+>
+> Afirmaciones de este documento que **hoy son falsas**: «Sin CI/CD» (existe
+> `.github/workflows/ci.yml`), «Cero suite de pruebas automatizadas» (hay 175 tests),
+> «`start.sh` lanza PocketBase con `--dev`» (corregido), «la sesión probablemente no
+> persiste en nativo» (corregido con AsyncStorage).
 
 **Fecha:** 2026-08-05
 **Alcance:** Monorepo completo (`backend/` PocketBase + Go/Goja hooks, `frontend/` Expo/React Native + TypeScript, migraciones, scripts, documentación).
