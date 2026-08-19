@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Platform, RefreshControl, DeviceEventEmitter } from 'react-native';
-import { Feather, FontAwesome } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
+import { CommentsHeader } from '../components/CommentsHeader';
 import { ladderService } from '../services/ladderService';
 import { LadderMatch } from '../types/ladder';
 import { withMinimumDelay } from '../utils/refresh';
@@ -490,21 +491,9 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
       )}
 
         {/* Sección de Comentarios Polimórficos */}
-        <View style={{ height: 1, backgroundColor: theme.colors.border, marginVertical: theme.spacing.lg }} />
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-          <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '700' }}>Comentarios</Text>
-
-          {match.status === 'confirmed' && (
-            <TouchableOpacity
-              style={styles.quoteHeaderBtn}
-              activeOpacity={0.7}
-              onPress={handleShareMatchToFeed}
-            >
-              <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
-              <Text style={styles.quoteHeaderBtnText}>Citar</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <CommentsHeader
+          onQuote={match.status === 'confirmed' ? handleShareMatchToFeed : undefined}
+        />
 
         {/* Caja de Comentarios Reutilizable Inline */}
         {currentUser && (
@@ -954,20 +943,5 @@ const styles = StyleSheet.create({
     color: '#ff4444',
     fontSize: 12,
     fontWeight: '800',
-  },
-  quoteHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#161616',
-    borderWidth: 1,
-    borderColor: '#333333',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  quoteHeaderBtnText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: '600',
   },
 });

@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, RefreshControl, DeviceEventEmitter, TouchableOpacity } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { theme } from '../theme/theme';
+import { CommentsHeader } from '../components/CommentsHeader';
 import { useAuth } from '../context/AuthContext';
 import { pb } from '../services/pocketbase';
 import { beaumarketService, BeaumarketMarket } from '../services/beaumarketService';
@@ -230,21 +230,8 @@ export const BeaumarketDetailScreen: React.FC<Props> = ({ route, navigation }) =
         onClose={closeTradeModal}
       />
 
-      <View style={styles.divider} />
-
       <View style={styles.commentsSection}>
-        <View style={styles.commentsHeaderRow}>
-          <Text style={styles.sectionTitle}>Comentarios ({comments.length})</Text>
-
-          <TouchableOpacity
-            style={styles.quoteHeaderBtn}
-            activeOpacity={0.7}
-            onPress={handleQuoteMarket}
-          >
-            <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
-            <Text style={styles.quoteHeaderBtnText}>Citar</Text>
-          </TouchableOpacity>
-        </View>
+        <CommentsHeader count={comments.length} onQuote={handleQuoteMarket} />
 
         <EntityCommentBox
           onSendComment={handleSendComment}

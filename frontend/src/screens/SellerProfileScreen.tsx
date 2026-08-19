@@ -17,6 +17,7 @@ import { withMinimumDelay } from '../utils/refresh';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
+import { CommentsHeader } from '../components/CommentsHeader';
 import { useAuth } from '../context/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { Feather, FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -501,19 +502,12 @@ export const SellerProfileScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* SECCIÓN DE MURO / COMENTARIOS DEL VENDEDOR */}
-        <View style={{ height: 1, backgroundColor: theme.colors.border, marginVertical: theme.spacing.lg }} />
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '700' }}>Muro del Vendedor ({comments.length})</Text>
-
-          <TouchableOpacity
-            style={styles.quoteHeaderBtn}
-            activeOpacity={0.7}
-            onPress={handleQuoteSellerProfile}
-          >
-            <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
-            <Text style={styles.quoteHeaderBtnText}>Citar Tienda</Text>
-          </TouchableOpacity>
-        </View>
+        <CommentsHeader
+          title="Muro del Vendedor"
+          count={comments.length}
+          onQuote={handleQuoteSellerProfile}
+          quoteLabel="Citar Tienda"
+        />
 
         {/* Caja de Comentarios Reutilizable Inline */}
         {currentUser && (
@@ -671,21 +665,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: theme.spacing.lg,
     paddingBottom: 40,
-  },
-  quoteHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  quoteHeaderBtnText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: '600',
   },
   profileCard: {
     position: 'relative',

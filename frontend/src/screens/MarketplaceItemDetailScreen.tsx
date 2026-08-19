@@ -17,6 +17,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
+import { CommentsHeader } from '../components/CommentsHeader';
 import { useAuth } from '../context/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { Feather, FontAwesome } from '@expo/vector-icons';
@@ -483,19 +484,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
         )}
 
         {/* Sección de Comentarios Polimórficos y Citas */}
-        <View style={{ height: 1, backgroundColor: theme.colors.border, marginVertical: theme.spacing.lg }} />
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '700' }}>Comentarios ({comments.length})</Text>
-
-          <TouchableOpacity
-            style={styles.quoteHeaderBtn}
-            activeOpacity={0.7}
-            onPress={handleQuoteItem}
-          >
-            <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
-            <Text style={styles.quoteHeaderBtnText}>Citar Producto</Text>
-          </TouchableOpacity>
-        </View>
+        <CommentsHeader count={comments.length} onQuote={handleQuoteItem} quoteLabel="Citar Producto" />
 
         {/* Caja de Comentarios Reutilizable Inline */}
         {currentUser && (
@@ -558,21 +547,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-  },
-  quoteHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  quoteHeaderBtnText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: '600',
   },
   centerContainer: {
     flex: 1,

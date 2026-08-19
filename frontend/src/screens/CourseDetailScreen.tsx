@@ -15,6 +15,7 @@ import { RootStackParamList } from '../types/navigation';
 import { pb } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
+import { CommentsHeader } from '../components/CommentsHeader';
 import { withMinimumDelay } from '../utils/refresh';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { EntityCommentBox } from '../components/EntityCommentBox';
@@ -401,15 +402,7 @@ export const CourseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         )}
 
-        <View style={styles.divider} />
-
-        <View style={styles.commentsHeaderRow}>
-          <Text style={styles.sectionTitle}>Comentarios</Text>
-          <TouchableOpacity style={styles.quoteHeaderBtn} activeOpacity={0.7} onPress={handleCiteCourse}>
-            <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
-            <Text style={styles.quoteHeaderBtnText}>Citar</Text>
-          </TouchableOpacity>
-        </View>
+        <CommentsHeader onQuote={handleCiteCourse} />
 
         {user && (
           <EntityCommentBox
@@ -610,27 +603,6 @@ const styles = StyleSheet.create({
   emptyText: {
     color: theme.colors.textMuted,
     fontSize: 13,
-  },
-  commentsHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  quoteHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#161616',
-    borderWidth: 1,
-    borderColor: '#333333',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  quoteHeaderBtnText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: '600',
   },
   emptyAnswers: {
     alignItems: 'center',

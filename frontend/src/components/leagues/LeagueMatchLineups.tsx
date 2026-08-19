@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { MatchEvent, Team, LineupEntry } from '../../utils/matchEvents';
 import { LeagueBadge } from './LeagueBadge';
+import { PlayerAvatar } from '../PlayerAvatar';
 
 interface LeagueMatchLineupsProps {
   lineupA: LineupEntry[];
@@ -80,6 +81,17 @@ export const LeagueMatchLineups: React.FC<LeagueMatchLineupsProps> = ({
 
           return (
             <View key={player.playerId || idx} style={styles.playerRow}>
+              {/* La cara del jugador viene del roster del equipo (team_players.photo),
+                  guardada en el propio evento de convocatoria — así el plantel se ve
+                  igual aunque el roster cambie después del partido. */}
+              <PlayerAvatar
+                player={{
+                  id: player.playerId || undefined,
+                  collectionId: 'team_players',
+                  photo: player.photo || undefined,
+                }}
+                size={26}
+              />
               <Text style={styles.playerName} numberOfLines={1}>
                 {player.name}
               </Text>
@@ -149,8 +161,8 @@ const styles = StyleSheet.create({
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 7,
+    gap: 8,
+    paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#141414',
   },
@@ -159,7 +171,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     flex: 1,
-    marginRight: 6,
   },
   playerBadges: {
     flexDirection: 'row',

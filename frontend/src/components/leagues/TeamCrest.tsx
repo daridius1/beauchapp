@@ -2,7 +2,6 @@ import React from 'react';
 import { StyleSheet, View, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { getFileUrl } from '../../services/pocketbase';
-import { theme } from '../../theme/theme';
 
 export interface CrestData {
   id?: string;
@@ -32,6 +31,12 @@ interface TeamCrestProps {
 // hay matchPhoto, cae al avatar genérico de la cuenta y, si tampoco hay avatar, a un
 // escudo genérico gris (no una letra) — un placeholder de "todavía no subiste tu
 // escudo", no una identidad visual con la inicial del equipo.
+//
+// El escudo NUNCA dibuja borde, fondo ni padding, ni siquiera en el placeholder: un
+// escudo es una forma con silueta propia y cualquier caja alrededor compite con ella.
+// Quien use este componente tampoco debe envolverlo en un contenedor decorado — el
+// marcador de partido tenía un wrapper con borde y padding que, sumado al borde punteado
+// que traía el placeholder, dejaba dos márgenes solapados alrededor del escudo genérico.
 export const TeamCrest: React.FC<TeamCrestProps> = ({ team, size }) => {
   const photo = team?.matchPhoto || team?.avatar;
   const thumbSize = size <= 60 ? '100x100' : undefined;
@@ -54,13 +59,12 @@ export const TeamCrest: React.FC<TeamCrestProps> = ({ team, size }) => {
 };
 
 const styles = StyleSheet.create({
+  // Solo centra el ícono: sin borde, sin fondo y sin radio. El ícono de escudo ya es la
+  // silueta que se ve, y ocupa la misma caja que ocuparía un escudo real, así que la
+  // alineación con el resto de la fila no cambia entre tener escudo y no tenerlo.
   fallback: {
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    borderStyle: 'dashed',
-    borderRadius: theme.borderRadius.md,
   },
 });

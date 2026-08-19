@@ -21,7 +21,9 @@ import { useAuth } from '../context/AuthContext';
 import { pb } from '../services/pocketbase';
 import { withMinimumDelay } from '../utils/refresh';
 import { RootStackParamList } from '../types/navigation';
-import { MatchEvent, Team, LineupEntry, summarizeEvents, isClockGatedSequenceValid, computeLiveElapsedMs, annotateEventsWithHalfTime, formatClockTime } from '../utils/matchEvents';
+import { MatchEvent, Team, LineupEntry, summarizeEvents, isClockGatedSequenceValid, computeLiveElapsedMs, annotateEventsWithHalfTime, formatClockTime, eventKey, newEventId } from '../utils/matchEvents';
+import { leagueService } from '../services/leagueService';
+import { LeagueMatch, MatchReport } from '../types/league';
 import { LeagueBadge, EventBadgeType } from '../components/leagues/LeagueBadge';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { teamPlayersService, TeamPlayerRecord } from '../services/teamPlayersService';
@@ -55,7 +57,7 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
   const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
-  const [match, setMatch] = useState<any>(null);
+  const [match, setMatch] = useState<LeagueMatch | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
   const [reportStatus, setReportStatus] = useState<ReportStatus>(null);
   const [events, setEvents] = useState<MatchEvent[]>([]);
@@ -101,6 +103,16 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
   const reportIdRef = useRef<string | null>(null);
   reportIdRef.current = reportId;
 
+  // Claves del último estado del servidor que este cliente vio. Es lo que se manda como
+  // `baseKeys` para que el servidor distinga un evento borrado a propósito de uno que
+  // este cliente simplemente todavía no conocía porque lo subió otra persona.
+  // Sin esto, la fusión del servidor no puede propagar borrados. Ver §4.1 de la
+  // auditoría y mergeEvents() en el backend.
+  const baseKeysRef = useRef<string[]>([]);
+  const rememberBase = (list: MatchEvent[]) => {
+    baseKeysRef.current = list.map(eventKey);
+  };
+
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
@@ -130,7 +142,7 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     try {
       if (!hideLoading) setLoading(true);
       await withMinimumDelay(async () => {
-        const record = await pb.collection('league_matches').getOne(matchId, { expand: 'teamA,teamB' });
+        const record = await pb.collection('league_matches').getOne<LeagueMatch>(matchId, { expand: 'teamA,teamB' });
         setMatch(record);
 
         // Roster de cada equipo — única fuente posible para convocatoria y eventos.
@@ -155,7 +167,7 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
         const storedCode = await AsyncStorage.getItem(codeStorageKey(matchId));
         if (storedCode) {
           try {
-            await pb.send('/api/league-matches/join', { method: 'POST', body: { matchId, code: storedCode } });
+            await leagueService.joinMatch(matchId, storedCode);
             setCode(storedCode);
             codeRef.current = storedCode;
             setNeedsCode(false);
@@ -181,9 +193,9 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
   // compartida de arbitraje. No crea nada: el primer push de eventos de cualquiera
   // es lo que crea la sesión (ver /api/league-matches/events).
   const loadReportState = async (activeCode: string) => {
-    let report: any = null;
+    let report: MatchReport | null = null;
     try {
-      report = await pb.collection('match_reports').getFirstListItem(`match = "${matchId}"`);
+      report = await pb.collection('match_reports').getFirstListItem<MatchReport>(`match = "${matchId}"`);
     } catch {
       report = null;
     }
@@ -210,6 +222,9 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     }
     const serverEvents: MatchEvent[] = report.events || [];
     const initial = localEvents.length > serverEvents.length ? localEvents : serverEvents;
+    // La base siempre es lo que trajo el SERVIDOR, nunca el respaldo local: los eventos
+    // que solo existen en este celular todavía no forman parte del estado compartido.
+    rememberBase(serverEvents);
     setEvents(initial);
     await AsyncStorage.setItem(eventsStorageKey(matchId), JSON.stringify(initial));
 
@@ -240,8 +255,9 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     const interval = setInterval(async () => {
       if (pushInFlightRef.current || !reportIdRef.current) return;
       try {
-        const fresh = await pb.collection('match_reports').getOne(reportIdRef.current);
+        const fresh = await leagueService.getReport(reportIdRef.current);
         const freshEvents: MatchEvent[] = fresh.events || [];
+        rememberBase(freshEvents);
         if (JSON.stringify(freshEvents) !== JSON.stringify(eventsRef.current)) {
           setEvents(freshEvents);
           await AsyncStorage.setItem(eventsStorageKey(matchId), JSON.stringify(freshEvents));
@@ -249,8 +265,8 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
         setReportStatus(fresh.status);
         setNotes(fresh.notes || '');
 
-        const freshMatch = await pb.collection('league_matches').getOne(matchId);
-        setMatch((prev: any) => (prev && prev.status === freshMatch.status ? prev : freshMatch));
+        const freshMatch = await leagueService.getMatch(matchId);
+        setMatch((prev) => (prev && prev.status === freshMatch.status ? prev : freshMatch));
       } catch (err) {
         // Se reintenta en el próximo ciclo.
       }
@@ -266,7 +282,18 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     }
     pushInFlightRef.current = true;
     try {
-      await pb.send('/api/league-matches/events', { method: 'POST', body: { matchId, code: activeCode, events: updated } });
+      const res = await leagueService.pushEvents(matchId, activeCode, updated, baseKeysRef.current);
+      // El servidor devuelve la bitácora YA fusionada con lo que hayan subido otros
+      // árbitros mientras tanto. Adoptarla en el acto es lo que hace visible el trabajo
+      // ajeno sin esperar al siguiente poll, y deja este cliente y el servidor alineados.
+      const mergedEvents = res?.events;
+      if (Array.isArray(mergedEvents)) {
+        rememberBase(mergedEvents);
+        setEvents(mergedEvents);
+        await AsyncStorage.setItem(eventsStorageKey(matchId), JSON.stringify(mergedEvents));
+      } else {
+        rememberBase(updated);
+      }
       setSynced(true);
     } catch (err: any) {
       console.error('Error sincronizando arbitraje con el servidor:', err);
@@ -282,7 +309,10 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
   };
 
   const pushEvent = async (event: MatchEvent) => {
-    const updated = [...eventsRef.current, event];
+    // Todo evento nace con id acá — es la identidad que el servidor usa para fusionar
+    // sin duplicar cuando varias personas arbitran el mismo partido a la vez.
+    const withId: MatchEvent = event.id ? event : { ...event, id: newEventId() };
+    const updated = [...eventsRef.current, withId];
     setEvents(updated);
     await AsyncStorage.setItem(eventsStorageKey(matchId), JSON.stringify(updated));
     await syncToServer(updated);
@@ -315,7 +345,7 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     setJoiningCode(true);
     try {
       const c = codeInput.trim().toUpperCase();
-      await pb.send('/api/league-matches/join', { method: 'POST', body: { matchId, code: c } });
+      await leagueService.joinMatch(matchId, c);
       setCode(c);
       codeRef.current = c;
       await AsyncStorage.setItem(codeStorageKey(matchId), c);
@@ -433,9 +463,13 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
   };
 
   const finalizeMatch = async () => {
+    // Sin código no hay nada que finalizar. Antes esto mandaba `code: null` al servidor
+    // y el árbitro veía un "Falta matchId o código" en vez de nada; lo destapó el tipado
+    // del servicio nuevo (auditoria-2026-08-19.md §4.8).
+    if (!codeRef.current) return;
     setSubmitting(true);
     try {
-      await pb.send('/api/league-matches/submit', { method: 'POST', body: { matchId, code: codeRef.current } });
+      await leagueService.submitMatch(matchId, codeRef.current);
       Toast.show({ type: 'success', text1: 'Partido finalizado', text2: 'El resultado ya es oficial.' });
       navigation.replace('LeagueMatchDetail', { matchId });
     } catch (err: any) {
@@ -453,7 +487,7 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     if (!codeRef.current) return;
     setSavingNotes(true);
     try {
-      await pb.send('/api/league-matches/notes', { method: 'POST', body: { matchId, code: codeRef.current, notes: notesDraft } });
+      await leagueService.saveNotes(matchId, codeRef.current, notesDraft);
       setNotes(notesDraft);
       setShowNotesModal(false);
       Toast.show({ type: 'success', text1: 'Informe guardado' });

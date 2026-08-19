@@ -39,7 +39,6 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
   const [values, setValues] = useState<Record<string, number>>({});
   const [blockedBlocks, setBlockedBlocks] = useState<Set<string>>(new Set());
   const [occupiedBlocks, setOccupiedBlocks] = useState<Set<string>>(new Set());
-  const [matches, setMatches] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
 
   // Cualquier cuenta autenticada puede marcar su propia disponibilidad (jugadores
@@ -68,10 +67,19 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
 
       const windowSet = new Set(windowBlocks);
 
+      // Acotado a la ventana en el propio filtro, no después de traer todo: un
+      // blockCode es "YYYY-MM-DD-HH", así que el orden lexicográfico es el cronológico.
+      // Sin esto se descargaba el historial completo de partidos jugados —que crece para
+      // siempre— solo para quedarse con las 3 semanas visibles. Mismo criterio que ya
+      // aplica el backend en team_schedule.pb.js / league.pb.js.
+      const rangeFrom = windowBlocks[0];
+      const rangeTo = windowBlocks[windowBlocks.length - 1];
+      const inWindow = `blockCode >= "${rangeFrom}" && blockCode <= "${rangeTo}"`;
+
       const [blockedRes, horarioMatchesRes, leagueMatchesRes] = await Promise.all([
-        pb.collection('horario_blocked_slots').getFullList({ batch: 500 }),
-        pb.collection('horario_matches').getFullList({ batch: 500, filter: 'status = "confirmed"' }),
-        pb.collection('league_matches').getFullList({ batch: 500, filter: '(status = "confirmed" || status = "played") && deleted = false' }),
+        pb.collection('horario_blocked_slots').getFullList({ batch: 500, filter: inWindow }),
+        pb.collection('horario_matches').getFullList({ batch: 500, filter: `status = "confirmed" && ${inWindow}` }),
+        pb.collection('league_matches').getFullList({ batch: 500, filter: `(status = "confirmed" || status = "played") && deleted = false && ${inWindow}` }),
       ]);
       const blockedSet = new Set<string>(
         blockedRes.map((r: any) => r.blockCode as string).filter((b: string) => windowSet.has(b))
@@ -109,17 +117,6 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
         setValues(defaults);
       }
 
-      // "Tus partidos" solo tiene sentido para cuentas de equipo (horario_matches es
-      // siempre equipo vs equipo) — a un jugador individual nunca le va a salir nada
-      // ahí, así que ni vale la pena pedirlo.
-      if (isTeamAccount) {
-        const matchesRes = await pb.collection('horario_matches').getList(1, 50, {
-          filter: `teamA = "${user.id}" || teamB = "${user.id}"`,
-          sort: '-created',
-          expand: 'teamA,teamB',
-        });
-        setMatches(matchesRes.items);
-      }
     } catch (err) {
       console.error('Error cargando horarios:', err);
     } finally {
@@ -220,25 +217,6 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
         <Text style={styles.saveBtnText}>{saving ? 'Guardando...' : 'Guardar disponibilidad'}</Text>
       </TouchableOpacity>
 
-      {isTeamAccount && (
-        <>
-          <View style={styles.divider} />
-          <Text style={styles.sectionTitle}>Tus partidos</Text>
-          {matches.length === 0 ? (
-            <Text style={styles.mutedText}>Todavía no tienes partidos confirmados.</Text>
-          ) : (
-            matches.map((m) => {
-              const opponent = m.teamA === user?.id ? m.expand?.teamB : m.expand?.teamA;
-              return (
-                <View key={m.id} style={styles.matchRow}>
-                  <Text style={styles.matchOpponent}>vs. {opponent?.name || 'Equipo'}</Text>
-                  <Text style={styles.matchBlock}>{matchBlockLabel(m.blockCode)}</Text>
-                </View>
-              );
-            })
-          )}
-        </>
-      )}
     </ScrollView>
 
     <Modal visible={!!modalBlock} transparent animationType="fade" onRequestClose={() => setModalBlock(null)}>
@@ -426,22 +404,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginBottom: theme.spacing.sm,
-  },
-  matchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  matchOpponent: {
-    color: theme.colors.text,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  matchBlock: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
   },
 });

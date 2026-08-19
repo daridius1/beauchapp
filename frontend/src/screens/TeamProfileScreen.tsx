@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Feather, FontAwesome } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { theme } from '../theme/theme';
+import { CommentsHeader } from '../components/CommentsHeader';
 import { pb } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
@@ -22,7 +23,8 @@ import { PostCard } from '../components/PostCard';
 import { EntityCommentBox } from '../components/EntityCommentBox';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { TeamCrest, matchDisplayName } from '../components/leagues/TeamCrest';
-import { LeagueMatchRow, LeagueMatchRowData } from '../components/leagues/LeagueMatchRow';
+import { LeagueMatchRowData } from '../components/leagues/LeagueMatchRow';
+import { PagedMatchList } from '../components/leagues/PagedMatchList';
 import { teamPlayersService, TeamPlayerRecord } from '../services/teamPlayersService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TeamProfile'>;
@@ -226,7 +228,7 @@ export const TeamProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                 disabled={!linkedUserId}
                 onPress={() => linkedUserId && navigation.push('UserProfile', { userId: linkedUserId })}
               >
-                <PlayerAvatar player={player} size={44} />
+                <PlayerAvatar player={player} size={32} />
                 <Text style={styles.playerName}>{player.name}</Text>
                 {!!linkedUserId && <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />}
               </TouchableOpacity>
@@ -238,36 +240,16 @@ export const TeamProfileScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* Sección de Partidos */}
       <View style={styles.section}>
         <Text style={styles.sectionHeader}>Partidos ({matches.length})</Text>
-        {matches.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Este equipo todavía no tiene partidos programados.</Text>
-          </View>
-        ) : (
-          matches.map((m, idx) => (
-            <LeagueMatchRow
-              key={m.id}
-              match={m}
-              isLast={idx === matches.length - 1}
-              onPress={() => navigation.push('LeagueMatchDetail', { matchId: m.id })}
-            />
-          ))
-        )}
+        <PagedMatchList
+          matches={matches}
+          emptyText="Este equipo todavía no tiene partidos programados."
+          onPressMatch={(matchId) => navigation.push('LeagueMatchDetail', { matchId })}
+        />
       </View>
 
       {/* Sección de Comentarios y Citar equipo */}
       <View style={styles.commentsSection}>
-        <View style={styles.commentsHeaderRow}>
-          <Text style={styles.sectionHeader}>Comentarios ({comments.length})</Text>
-
-          <TouchableOpacity
-            style={styles.quoteHeaderBtn}
-            activeOpacity={0.7}
-            onPress={handleShareTeamToFeed}
-          >
-            <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
-            <Text style={styles.quoteHeaderBtnText}>Citar</Text>
-          </TouchableOpacity>
-        </View>
+        <CommentsHeader count={comments.length} onQuote={handleShareTeamToFeed} />
 
         {user && (
           <EntityCommentBox
@@ -365,14 +347,15 @@ const styles = StyleSheet.create({
   },
 
   // Lista de jugadores
+  // Filas compactas: el marginTop por fila sumado al paddingVertical hacía que cada
+  // jugador ocupara casi el doble de lo necesario en un roster de 15 personas.
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
+    gap: 10,
+    paddingVertical: 7,
     borderBottomWidth: 1,
     borderBottomColor: '#161616',
-    marginTop: 8,
   },
   playerRowLast: {
     borderBottomWidth: 0,
@@ -385,33 +368,9 @@ const styles = StyleSheet.create({
   },
 
   // Sección de Comentarios
-  commentsSection: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#1a1a1a',
-  },
-  commentsHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  quoteHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#141414',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 4,
-  },
-  quoteHeaderBtnText: {
-    color: theme.colors.text,
-    fontSize: 12,
-    fontWeight: '600',
-  },
+  // Sin borde propio: el separador de la sección lo pone <CommentsHeader>, uno solo
+  // para todas las vistas (antes acá se sumaba un segundo borde).
+  commentsSection: {},
   emptyCommentsContainer: {
     padding: theme.spacing.xl,
     alignItems: 'center',

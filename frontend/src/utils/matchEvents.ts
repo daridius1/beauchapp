@@ -23,16 +23,42 @@ export interface LineupEntry {
   photo: string | null;
 }
 
+// `id` es la identidad estable de un evento dentro de la bitácora. Se genera acá al
+// crearlo y el servidor la usa para fusionar bitácoras de árbitros concurrentes sin
+// que se pisen (ver mergeEvents en backend/pb_hooks/lib/matchEvents.js). Es opcional
+// porque los eventos guardados antes de este cambio no lo tienen: para esos, tanto el
+// cliente como el servidor derivan la clave del contenido con eventKey().
+interface EventBase {
+  id?: string;
+  at: string;
+}
+
 export type MatchEvent =
-  | { type: 'lineup'; team: Team; players: (string | LineupPlayer)[]; at: string }
-  | { type: 'half_start'; half: 1 | 2; at: string }
-  | { type: 'half_end'; half: 1 | 2; at: string }
-  | { type: 'pause'; at: string }
-  | { type: 'resume'; at: string }
-  | { type: 'goal'; team: Team; player?: string; playerId?: string; ownGoal: boolean; at: string; minute?: number; half?: 1 | 2 }
-  | { type: 'yellow_card'; team: Team; player?: string; playerId?: string; at: string; minute?: number; half?: 1 | 2 }
-  | { type: 'red_card'; team: Team; player?: string; playerId?: string; at: string; minute?: number; half?: 1 | 2 }
-  | { type: 'penalty'; team: Team; player?: string; playerId?: string; scored: boolean; at: string; minute?: number; half?: 1 | 2 };
+  | (EventBase & { type: 'lineup'; team: Team; players: (string | LineupPlayer)[] })
+  | (EventBase & { type: 'half_start'; half: 1 | 2 })
+  | (EventBase & { type: 'half_end'; half: 1 | 2 })
+  | (EventBase & { type: 'pause' })
+  | (EventBase & { type: 'resume' })
+  | (EventBase & { type: 'goal'; team: Team; player?: string; playerId?: string; ownGoal: boolean; minute?: number; half?: 1 | 2 })
+  | (EventBase & { type: 'yellow_card'; team: Team; player?: string; playerId?: string; minute?: number; half?: 1 | 2 })
+  | (EventBase & { type: 'red_card'; team: Team; player?: string; playerId?: string; minute?: number; half?: 1 | 2 })
+  | (EventBase & { type: 'penalty'; team: Team; player?: string; playerId?: string; scored: boolean; minute?: number; half?: 1 | 2 });
+
+// Réplica exacta de eventKey() en backend/pb_hooks/lib/matchEvents.js — las dos
+// implementaciones tienen que coincidir carácter por carácter o la fusión duplicaría
+// los eventos legados en vez de reconocerlos.
+export function eventKey(ev: MatchEvent): string {
+  if (ev && typeof ev.id === 'string' && ev.id) return ev.id;
+  return 'legacy:' + String((ev && ev.type) || '') + '@' + String((ev && ev.at) || '');
+}
+
+// Identificador único de evento. `crypto.randomUUID` no existe en todos los runtimes
+// donde corre esta app (Safari viejo, algunos entornos nativos), así que hay respaldo.
+export function newEventId(): string {
+  const g: any = globalThis as any;
+  if (g.crypto && typeof g.crypto.randomUUID === 'function') return g.crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 export const CLOCK_GATED_TYPES: MatchEvent['type'][] = ['goal', 'yellow_card', 'red_card', 'penalty'];
 
@@ -265,4 +291,75 @@ function pad2(n: number): string {
 export function formatClockTime(at: string): string {
   const d = new Date(at);
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+// Réplica de computeTopScorers() de backend/pb_hooks/lib/matchEvents.js, donde vive la
+// versión testeada. Se calcula en el cliente sobre datos que la vista de liga ya tiene
+// cargados: no hay ningún contador de goles guardado por jugador ni endpoint nuevo
+// (PRINCIPLES.md §1).
+export interface TopScorer {
+  key: string;
+  name: string;
+  playerId: string | null;
+  teamId: string | null;
+  photo: string | null;
+  goals: number;
+}
+
+export interface ScorerMatchEntry {
+  events: MatchEvent[] | null | undefined;
+  teamAId?: string | null;
+  teamBId?: string | null;
+}
+
+export function computeTopScorers(matchEntries: ScorerMatchEntry[] | null | undefined): TopScorer[] {
+  const entries = Array.isArray(matchEntries) ? matchEntries : [];
+  const byKey: Record<string, TopScorer> = {};
+
+  const scorerKey = (playerId: string | undefined, teamId: string | null | undefined, name: string) =>
+    playerId ? `p:${playerId}` : `n:${teamId || ''}:${name}`;
+
+  entries.forEach((entry) => {
+    const events = Array.isArray(entry?.events) ? entry.events : [];
+    const teamIdFor = (side: Team) => (side === 'A' ? entry.teamAId : entry.teamBId);
+
+    // Las fotos vienen de los eventos de convocatoria, no de los de gol.
+    const photoByPlayerId: Record<string, string> = {};
+    const photoByName: Record<string, string> = {};
+    events.forEach((ev) => {
+      if (ev.type !== 'lineup') return;
+      ev.players.forEach((raw) => {
+        const p = normalizeLineupEntry(raw);
+        if (p.playerId && p.photo) photoByPlayerId[p.playerId] = p.photo;
+        if (p.name && p.photo) photoByName[p.name] = p.photo;
+      });
+    });
+
+    events.forEach((ev) => {
+      const isGoal = ev.type === 'goal' && !ev.ownGoal;
+      const isScoredPenalty = ev.type === 'penalty' && ev.scored;
+      if (!isGoal && !isScoredPenalty) return;
+
+      // Un gol sin jugador asignado es válido, pero no se le acredita a nadie.
+      const named = ev as Extract<MatchEvent, { type: 'goal' | 'penalty' }>;
+      const name = named.player;
+      if (!name) return;
+
+      const teamId = teamIdFor(named.team) || null;
+      const key = scorerKey(named.playerId, teamId, name);
+      if (!byKey[key]) {
+        byKey[key] = {
+          key,
+          name,
+          playerId: named.playerId || null,
+          teamId,
+          photo: (named.playerId && photoByPlayerId[named.playerId]) || photoByName[name] || null,
+          goals: 0,
+        };
+      }
+      byKey[key].goals += 1;
+    });
+  });
+
+  return Object.values(byKey).sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
 }

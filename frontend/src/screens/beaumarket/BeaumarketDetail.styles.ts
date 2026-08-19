@@ -41,30 +41,9 @@ export const styles = StyleSheet.create({
   commentsSection: {
     marginTop: 0,
   },
-  commentsHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
   sectionTitle: {
     color: theme.colors.text,
     fontSize: 18,
     fontWeight: '800',
-  },
-  quoteHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#161616',
-    borderWidth: 1,
-    borderColor: '#333333',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  quoteHeaderBtnText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: '600',
   },
 });

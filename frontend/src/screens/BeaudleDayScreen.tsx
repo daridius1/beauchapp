@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, RefreshControl, DeviceEventEmitter, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Feather, FontAwesome } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
+import { CommentsHeader } from '../components/CommentsHeader';
 import { useAuth } from '../context/AuthContext';
 import { pb } from '../services/pocketbase';
 import { beaudleService, BeaudleGameState } from '../services/beaudleService';
@@ -250,18 +251,7 @@ export const BeaudleDayScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* Comentarios y citas — solo una vez terminado el Beaudle de ese día, sin spoilers */}
       {!isInProgress && game.statsId && (
         <>
-          <View style={styles.divider} />
-          <View style={styles.commentsHeaderRow}>
-            <Text style={styles.sectionTitle}>Comentarios ({comments.length})</Text>
-            <TouchableOpacity
-              style={styles.quoteHeaderBtn}
-              activeOpacity={0.7}
-              onPress={handleQuoteBeaudle}
-            >
-              <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
-              <Text style={styles.quoteHeaderBtnText}>Citar</Text>
-            </TouchableOpacity>
-          </View>
+          <CommentsHeader count={comments.length} onQuote={handleQuoteBeaudle} />
 
           {user && (
             <EntityCommentBox

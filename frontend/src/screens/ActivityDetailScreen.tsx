@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Linking, RefreshControl, DeviceEventEmitter } from 'react-native';
-import { Feather, FontAwesome } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { theme } from '../theme/theme';
+import { CommentsHeader } from '../components/CommentsHeader';
 import { useAuth } from '../context/AuthContext';
 import { pb, getFileUrl } from '../services/pocketbase';
 import { ActivityRecord, activityService } from '../services/activityService';
@@ -395,18 +396,7 @@ export const ActivityDetailScreen = ({ route, navigation }: any) => {
 
         {/* Sección de Comentarios con Botón Citar al lado del encabezado */}
         <View style={styles.commentsSection}>
-          <View style={styles.commentsHeaderRow}>
-            <Text style={styles.sectionTitle}>Comentarios ({comments.length})</Text>
-
-            <TouchableOpacity
-              style={styles.quoteHeaderBtn}
-              activeOpacity={0.7}
-              onPress={handleQuoteActivity}
-            >
-              <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
-              <Text style={styles.quoteHeaderBtnText}>Citar</Text>
-            </TouchableOpacity>
-          </View>
+          <CommentsHeader count={comments.length} onQuote={handleQuoteActivity} />
 
           {/* Caja de Comentarios */}
           <EntityCommentBox onSendComment={handleSendComment} placeholder="Pregunta o comenta sobre esta actividad..." />
@@ -582,26 +572,5 @@ const styles = StyleSheet.create({
   },
   commentsSection: {
     marginTop: 8,
-  },
-  commentsHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  quoteHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#161616',
-    borderWidth: 1,
-    borderColor: '#333333',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  quoteHeaderBtnText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: '600',
   },
 });

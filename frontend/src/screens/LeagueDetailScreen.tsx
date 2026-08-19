@@ -10,24 +10,27 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Feather, FontAwesome } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { theme } from '../theme/theme';
+import { CommentsHeader } from '../components/CommentsHeader';
 import { pb } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
 import { withMinimumDelay } from '../utils/refresh';
-import { summarizeEvents, computeLiveElapsedMs, computeLiveStatus, MatchEvent } from '../utils/matchEvents';
+import { summarizeEvents, computeLiveElapsedMs, computeLiveStatus, computeTopScorers, MatchEvent } from '../utils/matchEvents';
+import { PlayerAvatar } from '../components/PlayerAvatar';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
 import { EntityCommentBox } from '../components/EntityCommentBox';
-import { LeagueMatchRow, LeagueMatchRowData, LiveMatchInfo } from '../components/leagues/LeagueMatchRow';
+import { LeagueMatchRowData, LiveMatchInfo } from '../components/leagues/LeagueMatchRow';
+import { PagedMatchList } from '../components/leagues/PagedMatchList';
 import { LeagueStandingsTable } from '../components/leagues/LeagueStandingsTable';
 import { TeamCrest, matchDisplayName } from '../components/leagues/TeamCrest';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueDetail'>;
 
-type TabType = 'matches' | 'standings' | 'teams';
+type TabType = 'matches' | 'standings' | 'scorers' | 'teams';
 
 // blockCode = "YYYY-MM-DD-HH" — usado solo para ordenar por cercanía a hoy, no para
 // mostrarse (el formato de fecha visible vive en LeagueMatchRow/LeagueMatchDetailScreen).
@@ -257,6 +260,41 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const stageIdOf = useCallback((m: LeagueMatchRowData) => m.expand?.stage?.id || (m as any).stage, []);
 
+  // Tabla de goleadores — se deriva de las bitácoras de arbitraje que ya están
+  // cargadas para el estado en vivo, así que no cuesta ninguna petición extra.
+  // Solo cuentan los partidos con informe aprobado (resultado oficial): un partido en
+  // curso todavía puede cambiar, y sus goles se sumarían y restarían en vivo.
+  const topScorers = useMemo(() => {
+    const matchById: Record<string, LeagueMatchRowData> = {};
+    matches.forEach((m) => { matchById[m.id] = m; });
+
+    const entries = reports
+      .filter((r) => r.status === 'approved')
+      .map((r) => {
+        const m = matchById[r.match];
+        if (!m) return null;
+        return {
+          events: (r.events || []) as MatchEvent[],
+          teamAId: m.expand?.teamA?.id || (m as any).teamA,
+          teamBId: m.expand?.teamB?.id || (m as any).teamB,
+        };
+      })
+      .filter(Boolean) as { events: MatchEvent[]; teamAId: string; teamBId: string }[];
+
+    return computeTopScorers(entries);
+  }, [reports, matches]);
+
+  // Nombre y escudo de cada equipo, para poder mostrarlos junto al goleador sin
+  // recorrer la lista de equipos en cada fila.
+  const teamById = useMemo(() => {
+    const map: Record<string, any> = {};
+    teams.forEach((t) => {
+      const team = t.expand?.team;
+      if (team?.id) map[team.id] = team;
+    });
+    return map;
+  }, [teams]);
+
   // "Posiciones" muestra TODAS las etapas, cada una con su propio encabezado — una de
   // grupos trae su tabla de posiciones (con solo los equipos que jugaron esa etapa); una
   // de eliminatoria directa no tiene tabla, solo su listado de partidos (mismo orden que
@@ -343,6 +381,15 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'scorers' && styles.tabItemActive]}
+          onPress={() => setActiveTab('scorers')}
+        >
+          <Text style={[styles.tabText, activeTab === 'scorers' && styles.tabTextActive]}>
+            Goleadores
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.tabItem, activeTab === 'teams' && styles.tabItemActive]}
           onPress={() => setActiveTab('teams')}
         >
@@ -357,22 +404,13 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* 1. PESTAÑA: PARTIDOS (FIXTURE) */}
       {activeTab === 'matches' && (
         <View style={styles.tabContent}>
-          {/* Listado de Partidos */}
-          {filteredMatches.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No hay partidos con los filtros seleccionados.</Text>
-            </View>
-          ) : (
-            filteredMatches.map((m, idx) => (
-              <LeagueMatchRow
-                key={m.id}
-                match={m}
-                live={liveInfoByMatch[m.id]}
-                isLast={idx === filteredMatches.length - 1}
-                onPress={() => navigation.push('LeagueMatchDetail', { matchId: m.id })}
-              />
-            ))
-          )}
+          {/* Listado de Partidos — por tandas: una liga acumula todos sus partidos */}
+          <PagedMatchList
+            matches={filteredMatches}
+            liveInfoByMatch={liveInfoByMatch}
+            emptyText="No hay partidos con los filtros seleccionados."
+            onPressMatch={(matchId) => navigation.push('LeagueMatchDetail', { matchId })}
+          />
         </View>
       )}
 
@@ -389,22 +427,13 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <View key={s.id} style={styles.stageSection}>
                 <Text style={styles.stageSectionTitle}>{s.name}</Text>
                 {s.type === 'knockout' ? (
-                  s.matches.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                      <Text style={styles.emptyText}>Todavía no hay partidos en esta etapa.</Text>
-                    </View>
-                  ) : (
-                    s.matches.map((m, idx) => (
-                      <LeagueMatchRow
-                        key={m.id}
-                        match={m}
-                        live={liveInfoByMatch[m.id]}
-                        isLast={idx === s.matches.length - 1}
-                        hideStage
-                        onPress={() => navigation.push('LeagueMatchDetail', { matchId: m.id })}
-                      />
-                    ))
-                  )
+                  <PagedMatchList
+                    matches={s.matches}
+                    liveInfoByMatch={liveInfoByMatch}
+                    emptyText="Todavía no hay partidos en esta etapa."
+                    hideStage
+                    onPressMatch={(matchId) => navigation.push('LeagueMatchDetail', { matchId })}
+                  />
                 ) : (
                   <LeagueStandingsTable
                     teams={s.teams}
@@ -418,7 +447,73 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
       )}
 
-      {/* 3. PESTAÑA: EQUIPOS */}
+      {/* 3. PESTAÑA: GOLEADORES — tabla del campeonato, solo partidos ya oficiales */}
+      {activeTab === 'scorers' && (
+        <View style={styles.tabContent}>
+          {topScorers.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                Todavía no hay goles registrados en partidos finalizados.
+              </Text>
+            </View>
+          ) : (
+            topScorers.map((scorer, idx) => {
+              const team = scorer.teamId ? teamById[scorer.teamId] : null;
+              const isLast = idx === topScorers.length - 1;
+              // El podio se marca solo por posición, no por cantidad: si hay empate en
+              // goles, ambos comparten el destaque igual que en cualquier tabla.
+              const isTop = idx === 0;
+
+              return (
+                <View
+                  key={scorer.key}
+                  style={[styles.scorerRow, isLast && styles.scorerRowLast]}
+                >
+                  <Text style={[styles.scorerPos, isTop && styles.scorerPosTop]}>{idx + 1}</Text>
+
+                  <PlayerAvatar
+                    player={{
+                      id: scorer.playerId || undefined,
+                      collectionId: 'team_players',
+                      photo: scorer.photo || undefined,
+                    }}
+                    size={30}
+                  />
+
+                  <View style={styles.scorerInfo}>
+                    <Text style={[styles.scorerName, isTop && styles.scorerNameTop]} numberOfLines={1}>
+                      {scorer.name}
+                    </Text>
+                    {!!team && (
+                      <Text style={styles.scorerTeam} numberOfLines={1}>
+                        {matchDisplayName(team, 'Equipo')}
+                      </Text>
+                    )}
+                  </View>
+
+                  {!!team && (
+                    <TeamCrest
+                      team={{
+                        id: team.id,
+                        collectionId: 'users',
+                        avatar: team.avatar,
+                        matchPhoto: team.matchPhoto,
+                        name: team.name,
+                        username: team.username,
+                      }}
+                      size={20}
+                    />
+                  )}
+
+                  <Text style={[styles.scorerGoals, isTop && styles.scorerGoalsTop]}>{scorer.goals}</Text>
+                </View>
+              );
+            })
+          )}
+        </View>
+      )}
+
+      {/* 4. PESTAÑA: EQUIPOS */}
       {activeTab === 'teams' && (
         <View style={styles.tabContent}>
           {teams.length === 0 ? (
@@ -473,18 +568,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
       {/* Sección de Comentarios y Citar Liga al final */}
       <View style={styles.commentsSection}>
-        <View style={styles.commentsHeaderRow}>
-          <Text style={styles.sectionHeader}>Comentarios ({comments.length})</Text>
-
-          <TouchableOpacity
-            style={styles.quoteHeaderBtn}
-            activeOpacity={0.7}
-            onPress={handleShareLeagueToFeed}
-          >
-            <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
-            <Text style={styles.quoteHeaderBtnText}>Citar</Text>
-          </TouchableOpacity>
-        </View>
+        <CommentsHeader count={comments.length} onQuote={handleShareLeagueToFeed} />
 
         {/* Caja para publicar comentarios */}
         {user && (
@@ -613,12 +697,68 @@ const styles = StyleSheet.create({
   stageSection: {
     marginBottom: 24,
   },
+  // El título de la etapa quedaba flotando sin nada que lo anclara. Una línea fina
+  // debajo le da presencia y separa visualmente una etapa de la siguiente, sin agregar
+  // una caja (DESIGN.md §3: separadores por borde inferior, nunca contenedores).
   stageSectionTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: '#ffffff',
     textAlign: 'center',
-    marginBottom: 10,
+    paddingBottom: 8,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222222',
+  },
+
+  // Tabla de goleadores
+  scorerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#161616',
+  },
+  scorerRowLast: {
+    borderBottomWidth: 0,
+  },
+  scorerPos: {
+    width: 20,
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+  },
+  scorerPosTop: {
+    color: '#ffffff',
+  },
+  scorerInfo: {
+    flex: 1,
+  },
+  scorerName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#dddddd',
+  },
+  scorerNameTop: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  scorerTeam: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    marginTop: 1,
+  },
+  scorerGoals: {
+    minWidth: 24,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#dddddd',
+    textAlign: 'right',
+  },
+  scorerGoalsTop: {
+    color: '#ffffff',
   },
 
   // Lista de Equipos
@@ -654,37 +794,13 @@ const styles = StyleSheet.create({
   },
 
   // Sección de Comentarios
-  commentsSection: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#1a1a1a',
-  },
-  commentsHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
+  // Sin borde propio: el separador de la sección lo pone <CommentsHeader>, uno solo
+  // para todas las vistas (antes acá se sumaba un segundo borde).
+  commentsSection: {},
   sectionHeader: {
     fontSize: 14,
     fontWeight: '700',
     color: '#ffffff',
-  },
-  quoteHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#141414',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 4,
-  },
-  quoteHeaderBtnText: {
-    color: theme.colors.text,
-    fontSize: 12,
-    fontWeight: '600',
   },
   emptyCommentsContainer: {
     padding: theme.spacing.xl,

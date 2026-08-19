@@ -121,9 +121,7 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
           activeOpacity={0.7}
           disabled={!onPressTeamA}
         >
-          <View style={styles.avatarWrapper}>
-            <TeamCrest team={teamA ? { ...teamA, collectionId: 'users' } : { name: nameA }} size={56} />
-          </View>
+          <TeamCrest team={teamA ? { ...teamA, collectionId: 'users' } : { name: nameA }} size={56} />
           <Text style={[styles.teamName, aWon && styles.teamNameWinner]} numberOfLines={2}>
             {nameA}
           </Text>
@@ -158,9 +156,7 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
           activeOpacity={0.7}
           disabled={!onPressTeamB}
         >
-          <View style={styles.avatarWrapper}>
-            <TeamCrest team={teamB ? { ...teamB, collectionId: 'users' } : { name: nameB }} size={56} />
-          </View>
+          <TeamCrest team={teamB ? { ...teamB, collectionId: 'users' } : { name: nameB }} size={56} />
           <Text style={[styles.teamName, bWon && styles.teamNameWinner]} numberOfLines={2}>
             {nameB}
           </Text>
@@ -275,13 +271,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 4,
-  },
-  avatarWrapper: {
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: '#222222',
-    padding: 2,
-    backgroundColor: '#000000',
   },
   teamName: {
     color: '#cccccc',

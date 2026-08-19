@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Feather, FontAwesome } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { theme } from '../theme/theme';
+import { CommentsHeader } from '../components/CommentsHeader';
 import { pb } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
@@ -348,18 +349,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
 
       {/* Sección de Comentarios al final */}
       <View style={styles.commentsSection}>
-        <View style={styles.commentsHeaderRow}>
-          <Text style={styles.sectionTitle}>Comentarios ({comments.length})</Text>
-
-          <TouchableOpacity
-            style={styles.quoteHeaderBtn}
-            activeOpacity={0.7}
-            onPress={handleShareMatchToFeed}
-          >
-            <FontAwesome name="quote-left" size={11} color={theme.colors.text} style={{ marginRight: 6 }} />
-            <Text style={styles.quoteHeaderBtnText}>Citar</Text>
-          </TouchableOpacity>
-        </View>
+        <CommentsHeader count={comments.length} onQuote={handleShareMatchToFeed} />
 
         {/* Caja para publicar comentarios */}
         {user && (
@@ -457,31 +447,10 @@ const styles = StyleSheet.create({
   commentsSection: {
     marginTop: 8,
   },
-  commentsHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#ffffff',
-  },
-  quoteHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#141414',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 4,
-  },
-  quoteHeaderBtnText: {
-    color: theme.colors.text,
-    fontSize: 12,
-    fontWeight: '600',
   },
   emptyCommentsContainer: {
     padding: theme.spacing.xl,
