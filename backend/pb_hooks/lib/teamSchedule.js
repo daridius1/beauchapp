@@ -286,7 +286,7 @@ function maxWeightMatching(n, edges, threshold) {
 // Con cantidad impar de equipos, sugiere dejar libre al que tiene menos bloques bien
 // calificados (Buena o Excelente) — el que de todas formas sería más difícil de
 // emparejar con una felicidad alta para ambos lados.
-const FLEXIBLE_THRESHOLD = 3; // Buena=3, Excelente=4
+const FLEXIBLE_THRESHOLD = 4; // Buena=4, Excelente=5
 
 function suggestByeTeam(teams, happinessByTeam) {
     let leastFlexible = null;

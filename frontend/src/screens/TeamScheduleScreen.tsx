@@ -14,16 +14,12 @@ import {
   hourLabel,
   MIN_LEVEL,
   LEVEL_LABELS,
+  LEVEL_COLORS,
+  LEVEL_TEXT_COLORS,
   canPlay,
 } from '../components/schedule/AvailabilityGrid';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TeamSchedule'>;
-
-// Default para bloques sin calificar: los equipos parten en "Regular" (2) — ni tan bajo
-// como para tentar a dejarlo así por pereza, ni tan alto como para inflar de entrada el
-// puntaje. Los jugadores individuales (modo binario) parten en "No puede" — no tiene
-// sentido un "regular" cuando la escala es solo Puede/No puede.
-const DEFAULT_LEVEL_TEAM = 2;
 
 const DAY_LABELS_FULL = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const MONTH_LABELS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -50,9 +46,11 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
   // individuales igual que equipos) — solo las cuentas de equipo, además, pueden ver
   // la disponibilidad agregada de sus integrantes por bloque (rosterMode más abajo).
   const isTeamAccount = user?.type === 'organization' && user?.subtype === 'team';
-  const defaultLevel = isTeamAccount ? DEFAULT_LEVEL_TEAM : MIN_LEVEL;
+  // Bloques sin calificar parten en el valor más bajo de la escala para ambos casos —
+  // no tiene sentido asumir una disponibilidad mejor que la peor por defecto.
+  const defaultLevel = MIN_LEVEL;
 
-  // Para cuentas de equipo, tocar un bloque abre un modal donde se elige la nota (1-4)
+  // Para cuentas de equipo, tocar un bloque abre un modal donde se elige la nota (1-5)
   // Y se ve quién del equipo puede jugar en ese horario — a los que no pueden (o no
   // calificaron) simplemente no se les muestra, no tiene sentido listarlos acá.
   const [modalBlock, setModalBlock] = useState<string | null>(null);
@@ -202,11 +200,6 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
   return (
     <>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.introText}>
-        {isTeamAccount
-          ? 'Toca un bloque para ver quién de tu equipo puede jugar en ese horario y elegir tu disponibilidad.'
-          : 'Toca un bloque para marcar si puedes o no puedes jugar en ese horario.'}
-      </Text>
       <ScheduleLegend binary={!isTeamAccount} />
 
       <View style={styles.gridWrap}>
@@ -255,16 +248,20 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
 
           <Text style={styles.modalSubLabel}>Tu nota para este bloque</Text>
           <View style={styles.ratingRow}>
-            {([1, 2, 3, 4] as const).map((lvl) => {
+            {([1, 2, 3, 4, 5] as const).map((lvl) => {
               const active = modalBlock !== null && (values[modalBlock] ?? MIN_LEVEL) === lvl;
               return (
                 <TouchableOpacity
                   key={lvl}
-                  style={[styles.ratingBtn, active && styles.ratingBtnActive]}
+                  style={[
+                    styles.ratingBtn,
+                    { backgroundColor: LEVEL_COLORS[lvl] },
+                    active && styles.ratingBtnActive,
+                  ]}
                   onPress={() => modalBlock && setValues((prev) => ({ ...prev, [modalBlock]: lvl }))}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.ratingBtnText, active && styles.ratingBtnTextActive]}>{LEVEL_LABELS[lvl]}</Text>
+                  <Text style={[styles.ratingBtnText, { color: LEVEL_TEXT_COLORS[lvl] }]}>{LEVEL_LABELS[lvl]}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -337,29 +334,29 @@ const styles = StyleSheet.create({
   },
   ratingRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 6,
   },
+  // `flexBasis: 0` (en vez de dejar que el ancho salga del contenido) es lo que
+  // garantiza que las 5 opciones queden exactamente del mismo ancho pese a que sus
+  // etiquetas tienen largos distintos ("Mala" vs "Excelente").
   ratingBtn: {
+    flexBasis: 0,
     flexGrow: 1,
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 2,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   ratingBtnActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    borderColor: '#ffffff',
   },
   ratingBtnText: {
-    color: theme.colors.text,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  ratingBtnTextActive: {
-    color: '#000000',
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   rosterRow: {
     flexDirection: 'row',
@@ -400,11 +397,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 14,
     textAlign: 'center',
-  },
-  introText: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    marginBottom: theme.spacing.sm,
   },
   gridWrap: {
     marginTop: 4,

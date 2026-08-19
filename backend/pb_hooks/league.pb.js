@@ -72,6 +72,7 @@ routerAdd("GET", "/admin/liga", (e) => {
         .btn-secondary { background: rgba(255,255,255,0.05); color: var(--text-color); border: 1px solid var(--border-color); }
         .btn-secondary:hover { background: rgba(255,255,255,0.1); }
         .btn-sm { padding: 6px 12px; font-size: 12px; margin-right: 6px; margin-top: 6px; }
+        .btn-icon { padding: 4px 8px; line-height: 1; }
         .btn-accept { background: var(--success-color); color: #05230f; }
         .btn-reject { background: rgba(255,255,255,0.05); color: var(--text-color); border: 1px solid var(--border-color); }
         .alert { padding: 12px 16px; border-radius: 12px; font-size: 14px; margin-bottom: 16px; text-align: left; display: none; }
@@ -252,6 +253,15 @@ routerAdd("GET", "/admin/liga", (e) => {
                     const checked = myTeamIds.has(t.id) ? "checked" : "";
                     row.innerHTML = '<input type="checkbox" value="' + t.id + '" ' + checked + '> ' + (t.name || t.username || t.id);
                     row.querySelector("input").addEventListener("change", async (ev) => {
+                        // Desmarcar = quitar de la liga — se confirma antes de llamar a la
+                        // API porque es la acción destructiva; marcar (agregar) no la necesita.
+                        if (!ev.target.checked) {
+                            const teamLabel = t.name || t.username || "este equipo";
+                            if (!confirm("¿Quitar a '" + teamLabel + "' de la liga?")) {
+                                ev.target.checked = true;
+                                return;
+                            }
+                        }
                         ev.target.disabled = true;
                         try {
                             await apiCall("/api/liga/roster/toggle", "POST", { teamId: t.id });
@@ -295,19 +305,72 @@ routerAdd("GET", "/admin/liga", (e) => {
                     stagesList.innerHTML = '<p class="hint">Todavía no hay etapas.</p>';
                     return;
                 }
-                stages.forEach((s) => {
+                stages.forEach((s, idx) => {
                     const row = document.createElement("div");
                     row.className = "team-checkbox-row";
-                    const typeLabel = s.type === "knockout" ? "Enfrentamiento directo" : "Fase de grupos";
-                    row.innerHTML = '<span style="flex:1;">' + s.name + ' <span class="hint" style="margin:0;">(' + typeLabel + ')</span></span>';
+
+                    const upBtn = document.createElement("button");
+                    upBtn.className = "btn btn-secondary btn-sm btn-icon";
+                    upBtn.style.marginTop = "0";
+                    upBtn.style.marginRight = "0";
+                    upBtn.textContent = "▲";
+                    upBtn.title = "Subir";
+                    upBtn.disabled = idx === 0;
+                    upBtn.addEventListener("click", () => moveStage(s.id, "up"));
+
+                    const downBtn = document.createElement("button");
+                    downBtn.className = "btn btn-secondary btn-sm btn-icon";
+                    downBtn.style.marginTop = "0";
+                    downBtn.textContent = "▼";
+                    downBtn.title = "Bajar";
+                    downBtn.disabled = idx === stages.length - 1;
+                    downBtn.addEventListener("click", () => moveStage(s.id, "down"));
+
+                    const nameSpan = document.createElement("span");
+                    nameSpan.style.flex = "1";
+                    nameSpan.textContent = s.name;
+
+                    // Tipo editable inline — antes solo se elegía al crear la etapa, sin
+                    // forma de corregirlo después.
+                    const typeSelect = document.createElement("select");
+                    typeSelect.style.width = "auto";
+                    typeSelect.style.marginBottom = "0";
+                    typeSelect.innerHTML =
+                        '<option value="groups"' + (s.type === "groups" ? " selected" : "") + '>Fase de grupos</option>' +
+                        '<option value="knockout"' + (s.type === "knockout" ? " selected" : "") + '>Enfrentamiento directo</option>';
+                    typeSelect.addEventListener("change", async () => {
+                        typeSelect.disabled = true;
+                        try {
+                            await apiCall("/api/liga/stages/update-type", "POST", { stageId: s.id, type: typeSelect.value });
+                            await loadStages();
+                        } catch (err) {
+                            showError(panelError, err.message);
+                            typeSelect.value = s.type;
+                            typeSelect.disabled = false;
+                        }
+                    });
+
                     const btn = document.createElement("button");
                     btn.className = "btn btn-sm";
                     btn.style.marginTop = "0";
                     btn.textContent = "Gestionar";
                     btn.addEventListener("click", () => selectStage(s));
+
+                    row.appendChild(upBtn);
+                    row.appendChild(downBtn);
+                    row.appendChild(nameSpan);
+                    row.appendChild(typeSelect);
                     row.appendChild(btn);
                     stagesList.appendChild(row);
                 });
+            } catch (err) { showError(panelError, err.message); }
+        }
+
+        async function moveStage(stageId, direction) {
+            hideError(panelError);
+            try {
+                await apiCall("/api/liga/stages/reorder", "POST", { stageId, direction });
+                await loadStages();
             } catch (err) { showError(panelError, err.message); }
         }
 
@@ -576,8 +639,12 @@ routerAdd("GET", "/api/liga/stages", (e) => {
         if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
             throw new BadRequestError("Esta cuenta no es una liga.");
         }
-        const stages = $app.findRecordsByFilter("league_stages", "league = {:league}", "-created", 0, 0, { league: e.auth.id });
-        return e.json(200, { stages: stages.map((s) => ({ id: s.id, name: s.getString("name"), type: s.getString("type") })) });
+        // Orden explícito (`order`), no de creación — es el mismo orden que ve cualquiera
+        // en la vista de la liga, y el que /admin/liga deja subir/bajar con las flechas.
+        const stages = $app.findRecordsByFilter("league_stages", "league = {:league}", "order,created", 0, 0, { league: e.auth.id });
+        return e.json(200, {
+            stages: stages.map((s) => ({ id: s.id, name: s.getString("name"), type: s.getString("type"), order: s.getInt("order") })),
+        });
     } catch (err) {
         console.error("[league.pb.js] Error en GET /api/liga/stages:", err);
         return e.json(400, { error: (err && err.message) || "No se pudieron cargar las etapas." });
@@ -597,16 +664,92 @@ routerAdd("POST", "/api/liga/stages/create", (e) => {
             throw new BadRequestError("El tipo de etapa debe ser 'groups' o 'knockout'.");
         }
 
+        // Etapa nueva siempre al final del orden actual.
+        const existing = $app.findRecordsByFilter("league_stages", "league = {:league}", "", 0, 0, { league: e.auth.id });
+
         const coll = $app.findCollectionByNameOrId("league_stages");
         const record = new Record(coll);
         record.set("league", e.auth.id);
         record.set("name", name);
         record.set("type", type);
+        record.set("order", existing.length);
         $app.save(record);
         return e.json(200, { success: true, id: record.id });
     } catch (err) {
         console.error("[league.pb.js] Error en POST /api/liga/stages/create:", err);
         return e.json(400, { error: (err && err.message) || "No se pudo crear la etapa." });
+    }
+}, $apis.requireAuth("users"));
+
+routerAdd("POST", "/api/liga/stages/update-type", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        const body = e.requestInfo().body || {};
+        const stageId = String(body.stageId || "");
+        const type = String(body.type || "");
+        if (!stageId) throw new BadRequestError("Falta stageId.");
+        if (type !== "groups" && type !== "knockout") {
+            throw new BadRequestError("El tipo de etapa debe ser 'groups' o 'knockout'.");
+        }
+
+        let stage;
+        try {
+            stage = $app.findRecordById("league_stages", stageId);
+        } catch (err) {
+            throw new BadRequestError("Esa etapa no existe.");
+        }
+        if (stage.getString("league") !== e.auth.id) {
+            throw new BadRequestError("Esa etapa no pertenece a tu liga.");
+        }
+        stage.set("type", type);
+        $app.save(stage);
+        return e.json(200, { success: true });
+    } catch (err) {
+        console.error("[league.pb.js] Error en POST /api/liga/stages/update-type:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo actualizar el tipo de etapa." });
+    }
+}, $apis.requireAuth("users"));
+
+routerAdd("POST", "/api/liga/stages/reorder", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        const body = e.requestInfo().body || {};
+        const stageId = String(body.stageId || "");
+        const direction = String(body.direction || "");
+        if (!stageId) throw new BadRequestError("Falta stageId.");
+        if (direction !== "up" && direction !== "down") {
+            throw new BadRequestError("direction debe ser 'up' o 'down'.");
+        }
+
+        // Se recalcula el orden actual completo (no se confía en el `order` guardado
+        // aislado) para encontrar cuál es el vecino real a intercambiar, igual que hace
+        // GET /api/liga/stages para mostrarlas.
+        const stages = $app.findRecordsByFilter("league_stages", "league = {:league}", "order,created", 0, 0, { league: e.auth.id });
+        const idx = stages.findIndex((s) => s.id === stageId);
+        if (idx === -1) throw new BadRequestError("Esa etapa no pertenece a tu liga.");
+
+        const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+        if (swapIdx < 0 || swapIdx >= stages.length) {
+            // Ya está en la punta — no hay nada que mover, no es un error.
+            return e.json(200, { success: true });
+        }
+
+        const current = stages[idx];
+        const other = stages[swapIdx];
+        const currentOrder = current.getInt("order");
+        const otherOrder = other.getInt("order");
+        current.set("order", otherOrder);
+        other.set("order", currentOrder);
+        $app.save(current);
+        $app.save(other);
+        return e.json(200, { success: true });
+    } catch (err) {
+        console.error("[league.pb.js] Error en POST /api/liga/stages/reorder:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo reordenar la etapa." });
     }
 }, $apis.requireAuth("users"));
 

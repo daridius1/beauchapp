@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
-  Modal,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,7 +17,7 @@ import { pb } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
 import { withMinimumDelay } from '../utils/refresh';
-import { summarizeEvents, computeLiveElapsedMs, MatchEvent } from '../utils/matchEvents';
+import { summarizeEvents, computeLiveElapsedMs, computeLiveStatus, MatchEvent } from '../utils/matchEvents';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
 import { EntityCommentBox } from '../components/EntityCommentBox';
@@ -29,7 +28,15 @@ import { TeamCrest, matchDisplayName } from '../components/leagues/TeamCrest';
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueDetail'>;
 
 type TabType = 'matches' | 'standings' | 'teams';
-type MatchStatusFilter = 'all' | 'upcoming' | 'played';
+
+// blockCode = "YYYY-MM-DD-HH" — usado solo para ordenar por cercanía a hoy, no para
+// mostrarse (el formato de fecha visible vive en LeagueMatchRow/LeagueMatchDetailScreen).
+function blockCodeTimestamp(code: string): number {
+  if (!code || code.length < 13) return NaN;
+  const hour = Number(code.slice(-2));
+  const [y, m, d] = code.slice(0, -3).split('-').map(Number);
+  return new Date(y, m - 1, d, hour).getTime();
+}
 
 export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { leagueId } = route.params;
@@ -48,14 +55,6 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   // Pestaña activa
   const [activeTab, setActiveTab] = useState<TabType>('matches');
 
-  // Filtros como selectores
-  const [selectedStageId, setSelectedStageId] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<MatchStatusFilter>('all');
-
-  // Modales de selección
-  const [showStageModal, setShowStageModal] = useState(false);
-  const [showStatusModal, setShowStatusModal] = useState(false);
-
   const fetchData = useCallback(
     async (isPullRefresh = false) => {
       try {
@@ -65,7 +64,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           pb.collection('users').getOne(leagueId).catch(() => null),
           pb.collection('league_stages').getFullList({
             filter: `league = "${leagueId}"`,
-            sort: 'created',
+            sort: 'order,created',
           }).catch(() => []),
           pb.collection('league_teams').getFullList({
             filter: `league = "${leagueId}"`,
@@ -214,23 +213,19 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       const summary = summarizeEvents(events);
       if (!summary.halfStarted[1]) return;
 
-      let statusLabel: string;
-      if (summary.halfEnded[1] && !summary.halfStarted[2]) {
-        statusLabel = 'Entretiempo';
-      } else {
-        const { elapsedMs, running } = computeLiveElapsedMs(events, now);
-        const minute = Math.floor(elapsedMs / 60000);
-        statusLabel = `${running ? '' : 'Pausado · '}${summary.currentHalf}° T · ${minute}'`;
-      }
+      const { elapsedMs, running } = computeLiveElapsedMs(events, now);
+      const { minuteLabel, isHalftime } = computeLiveStatus(summary, elapsedMs, running);
 
-      map[m.id] = { scoreA: summary.scoreA, scoreB: summary.scoreB, statusLabel };
+      map[m.id] = { scoreA: summary.scoreA, scoreB: summary.scoreB, running, isHalftime, minuteLabel };
     });
     return map;
   }, [matches, reports, now]);
 
-  // Partidos filtrados y ordenados: primero en vivo, luego pendientes, luego jugados
-  // (cancelados/suspendidos al final) — dentro de cada grupo, del más nuevo al más
-  // viejo (el fetch ya trae `-created`, y el sort de JS es estable).
+  // Orden: 1º estado del partido (en vivo, luego pendientes, luego jugados, cancelados/
+  // suspendidos al final), 2º fecha del bloque — del más cercano a hoy al más lejano.
+  // Para pendientes eso es el próximo primero (ascendente); para jugados, el más
+  // reciente primero (ya que "cercano a hoy" hacia atrás es descendente) — una sola
+  // regla de "distancia a ahora" cubre ambos casos sin tener que tratarlos aparte.
   const matchPriority = useCallback(
     (m: LeagueMatchRowData) => {
       if (liveInfoByMatch[m.id]) return 0;
@@ -241,68 +236,48 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     [liveInfoByMatch]
   );
 
-  const filteredMatches = useMemo(() => {
-    const filtered = matches.filter((m) => {
-      // Filtro por etapa
-      if (selectedStageId !== 'all') {
-        const matchStageId = m.expand?.stage?.id || m.stage;
-        if (matchStageId !== selectedStageId) return false;
+  // Mismo criterio de orden (estado, luego cercanía a hoy) reusado tanto para "Partidos"
+  // (todos los partidos juntos) como para el listado de cada etapa knockout dentro de
+  // "Posiciones" — son la misma noción de "orden natural de partidos", no dos reglas
+  // distintas.
+  const sortMatchesForDisplay = useCallback(
+    (list: LeagueMatchRowData[]) => {
+      const nowMs = Date.now();
+      return [...list].sort((a, b) => {
+        const priorityDiff = matchPriority(a) - matchPriority(b);
+        if (priorityDiff !== 0) return priorityDiff;
+        return Math.abs(blockCodeTimestamp(a.blockCode) - nowMs) - Math.abs(blockCodeTimestamp(b.blockCode) - nowMs);
+      });
+    },
+    [matchPriority]
+  );
+
+  // Todos los partidos, sin filtrar — primero en vivo, luego pendientes, luego jugados.
+  const filteredMatches = useMemo(() => sortMatchesForDisplay(matches), [matches, sortMatchesForDisplay]);
+
+  const stageIdOf = useCallback((m: LeagueMatchRowData) => m.expand?.stage?.id || (m as any).stage, []);
+
+  // "Posiciones" muestra TODAS las etapas, cada una con su propio encabezado — una de
+  // grupos trae su tabla de posiciones (con solo los equipos que jugaron esa etapa); una
+  // de eliminatoria directa no tiene tabla, solo su listado de partidos (mismo orden que
+  // "Partidos") y nada más.
+  const stagesWithData = useMemo(() => {
+    return stages.map((s) => {
+      const stageMatches = matches.filter((m) => stageIdOf(m) === s.id);
+      if (s.type === 'knockout') {
+        return { ...s, matches: sortMatchesForDisplay(stageMatches), teams: [] as typeof teams };
       }
-
-      // Filtro por estado
-      if (statusFilter === 'upcoming') return m.status === 'confirmed';
-      if (statusFilter === 'played') return m.status === 'played';
-
-      return true;
+      const participantIds = new Set<string>();
+      stageMatches.forEach((m) => {
+        const aId = m.expand?.teamA?.id || (m as any).teamA;
+        const bId = m.expand?.teamB?.id || (m as any).teamB;
+        if (aId) participantIds.add(aId);
+        if (bId) participantIds.add(bId);
+      });
+      const stageTeams = teams.filter((t) => participantIds.has(t.expand?.team?.id));
+      return { ...s, matches: stageMatches, teams: stageTeams };
     });
-
-    return [...filtered].sort((a, b) => matchPriority(a) - matchPriority(b));
-  }, [matches, selectedStageId, statusFilter, matchPriority]);
-
-  // "Posiciones" depende del tipo de la etapa elegida: una fase de grupos muestra la
-  // tabla de puntos (solo con los partidos — y equipos — de esa etapa); una etapa de
-  // enfrentamiento directo no tiene tabla, muestra simplemente sus partidos. Con
-  // "Todas las etapas" se arma la tabla agregada excluyendo las etapas knockout (mezclar
-  // eliminatoria con puntos de liga no tiene sentido).
-  const selectedStage = useMemo(() => stages.find((s) => s.id === selectedStageId) || null, [selectedStageId, stages]);
-  const isKnockoutSelected = selectedStage?.type === 'knockout';
-
-  const standingsMatches = useMemo(() => {
-    const stageIdOf = (m: LeagueMatchRowData) => m.expand?.stage?.id || (m as any).stage;
-    if (selectedStageId === 'all') {
-      const knockoutStageIds = new Set(stages.filter((s) => s.type === 'knockout').map((s) => s.id));
-      return matches.filter((m) => !knockoutStageIds.has(stageIdOf(m)));
-    }
-    return matches.filter((m) => stageIdOf(m) === selectedStageId);
-  }, [matches, selectedStageId, stages]);
-
-  const standingsTeams = useMemo(() => {
-    if (selectedStageId === 'all') return teams;
-    const participantIds = new Set<string>();
-    standingsMatches.forEach((m) => {
-      const aId = m.expand?.teamA?.id || (m as any).teamA;
-      const bId = m.expand?.teamB?.id || (m as any).teamB;
-      if (aId) participantIds.add(aId);
-      if (bId) participantIds.add(bId);
-    });
-    return teams.filter((t) => participantIds.has(t.expand?.team?.id));
-  }, [teams, standingsMatches, selectedStageId]);
-
-  const playedCount = useMemo(() => matches.filter((m) => m.status === 'played').length, [matches]);
-  const upcomingCount = useMemo(() => matches.filter((m) => m.status === 'confirmed').length, [matches]);
-
-  const selectedStageName = useMemo(() => {
-    if (selectedStageId === 'all') return 'Todas las etapas';
-    const found = stages.find((s) => s.id === selectedStageId);
-    return found?.name || 'Etapa';
-  }, [selectedStageId, stages]);
-
-  const selectedStatusName = useMemo(() => {
-    if (statusFilter === 'all') return 'Todos';
-    if (statusFilter === 'upcoming') return 'Por jugar';
-    if (statusFilter === 'played') return 'Finalizados';
-    return 'Todos';
-  }, [statusFilter]);
+  }, [stages, matches, teams, stageIdOf, sortMatchesForDisplay]);
 
   if (loading && !refreshing) {
     return (
@@ -363,7 +338,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           onPress={() => setActiveTab('standings')}
         >
           <Text style={[styles.tabText, activeTab === 'standings' && styles.tabTextActive]}>
-            Posiciones
+            Etapas
           </Text>
         </TouchableOpacity>
 
@@ -382,39 +357,6 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* 1. PESTAÑA: PARTIDOS (FIXTURE) */}
       {activeTab === 'matches' && (
         <View style={styles.tabContent}>
-          {/* Fila de Selectores (Etapa + Estado) */}
-          <View style={styles.selectorsRow}>
-            {/* Selector de Etapa */}
-            <TouchableOpacity
-              style={styles.selectorBtn}
-              onPress={() => setShowStageModal(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.selectorBtnContent}>
-                <Text style={styles.selectorLabel}>Etapa</Text>
-                <Text style={styles.selectorValue} numberOfLines={1}>
-                  {selectedStageName}
-                </Text>
-              </View>
-              <Feather name="chevron-down" size={14} color={theme.colors.textMuted} />
-            </TouchableOpacity>
-
-            {/* Selector de Estado */}
-            <TouchableOpacity
-              style={styles.selectorBtn}
-              onPress={() => setShowStatusModal(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.selectorBtnContent}>
-                <Text style={styles.selectorLabel}>Estado</Text>
-                <Text style={styles.selectorValue} numberOfLines={1}>
-                  {selectedStatusName}
-                </Text>
-              </View>
-              <Feather name="chevron-down" size={14} color={theme.colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-
           {/* Listado de Partidos */}
           {filteredMatches.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -428,72 +370,50 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 live={liveInfoByMatch[m.id]}
                 isLast={idx === filteredMatches.length - 1}
                 onPress={() => navigation.push('LeagueMatchDetail', { matchId: m.id })}
-                onPressTeamA={
-                  m.expand?.teamA
-                    ? () => navigation.push('UserProfile', { userId: m.expand!.teamA!.id })
-                    : undefined
-                }
-                onPressTeamB={
-                  m.expand?.teamB
-                    ? () => navigation.push('UserProfile', { userId: m.expand!.teamB!.id })
-                    : undefined
-                }
               />
             ))
           )}
         </View>
       )}
 
-      {/* 2. PESTAÑA: POSICIONES — tabla de puntos si la etapa es de grupos, o
-          simplemente los partidos si es de enfrentamiento directo (eliminatoria) */}
+      {/* 2. PESTAÑA: POSICIONES — todas las etapas, cada una con su encabezado; tabla
+          de puntos si es de grupos, o solo el listado de partidos si es eliminatoria */}
       {activeTab === 'standings' && (
         <View style={styles.tabContent}>
-          <TouchableOpacity
-            style={[styles.selectorBtn, { marginBottom: 12 }]}
-            onPress={() => setShowStageModal(true)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.selectorBtnContent}>
-              <Text style={styles.selectorLabel}>Etapa</Text>
-              <Text style={styles.selectorValue} numberOfLines={1}>
-                {selectedStageName}
-              </Text>
+          {stagesWithData.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Todavía no hay etapas.</Text>
             </View>
-            <Feather name="chevron-down" size={14} color={theme.colors.textMuted} />
-          </TouchableOpacity>
-
-          {isKnockoutSelected ? (
-            standingsMatches.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>Todavía no hay partidos en esta etapa.</Text>
-              </View>
-            ) : (
-              standingsMatches.map((m, idx) => (
-                <LeagueMatchRow
-                  key={m.id}
-                  match={m}
-                  live={liveInfoByMatch[m.id]}
-                  isLast={idx === standingsMatches.length - 1}
-                  onPress={() => navigation.push('LeagueMatchDetail', { matchId: m.id })}
-                  onPressTeamA={
-                    m.expand?.teamA
-                      ? () => navigation.push('UserProfile', { userId: m.expand!.teamA!.id })
-                      : undefined
-                  }
-                  onPressTeamB={
-                    m.expand?.teamB
-                      ? () => navigation.push('UserProfile', { userId: m.expand!.teamB!.id })
-                      : undefined
-                  }
-                />
-              ))
-            )
           ) : (
-            <LeagueStandingsTable
-              teams={standingsTeams}
-              matches={standingsMatches}
-              onPressTeam={(teamId) => navigation.push('UserProfile', { userId: teamId })}
-            />
+            stagesWithData.map((s) => (
+              <View key={s.id} style={styles.stageSection}>
+                <Text style={styles.stageSectionTitle}>{s.name}</Text>
+                {s.type === 'knockout' ? (
+                  s.matches.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                      <Text style={styles.emptyText}>Todavía no hay partidos en esta etapa.</Text>
+                    </View>
+                  ) : (
+                    s.matches.map((m, idx) => (
+                      <LeagueMatchRow
+                        key={m.id}
+                        match={m}
+                        live={liveInfoByMatch[m.id]}
+                        isLast={idx === s.matches.length - 1}
+                        hideStage
+                        onPress={() => navigation.push('LeagueMatchDetail', { matchId: m.id })}
+                      />
+                    ))
+                  )
+                ) : (
+                  <LeagueStandingsTable
+                    teams={s.teams}
+                    matches={s.matches}
+                    onPressTeam={(teamId) => navigation.push('UserProfile', { userId: teamId })}
+                  />
+                )}
+              </View>
+            ))
           )}
         </View>
       )}
@@ -599,167 +519,6 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         )}
       </View>
 
-      {/* Modal Selector de Etapa */}
-      <Modal
-        visible={showStageModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowStageModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalBackdrop}
-          activeOpacity={1}
-          onPress={() => setShowStageModal(false)}
-        >
-          <View style={styles.modalCard}>
-            <Text style={styles.modalHeaderTitle}>Filtrar por Etapa</Text>
-
-            <TouchableOpacity
-              style={[
-                styles.modalOptionRow,
-                selectedStageId === 'all' && styles.modalOptionRowActive,
-              ]}
-              onPress={() => {
-                setSelectedStageId('all');
-                setShowStageModal(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.modalOptionText,
-                  selectedStageId === 'all' && styles.modalOptionTextActive,
-                ]}
-              >
-                Todas las etapas
-              </Text>
-              {selectedStageId === 'all' && (
-                <Feather name="check" size={15} color="#000000" />
-              )}
-            </TouchableOpacity>
-
-            {stages.map((stg) => {
-              const isSelected = selectedStageId === stg.id;
-              return (
-                <TouchableOpacity
-                  key={stg.id}
-                  style={[
-                    styles.modalOptionRow,
-                    isSelected && styles.modalOptionRowActive,
-                  ]}
-                  onPress={() => {
-                    setSelectedStageId(stg.id);
-                    setShowStageModal(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.modalOptionText,
-                      isSelected && styles.modalOptionTextActive,
-                    ]}
-                  >
-                    {stg.name}
-                  </Text>
-                  {isSelected && (
-                    <Feather name="check" size={15} color="#000000" />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Modal Selector de Estado */}
-      <Modal
-        visible={showStatusModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowStatusModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalBackdrop}
-          activeOpacity={1}
-          onPress={() => setShowStatusModal(false)}
-        >
-          <View style={styles.modalCard}>
-            <Text style={styles.modalHeaderTitle}>Filtrar por Estado</Text>
-
-            <TouchableOpacity
-              style={[
-                styles.modalOptionRow,
-                statusFilter === 'all' && styles.modalOptionRowActive,
-              ]}
-              onPress={() => {
-                setStatusFilter('all');
-                setShowStatusModal(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.modalOptionText,
-                  statusFilter === 'all' && styles.modalOptionTextActive,
-                ]}
-              >
-                Todos los partidos ({matches.length})
-              </Text>
-              {statusFilter === 'all' && (
-                <Feather name="check" size={15} color="#000000" />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.modalOptionRow,
-                statusFilter === 'upcoming' && styles.modalOptionRowActive,
-              ]}
-              onPress={() => {
-                setStatusFilter('upcoming');
-                setShowStatusModal(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.modalOptionText,
-                  statusFilter === 'upcoming' && styles.modalOptionTextActive,
-                ]}
-              >
-                Por jugar ({upcomingCount})
-              </Text>
-              {statusFilter === 'upcoming' && (
-                <Feather name="check" size={15} color="#000000" />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.modalOptionRow,
-                statusFilter === 'played' && styles.modalOptionRowActive,
-              ]}
-              onPress={() => {
-                setStatusFilter('played');
-                setShowStatusModal(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.modalOptionText,
-                  statusFilter === 'played' && styles.modalOptionTextActive,
-                ]}
-              >
-                Finalizados ({playedCount})
-              </Text>
-              {statusFilter === 'played' && (
-                <Feather name="check" size={15} color="#000000" />
-              )}
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </ScrollView>
   );
 };
@@ -851,41 +610,15 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 16,
   },
-
-  // Fila de Selectores
-  selectorsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
+  stageSection: {
+    marginBottom: 24,
   },
-  selectorBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#111111',
-    borderWidth: 1,
-    borderColor: '#222222',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  selectorBtnContent: {
-    flex: 1,
-    marginRight: 6,
-  },
-  selectorLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 10,
+  stageSectionTitle: {
+    fontSize: 14,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 1,
-  },
-  selectorValue: {
     color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 10,
   },
 
   // Lista de Equipos
@@ -918,54 +651,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 12,
     marginTop: 1,
-  },
-
-  // Modales de Selección
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.lg,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 360,
-    backgroundColor: '#111111',
-    borderWidth: 1,
-    borderColor: '#262626',
-    borderRadius: 8,
-    padding: theme.spacing.md,
-  },
-  modalHeaderTitle: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '800',
-    marginBottom: 14,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222222',
-  },
-  modalOptionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 4,
-    marginBottom: 4,
-  },
-  modalOptionRowActive: {
-    backgroundColor: '#ffffff',
-  },
-  modalOptionText: {
-    color: '#cccccc',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  modalOptionTextActive: {
-    color: '#000000',
-    fontWeight: '800',
   },
 
   // Sección de Comentarios

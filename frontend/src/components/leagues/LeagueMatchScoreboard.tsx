@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { TeamCrest, matchDisplayName } from './TeamCrest';
+import { LiveMatchInfo } from './LeagueMatchRow';
 
 interface TeamData {
   id: string;
@@ -34,6 +35,7 @@ interface LeagueMatchScoreboardProps {
     avatar?: string;
   } | null;
   formattedDate: string;
+  live?: LiveMatchInfo;
   onPressTeamA?: () => void;
   onPressTeamB?: () => void;
   onPressLeague?: () => void;
@@ -44,6 +46,7 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
   match,
   referee,
   formattedDate,
+  live,
   onPressTeamA,
   onPressTeamB,
   onPressLeague,
@@ -57,13 +60,16 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
   const nameA = matchDisplayName(teamA, 'Equipo A');
   const nameB = matchDisplayName(teamB, 'Equipo B');
 
+  const isLive = !!live;
+  const isHalftime = isLive && live!.isHalftime;
+  const isPaused = isLive && !isHalftime && !live!.running;
   const isPlayed = match.status === 'played';
   const isCancelled = match.status === 'cancelled';
   const isSuspended = match.status === 'suspended';
   const isConfirmed = match.status === 'confirmed';
 
-  const scoreA = match.scoreA ?? 0;
-  const scoreB = match.scoreB ?? 0;
+  const scoreA = isLive ? live!.scoreA : match.scoreA ?? 0;
+  const scoreB = isLive ? live!.scoreB : match.scoreB ?? 0;
   const aWon = isPlayed && scoreA > scoreB;
   const bWon = isPlayed && scoreB > scoreA;
 
@@ -84,16 +90,33 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
           )}
         </View>
 
-        <Text
-          style={[
-            styles.statusText,
-            isPlayed && styles.statusPlayed,
-            isConfirmed && styles.statusConfirmed,
-            (isCancelled || isSuspended) && styles.statusCancelled,
-          ]}
-        >
-          {isPlayed ? 'FINALIZADO' : isConfirmed ? 'POR JUGAR' : isSuspended ? 'SUSPENDIDO' : 'CANCELADO'}
-        </Text>
+        <View style={styles.statusRow}>
+          {isLive && <View style={[styles.liveDot, (isPaused || isHalftime) && styles.liveDotPaused]} />}
+          <Text
+            style={[
+              styles.statusText,
+              isLive && !isPaused && !isHalftime && styles.statusLive,
+              (isPaused || isHalftime) && styles.statusPaused,
+              isPlayed && styles.statusPlayed,
+              isConfirmed && !isLive && styles.statusConfirmed,
+              (isCancelled || isSuspended) && styles.statusCancelled,
+            ]}
+          >
+            {isHalftime
+              ? 'ENTRETIEMPO'
+              : isPaused
+              ? 'PAUSADO'
+              : isLive
+              ? 'EN VIVO'
+              : isPlayed
+              ? 'FINALIZADO'
+              : isConfirmed
+              ? 'POR JUGAR'
+              : isSuspended
+              ? 'SUSPENDIDO'
+              : 'CANCELADO'}
+          </Text>
+        </View>
       </View>
 
       {/* Marcador Principal */}
@@ -115,18 +138,23 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
 
         {/* Centro: Marcador o VS */}
         <View style={styles.centerScoreSection}>
-          {isPlayed ? (
+          {isPlayed || isLive ? (
             <View style={styles.scoreRow}>
-              <Text style={[styles.scoreDigit, aWon && styles.scoreDigitWinner]}>
+              <Text style={[styles.scoreDigit, aWon && styles.scoreDigitWinner, isLive && styles.scoreDigitLive]}>
                 {scoreA}
               </Text>
               <Text style={styles.scoreSeparator}>-</Text>
-              <Text style={[styles.scoreDigit, bWon && styles.scoreDigitWinner]}>
+              <Text style={[styles.scoreDigit, bWon && styles.scoreDigitWinner, isLive && styles.scoreDigitLive]}>
                 {scoreB}
               </Text>
             </View>
           ) : (
-            <Text style={styles.vsText}>{isCancelled ? 'CANCELADO' : isSuspended ? 'SUSPENDIDO' : 'vs'}</Text>
+            <Text style={styles.vsText}>vs</Text>
+          )}
+          {isLive && !isHalftime && (
+            <Text style={styles.liveStatusLabel} numberOfLines={1}>
+              {live!.minuteLabel}
+            </Text>
           )}
         </View>
 
@@ -210,10 +238,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#f59e0b',
+  },
+  liveDotPaused: {
+    backgroundColor: '#94a3b8',
+  },
   statusText: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  statusLive: {
+    color: '#f59e0b',
+  },
+  statusPaused: {
+    color: '#94a3b8',
   },
   statusPlayed: {
     color: '#888888',
@@ -275,6 +323,16 @@ const styles = StyleSheet.create({
   },
   scoreDigitWinner: {
     color: '#ffffff',
+  },
+  scoreDigitLive: {
+    color: '#ffffff',
+  },
+  liveStatusLabel: {
+    color: '#f59e0b',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 4,
+    textTransform: 'uppercase',
   },
   scoreSeparator: {
     fontSize: 28,

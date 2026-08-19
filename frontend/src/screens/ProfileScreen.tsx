@@ -314,10 +314,11 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
               <View style={styles.orgBadge}>
                 <Text style={styles.orgBadgeText}>
                   {profileUser.subtype === 'center' ? 'Centro de Estudiantes' :
-                   profileUser.subtype === 'team' ? 'Equipo Oficial' :
+                   profileUser.subtype === 'team' ? 'Equipo' :
                    profileUser.subtype === 'community' ? 'Comunidad libre' :
                    profileUser.subtype === 'band' ? 'Banda / Grupo Musical' :
                    profileUser.subtype === 'organization' ? 'Organización' :
+                   profileUser.subtype === 'league' ? 'Liga' :
                    'Organización'}
                 </Text>
               </View>

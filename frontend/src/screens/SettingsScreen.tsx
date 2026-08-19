@@ -57,6 +57,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
       if (user.subtype === 'team') return 'Equipo';
       if (user.subtype === 'band') return 'Banda / Grupo Musical';
       if (user.subtype === 'organization') return 'Organización';
+      if (user.subtype === 'league') return 'Liga';
       return 'Organización';
     }
     return 'Estudiante';

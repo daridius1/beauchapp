@@ -170,10 +170,11 @@ routerAdd("GET", "/register-org", (e) => {
     let subtypeText = "Organización";
     const subtype = userRecord.getString("subtype");
     if (subtype === "center") subtypeText = "Centro de Estudiantes";
-    else if (subtype === "team") subtypeText = "Equipo Oficial";
+    else if (subtype === "team") subtypeText = "Equipo";
     else if (subtype === "community") subtypeText = "Comunidad libre";
     else if (subtype === "band") subtypeText = "Banda / Grupo Musical";
     else if (subtype === "organization") subtypeText = "Organización";
+    else if (subtype === "league") subtypeText = "Liga";
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -543,10 +544,11 @@ routerAdd("GET", "/admin/generate-link", (e) => {
     let subtypeOptionsHtml = "";
     const subtypeLabels = {
         "center": "Centro de Estudiantes",
-        "team": "Equipo Oficial",
+        "team": "Equipo",
         "community": "Comunidad libre",
         "band": "Banda / Grupo Musical",
-        "organization": "Organización"
+        "organization": "Organización",
+        "league": "Liga"
     };
 
     try {
@@ -565,10 +567,11 @@ routerAdd("GET", "/admin/generate-link", (e) => {
     if (!subtypeOptionsHtml) {
         subtypeOptionsHtml = `
             <option value="center">Centro de Estudiantes</option>
-            <option value="team">Equipo Oficial</option>
+            <option value="team">Equipo</option>
             <option value="community">Comunidad libre</option>
             <option value="band">Banda / Grupo Musical</option>
             <option value="organization">Organización</option>
+            <option value="league">Liga</option>
         `;
     }
 
@@ -956,7 +959,7 @@ routerAdd("POST", "/api/admin/generate-link", (e) => {
     const body = e.requestInfo().body;
     const subtype = body.subtype || "";
 
-    let validSubtypes = ["center", "team", "community", "band", "organization"];
+    let validSubtypes = ["center", "team", "community", "band", "organization", "league"];
     try {
         const usersCol = $app.findCollectionByNameOrId("users");
         const subtypeField = usersCol.fields.getByName("subtype");

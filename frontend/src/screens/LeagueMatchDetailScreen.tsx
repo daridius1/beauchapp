@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import { theme } from '../theme/theme';
 import { pb } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
-import { summarizeEvents, MatchEvent } from '../utils/matchEvents';
+import { summarizeEvents, computeLiveElapsedMs, computeLiveStatus, MatchEvent } from '../utils/matchEvents';
 import { hourLabel } from '../components/schedule/AvailabilityGrid';
 import { withMinimumDelay } from '../utils/refresh';
 import { LeagueMatchScoreboard } from '../components/leagues/LeagueMatchScoreboard';
@@ -51,7 +51,9 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
   const [match, setMatch] = useState<any>(null);
   const [approvedReport, setApprovedReport] = useState<any>(null);
   const [approvedEvents, setApprovedEvents] = useState<MatchEvent[]>([]);
+  const [reportEvents, setReportEvents] = useState<MatchEvent[]>([]);
   const [comments, setComments] = useState<any[]>([]);
+  const [now, setNow] = useState(Date.now());
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -85,18 +87,27 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
           }
 
           if (matchRecord) {
-            if (matchRecord.status === 'played') {
-              try {
-                const report = await pb.collection('match_reports').getFirstListItem(
-                  `match = "${matchId}" && status = "approved"`,
-                  { expand: 'referee' }
-                );
+            // Se pide el informe sin filtrar por status (a diferencia de antes, que solo
+            // buscaba el aprobado): mientras el partido está 'confirmed' y siendo
+            // arbitrado, el informe existe pero todavía no está aprobado, y es la única
+            // fuente para el marcador/minuto en vivo (mismo criterio que LeagueDetailScreen).
+            try {
+              const report = await pb.collection('match_reports').getFirstListItem(
+                `match = "${matchId}"`,
+                { expand: 'referee' }
+              );
+              setReportEvents(report.events || []);
+              if (matchRecord.status === 'played' && report.status === 'approved') {
                 setApprovedReport(report);
                 setApprovedEvents(report.events || []);
-              } catch (err) {
+              } else {
                 setApprovedReport(null);
                 setApprovedEvents([]);
               }
+            } catch (err) {
+              setReportEvents([]);
+              setApprovedReport(null);
+              setApprovedEvents([]);
             }
           }
         }, 400);
@@ -114,6 +125,26 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
       fetchData();
     }, [fetchData])
   );
+
+  // Solo para refrescar el minuto en vivo mostrado — no dispara ningún fetch (mismo
+  // criterio que LeagueDetailScreen).
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 20000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Estado en vivo, derivado siempre de los eventos del informe (nunca de un campo
+  // guardado suelto) — mismo criterio que `liveInfoByMatch` en LeagueDetailScreen, pero
+  // para un solo partido.
+  const liveInfo = useMemo(() => {
+    if (!match || match.status !== 'confirmed' || reportEvents.length === 0) return null;
+    const summary = summarizeEvents(reportEvents);
+    if (!summary.halfStarted[1]) return null;
+
+    const { elapsedMs, running } = computeLiveElapsedMs(reportEvents, now);
+    const { minuteLabel, isHalftime } = computeLiveStatus(summary, elapsedMs, running);
+    return { scoreA: summary.scoreA, scoreB: summary.scoreB, running, isHalftime, minuteLabel };
+  }, [match, reportEvents, now]);
 
   useEffect(() => {
     const subScroll = DeviceEventEmitter.addListener('onScrollToTop', () => {
@@ -248,11 +279,17 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
   const teamAName = matchDisplayName(teamA, 'Equipo A');
   const teamBName = matchDisplayName(teamB, 'Equipo B');
   const referee = approvedReport?.expand?.referee;
-  const summary = summarizeEvents(approvedEvents);
   const formattedDate = matchBlockLabel(match.blockCode);
 
   const isPlayed = match.status === 'played';
   const isConfirmed = match.status === 'confirmed';
+  const isLive = !!liveInfo;
+  // Mientras el partido está en vivo, los eventos vienen del informe en progreso
+  // (todavía no aprobado) — es la misma fuente que ya se usa para el marcador en vivo,
+  // así que mostrar la cronología acá no es más que reusar `reportEvents` en vez de
+  // esperar a que el informe quede aprobado.
+  const displayEvents = isPlayed ? approvedEvents : isLive ? reportEvents : [];
+  const summary = summarizeEvents(displayEvents);
 
   return (
     <ScrollView
@@ -273,6 +310,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
         match={match}
         referee={referee}
         formattedDate={formattedDate}
+        live={liveInfo || undefined}
         onPressTeamA={teamA ? () => navigation.push('UserProfile', { userId: teamA.id }) : undefined}
         onPressTeamB={teamB ? () => navigation.push('UserProfile', { userId: teamB.id }) : undefined}
         onPressLeague={
@@ -294,8 +332,9 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
         </View>
       )}
 
-      {/* Si el partido ya se jugó: Estadísticas, Cronología y Planteles en la misma vista */}
-      {isPlayed && (
+      {/* Si el partido ya se jugó (o está en vivo, con los eventos que lleve hasta
+          ahora): Estadísticas, Cronología y Planteles en la misma vista */}
+      {(isPlayed || isLive) && (
         <View style={styles.playedDetailsSection}>
           {/* Estadísticas */}
           <Text style={styles.sectionHeader}>Estadísticas</Text>
@@ -303,7 +342,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
 
           {/* Cronología */}
           <Text style={styles.sectionHeader}>Cronología</Text>
-          <LeagueMatchTimeline events={approvedEvents} teamAName={teamAName} teamBName={teamBName} />
+          <LeagueMatchTimeline events={displayEvents} teamAName={teamAName} teamBName={teamBName} />
 
           {/* Planteles */}
           <Text style={styles.sectionHeader}>Planteles</Text>
@@ -312,10 +351,10 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
             lineupB={summary.lineupB}
             teamAName={teamAName}
             teamBName={teamBName}
-            events={approvedEvents}
+            events={displayEvents}
           />
 
-          {!!approvedReport?.notes && (
+          {isPlayed && !!approvedReport?.notes && (
             <>
               <Text style={styles.sectionHeader}>Informe del árbitro</Text>
               <Text style={styles.refereeNotesText}>{approvedReport.notes}</Text>

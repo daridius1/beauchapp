@@ -114,9 +114,9 @@ test("computePairEdge: elige el bloque de menor diferencia, empate resuelto por 
 test("suggestByeTeam elige al equipo con menos bloques bien calificados (Buena/Excelente)", () => {
     const teams = ["A", "B", "C"];
     const happinessByTeam = {
-        A: { "2026-08-17-09": 1, "2026-08-17-10": 2 }, // 0 bloques >= 3
-        B: { "2026-08-17-09": 1, "2026-08-17-10": 2, "2026-08-17-11": 3 }, // 1 bloque >= 3
-        C: { "2026-08-17-09": 1, "2026-08-17-10": 2, "2026-08-17-11": 3, "2026-08-17-12": 4 }, // 2 bloques >= 3
+        A: { "2026-08-17-09": 1, "2026-08-17-10": 2 }, // 0 bloques >= 4
+        B: { "2026-08-17-09": 1, "2026-08-17-10": 2, "2026-08-17-11": 4 }, // 1 bloque >= 4
+        C: { "2026-08-17-09": 1, "2026-08-17-10": 2, "2026-08-17-11": 4, "2026-08-17-12": 5 }, // 2 bloques >= 4
     };
     assert.equal(suggestByeTeam(teams, happinessByTeam), "A");
 });

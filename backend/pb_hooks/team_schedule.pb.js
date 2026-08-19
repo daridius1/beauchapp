@@ -42,8 +42,8 @@ const validateAvailabilitySubmission = (e) => {
         );
     }
     for (const v of Object.values(happiness)) {
-        if (!Number.isInteger(v) || v < 1 || v > 4) {
-            throw new BadRequestError("Cada calificación debe ser un número entero entre 1 (muy mala) y 4 (excelente).");
+        if (!Number.isInteger(v) || v < 1 || v > 5) {
+            throw new BadRequestError("Cada calificación debe ser un número entero entre 1 (muy mala) y 5 (excelente).");
         }
     }
 
@@ -132,9 +132,14 @@ routerAdd("GET", "/admin/horarios", (e) => {
         #logoutBar { text-align: right; margin-bottom: 16px; }
         .week-block { margin-bottom: 18px; }
         .week-label { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
-        .grid-table { border-collapse: collapse; font-size: 10px; }
+        /* width:100% + table-layout:fixed (no ancho intrínseco por contenido) es lo que
+           garantiza que las 3 tablas de semana ocupen todo el ancho disponible y queden
+           exactamente del mismo tamaño entre sí, sin importar que el texto de fechas de
+           cada semana tenga largos distintos (ej. "9" vs "31"). */
+        .grid-table { border-collapse: collapse; font-size: 10px; width: 100%; table-layout: fixed; }
         .grid-table th, .grid-table td { border: 1px solid var(--border-color); padding: 0; text-align: center; }
         .grid-table th { color: var(--text-muted); font-weight: 600; padding: 2px 4px; }
+        .grid-table th:first-child, .grid-table td:first-child { width: 44px; }
         /* width:100% (no un width fijo) para que la celda llene su <td> entero — con un
            ancho fijo más chico que la columna (la cabecera de fecha suele ser más ancha)
            quedaba un espacio vacío a la derecha de cada casilla. */

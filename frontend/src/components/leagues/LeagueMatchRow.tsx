@@ -30,16 +30,21 @@ export interface LeagueMatchRowData {
 export interface LiveMatchInfo {
   scoreA: number;
   scoreB: number;
-  statusLabel: string;
+  running: boolean;
+  isHalftime: boolean;
+  // Lectura de minuto+tiempo ("35' · 1T") — vacía durante el entretiempo.
+  minuteLabel: string;
 }
 
 interface LeagueMatchRowProps {
   match: LeagueMatchRowData;
   live?: LiveMatchInfo;
   onPress: () => void;
-  onPressTeamA?: () => void;
-  onPressTeamB?: () => void;
   isLast?: boolean;
+  // La pestaña "Etapas" ya muestra el nombre de la etapa como encabezado de la sección
+  // — repetirlo en cada tarjeta ahí es redundante, a diferencia de "Partidos" donde
+  // varias etapas se mezclan en una sola lista y sí hace falta distinguirlas.
+  hideStage?: boolean;
 }
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -58,9 +63,8 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
   match,
   live,
   onPress,
-  onPressTeamA,
-  onPressTeamB,
   isLast = false,
+  hideStage = false,
 }) => {
   const teamA = match.expand?.teamA;
   const teamB = match.expand?.teamB;
@@ -70,6 +74,8 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
   const nameB = matchDisplayName(teamB, 'Equipo B');
 
   const isLive = !!live;
+  const isHalftime = isLive && live!.isHalftime;
+  const isPaused = isLive && !isHalftime && !live!.running;
   const isPlayed = match.status === 'played';
   const isConfirmed = match.status === 'confirmed';
   const isCancelled = match.status === 'cancelled';
@@ -89,22 +95,27 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
       {/* Metadatos superiores: Etapa, Fecha/Hora y Estado */}
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          {!!stage?.name && <Text style={styles.stageName}>{stage.name} · </Text>}
+          {!hideStage && !!stage?.name && <Text style={styles.stageName}>{stage.name} · </Text>}
           <Text style={styles.dateTimeText}>{formatBlockCode(match.blockCode)}</Text>
         </View>
 
         <View style={styles.statusRow}>
-          {isLive && <View style={styles.liveDot} />}
+          {isLive && <View style={[styles.liveDot, (isPaused || isHalftime) && styles.liveDotPaused]} />}
           <Text
             style={[
               styles.statusText,
-              isLive && styles.statusLive,
+              isLive && !isPaused && !isHalftime && styles.statusLive,
+              (isPaused || isHalftime) && styles.statusPaused,
               isPlayed && styles.statusPlayed,
               isConfirmed && !isLive && styles.statusConfirmed,
               (isCancelled || isSuspended) && styles.statusCancelled,
             ]}
           >
-            {isLive
+            {isHalftime
+              ? 'ENTRETIEMPO'
+              : isPaused
+              ? 'PAUSADO'
+              : isLive
               ? 'EN VIVO'
               : isPlayed
               ? 'FINALIZADO'
@@ -120,12 +131,7 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
       {/* Fila principal del Marcador (3 Columnas) */}
       <View style={styles.matchBody}>
         {/* Equipo A */}
-        <TouchableOpacity
-          style={styles.teamColLeft}
-          onPress={onPressTeamA}
-          activeOpacity={0.7}
-          disabled={!onPressTeamA}
-        >
+        <View style={styles.teamColLeft}>
           <Text
             style={[styles.teamNameLeft, aWon && styles.teamNameWinner]}
             numberOfLines={1}
@@ -133,7 +139,7 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
             {nameA}
           </Text>
           <TeamCrest team={teamA ? { ...teamA, collectionId: 'users' } : { name: nameA }} size={32} />
-        </TouchableOpacity>
+        </View>
 
         {/* Marcador Central / VS */}
         <View style={styles.centerCol}>
@@ -148,22 +154,17 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
               </Text>
             </View>
           ) : (
-            <Text style={styles.vsText}>{isCancelled ? 'CANCELADO' : isSuspended ? 'SUSPENDIDO' : 'vs'}</Text>
+            <Text style={styles.vsText}>vs</Text>
           )}
-          {isLive && (
+          {isLive && !isHalftime && (
             <Text style={styles.liveStatusLabel} numberOfLines={1}>
-              {live!.statusLabel}
+              {live!.minuteLabel}
             </Text>
           )}
         </View>
 
         {/* Equipo B */}
-        <TouchableOpacity
-          style={styles.teamColRight}
-          onPress={onPressTeamB}
-          activeOpacity={0.7}
-          disabled={!onPressTeamB}
-        >
+        <View style={styles.teamColRight}>
           <TeamCrest team={teamB ? { ...teamB, collectionId: 'users' } : { name: nameB }} size={32} />
           <Text
             style={[styles.teamNameRight, bWon && styles.teamNameWinner]}
@@ -171,7 +172,7 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
           >
             {nameB}
           </Text>
-        </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -218,7 +219,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#ef4444',
+    backgroundColor: '#f59e0b',
+  },
+  liveDotPaused: {
+    backgroundColor: '#94a3b8',
   },
   statusText: {
     fontSize: 10,
@@ -226,7 +230,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   statusLive: {
-    color: '#ef4444',
+    color: '#f59e0b',
+  },
+  statusPaused: {
+    color: '#94a3b8',
   },
   statusPlayed: {
     color: '#888888',
@@ -302,7 +309,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   liveStatusLabel: {
-    color: '#ef4444',
+    color: '#f59e0b',
     fontSize: 9,
     fontWeight: '700',
     marginTop: 2,

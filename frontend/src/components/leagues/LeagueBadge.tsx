@@ -44,37 +44,57 @@ export const LeagueBadge: React.FC<LeagueBadgeProps> = ({ type, size = 'sm' }) =
   const isSm = size === 'sm';
   const iconSize = isSm ? 14 : 17;
 
+  let content: React.ReactNode;
   switch (type) {
     case 'goal':
       // Gol regular: Balón de fútbol blanco
-      return <MaterialCommunityIcons name="soccer" size={iconSize} color="#ffffff" />;
+      content = <MaterialCommunityIcons name="soccer" size={iconSize} color="#ffffff" />;
+      break;
 
     case 'own_goal':
       // Autogol: Balón de fútbol rojo
-      return <MaterialCommunityIcons name="soccer" size={iconSize} color="#ef4444" />;
+      content = <MaterialCommunityIcons name="soccer" size={iconSize} color="#ef4444" />;
+      break;
 
     case 'penalty_scored':
       // Penal anotado: Arco de fútbol verde
-      return <SoccerGoalIcon size={iconSize} color="#22c55e" />;
+      content = <SoccerGoalIcon size={iconSize} color="#22c55e" />;
+      break;
 
     case 'penalty_missed':
       // Penal fallado: Arco de fútbol rojo
-      return <SoccerGoalIcon size={iconSize} color="#ef4444" />;
+      content = <SoccerGoalIcon size={iconSize} color="#ef4444" />;
+      break;
 
     case 'yellow_card':
       // Tarjeta amarilla: Rectángulo amarillo
-      return <View style={[styles.cardYellow, isSm ? styles.cardSm : styles.cardMd]} />;
+      content = <View style={[styles.cardYellow, isSm ? styles.cardSm : styles.cardMd]} />;
+      break;
 
     case 'red_card':
       // Tarjeta roja: Rectángulo rojo
-      return <View style={[styles.cardRed, isSm ? styles.cardSm : styles.cardMd]} />;
+      content = <View style={[styles.cardRed, isSm ? styles.cardSm : styles.cardMd]} />;
+      break;
 
     default:
       return null;
   }
+
+  // Slot cuadrado común (mismo ancho y alto para todos los tipos) — sin esto, el balón/
+  // arco (cuadrados de iconSize) y la tarjeta (rectángulo angosto de cardSm/cardMd)
+  // ocupaban espacios distintos y quedaban desalineados entre sí en la cronología.
+  return (
+    <View style={[styles.badgeSlot, { width: iconSize, height: iconSize }]}>
+      {content}
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
+  badgeSlot: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cardYellow: {
     backgroundColor: '#eab308',
     borderColor: '#ca8a04',

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
@@ -10,25 +10,35 @@ const WEEKS_WINDOW = 3;
 const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie']; // sin sábado ni domingo
 const MONTH_LABELS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
-// Nivel 1 (peor) a 4 (mejor) — no existe un valor especial de "no disponible", una
+// Nivel 1 (peor) a 5 (mejor) — no existe un valor especial de "no disponible", una
 // disponibilidad muy mala es simplemente el extremo inferior de esta misma escala.
-export const LEVEL_LABELS: Record<number, string> = { 1: 'Mala', 2: 'Regular', 3: 'Buena', 4: 'Excelente' };
-export const MIN_LEVEL = 1;
-export const MAX_LEVEL = 4;
-
-// Gradiente rojo -> ámbar -> lima -> verde, más explicativo que la opacidad monocroma
-// anterior: el color solo comunica qué tan buena es la disponibilidad de un vistazo.
-const LEVEL_COLORS: Record<number, string> = {
-  1: '#ef4444',
-  2: '#f59e0b',
-  3: '#a3e635',
-  4: '#22c55e',
+export const LEVEL_LABELS: Record<number, string> = {
+  1: 'Muy mala',
+  2: 'Mala',
+  3: 'Regular',
+  4: 'Buena',
+  5: 'Excelente',
 };
-const LEVEL_TEXT_COLORS: Record<number, string> = {
+export const MIN_LEVEL = 1;
+export const MAX_LEVEL = 5;
+
+// Gradiente rojo -> naranjo -> ámbar -> lima -> verde, más explicativo que la opacidad
+// monocroma anterior: el color solo comunica qué tan buena es la disponibilidad de un
+// vistazo. Exportados porque el modal de equipo (TeamScheduleScreen) los reusa para que
+// cada opción de nota se vea con su color real, no solo un genérico "seleccionado".
+export const LEVEL_COLORS: Record<number, string> = {
+  1: '#ef4444',
+  2: '#f97316',
+  3: '#f59e0b',
+  4: '#a3e635',
+  5: '#22c55e',
+};
+export const LEVEL_TEXT_COLORS: Record<number, string> = {
   1: '#ffffff',
   2: '#000000',
   3: '#000000',
   4: '#000000',
+  5: '#000000',
 };
 
 const BLOCKED_BG = '#26262a';
@@ -128,7 +138,7 @@ export function canPlay(level: number): boolean {
 
 // Explicación de qué significa cada color — pensado para mostrarse ANTES de la
 // grilla, no como referencia al final. En modo binario solo hay Puede/No puede (sin
-// la escala fina de 4 niveles, que no aplica a disponibilidad individual).
+// la escala fina de 5 niveles, que no aplica a disponibilidad individual).
 export const ScheduleLegend: React.FC<{ binary?: boolean }> = ({ binary }) => (
   <View style={styles.legend}>
     {binary ? (
@@ -143,7 +153,7 @@ export const ScheduleLegend: React.FC<{ binary?: boolean }> = ({ binary }) => (
         </View>
       </>
     ) : (
-      ([1, 2, 3, 4] as const).map((level) => (
+      ([1, 2, 3, 4, 5] as const).map((level) => (
         <View key={level} style={styles.legendItem}>
           <View style={[styles.legendSwatch, { backgroundColor: LEVEL_COLORS[level] }]} />
           <Text style={styles.legendText}>{LEVEL_LABELS[level]}</Text>
@@ -177,80 +187,93 @@ interface AvailabilityGridProps {
   binary?: boolean;
 }
 
-// Calendario de 3 semanas (la actual + 2), cada una como una tabla de 5 días (lun-vie)
-// x 11 horas (9 a 19). Tocar una celda avanza al siguiente nivel (1..4, cíclico, o
-// Puede/No puede si `binary`); los bloques que el admin cerró (blockedBlocks) o que ya
-// tienen un partido asignado (occupiedBlocks) se muestran aparte y no son tocables.
+// Calendario de N semanas, pero mostradas de a una: primero se elige la semana (tabs
+// arriba) y recién ahí se ve/edita su tabla de 5 días (lun-vie) x 11 horas (9 a 19).
+// Mostrarlas todas apiladas a la vez (como era antes) hacía la pantalla larguísima y
+// mezclaba semanas que en la práctica se llenan una por una. Tocar una celda avanza al
+// siguiente nivel (1..4, cíclico, o Puede/No puede si `binary`); los bloques que el
+// admin cerró (blockedBlocks) o que ya tienen un partido asignado (occupiedBlocks) se
+// muestran aparte y no son tocables.
 export const AvailabilityGrid: React.FC<AvailabilityGridProps> = ({ values, onChange, blockedBlocks, occupiedBlocks, disabled, binary }) => {
   const weeks = getScheduleWindow();
+  const [selectedWeek, setSelectedWeek] = useState(0);
+  const week = weeks[Math.min(selectedWeek, weeks.length - 1)];
 
   return (
     <View>
-      {weeks.map((week) => (
-        <View key={week.label} style={styles.weekBlock}>
-          <Text style={styles.weekLabel}>Semana del {week.label}</Text>
-          <View style={styles.row}>
-            <View style={styles.hourLabelCell} />
-            {week.days.map((day) => (
-              <View key={day.dateStr} style={styles.dayHeaderCell}>
-                <Text style={styles.dayHeaderText}>{day.dayLabel}</Text>
-                <Text style={styles.dayHeaderDate}>{day.dayOfMonth}</Text>
-              </View>
-            ))}
-          </View>
+      <View style={styles.weekTabs}>
+        {weeks.map((w, i) => (
+          <TouchableOpacity
+            key={w.label}
+            style={[styles.weekTab, i === selectedWeek && styles.weekTabActive]}
+            activeOpacity={0.7}
+            onPress={() => setSelectedWeek(i)}
+          >
+            <Text style={[styles.weekTabText, i === selectedWeek && styles.weekTabTextActive]}>{w.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-          {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i).map((hour) => (
-            <View key={hour} style={styles.row}>
-              <View style={styles.hourLabelCell}>
-                <Text style={styles.hourLabelText}>{hourLabel(hour)}</Text>
-              </View>
-              {week.days.map((day) => {
-                const block = blockCode(day.dateStr, hour);
-                if (blockedBlocks?.has(block)) {
-                  return (
-                    <View key={block} style={[styles.cell, { backgroundColor: BLOCKED_BG }]}>
-                      <Feather name="slash" size={10} color={theme.colors.textMuted} />
-                    </View>
-                  );
-                }
-                if (occupiedBlocks?.has(block)) {
-                  return (
-                    <View key={block} style={[styles.cell, { backgroundColor: OCCUPIED_BG }]}>
-                      <Feather name="lock" size={10} color={theme.colors.textMuted} />
-                    </View>
-                  );
-                }
-                const level = values[block] ?? MIN_LEVEL;
-                if (binary) {
-                  const available = canPlay(level);
-                  const color = available ? LEVEL_COLORS[MAX_LEVEL] : LEVEL_COLORS[MIN_LEVEL];
-                  const textColor = available ? LEVEL_TEXT_COLORS[MAX_LEVEL] : LEVEL_TEXT_COLORS[MIN_LEVEL];
-                  return (
-                    <TouchableOpacity
-                      key={block}
-                      style={[styles.cell, { backgroundColor: color }]}
-                      activeOpacity={0.7}
-                      disabled={disabled}
-                      onPress={() => onChange(block, available ? MIN_LEVEL : MAX_LEVEL)}
-                    >
-                      <Feather name={available ? 'check' : 'x'} size={11} color={textColor} />
-                    </TouchableOpacity>
-                  );
-                }
-                return (
-                  <TouchableOpacity
-                    key={block}
-                    style={[styles.cell, { backgroundColor: LEVEL_COLORS[level] }]}
-                    activeOpacity={0.7}
-                    disabled={disabled}
-                    onPress={() => onChange(block, level >= MAX_LEVEL ? MIN_LEVEL : level + 1)}
-                  >
-                    <Text style={[styles.cellText, { color: LEVEL_TEXT_COLORS[level] }]}>{level}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ))}
+      <View style={styles.row}>
+        <View style={styles.hourLabelCell} />
+        {week.days.map((day) => (
+          <View key={day.dateStr} style={styles.dayHeaderCell}>
+            <Text style={styles.dayHeaderText}>{day.dayLabel}</Text>
+            <Text style={styles.dayHeaderDate}>{day.dayOfMonth}</Text>
+          </View>
+        ))}
+      </View>
+
+      {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i).map((hour) => (
+        <View key={hour} style={styles.row}>
+          <View style={styles.hourLabelCell}>
+            <Text style={styles.hourLabelText}>{hourLabel(hour)}</Text>
+          </View>
+          {week.days.map((day) => {
+            const block = blockCode(day.dateStr, hour);
+            if (blockedBlocks?.has(block)) {
+              return (
+                <View key={block} style={[styles.cell, { backgroundColor: BLOCKED_BG }]}>
+                  <Feather name="slash" size={10} color={theme.colors.textMuted} />
+                </View>
+              );
+            }
+            if (occupiedBlocks?.has(block)) {
+              return (
+                <View key={block} style={[styles.cell, { backgroundColor: OCCUPIED_BG }]}>
+                  <Feather name="lock" size={10} color={theme.colors.textMuted} />
+                </View>
+              );
+            }
+            const level = values[block] ?? MIN_LEVEL;
+            if (binary) {
+              const available = canPlay(level);
+              const color = available ? LEVEL_COLORS[MAX_LEVEL] : LEVEL_COLORS[MIN_LEVEL];
+              const textColor = available ? LEVEL_TEXT_COLORS[MAX_LEVEL] : LEVEL_TEXT_COLORS[MIN_LEVEL];
+              return (
+                <TouchableOpacity
+                  key={block}
+                  style={[styles.cell, { backgroundColor: color }]}
+                  activeOpacity={0.7}
+                  disabled={disabled}
+                  onPress={() => onChange(block, available ? MIN_LEVEL : MAX_LEVEL)}
+                >
+                  <Feather name={available ? 'check' : 'x'} size={11} color={textColor} />
+                </TouchableOpacity>
+              );
+            }
+            return (
+              <TouchableOpacity
+                key={block}
+                style={[styles.cell, { backgroundColor: LEVEL_COLORS[level] }]}
+                activeOpacity={0.7}
+                disabled={disabled}
+                onPress={() => onChange(block, level >= MAX_LEVEL ? MIN_LEVEL : level + 1)}
+              >
+                <Text style={[styles.cellText, { color: LEVEL_TEXT_COLORS[level] }]}>{level}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       ))}
     </View>
@@ -258,14 +281,33 @@ export const AvailabilityGrid: React.FC<AvailabilityGridProps> = ({ values, onCh
 };
 
 const styles = StyleSheet.create({
-  weekBlock: {
-    marginBottom: 18,
+  weekTabs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 14,
   },
-  weekLabel: {
-    color: theme.colors.text,
-    fontSize: 13,
+  weekTab: {
+    flexGrow: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+  },
+  weekTabActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  weekTabText: {
+    color: theme.colors.textMuted,
+    fontSize: 11,
     fontWeight: '700',
-    marginBottom: 6,
+    textAlign: 'center',
+  },
+  weekTabTextActive: {
+    color: '#000000',
   },
   row: {
     flexDirection: 'row',

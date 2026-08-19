@@ -154,6 +154,39 @@ export function computeLiveElapsedMs(events: MatchEvent[], now: number): { elaps
   return { elapsedMs: liveElapsedMs, running, half };
 }
 
+// Duración reglamentaria de cada tiempo, en minutos — pasado esto se muestra como
+// tiempo agregado (ej. "20+4'") en vez de seguir contando de corrido (ej. "24'"), igual
+// que el fútbol real. Puramente de presentación, no afecta el cronómetro real (que sigue
+// corriendo sin tope en `computeLiveElapsedMs`).
+const REGULATION_MINUTES = 20;
+
+function formatLiveMinute(elapsedMs: number): string {
+  const minute = Math.floor(elapsedMs / 60000);
+  if (minute > REGULATION_MINUTES) return `${REGULATION_MINUTES}+${minute - REGULATION_MINUTES}'`;
+  return `${minute}'`;
+}
+
+export interface LiveStatus {
+  // Lectura de minuto+tiempo ("35' · 1T") — solo tiene sentido cuando el reloj no está
+  // en entretiempo, así que queda vacía en ese caso (el estado "Entretiempo" se muestra
+  // aparte, arriba, no mezclado en esta misma línea).
+  minuteLabel: string;
+  running: boolean;
+  isHalftime: boolean;
+}
+
+// Estado en vivo mostrado en las tarjetas/marcador — separado en piezas (no un solo
+// string armado) para que quien lo consuma decida DÓNDE mostrar cada cosa: el estado
+// (pausado/entretiempo) va arriba junto al resto de badges de estado (FINALIZADO,
+// CANCELADO, etc.), el minuto+tiempo va abajo junto al marcador, nunca mezclados en la
+// misma línea. Centralizado acá porque LeagueDetailScreen (lista) y
+// LeagueMatchDetailScreen (partido individual) necesitan exactamente el mismo cálculo.
+export function computeLiveStatus(summary: MatchSummary, elapsedMs: number, running: boolean): LiveStatus {
+  const isHalftime = summary.halfEnded[1] && !summary.halfStarted[2];
+  if (isHalftime) return { minuteLabel: '', running, isHalftime: true };
+  return { minuteLabel: `${formatLiveMinute(elapsedMs)} · ${summary.currentHalf}T`, running, isHalftime: false };
+}
+
 export interface AnnotatedEvent {
   event: MatchEvent;
   index: number;
