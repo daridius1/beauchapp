@@ -71,7 +71,7 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
       const [blockedRes, horarioMatchesRes, leagueMatchesRes] = await Promise.all([
         pb.collection('horario_blocked_slots').getFullList({ batch: 500 }),
         pb.collection('horario_matches').getFullList({ batch: 500, filter: 'status = "confirmed"' }),
-        pb.collection('league_matches').getFullList({ batch: 500, filter: 'status = "confirmed" || status = "played"' }),
+        pb.collection('league_matches').getFullList({ batch: 500, filter: '(status = "confirmed" || status = "played") && deleted = false' }),
       ]);
       const blockedSet = new Set<string>(
         blockedRes.map((r: any) => r.blockCode as string).filter((b: string) => windowSet.has(b))

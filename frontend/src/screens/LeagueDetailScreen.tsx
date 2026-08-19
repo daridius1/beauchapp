@@ -63,23 +63,23 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         const [userRes, stagesRes, teamsRes, matchesRes, reportsRes, commentsRes] = await Promise.all([
           pb.collection('users').getOne(leagueId).catch(() => null),
           pb.collection('league_stages').getFullList({
-            filter: `league = "${leagueId}"`,
+            filter: `league = "${leagueId}" && deleted = false`,
             sort: 'order,created',
           }).catch(() => []),
           pb.collection('league_teams').getFullList({
-            filter: `league = "${leagueId}"`,
+            filter: `league = "${leagueId}" && deleted = false`,
             expand: 'team',
             sort: 'created',
           }).catch(() => []),
           pb.collection('league_matches').getList(1, 200, {
-            filter: `league = "${leagueId}"`,
+            filter: `league = "${leagueId}" && deleted = false`,
             sort: '-created',
             expand: 'teamA,teamB,stage',
           }).catch(() => ({ items: [] })),
           // Estado en vivo de partidos siendo arbitrados ahora mismo — lectura pública
           // para cualquier autenticado (el código solo protege ESCRIBIR, no mirar).
           pb.collection('match_reports').getFullList({
-            filter: `match.league = "${leagueId}"`,
+            filter: `match.league = "${leagueId}" && deleted = false`,
           }).catch(() => []),
           pb.collection('posts').getList(1, 50, {
             filter: `targetType = "league" && targetId = "${leagueId}" && actionType = "comment" && deleted = false`,
@@ -409,7 +409,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   <LeagueStandingsTable
                     teams={s.teams}
                     matches={s.matches}
-                    onPressTeam={(teamId) => navigation.push('UserProfile', { userId: teamId })}
+                    onPressTeam={(teamId) => navigation.push('TeamProfile', { teamId })}
                   />
                 )}
               </View>
@@ -437,7 +437,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   style={[styles.teamItemRow, isLast && styles.teamItemRowLast]}
                   onPress={() => {
                     if (team?.id) {
-                      navigation.push('UserProfile', { userId: team.id });
+                      navigation.push('TeamProfile', { teamId: team.id });
                     }
                   }}
                   activeOpacity={0.7}

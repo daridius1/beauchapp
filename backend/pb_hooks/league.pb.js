@@ -576,7 +576,7 @@ routerAdd("GET", "/api/liga/roster", (e) => {
             throw new BadRequestError("Esta cuenta no es una liga.");
         }
         const allTeams = $app.findRecordsByFilter("users", "type = 'organization' && subtype = 'team'", "name", 500, 0);
-        const myRows = $app.findRecordsByFilter("league_teams", "league = {:league}", "", 0, 0, { league: e.auth.id });
+        const myRows = $app.findRecordsByFilter("league_teams", "league = {:league} && deleted = false", "", 0, 0, { league: e.auth.id });
         return e.json(200, {
             allTeams: allTeams.map((t) => ({ id: t.id, name: t.getString("name"), username: t.getString("username") })),
             myTeamIds: myRows.map((r) => r.getString("team")),
@@ -606,6 +606,9 @@ routerAdd("POST", "/api/liga/roster/toggle", (e) => {
             throw new BadRequestError("Esa cuenta no es un equipo.");
         }
 
+        // Sin filtrar por `deleted` acá a propósito: hace falta encontrar la fila aunque
+        // esté soft-borrada, para reactivarla en vez de chocar con el índice único
+        // (league, team) al intentar crear una nueva.
         let existing = null;
         try {
             existing = $app.findFirstRecordByFilter(
@@ -618,8 +621,10 @@ routerAdd("POST", "/api/liga/roster/toggle", (e) => {
         }
 
         if (existing) {
-            $app.delete(existing);
-            return e.json(200, { inRoster: false });
+            const wasDeleted = existing.getBool("deleted");
+            existing.set("deleted", !wasDeleted);
+            $app.save(existing);
+            return e.json(200, { inRoster: wasDeleted });
         }
 
         const coll = $app.findCollectionByNameOrId("league_teams");
@@ -641,7 +646,7 @@ routerAdd("GET", "/api/liga/stages", (e) => {
         }
         // Orden explícito (`order`), no de creación — es el mismo orden que ve cualquiera
         // en la vista de la liga, y el que /admin/liga deja subir/bajar con las flechas.
-        const stages = $app.findRecordsByFilter("league_stages", "league = {:league}", "order,created", 0, 0, { league: e.auth.id });
+        const stages = $app.findRecordsByFilter("league_stages", "league = {:league} && deleted = false", "order,created", 0, 0, { league: e.auth.id });
         return e.json(200, {
             stages: stages.map((s) => ({ id: s.id, name: s.getString("name"), type: s.getString("type"), order: s.getInt("order") })),
         });
@@ -664,8 +669,9 @@ routerAdd("POST", "/api/liga/stages/create", (e) => {
             throw new BadRequestError("El tipo de etapa debe ser 'groups' o 'knockout'.");
         }
 
-        // Etapa nueva siempre al final del orden actual.
-        const existing = $app.findRecordsByFilter("league_stages", "league = {:league}", "", 0, 0, { league: e.auth.id });
+        // Etapa nueva siempre al final del orden actual (sin contar las soft-borradas,
+        // para que no dejen un hueco en el orden visible).
+        const existing = $app.findRecordsByFilter("league_stages", "league = {:league} && deleted = false", "", 0, 0, { league: e.auth.id });
 
         const coll = $app.findCollectionByNameOrId("league_stages");
         const record = new Record(coll);
@@ -728,7 +734,7 @@ routerAdd("POST", "/api/liga/stages/reorder", (e) => {
         // Se recalcula el orden actual completo (no se confía en el `order` guardado
         // aislado) para encontrar cuál es el vecino real a intercambiar, igual que hace
         // GET /api/liga/stages para mostrarlas.
-        const stages = $app.findRecordsByFilter("league_stages", "league = {:league}", "order,created", 0, 0, { league: e.auth.id });
+        const stages = $app.findRecordsByFilter("league_stages", "league = {:league} && deleted = false", "order,created", 0, 0, { league: e.auth.id });
         const idx = stages.findIndex((s) => s.id === stageId);
         if (idx === -1) throw new BadRequestError("Esa etapa no pertenece a tu liga.");
 
@@ -786,13 +792,13 @@ routerAdd("GET", "/api/liga/matches", (e) => {
         // con $app, como esta, lo incluya explícitamente en su propia respuesta.
         function reportStatusFor(matchId) {
             try {
-                return $app.findFirstRecordByFilter("match_reports", "match = {:match}", { match: matchId }).getString("status");
+                return $app.findFirstRecordByFilter("match_reports", "match = {:match} && deleted = false", { match: matchId }).getString("status");
             } catch (err) {
                 return null;
             }
         }
 
-        const matches = $app.findRecordsByFilter("league_matches", "stage = {:stage}", "-created", 0, 0, { stage: stageId });
+        const matches = $app.findRecordsByFilter("league_matches", "stage = {:stage} && deleted = false", "-created", 0, 0, { stage: stageId });
         return e.json(200, {
             matches: matches.map((m) => ({
                 id: m.id,
@@ -920,7 +926,7 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
 
         const rosterRows = $app.findRecordsByFilter(
             "league_teams",
-            "league = {:league}",
+            "league = {:league} && deleted = false",
             "",
             0,
             0,
@@ -949,7 +955,7 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
                 .map((r) => r.getString("blockCode"))
                 .concat(
                     $app
-                        .findRecordsByFilter("league_matches", "status = 'confirmed' || status = 'played'", "", 0, 0)
+                        .findRecordsByFilter("league_matches", "(status = 'confirmed' || status = 'played') && deleted = false", "", 0, 0)
                         .map((r) => r.getString("blockCode"))
                 );
             return computeValidBlocks(windowBlockCodes(), [blockedCodes, occupiedCodes]);
@@ -991,7 +997,7 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
         if (avoidRematches) {
             const alreadyPlayed = $app.findRecordsByFilter(
                 "league_matches",
-                "league = {:league} && (status = 'confirmed' || status = 'played')",
+                "league = {:league} && (status = 'confirmed' || status = 'played') && deleted = false",
                 "",
                 0,
                 0,
@@ -1060,7 +1066,7 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
 
         const rosterRows = $app.findRecordsByFilter(
             "league_teams",
-            "league = {:league}",
+            "league = {:league} && deleted = false",
             "",
             0,
             0,
@@ -1081,7 +1087,7 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
             .map((r) => r.getString("blockCode"))
             .concat(
                 $app
-                    .findRecordsByFilter("league_matches", "status = 'confirmed' || status = 'played'", "", 0, 0)
+                    .findRecordsByFilter("league_matches", "(status = 'confirmed' || status = 'played') && deleted = false", "", 0, 0)
                     .map((r) => r.getString("blockCode"))
             );
         const validBlocks = new Set(computeValidBlocks(windowBlockCodes(), [blockedCodes, occupiedCodes]));

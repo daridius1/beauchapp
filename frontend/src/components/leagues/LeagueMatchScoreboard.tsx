@@ -28,29 +28,22 @@ interface LeagueMatchScoreboardProps {
       league?: { id: string; name: string; username: string };
     };
   };
-  referee?: {
-    id: string;
-    name?: string;
-    username?: string;
-    avatar?: string;
-  } | null;
   formattedDate: string;
   live?: LiveMatchInfo;
   onPressTeamA?: () => void;
   onPressTeamB?: () => void;
   onPressLeague?: () => void;
-  onPressReferee?: () => void;
+  onPressArbitrate?: () => void;
 }
 
 export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
   match,
-  referee,
   formattedDate,
   live,
   onPressTeamA,
   onPressTeamB,
   onPressLeague,
-  onPressReferee,
+  onPressArbitrate,
 }) => {
   const teamA = match.expand?.teamA;
   const teamB = match.expand?.teamB;
@@ -181,19 +174,17 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
           <Text style={styles.dateText}>{formattedDate}</Text>
         </View>
 
-        {isPlayed && referee && (
-          <TouchableOpacity
-            style={styles.refereeBlock}
-            onPress={onPressReferee}
-            activeOpacity={0.7}
-            disabled={!onPressReferee}
-          >
-            <Feather name="user-check" size={12} color={theme.colors.textMuted} style={{ marginRight: 5 }} />
-            <Text style={styles.refereeLabel}>
-              Árbitro: <Text style={styles.refereeName}>{referee.name || referee.username}</Text>
-            </Text>
-          </TouchableOpacity>
-        )}
+        {/* Siempre visible — incluso con el partido ya jugado se puede volver a entrar
+            (con el código) a corregir el informe arbitral oficial. */}
+        <TouchableOpacity
+          style={styles.arbitrateBtn}
+          onPress={onPressArbitrate}
+          activeOpacity={0.7}
+          disabled={!onPressArbitrate}
+        >
+          <Feather name="user-check" size={12} color="#000000" style={{ marginRight: 5 }} />
+          <Text style={styles.arbitrateBtnText}>Arbitraje</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -365,16 +356,17 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontWeight: '500',
   },
-  refereeBlock: {
+  arbitrateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  refereeLabel: {
+  arbitrateBtnText: {
     fontSize: 12,
-    color: theme.colors.textMuted,
-  },
-  refereeName: {
-    color: theme.colors.text,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: '#000000',
   },
 });

@@ -12,6 +12,7 @@ import { DirectoryScreen } from './src/screens/DirectoryScreen';
 import { ProfilesListScreen } from './src/screens/ProfilesListScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { EditProfileScreen } from './src/screens/EditProfileScreen';
+import { EditTeamScreen } from './src/screens/EditTeamScreen';
 import { BlockedUsersScreen } from './src/screens/BlockedUsersScreen';
 import { Header } from './src/components/Header';
 import { Sidebar } from './src/components/Sidebar';
@@ -54,6 +55,7 @@ import { LeaguesListScreen } from './src/screens/LeaguesListScreen';
 import { LeagueDetailScreen } from './src/screens/LeagueDetailScreen';
 import { LeagueMatchDetailScreen } from './src/screens/LeagueMatchDetailScreen';
 import { LeagueMatchArbitratorScreen } from './src/screens/LeagueMatchArbitratorScreen';
+import { TeamProfileScreen } from './src/screens/TeamProfileScreen';
 import { AnnouncementModal } from './src/components/AnnouncementModal';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
@@ -252,10 +254,10 @@ function AppContent() {
   const getScreenTitle = (screen: string, params: any) => {
     switch (screen) {
       case 'Home': return 'Inicio';
-      case 'Profile': return 'Perfil';
+      case 'Profile': return params?.title || 'Perfil';
       case 'Login': return 'Iniciar Sesión';
       case 'PostDetail': return 'Conversación';
-      case 'UserProfile': return 'Perfil';
+      case 'UserProfile': return params?.title || 'Perfil';
       case 'Communities': return 'Comunidades';
       case 'Centers': return 'Centros';
       case 'Teams': return 'Equipos';
@@ -263,6 +265,7 @@ function AppContent() {
       case 'Beauchapps': return 'Beauchapps';
       case 'Settings': return 'Ajustes';
       case 'EditProfile': return 'Editar Datos';
+      case 'EditTeam': return 'Editar Equipo';
       case 'BlockedUsers': return 'Usuarios Bloqueados';
       case 'Directory': return 'Perfiles';
       case 'Students': return 'Personas';
@@ -270,7 +273,7 @@ function AppContent() {
         const type = params?.type;
         return type === 'followers' ? 'Seguidores' : type === 'following' ? 'Siguiendo' : type === 'recommendations' ? 'Recomendaciones' : type === 'poll_voters' ? (params?.title || 'Votos') : 'Integrantes';
       }
-      case 'ProblemsList': return 'Problemas';
+      case 'ProblemsList': return 'Pautas';
       case 'ProblemDetail': {
         const type = params?.type;
         return type === 'solution' ? 'Solución' : 'Problema';
@@ -301,6 +304,7 @@ function AppContent() {
       case 'LeagueDetail': return params?.name || 'Liga';
       case 'LeagueMatchDetail': return 'Partido';
       case 'LeagueMatchArbitrator': return 'Arbitrar';
+      case 'TeamProfile': return 'Equipo';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
       case 'LadderMatchDetail':
@@ -343,7 +347,7 @@ function AppContent() {
       navigationRef.navigate('Beaudle' as never);
     } else if (currentRouteName === 'LeagueDetail') {
       navigationRef.navigate('LeaguesList' as never);
-    } else if (['LeagueMatchDetail', 'LeagueMatchArbitrator'].includes(currentRouteName)) {
+    } else if (['LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile'].includes(currentRouteName)) {
       navigationRef.navigate('LeaguesList' as never);
     } else if (['LaddersList', 'ProblemsList', 'Marketplace', 'Tinder', 'Reviews', 'Beaudle', 'Beaumarket', 'TeamSchedule', 'LeaguesList'].includes(currentRouteName)) {
       navigationRef.navigate('Beauchapps' as never);
@@ -353,7 +357,7 @@ function AppContent() {
       navigationRef.navigate('Activities' as never);
     } else if (['CourseDetail', 'ProfessorDetail'].includes(currentRouteName)) {
       navigationRef.navigate('Reviews' as never);
-    } else if (['EditProfile', 'BlockedUsers'].includes(currentRouteName)) {
+    } else if (['EditProfile', 'EditTeam', 'BlockedUsers'].includes(currentRouteName)) {
       navigationRef.navigate('Settings' as never);
     } else if (currentRouteName === 'PostDetail') {
       navigationRef.navigate('Home' as never);
@@ -400,6 +404,7 @@ function AppContent() {
                 Notifications: 'notifications',
                 Settings: 'settings',
                 EditProfile: 'settings/edit',
+                EditTeam: 'settings/edit-team',
                 BlockedUsers: 'settings/blocked',
                 LaddersList: 'ladders',
                 LadderDetail: 'ladders/:slug',
@@ -427,6 +432,7 @@ function AppContent() {
                 LeaguesList: 'ligas',
                 LeagueDetail: 'ligas/:leagueId',
                 LeagueMatchDetail: 'partidos/:matchId',
+                TeamProfile: 'ligas/equipo/:teamId',
                 LeagueMatchArbitrator: 'partidos/:matchId/arbitrar',
               }
             }
@@ -466,7 +472,7 @@ function AppContent() {
                     title={getScreenTitle(currentRouteName, currentRouteParams)} 
                     onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                     onBack={showBackButton ? handleBack : undefined}
-                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'TeamSchedule', 'LeaguesList', 'LeagueDetail', 'LeagueMatchDetail', 'LeagueMatchArbitrator'].includes(currentRouteName) ? () => {
+                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'TeamSchedule', 'LeaguesList', 'LeagueDetail', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile'].includes(currentRouteName) ? () => {
                       DeviceEventEmitter.emit('onGlobalRefresh');
                     } : undefined}
                     hasUnreadNotifications={hasUnreadNotifications}
@@ -508,6 +514,7 @@ function AppContent() {
                       <Stack.Screen name="ProfessorDetail" component={ProfessorDetailScreen} />
                       <Stack.Screen name="Settings" component={SettingsScreen} />
                       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+                      <Stack.Screen name="EditTeam" component={EditTeamScreen} />
                       <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
                       <Stack.Screen name="Info" component={InfoScreen} />
                       <Stack.Screen name="InstallApp" component={InstallAppScreen} />
@@ -520,6 +527,7 @@ function AppContent() {
                       <Stack.Screen name="LeagueDetail" component={LeagueDetailScreen} />
                       <Stack.Screen name="LeagueMatchDetail" component={LeagueMatchDetailScreen} />
                       <Stack.Screen name="LeagueMatchArbitrator" component={LeagueMatchArbitratorScreen} />
+                      <Stack.Screen name="TeamProfile" component={TeamProfileScreen} />
                       <Stack.Screen name="NotFound" component={NotFoundScreen} />
                     </Stack.Navigator>
                   </View>

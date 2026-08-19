@@ -2,12 +2,12 @@ import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
-import { MatchEvent, Team } from '../../utils/matchEvents';
+import { MatchEvent, Team, LineupEntry } from '../../utils/matchEvents';
 import { LeagueBadge } from './LeagueBadge';
 
 interface LeagueMatchLineupsProps {
-  lineupA: string[];
-  lineupB: string[];
+  lineupA: LineupEntry[];
+  lineupB: LineupEntry[];
   teamAName: string;
   teamBName: string;
   events: MatchEvent[];
@@ -38,26 +38,30 @@ export const LeagueMatchLineups: React.FC<LeagueMatchLineupsProps> = ({
   const playerEventsB: Record<string, { goals: number; yellow: number; red: boolean }> = {};
 
   (events || []).forEach((ev) => {
-    if (ev.type === 'goal' && !ev.ownGoal) {
+    if (ev.type === 'goal' && !ev.ownGoal && ev.player) {
+      const player = ev.player;
       const map = ev.team === 'A' ? playerEventsA : playerEventsB;
-      if (!map[ev.player]) map[ev.player] = { goals: 0, yellow: 0, red: false };
-      map[ev.player].goals += 1;
-    } else if (ev.type === 'penalty' && ev.scored) {
+      if (!map[player]) map[player] = { goals: 0, yellow: 0, red: false };
+      map[player].goals += 1;
+    } else if (ev.type === 'penalty' && ev.scored && ev.player) {
+      const player = ev.player;
       const map = ev.team === 'A' ? playerEventsA : playerEventsB;
-      if (!map[ev.player]) map[ev.player] = { goals: 0, yellow: 0, red: false };
-      map[ev.player].goals += 1;
-    } else if (ev.type === 'yellow_card') {
+      if (!map[player]) map[player] = { goals: 0, yellow: 0, red: false };
+      map[player].goals += 1;
+    } else if (ev.type === 'yellow_card' && ev.player) {
+      const player = ev.player;
       const map = ev.team === 'A' ? playerEventsA : playerEventsB;
-      if (!map[ev.player]) map[ev.player] = { goals: 0, yellow: 0, red: false };
-      map[ev.player].yellow += 1;
-    } else if (ev.type === 'red_card') {
+      if (!map[player]) map[player] = { goals: 0, yellow: 0, red: false };
+      map[player].yellow += 1;
+    } else if (ev.type === 'red_card' && ev.player) {
+      const player = ev.player;
       const map = ev.team === 'A' ? playerEventsA : playerEventsB;
-      if (!map[ev.player]) map[ev.player] = { goals: 0, yellow: 0, red: false };
-      map[ev.player].red = true;
+      if (!map[player]) map[player] = { goals: 0, yellow: 0, red: false };
+      map[player].red = true;
     }
   });
 
-  const renderTeamColumn = (team: Team, name: string, lineup: string[], eventMap: Record<string, any>) => (
+  const renderTeamColumn = (team: Team, name: string, lineup: LineupEntry[], eventMap: Record<string, any>) => (
     <View style={styles.column}>
       <View style={styles.columnHeader}>
         <Text style={styles.teamTitle} numberOfLines={1}>
@@ -69,15 +73,15 @@ export const LeagueMatchLineups: React.FC<LeagueMatchLineupsProps> = ({
         <Text style={styles.mutedText}>Sin registrar</Text>
       ) : (
         lineup.map((player, idx) => {
-          const stats = eventMap[player];
+          const stats = eventMap[player.name];
           const hasGoals = stats && stats.goals > 0;
           const hasRed = stats && stats.red;
           const hasYellow = stats && !hasRed && stats.yellow > 0;
 
           return (
-            <View key={idx} style={styles.playerRow}>
+            <View key={player.playerId || idx} style={styles.playerRow}>
               <Text style={styles.playerName} numberOfLines={1}>
-                {player}
+                {player.name}
               </Text>
               {!!stats && (
                 <View style={styles.playerBadges}>

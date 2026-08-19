@@ -134,6 +134,11 @@ onRecordCreateRequest((e) => {
         // Ignorar si no existe previa membresía
     }
 
+    // Sumarse a una organización ya no es instantáneo: toda fila nueva arranca en
+    // "pending" sin importar qué status mande el cliente — queda a la espera de que el
+    // estudiante invitado la acepte desde /api/org-invites/respond (ver organizations.pb.js).
+    e.record.set("status", "pending");
+
     return e.next();
 }, "organization_members");
 
@@ -141,6 +146,14 @@ onRecordUpdateRequest((e) => {
     const original = e.record.original();
     if (e.record.get("user") !== original.get("user") || e.record.get("organization") !== original.get("organization")) {
         throw new ApiError(400, "No se pueden modificar los campos 'user' u 'organization' una vez creados.");
+    }
+    // Nadie puede activar una membresía por esta vía (ni siquiera la propia
+    // organización) — solo /api/org-invites/respond puede, porque guarda con $app.save
+    // directamente y eso evita este hook de request. Así se cierra la vía por la que
+    // organizationService.addMember reactivaba de forma instantánea una fila ya
+    // existente (ej. alguien previamente sacado) sin pasar por aprobación.
+    if (e.record.get("status") === "active" && original.get("status") !== "active") {
+        throw new ApiError(400, "La membresía solo se activa cuando el usuario invitado la acepta.");
     }
     return e.next();
 }, "organization_members");

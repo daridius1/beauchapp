@@ -18,9 +18,10 @@ function supportsWebpExport(): boolean {
 export async function compressImage(
   file: File,
   cropToSquare: boolean = false,
-  format: 'image/webp' | 'image/jpeg' = 'image/webp'
+  format: 'image/webp' | 'image/jpeg' | 'image/png' = 'image/webp'
 ): Promise<Blob> {
   // If the caller asked for WebP but the browser can't export it, fall back to JPEG
+  // (PNG no tiene este problema de soporte — todo navegador con <canvas> lo exporta).
   const effectiveFormat = (format === 'image/webp' && !supportsWebpExport())
     ? 'image/jpeg'
     : format;

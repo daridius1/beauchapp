@@ -1,6 +1,8 @@
 import React from 'react';
-import { StyleSheet, View, Text, Image } from 'react-native';
+import { StyleSheet, View, Image } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { getFileUrl } from '../../services/pocketbase';
+import { theme } from '../../theme/theme';
 
 export interface CrestData {
   id?: string;
@@ -28,16 +30,16 @@ interface TeamCrestProps {
 // foto: matchPhoto está pensado para poder tener fondo transparente (un escudo real),
 // así que se muestra tal cual con resizeMode="contain" sobre fondo transparente. Si no
 // hay matchPhoto, cae al avatar genérico de la cuenta y, si tampoco hay avatar, a un
-// círculo con la inicial (igual que <Avatar>).
+// escudo genérico gris (no una letra) — un placeholder de "todavía no subiste tu
+// escudo", no una identidad visual con la inicial del equipo.
 export const TeamCrest: React.FC<TeamCrestProps> = ({ team, size }) => {
   const photo = team?.matchPhoto || team?.avatar;
   const thumbSize = size <= 60 ? '100x100' : undefined;
 
   if (!photo) {
-    const letter = matchDisplayName(team, 'E').charAt(0).toUpperCase();
     return (
-      <View style={[styles.fallback, { width: size, height: size, borderRadius: size / 2 }]}>
-        <Text style={{ fontSize: Math.round(size * 0.45), fontWeight: '800', color: '#000000' }}>{letter}</Text>
+      <View style={[styles.fallback, { width: size, height: size }]}>
+        <Feather name="shield" size={Math.round(size * 0.6)} color="#8a8a8a" />
       </View>
     );
   }
@@ -55,8 +57,10 @@ const styles = StyleSheet.create({
   fallback: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: 'transparent',
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderStyle: 'dashed',
+    borderRadius: theme.borderRadius.md,
   },
 });

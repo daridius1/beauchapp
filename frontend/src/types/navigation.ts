@@ -1,7 +1,7 @@
 export type RootStackParamList = {
   Home: { initialFilterTag?: string; initialPostTags?: string[]; quoteTargetType?: string; quoteTargetId?: string; quoteTargetMeta?: any } | undefined;
   Login: undefined;
-  Profile: { userId?: string } | undefined;
+  Profile: { userId?: string; title?: string } | undefined;
   Communities: undefined;
   Centers: undefined;
   Teams: undefined;
@@ -14,6 +14,7 @@ export type RootStackParamList = {
   ResetPassword: undefined;
   Settings: undefined;
   EditProfile: undefined;
+  EditTeam: undefined;
   BlockedUsers: undefined;
   Directory: undefined;
   Beauchapps: undefined;
@@ -51,4 +52,5 @@ export type RootStackParamList = {
   LeagueDetail: { leagueId: string; name?: string };
   LeagueMatchDetail: { matchId: string };
   LeagueMatchArbitrator: { matchId: string };
+  TeamProfile: { teamId: string };
 };

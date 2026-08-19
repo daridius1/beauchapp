@@ -53,6 +53,8 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   // Estados de Organizaciones e Integrantes
   const [studentMemberships, setStudentMemberships] = useState<OrganizationMemberRecord[]>([]);
   const [orgMembers, setOrgMembers] = useState<OrganizationMemberRecord[]>([]);
+  const [pendingInvite, setPendingInvite] = useState<OrganizationMemberRecord | null>(null);
+  const [respondingInvite, setRespondingInvite] = useState(false);
 
   // Estado de Perfil de Vendedor y Ladders
   const [sellerProfile, setSellerProfile] = useState<SellerProfileRecord | null>(null);
@@ -105,6 +107,17 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
       }
       const userRes = userResult.value;
       setProfileUser(userRes);
+      if (userRes.type === 'organization') {
+        navigation.setParams({
+          title: userRes.subtype === 'center' ? 'Centro de Estudiantes' :
+                 userRes.subtype === 'team' ? 'Equipo' :
+                 userRes.subtype === 'community' ? 'Comunidad libre' :
+                 userRes.subtype === 'band' ? 'Banda / Grupo Musical' :
+                 userRes.subtype === 'organization' ? 'Organización' :
+                 userRes.subtype === 'league' ? 'Liga' :
+                 'Organización',
+        });
+      }
 
       setSellerProfile(sellerResult.status === 'fulfilled' ? sellerResult.value : null);
       setLadderRanks(ranksResult.status === 'fulfilled' ? ranksResult.value.items : []);
@@ -131,6 +144,15 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
         setFollowingCount(0);
         const membersData = await organizationService.getOrganizationMembers(targetUserId);
         setOrgMembers(membersData);
+
+        // ¿El usuario actual tiene una invitación pendiente de ESTA organización? Solo
+        // aplica a estudiantes mirando el perfil de una organización que no es la suya.
+        if (currentUser?.type === 'student' && currentUser.id !== targetUserId) {
+          const invite = await organizationService.getPendingInvite(targetUserId, currentUser.id);
+          setPendingInvite(invite);
+        } else {
+          setPendingInvite(null);
+        }
       }
     } catch (err) {
       console.error('Error fetching profile and posts', err);
@@ -166,6 +188,26 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
       console.error('Error toggling follow status', err);
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  const handleRespondInvite = async (decision: 'accept' | 'reject') => {
+    if (!targetUserId || respondingInvite) return;
+    try {
+      setRespondingInvite(true);
+      await organizationService.respondToInvite(targetUserId, decision);
+      setPendingInvite(null);
+      if (decision === 'accept') {
+        const membersData = await organizationService.getOrganizationMembers(targetUserId);
+        setOrgMembers(membersData);
+        Toast.show({ type: 'success', text1: 'Ahora eres parte de esta organización' });
+      } else {
+        Toast.show({ type: 'info', text1: 'Invitación rechazada' });
+      }
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'No se pudo responder la invitación.' });
+    } finally {
+      setRespondingInvite(false);
     }
   };
 
@@ -310,22 +352,36 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.profileName}>{profileUser.name}</Text>
             {!!profileUser.username && <Text style={styles.profileUsername}>@{profileUser.username}</Text>}
             
-            {profileUser.type === 'organization' && (
-              <View style={styles.orgBadge}>
-                <Text style={styles.orgBadgeText}>
-                  {profileUser.subtype === 'center' ? 'Centro de Estudiantes' :
-                   profileUser.subtype === 'team' ? 'Equipo' :
-                   profileUser.subtype === 'community' ? 'Comunidad libre' :
-                   profileUser.subtype === 'band' ? 'Banda / Grupo Musical' :
-                   profileUser.subtype === 'organization' ? 'Organización' :
-                   profileUser.subtype === 'league' ? 'Liga' :
-                   'Organización'}
-                </Text>
-              </View>
-            )}
-
             {!!profileUser.description && (
               <Text style={styles.profileBio}>{profileUser.description}</Text>
+            )}
+
+            {/* Invitación pendiente de esta organización — solo la ve el propio
+                estudiante invitado, quien decide acá mismo si acepta o no. */}
+            {!!pendingInvite && (
+              <View style={styles.inviteBanner}>
+                <Text style={styles.inviteBannerText}>
+                  Te invitaron a ser parte de esta organización.
+                </Text>
+                <View style={styles.inviteBannerActions}>
+                  <TouchableOpacity
+                    style={[styles.inviteBannerBtn, styles.inviteBannerAcceptBtn]}
+                    onPress={() => handleRespondInvite('accept')}
+                    disabled={respondingInvite}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.inviteBannerAcceptText}>Aceptar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.inviteBannerBtn}
+                    onPress={() => handleRespondInvite('reject')}
+                    disabled={respondingInvite}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.inviteBannerRejectText}>Rechazar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             )}
 
             {/* Insignias / Chips del usuario (Año, Departamento, Ladders y Organizaciones) */}
@@ -544,20 +600,48 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
-  orgBadge: {
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    alignSelf: 'center',
-    marginTop: 8,
-  },
-  orgBadgeText: {
-    color: '#000000',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
   profileUsername: { fontSize: 15, color: theme.colors.textMuted, marginBottom: 8, textAlign: 'center' },
+  inviteBanner: {
+    width: '100%',
+    backgroundColor: theme.colors.cardBg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 10,
+    padding: theme.spacing.md,
+    marginTop: theme.spacing.md,
+    alignItems: 'center',
+  },
+  inviteBannerText: {
+    fontSize: 13,
+    color: theme.colors.text,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  inviteBannerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  inviteBannerBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  inviteBannerAcceptBtn: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  inviteBannerAcceptText: {
+    color: '#000000',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  inviteBannerRejectText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '700',
+  },
   profileBio: {
     fontSize: 14,
     color: theme.colors.text,

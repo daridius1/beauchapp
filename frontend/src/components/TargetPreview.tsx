@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { Avatar } from './Avatar';
+import { TeamCrest } from './leagues/TeamCrest';
 import { pb, getFileUrl } from '../services/pocketbase';
 
 const BEAUMARKET_STATUS_LABELS: Record<string, string> = { open: 'Abierto', closed: 'Cerrado', resolved: 'Resuelto', cancelled: 'Cancelado' };
@@ -46,6 +47,9 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
           const record = await pb.collection('league_matches').getOne(targetId, { expand: 'league,stage,teamA,teamB' });
           if (isMounted) setFetchedTarget(record);
         } else if (targetType === 'league') {
+          const record = await pb.collection('users').getOne(targetId);
+          if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'team') {
           const record = await pb.collection('users').getOne(targetId);
           if (isMounted) setFetchedTarget(record);
         } else if (targetType === 'marketplace_item' || targetType === 'product') {
@@ -296,6 +300,40 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
               {bio}
             </Text>
           )}
+        </View>
+        <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
+      </Wrapper>
+    );
+  }
+
+  // 3c. RENDERIZADO DE EQUIPO CITADO
+  if (targetType === 'team') {
+    if (isDeleted) {
+      return (
+        <View style={styles.fallbackBox}>
+          <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.fallbackText}>Este equipo ya no está disponible.</Text>
+        </View>
+      );
+    }
+
+    const teamName = resolved?.matchAlias || resolved?.name || targetMeta?.matchAlias || targetMeta?.name || 'Equipo';
+    const username = resolved?.username || targetMeta?.username;
+    const crestTeam = {
+      id: targetId,
+      collectionId: 'users',
+      matchPhoto: resolved?.matchPhoto || targetMeta?.matchPhoto,
+      avatar: resolved?.avatar || targetMeta?.avatar,
+    };
+
+    return (
+      <Wrapper {...wrapperProps} style={styles.previewCardProblem}>
+        <TeamCrest team={crestTeam} size={36} />
+        <View style={{ flex: 1, marginLeft: 8 }}>
+          <Text style={styles.problemSubtitle}>Equipo{username ? ` · @${username}` : ''}</Text>
+          <Text style={styles.problemTitle} numberOfLines={1}>
+            {teamName}
+          </Text>
         </View>
         <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
       </Wrapper>

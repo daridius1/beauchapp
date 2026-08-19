@@ -97,7 +97,7 @@ export const LADDER_INFO: Record<string, { title: string; sections: InfoModalSec
     sections: [
       {
         title: '¿Cómo se gana karma?',
-        body: 'El karma se obtiene aportando contenido en la sección de Problemas y recibiendo buenas evaluaciones por parte de la comunidad, tanto en la calidad de los enunciados como de las pautas publicadas.',
+        body: 'El karma se obtiene aportando contenido en la sección de Pautas y recibiendo buenas evaluaciones por parte de la comunidad, tanto en la calidad de los enunciados como de las pautas publicadas.',
       },
     ],
   },

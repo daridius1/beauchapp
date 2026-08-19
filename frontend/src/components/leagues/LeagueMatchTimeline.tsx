@@ -57,8 +57,8 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
         <View key={`goal-${idx}`} style={[styles.eventRow, isLastInBlock && { borderBottomWidth: 0 }]}>
           <View style={styles.eventLeft}>
             <LeagueBadge type={badgeType} size="sm" />
-            <Text style={styles.playerName} numberOfLines={1}>
-              {ev.player}
+            <Text style={[styles.playerName, !ev.player && styles.playerNameBlank]} numberOfLines={1}>
+              {ev.player || 'Sin jugador'}
             </Text>
             <Text style={styles.teamTag} numberOfLines={1}>
               {teamName}
@@ -84,8 +84,8 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
         <View key={`card-${idx}`} style={[styles.eventRow, isLastInBlock && { borderBottomWidth: 0 }]}>
           <View style={styles.eventLeft}>
             <LeagueBadge type={badgeType} size="sm" />
-            <Text style={styles.playerName} numberOfLines={1}>
-              {ev.player}
+            <Text style={[styles.playerName, !ev.player && styles.playerNameBlank]} numberOfLines={1}>
+              {ev.player || 'Sin jugador'}
             </Text>
             <Text style={styles.teamTag} numberOfLines={1}>
               {teamName}
@@ -111,8 +111,8 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
         <View key={`pen-${idx}`} style={[styles.eventRow, isLastInBlock && { borderBottomWidth: 0 }]}>
           <View style={styles.eventLeft}>
             <LeagueBadge type={badgeType} size="sm" />
-            <Text style={styles.playerName} numberOfLines={1}>
-              {ev.player}
+            <Text style={[styles.playerName, !ev.player && styles.playerNameBlank]} numberOfLines={1}>
+              {ev.player || 'Sin jugador'}
             </Text>
             <Text style={styles.teamTag} numberOfLines={1}>
               {teamName}
@@ -176,6 +176,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
+  },
+  playerNameBlank: {
+    color: theme.colors.textMuted,
+    fontStyle: 'italic',
+    fontWeight: '400',
   },
   teamTag: {
     color: theme.colors.textMuted,

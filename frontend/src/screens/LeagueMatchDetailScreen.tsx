@@ -93,8 +93,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
             // fuente para el marcador/minuto en vivo (mismo criterio que LeagueDetailScreen).
             try {
               const report = await pb.collection('match_reports').getFirstListItem(
-                `match = "${matchId}"`,
-                { expand: 'referee' }
+                `match = "${matchId}" && deleted = false`
               );
               setReportEvents(report.events || []);
               if (matchRecord.status === 'played' && report.status === 'approved') {
@@ -278,11 +277,9 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
   const teamB = match.expand?.teamB;
   const teamAName = matchDisplayName(teamA, 'Equipo A');
   const teamBName = matchDisplayName(teamB, 'Equipo B');
-  const referee = approvedReport?.expand?.referee;
   const formattedDate = matchBlockLabel(match.blockCode);
 
   const isPlayed = match.status === 'played';
-  const isConfirmed = match.status === 'confirmed';
   const isLive = !!liveInfo;
   // Mientras el partido está en vivo, los eventos vienen del informe en progreso
   // (todavía no aprobado) — es la misma fuente que ya se usa para el marcador en vivo,
@@ -308,29 +305,15 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
       {/* Marcador Principal */}
       <LeagueMatchScoreboard
         match={match}
-        referee={referee}
         formattedDate={formattedDate}
         live={liveInfo || undefined}
-        onPressTeamA={teamA ? () => navigation.push('UserProfile', { userId: teamA.id }) : undefined}
-        onPressTeamB={teamB ? () => navigation.push('UserProfile', { userId: teamB.id }) : undefined}
+        onPressTeamA={teamA ? () => navigation.push('TeamProfile', { teamId: teamA.id }) : undefined}
+        onPressTeamB={teamB ? () => navigation.push('TeamProfile', { teamId: teamB.id }) : undefined}
         onPressLeague={
           match.expand?.league ? () => navigation.push('UserProfile', { userId: match.expand.league.id }) : undefined
         }
-        onPressReferee={referee ? () => navigation.push('UserProfile', { userId: referee.id }) : undefined}
+        onPressArbitrate={() => navigation.push('LeagueMatchArbitrator', { matchId })}
       />
-
-      {/* Acciones de Arbitraje si el partido está por jugar */}
-      {isConfirmed && (
-        <View style={styles.arbitrateCard}>
-          <TouchableOpacity
-            style={styles.arbitrateBtn}
-            activeOpacity={0.8}
-            onPress={() => navigation.push('LeagueMatchArbitrator', { matchId })}
-          >
-            <Text style={styles.arbitrateBtnText}>Arbitrar</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Si el partido ya se jugó (o está en vivo, con los eventos que lleve hasta
           ahora): Estadísticas, Cronología y Planteles en la misma vista */}
@@ -453,28 +436,6 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontWeight: '800',
     fontSize: 13,
-  },
-  arbitrateCard: {
-    backgroundColor: 'transparent',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#1e1e1e',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: 0,
-    marginBottom: theme.spacing.lg,
-  },
-  arbitrateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.primary,
-    borderRadius: 6,
-    paddingVertical: 12,
-  },
-  arbitrateBtnText: {
-    color: '#000000',
-    fontWeight: '800',
-    fontSize: 14,
   },
   playedDetailsSection: {
     marginBottom: theme.spacing.md,

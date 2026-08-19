@@ -24,11 +24,39 @@ const EVENT_TYPES = [
 // propios controles de tiempo/pausa no cuentan.
 const CLOCK_GATED_TYPES = ["goal", "yellow_card", "red_card", "penalty"];
 
+// Un elemento de `lineup.players` es o bien un string suelto (partidos viejos, de
+// antes de que existiera el roster de equipo) o un objeto {playerId?, name, photo?}
+// apuntando a un team_players (partidos nuevos) — ambas formas conviven, nunca se
+// migran los datos ya guardados, `summarizeEvents` es quien las normaliza al leer.
+function isValidLineupEntry(p) {
+    if (typeof p === "string") return p.length > 0;
+    if (p && typeof p === "object") return typeof p.name === "string" && p.name.length > 0;
+    return false;
+}
+
+// `playerId`, si viene, es solo una referencia opcional a team_players — no se valida
+// que exista (este archivo es deliberadamente puro/sin $app, ver comentario de
+// cabecera); la única defensa real es de UI (el selector de arbitraje solo ofrece
+// jugadores del roster).
+function isValidOptionalPlayerId(playerId) {
+    return playerId === undefined || (typeof playerId === "string" && playerId.length > 0);
+}
+
+// `player` (el nombre) también es opcional — el árbitro puede dejar un gol/tarjeta/
+// penal sin asignar a nadie en particular, queda "en blanco" a propósito.
+function isValidOptionalPlayer(player) {
+    return player === undefined || typeof player === "string";
+}
+
 function isValidEvent(ev) {
     if (!ev || typeof ev !== "object") return false;
     if (!EVENT_TYPES.includes(ev.type)) return false;
     if (ev.type === "lineup") {
-        return (ev.team === "A" || ev.team === "B") && Array.isArray(ev.players);
+        return (
+            (ev.team === "A" || ev.team === "B") &&
+            Array.isArray(ev.players) &&
+            ev.players.every(isValidLineupEntry)
+        );
     }
     if (ev.type === "half_start" || ev.type === "half_end") {
         return ev.half === 1 || ev.half === 2;
@@ -39,19 +67,23 @@ function isValidEvent(ev) {
     if (ev.type === "goal") {
         return (
             (ev.team === "A" || ev.team === "B") &&
-            typeof ev.player === "string" &&
-            ev.player.length > 0 &&
+            isValidOptionalPlayer(ev.player) &&
+            isValidOptionalPlayerId(ev.playerId) &&
             typeof ev.ownGoal === "boolean"
         );
     }
     if (ev.type === "yellow_card" || ev.type === "red_card") {
-        return (ev.team === "A" || ev.team === "B") && typeof ev.player === "string" && ev.player.length > 0;
+        return (
+            (ev.team === "A" || ev.team === "B") &&
+            isValidOptionalPlayer(ev.player) &&
+            isValidOptionalPlayerId(ev.playerId)
+        );
     }
     if (ev.type === "penalty") {
         return (
             (ev.team === "A" || ev.team === "B") &&
-            typeof ev.player === "string" &&
-            ev.player.length > 0 &&
+            isValidOptionalPlayer(ev.player) &&
+            isValidOptionalPlayerId(ev.playerId) &&
             typeof ev.scored === "boolean"
         );
     }
@@ -77,6 +109,15 @@ function isClockGatedSequenceValid(events) {
         }
     }
     return true;
+}
+
+// Normaliza un elemento de lineup.players a la forma uniforme {playerId, name, photo}
+// sin importar si viene en el formato viejo (string suelto) o nuevo (objeto) — todo
+// consumidor de MatchSummary.lineupA/lineupB trabaja siempre con esta forma, nunca con
+// las dos por separado.
+function normalizeLineupEntry(p) {
+    if (typeof p === "string") return { playerId: null, name: p, photo: null };
+    return { playerId: p.playerId || null, name: p.name, photo: p.photo || null };
 }
 
 // Recorre toda la bitácora y arma el estado derivado completo: marcador, tarjetas,
@@ -105,8 +146,9 @@ function summarizeEvents(events) {
         if (!isValidEvent(ev)) continue;
 
         if (ev.type === "lineup") {
-            if (ev.team === "A") lineupA = ev.players;
-            else lineupB = ev.players;
+            const normalized = ev.players.map(normalizeLineupEntry);
+            if (ev.team === "A") lineupA = normalized;
+            else lineupB = normalized;
         } else if (ev.type === "half_start") {
             halfStarted[ev.half] = true;
             currentHalf = ev.half;
@@ -169,4 +211,5 @@ module.exports = {
     isValidEvent,
     isClockGatedSequenceValid,
     summarizeEvents,
+    normalizeLineupEntry,
 };

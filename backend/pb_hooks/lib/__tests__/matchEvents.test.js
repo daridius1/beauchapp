@@ -74,7 +74,92 @@ test("summarizeEvents: la convocatoria es la ÚLTIMA entrada 'lineup' de cada eq
         { type: "lineup", team: "A", players: ["Pedro", "Luis"] },
         { type: "lineup", team: "A", players: ["Pedro", "Luis", "Ana"] }, // corrección/ampliación posterior
     ]);
-    assert.deepEqual(s.lineupA, ["Pedro", "Luis", "Ana"]);
+    assert.deepEqual(s.lineupA, [
+        { playerId: null, name: "Pedro", photo: null },
+        { playerId: null, name: "Luis", photo: null },
+        { playerId: null, name: "Ana", photo: null },
+    ]);
+});
+
+test("summarizeEvents: lineup con jugadores del roster (objeto {playerId,name,photo}) se normaliza igual que los strings sueltos", () => {
+    const s = summarizeEvents([
+        {
+            type: "lineup",
+            team: "A",
+            players: [
+                { playerId: "tp1", name: "Pedro", photo: "pedro.jpg" },
+                { playerId: "tp2", name: "Luis" }, // sin foto, opcional
+            ],
+        },
+    ]);
+    assert.deepEqual(s.lineupA, [
+        { playerId: "tp1", name: "Pedro", photo: "pedro.jpg" },
+        { playerId: "tp2", name: "Luis", photo: null },
+    ]);
+});
+
+test("summarizeEvents: un lineup puede mezclar strings viejos y objetos nuevos sin romperse", () => {
+    const s = summarizeEvents([
+        { type: "lineup", team: "B", players: ["Marco", { playerId: "tp9", name: "Tomás" }] },
+    ]);
+    assert.deepEqual(s.lineupB, [
+        { playerId: null, name: "Marco", photo: null },
+        { playerId: "tp9", name: "Tomás", photo: null },
+    ]);
+});
+
+test("isValidEvent: lineup acepta players en formato objeto y rechaza objetos sin 'name'", () => {
+    assert.equal(
+        isValidEvent({ type: "lineup", team: "A", players: [{ playerId: "tp1", name: "Pedro" }] }),
+        true
+    );
+    assert.equal(isValidEvent({ type: "lineup", team: "A", players: [{ playerId: "tp1" }] }), false);
+    assert.equal(isValidEvent({ type: "lineup", team: "A", players: [""] }), false);
+});
+
+test("isValidEvent: goal/yellow_card/red_card/penalty aceptan playerId opcional y lo rechazan si viene mal tipado", () => {
+    assert.equal(
+        isValidEvent({ type: "goal", team: "A", player: "Pedro", playerId: "tp1", ownGoal: false }),
+        true
+    );
+    assert.equal(
+        isValidEvent({ type: "yellow_card", team: "B", player: "Juan", playerId: "tp2" }),
+        true
+    );
+    assert.equal(
+        isValidEvent({ type: "penalty", team: "A", player: "Ana", playerId: "tp3", scored: true }),
+        true
+    );
+    // Sin playerId sigue siendo válido (partidos viejos, o jugadores sin id).
+    assert.equal(isValidEvent({ type: "goal", team: "A", player: "Pedro", ownGoal: false }), true);
+    // playerId vacío o mal tipado -> inválido.
+    assert.equal(
+        isValidEvent({ type: "goal", team: "A", player: "Pedro", playerId: "", ownGoal: false }),
+        false
+    );
+    assert.equal(
+        isValidEvent({ type: "goal", team: "A", player: "Pedro", playerId: 123, ownGoal: false }),
+        false
+    );
+});
+
+test("isValidEvent: goal/yellow_card/red_card/penalty pueden quedar sin jugador asignado (en blanco)", () => {
+    assert.equal(isValidEvent({ type: "goal", team: "A", ownGoal: false }), true);
+    assert.equal(isValidEvent({ type: "yellow_card", team: "B" }), true);
+    assert.equal(isValidEvent({ type: "red_card", team: "B" }), true);
+    assert.equal(isValidEvent({ type: "penalty", team: "A", scored: true }), true);
+    // `player` mal tipado (no string, no undefined) sigue siendo inválido.
+    assert.equal(isValidEvent({ type: "goal", team: "A", player: 123, ownGoal: false }), false);
+});
+
+test("summarizeEvents: un gol/tarjeta/penal sin jugador asignado se sigue contando para el marcador/tarjetas", () => {
+    const s = summarizeEvents([
+        { type: "goal", team: "A", ownGoal: false },
+        { type: "yellow_card", team: "B" },
+    ]);
+    assert.equal(s.scoreA, 1);
+    assert.equal(s.cardsB.yellow, 1);
+    assert.equal(s.goals[0].player, undefined);
 });
 
 test("summarizeEvents: half_start/half_end quedan reflejados y currentHalf es el último tiempo iniciado", () => {
@@ -195,6 +280,10 @@ test("summarizeEvents: escenario completo de partido calculado a mano", () => {
     assert.equal(s.cardsB.red, 1);
     assert.equal(s.goals.length, 3); // Diego, Tomás y el autogol de Fabián (los penales no cuentan acá)
     assert.equal(s.penalties.length, 2);
-    assert.deepEqual(s.lineupA, ["Diego", "Fabián", "Cote"]);
+    assert.deepEqual(s.lineupA, [
+        { playerId: null, name: "Diego", photo: null },
+        { playerId: null, name: "Fabián", photo: null },
+        { playerId: null, name: "Cote", photo: null },
+    ]);
     assert.equal(s.halfEnded[2], true);
 });

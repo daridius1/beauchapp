@@ -6,26 +6,50 @@
 
 export type Team = 'A' | 'B';
 
+// Un elemento de `lineup.players` es o bien un string suelto (partidos de antes de
+// que existiera el roster de equipo) o un objeto apuntando a un team_players
+// (partidos nuevos) — ambas formas conviven en `MatchEvent`, nunca se migran los
+// eventos ya guardados. `LineupEntry` es la forma NORMALIZADA que devuelve
+// `summarizeEvents` — todo consumidor trabaja siempre con esta, nunca con las dos
+// formas crudas por separado.
+export interface LineupPlayer {
+  playerId?: string;
+  name: string;
+  photo?: string;
+}
+export interface LineupEntry {
+  playerId: string | null;
+  name: string;
+  photo: string | null;
+}
+
 export type MatchEvent =
-  | { type: 'lineup'; team: Team; players: string[]; at: string }
+  | { type: 'lineup'; team: Team; players: (string | LineupPlayer)[]; at: string }
   | { type: 'half_start'; half: 1 | 2; at: string }
   | { type: 'half_end'; half: 1 | 2; at: string }
   | { type: 'pause'; at: string }
   | { type: 'resume'; at: string }
-  | { type: 'goal'; team: Team; player: string; ownGoal: boolean; at: string; minute?: number; half?: 1 | 2 }
-  | { type: 'yellow_card'; team: Team; player: string; at: string; minute?: number; half?: 1 | 2 }
-  | { type: 'red_card'; team: Team; player: string; at: string; minute?: number; half?: 1 | 2 }
-  | { type: 'penalty'; team: Team; player: string; scored: boolean; at: string; minute?: number; half?: 1 | 2 };
+  | { type: 'goal'; team: Team; player?: string; playerId?: string; ownGoal: boolean; at: string; minute?: number; half?: 1 | 2 }
+  | { type: 'yellow_card'; team: Team; player?: string; playerId?: string; at: string; minute?: number; half?: 1 | 2 }
+  | { type: 'red_card'; team: Team; player?: string; playerId?: string; at: string; minute?: number; half?: 1 | 2 }
+  | { type: 'penalty'; team: Team; player?: string; playerId?: string; scored: boolean; at: string; minute?: number; half?: 1 | 2 };
 
 export const CLOCK_GATED_TYPES: MatchEvent['type'][] = ['goal', 'yellow_card', 'red_card', 'penalty'];
+
+// Réplica de matchEvents.js — normaliza un elemento de lineup.players a la forma
+// uniforme LineupEntry, sin importar el formato en que haya quedado guardado.
+export function normalizeLineupEntry(p: string | LineupPlayer): LineupEntry {
+  if (typeof p === 'string') return { playerId: null, name: p, photo: null };
+  return { playerId: p.playerId || null, name: p.name, photo: p.photo || null };
+}
 
 export interface MatchSummary {
   scoreA: number;
   scoreB: number;
   cardsA: { yellow: number; red: number };
   cardsB: { yellow: number; red: number };
-  lineupA: string[];
-  lineupB: string[];
+  lineupA: LineupEntry[];
+  lineupB: LineupEntry[];
   goals: Array<MatchEvent & { type: 'goal'; scoringTeam: Team }>;
   cards: Array<MatchEvent & { type: 'yellow_card' | 'red_card' }>;
   penalties: Array<MatchEvent & { type: 'penalty' }>;
@@ -42,8 +66,8 @@ export function summarizeEvents(events: MatchEvent[] | undefined | null): MatchS
   let scoreB = 0;
   const cardsA = { yellow: 0, red: 0 };
   const cardsB = { yellow: 0, red: 0 };
-  let lineupA: string[] = [];
-  let lineupB: string[] = [];
+  let lineupA: LineupEntry[] = [];
+  let lineupB: LineupEntry[] = [];
   const goals: MatchSummary['goals'] = [];
   const cards: MatchSummary['cards'] = [];
   const penalties: MatchSummary['penalties'] = [];
@@ -54,8 +78,9 @@ export function summarizeEvents(events: MatchEvent[] | undefined | null): MatchS
 
   for (const ev of list) {
     if (ev.type === 'lineup') {
-      if (ev.team === 'A') lineupA = ev.players;
-      else lineupB = ev.players;
+      const normalized = ev.players.map(normalizeLineupEntry);
+      if (ev.team === 'A') lineupA = normalized;
+      else lineupB = normalized;
     } else if (ev.type === 'half_start') {
       halfStarted[ev.half] = true;
       currentHalf = ev.half;

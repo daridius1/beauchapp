@@ -38,7 +38,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
     if (!user || user.type !== 'organization') return;
     setLoadingMembers(true);
     try {
-      const data = await organizationService.getOrganizationMembers(user.id);
+      const data = await organizationService.getOrganizationMembersForManagement(user.id);
       setMembers(data);
     } catch (err) {
       console.error('Error cargando integrantes:', err);
@@ -86,8 +86,8 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
       await organizationService.addMember(user.id, student.id, role);
       Toast.show({
         type: 'success',
-        text1: 'Integrante agregado',
-        text2: `${student.name} ahora es parte de tu organización.`,
+        text1: 'Invitación enviada',
+        text2: `${student.name} tiene que aceptarla para quedar como integrante.`,
       });
       setSearchStudentQuery('');
       setStudentSearchResults([]);
@@ -173,6 +173,25 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
+      {/* Sección Editar Equipo (solo cuentas de organización subtype=team) */}
+      {user.type === 'organization' && user.subtype === 'team' && (
+        <View style={[styles.optionCard, { marginTop: theme.spacing.md }]}>
+          <TouchableOpacity
+            style={styles.optionHeader}
+            onPress={() => navigation.navigate('EditTeam')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.optionTitleRow}>
+              <Feather name="shield" size={20} color={theme.colors.primary} style={styles.optionIcon} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.optionTitle}>Editar Equipo</Text>
+              </View>
+            </View>
+            <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Sección Gestión de Integrantes (Solo para Organizaciones) */}
       {user.type === 'organization' && (
         <View style={[styles.optionCard, { marginTop: theme.spacing.md }]}>
@@ -237,6 +256,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
                 members.map((m) => {
                   const student = m.expand?.user;
                   if (!student) return null;
+                  const isPending = m.status === 'pending';
                   const currentRoleInput = editingRoles[m.id] !== undefined ? editingRoles[m.id] : (m.role || '');
 
                   return (
@@ -255,24 +275,29 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
                         </TouchableOpacity>
                       </View>
 
-                      {/* Asignación / Edición de Rol */}
-                      <View style={styles.memberRoleRow}>
-                        <TextInput
-                          style={styles.roleInput}
-                          value={currentRoleInput}
-                          onChangeText={(text) => setEditingRoles((prev) => ({ ...prev, [m.id]: text }))}
-                          placeholder="Rol / Cargo (ej. Presidente, Capitán, Delegado)..."
-                          placeholderTextColor={theme.colors.textMuted}
-                        />
-                        {editingRoles[m.id] !== undefined && editingRoles[m.id] !== (m.role || '') && (
-                          <TouchableOpacity
-                            style={styles.saveRoleBtn}
-                            onPress={() => handleUpdateRole(m.id, editingRoles[m.id])}
-                          >
-                            <Text style={styles.saveRoleBtnText}>Guardar</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
+                      {/* Mientras no acepte la invitación, no tiene sentido dejar editarle
+                          el rol todavía — se muestra el estado en su lugar. */}
+                      {isPending ? (
+                        <Text style={styles.pendingInviteText}>Invitación pendiente</Text>
+                      ) : (
+                        <View style={styles.memberRoleRow}>
+                          <TextInput
+                            style={styles.roleInput}
+                            value={currentRoleInput}
+                            onChangeText={(text) => setEditingRoles((prev) => ({ ...prev, [m.id]: text }))}
+                            placeholder="Rol / Cargo (ej. Presidente, Capitán, Delegado)..."
+                            placeholderTextColor={theme.colors.textMuted}
+                          />
+                          {editingRoles[m.id] !== undefined && editingRoles[m.id] !== (m.role || '') && (
+                            <TouchableOpacity
+                              style={styles.saveRoleBtn}
+                              onPress={() => handleUpdateRole(m.id, editingRoles[m.id])}
+                            >
+                              <Text style={styles.saveRoleBtnText}>Guardar</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      )}
                     </View>
                   );
                 })
@@ -515,6 +540,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
     gap: 8,
+  },
+  pendingInviteText: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   roleInput: {
     flex: 1,

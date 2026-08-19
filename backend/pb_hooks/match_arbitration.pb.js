@@ -32,7 +32,8 @@ routerAdd("POST", "/api/league-matches/join", (e) => {
         if (match.getString("code") !== code) {
             throw new BadRequestError("Código incorrecto.");
         }
-        if (match.getString("status") !== "confirmed") {
+        const joinStatus = match.getString("status");
+        if (joinStatus !== "confirmed" && joinStatus !== "played") {
             throw new BadRequestError("Este partido ya no se puede arbitrar.");
         }
 
@@ -56,11 +57,6 @@ routerAdd("POST", "/api/league-matches/events", (e) => {
         if (!events.every((ev) => isValidEvent(ev))) {
             throw new BadRequestError("Hay un evento con formato inválido.");
         }
-        if (!isClockGatedSequenceValid(events)) {
-            throw new BadRequestError(
-                "Hay un gol, tarjeta o penal registrado mientras el reloj no estaba corriendo (pausado, entretiempo, o antes/después del partido)."
-            );
-        }
 
         let match;
         try {
@@ -71,35 +67,57 @@ routerAdd("POST", "/api/league-matches/events", (e) => {
         if (match.getString("code") !== code) {
             throw new BadRequestError("Código incorrecto.");
         }
-        if (match.getString("status") !== "confirmed") {
-            throw new BadRequestError("Este partido ya no se puede arbitrar (no está en estado 'confirmed').");
+        const matchStatus = match.getString("status");
+        if (matchStatus !== "confirmed" && matchStatus !== "played") {
+            throw new BadRequestError("Este partido ya no se puede arbitrar.");
+        }
+        // Un partido ya jugado se puede seguir modificando (corregir el informe arbitral
+        // oficial) — ahí ya no hay un reloj en vivo que validar contra la secuencia de
+        // eventos, así que esa validación solo aplica mientras el partido sigue 'confirmed'.
+        const isAmend = matchStatus === "played";
+        if (!isAmend && !isClockGatedSequenceValid(events)) {
+            throw new BadRequestError(
+                "Hay un gol, tarjeta o penal registrado mientras el reloj no estaba corriendo (pausado, entretiempo, o antes/después del partido)."
+            );
         }
 
         // No hay "fundador": el primer push de cualquiera crea la sesión compartida
         // igual que cualquier push posterior de cualquier otra persona.
         let report;
         try {
-            report = $app.findFirstRecordByFilter("match_reports", "match = {:match}", { match: matchId });
+            report = $app.findFirstRecordByFilter("match_reports", "match = {:match} && deleted = false", { match: matchId });
         } catch (err) {
             report = null;
         }
-        if (report) {
+        if (report && !isAmend) {
             const status = report.getString("status");
             if (status === "submitted" || status === "approved") {
                 throw new BadRequestError("El arbitraje ya se envió, no se puede seguir editando.");
             }
-        } else {
+        } else if (!report) {
             const coll = $app.findCollectionByNameOrId("match_reports");
             report = new Record(coll);
             report.set("match", matchId);
             report.set("referee", e.auth.id);
         }
 
-        report.set("status", "in_progress");
+        const summary = summarizeEvents(events);
+
+        // En modo enmienda el informe ya está 'approved' (es el resultado oficial) y
+        // se mantiene así — solo se corrige su contenido, nunca se vuelve a poner
+        // 'in_progress' (eso lo sacaría de la vista del partido, que solo muestra el
+        // informe cuando está aprobado).
+        report.set("status", isAmend ? "approved" : "in_progress");
         report.set("events", events);
         $app.save(report);
 
-        return e.json(200, { success: true, summary: summarizeEvents(events) });
+        if (isAmend) {
+            match.set("scoreA", summary.scoreA);
+            match.set("scoreB", summary.scoreB);
+            $app.save(match);
+        }
+
+        return e.json(200, { success: true, summary });
     } catch (err) {
         console.error("[match_arbitration.pb.js] Error en POST /api/league-matches/events:", err);
         return e.json(400, { error: (err && err.message) || "No se pudo guardar el evento." });
@@ -123,10 +141,11 @@ routerAdd("POST", "/api/league-matches/notes", (e) => {
         if (match.getString("code") !== code) {
             throw new BadRequestError("Código incorrecto.");
         }
+        const isAmend = match.getString("status") === "played";
 
         let report;
         try {
-            report = $app.findFirstRecordByFilter("match_reports", "match = {:match}", { match: matchId });
+            report = $app.findFirstRecordByFilter("match_reports", "match = {:match} && deleted = false", { match: matchId });
         } catch (err) {
             const coll = $app.findCollectionByNameOrId("match_reports");
             report = new Record(coll);
@@ -135,9 +154,11 @@ routerAdd("POST", "/api/league-matches/notes", (e) => {
             report.set("status", "in_progress");
             report.set("events", []);
         }
-        const status = report.getString("status");
-        if (status === "submitted" || status === "approved") {
-            throw new BadRequestError("El arbitraje ya se envió, no se puede seguir editando.");
+        if (!isAmend) {
+            const status = report.getString("status");
+            if (status === "submitted" || status === "approved") {
+                throw new BadRequestError("El arbitraje ya se envió, no se puede seguir editando.");
+            }
         }
 
         report.set("notes", notes);
@@ -178,7 +199,7 @@ routerAdd("POST", "/api/league-matches/submit", (e) => {
 
         let report;
         try {
-            report = $app.findFirstRecordByFilter("match_reports", "match = {:match}", { match: matchId });
+            report = $app.findFirstRecordByFilter("match_reports", "match = {:match} && deleted = false", { match: matchId });
         } catch (err) {
             throw new BadRequestError("Todavía no se registró ningún evento en este partido.");
         }

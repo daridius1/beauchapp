@@ -95,6 +95,8 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       navigation.navigate('LadderMatchDetail', { matchId: item.relatedId });
     } else if ((item.type === 'activity' || item.type === 'new_activity') && item.relatedId) {
       navigation.navigate('ActivityDetail', { activityId: item.relatedId });
+    } else if (item.type === 'org_invite' && item.relatedId) {
+      navigation.navigate('UserProfile', { userId: item.relatedId });
     }
   };
 

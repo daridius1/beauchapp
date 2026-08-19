@@ -24,7 +24,7 @@ const validateAvailabilitySubmission = (e) => {
         .map((r) => r.getString("blockCode"))
         .concat(
             $app
-                .findRecordsByFilter("league_matches", "status = 'confirmed' || status = 'played'", "", 0, 0)
+                .findRecordsByFilter("league_matches", "(status = 'confirmed' || status = 'played') && deleted = false", "", 0, 0)
                 .map((r) => r.getString("blockCode"))
         );
     const validBlocks = computeValidBlocks(windowBlockCodes(), [blockedCodes, occupiedCodes]);
@@ -285,7 +285,7 @@ routerAdd("GET", "/admin/horarios", (e) => {
                 const [blockedRes, horarioMatchesRes, leagueMatchesRes] = await Promise.all([
                     fetch("/api/collections/horario_blocked_slots/records?perPage=500", { headers: { "Authorization": "Bearer " + token } }),
                     fetch("/api/collections/horario_matches/records?perPage=500&filter=" + encodeURIComponent('status = "confirmed"'), { headers: { "Authorization": "Bearer " + token } }),
-                    fetch("/api/collections/league_matches/records?perPage=500&filter=" + encodeURIComponent('status = "confirmed" || status = "played"'), { headers: { "Authorization": "Bearer " + token } }),
+                    fetch("/api/collections/league_matches/records?perPage=500&filter=" + encodeURIComponent('(status = "confirmed" || status = "played") && deleted = false'), { headers: { "Authorization": "Bearer " + token } }),
                 ]);
                 const blockedData = await blockedRes.json();
                 const horarioMatchesData = await horarioMatchesRes.json();

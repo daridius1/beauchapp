@@ -7,9 +7,16 @@ import { Feather } from '@expo/vector-icons';
 interface Props {
   onImageReady: (file: File | null) => void;
   value?: File | null;
+  // JPEG es el default (liviano, para fotos normales tipo posts/comentarios). PNG es
+  // para casos que necesitan mantener transparencia (ej. foto de jugador con fondo
+  // transparente) — a diferencia de WebP, PocketBase sí sabe generar thumbnails a
+  // partir de un PNG (con WebP como origen, el generador de thumbs de PocketBase no
+  // lo puede decodificar y termina sirviendo la imagen completa sin recortar).
+  format?: 'image/jpeg' | 'image/png';
+  cropToSquare?: boolean;
 }
 
-export const ImagePicker: React.FC<Props> = ({ onImageReady, value }) => {
+export const ImagePicker: React.FC<Props> = ({ onImageReady, value, format = 'image/jpeg', cropToSquare = false }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -34,10 +41,9 @@ export const ImagePicker: React.FC<Props> = ({ onImageReady, value }) => {
 
     setIsCompressing(true);
     try {
-      // JPEG (no WebP): PocketBase 0.25.9 usa disintegration/imaging para generar thumbs,
-      // que no sabe decodificar WebP como origen y sirve el original completo en silencio.
-      const compressedBlob = await compressImage(file, false, 'image/jpeg');
-      const compressedFile = new File([compressedBlob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: 'image/jpeg' });
+      const compressedBlob = await compressImage(file, cropToSquare, format);
+      const ext = format === 'image/png' ? '.png' : '.jpg';
+      const compressedFile = new File([compressedBlob], file.name.replace(/\.[^/.]+$/, "") + ext, { type: format });
       
       // Generate preview
       const previewUrl = URL.createObjectURL(compressedFile);

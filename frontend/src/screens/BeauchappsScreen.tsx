@@ -20,7 +20,7 @@ export const BeauchappsScreen: React.FC<Props> = ({ navigation }) => {
     },
     {
       id: 'ProblemsList',
-      title: 'Problemas',
+      title: 'Pautas',
       icon: 'book-open',
       screen: 'ProblemsList',
     },

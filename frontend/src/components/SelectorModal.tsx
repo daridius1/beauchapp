@@ -122,7 +122,6 @@ export const SelectorModal: React.FC<SelectorModalProps> = ({
                   style={styles.item}
                   onPress={() => handleSelect(item, false)}
                 >
-                  <Feather name="chevron-right" size={14} color={theme.colors.primary} style={{ marginRight: 8 }} />
                   <Text style={styles.itemText}>{item}</Text>
                 </TouchableOpacity>
               ))}
