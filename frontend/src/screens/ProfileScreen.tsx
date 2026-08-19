@@ -351,7 +351,7 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{profileUser.name}</Text>
             {!!profileUser.username && <Text style={styles.profileUsername}>@{profileUser.username}</Text>}
-            
+
             {!!profileUser.description && (
               <Text style={styles.profileBio}>{profileUser.description}</Text>
             )}
@@ -408,6 +408,11 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                 website: profileUser.website,
               }}
               onMarketplacePress={sellerProfile ? () => navigation.push('SellerProfile', { sellerProfileId: sellerProfile.id }) : undefined}
+              onTeamProfilePress={
+                profileUser.type === 'organization' && profileUser.subtype === 'team'
+                  ? () => navigation.push('TeamProfile', { teamId: targetUserId })
+                  : undefined
+              }
             />
           </View>
 
