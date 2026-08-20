@@ -14,6 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { theme } from '../theme/theme';
 import { CommentsHeader } from '../components/CommentsHeader';
+import { SectionHeading } from '../components/SectionHeading';
 import { pb } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
@@ -423,9 +424,12 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.emptyText}>Todavía no hay etapas.</Text>
             </View>
           ) : (
-            stagesWithData.map((s) => (
-              <View key={s.id} style={styles.stageSection}>
-                <Text style={styles.stageSectionTitle}>{s.name}</Text>
+            stagesWithData.map((s, sIdx) => (
+              <View
+                key={s.id}
+                style={[styles.stageSection, sIdx === stagesWithData.length - 1 && styles.stageSectionLast]}
+              >
+                <SectionHeading title={s.name} />
                 {s.type === 'knockout' ? (
                   <PagedMatchList
                     matches={s.matches}
@@ -690,25 +694,17 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 
+  // Sin paddingBottom: el divisor de <CommentsHeader> ya trae su propio margen
+  // superior, y sumados dejaban un hueco enorme entre el contenido y los comentarios.
   tabContent: {
     paddingTop: 4,
-    paddingBottom: 16,
   },
   stageSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
-  // El título de la etapa quedaba flotando sin nada que lo anclara. Una línea fina
-  // debajo le da presencia y separa visualmente una etapa de la siguiente, sin agregar
-  // una caja (DESIGN.md §3: separadores por borde inferior, nunca contenedores).
-  stageSectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#ffffff',
-    textAlign: 'center',
-    paddingBottom: 8,
-    marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222222',
+  // La última etapa no agrega separación extra por abajo, por el mismo motivo.
+  stageSectionLast: {
+    marginBottom: 0,
   },
 
   // Tabla de goleadores

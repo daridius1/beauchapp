@@ -15,6 +15,7 @@ import { Feather } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { theme } from '../theme/theme';
 import { CommentsHeader } from '../components/CommentsHeader';
+import { SectionHeading } from '../components/SectionHeading';
 import { pb } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
@@ -212,7 +213,7 @@ export const TeamProfileScreen: React.FC<Props> = ({ route, navigation }) => {
 
       {/* Sección de Jugadores */}
       <View style={styles.section}>
-        <Text style={styles.sectionHeader}>Jugadores ({players.length})</Text>
+        <SectionHeading title="Jugadores" />
         {players.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Este equipo todavía no tiene jugadores en su plantel.</Text>
@@ -239,7 +240,7 @@ export const TeamProfileScreen: React.FC<Props> = ({ route, navigation }) => {
 
       {/* Sección de Partidos */}
       <View style={styles.section}>
-        <Text style={styles.sectionHeader}>Partidos ({matches.length})</Text>
+        <SectionHeading title="Partidos" />
         <PagedMatchList
           matches={matches}
           emptyText="Este equipo todavía no tiene partidos programados."
@@ -339,11 +340,6 @@ const styles = StyleSheet.create({
 
   section: {
     marginTop: 20,
-  },
-  sectionHeader: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#ffffff',
   },
 
   // Lista de jugadores
