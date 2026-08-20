@@ -1028,14 +1028,16 @@ routerAdd("GET", "/admin/generate-link", (e) => {
 });
 
 // Endpoint POST para generar el link de una organización
-// Duración de un enlace de registro, en días. Está acá arriba y no repartido por el
-// archivo porque es lo que hay que mirar (y lo único que hay que cambiar) para saber
-// cuánto vive un enlace: lo escribe este endpoint en tokenExpiresAt y lo verifican
-// tanto GET /register-org como POST /api/register-organization.
-const REGISTRATION_LINK_DAYS = 7;
-const MAX_LINKS_PER_REQUEST = 25;
-
 routerAdd("POST", "/api/admin/generate-link", (e) => {
+    // Duración de un enlace de registro, en días. Está acá arriba y no repartido por el
+    // handler porque es lo que hay que mirar (y lo único que hay que cambiar) para saber
+    // cuánto vive un enlace: lo escribe este endpoint en tokenExpiresAt y lo verifican
+    // tanto GET /register-org como POST /api/register-organization.
+    // Van adentro del handler (no al nivel del módulo) porque cada routerAdd corre en su
+    // propia VM: un const de afuera no existe acá dentro.
+    const REGISTRATION_LINK_DAYS = 7;
+    const MAX_LINKS_PER_REQUEST = 25;
+
     const body = e.requestInfo().body;
     const subtype = body.subtype || "";
 
