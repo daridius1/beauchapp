@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 type Props = NativeStackScreenProps<RootStackParamList, 'Beauchapps'>;
 
 export const BeauchappsScreen: React.FC<Props> = ({ navigation }) => {
-  const { user, developerMode } = useAuth();
+  const { user } = useAuth();
 
   const apps = [
     {
@@ -48,24 +48,18 @@ export const BeauchappsScreen: React.FC<Props> = ({ navigation }) => {
       icon: 'trending-up',
       screen: 'Beaumarket',
     },
-    // Ligas y Horarios todavía están en desarrollo activo — solo visibles con el modo
-    // desarrollador prendido, hasta que estén listos para todo el mundo.
-    ...(developerMode
-      ? [
-          {
-            id: 'LeaguesList',
-            title: 'Ligas',
-            icon: 'flag',
-            screen: 'LeaguesList',
-          },
-          {
-            id: 'PollasList',
-            title: 'Beaupolla',
-            icon: 'target',
-            screen: 'PollasList',
-          },
-        ]
-      : []),
+    {
+      id: 'LeaguesList',
+      title: 'Ligas',
+      icon: 'flag',
+      screen: 'LeaguesList',
+    },
+    {
+      id: 'PollasList',
+      title: 'Beaupolla',
+      icon: 'target',
+      screen: 'PollasList',
+    },
     ...(user && user.type !== 'organization'
       ? [
           {
@@ -76,7 +70,8 @@ export const BeauchappsScreen: React.FC<Props> = ({ navigation }) => {
           },
         ]
       : []),
-    ...(user && developerMode
+    // Horarios pide sesión: es la disponibilidad de la cuenta que la marca.
+    ...(user
       ? [
           {
             id: 'TeamSchedule',
