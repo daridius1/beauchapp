@@ -63,6 +63,46 @@ Después del deploy, verificar a mano:
 curl -s https://tu-dominio.com/api/health
 ```
 
+## Ojo: subir `pb_hooks/` reinicia PocketBase solo
+
+PocketBase corre con `--hooksWatch` (por defecto **true**), así que **cualquier escritura
+dentro de `pb_hooks/` reinicia el proceso**, sin pasar por `systemctl` y sin pedir la
+clave de sudo. Dos consecuencias que hay que tener presentes:
+
+- **Las migraciones nuevas se aplican en ese reinicio**, no cuando uno hace el
+  `systemctl restart` del final. Si alguna migración toca datos (una limpieza, un
+  backfill), corre en ese momento — asegúrate de tener el respaldo hecho *antes* de
+  subir los hooks, no después.
+- **Un `scp` archivo por archivo puede reiniciar a mitad de la copia**, con el árbol de
+  hooks incompleto. Conviene subir a un directorio de paso y recién ahí copiar todo de
+  una:
+
+  ```bash
+  scp -r ./backend/pb_hooks/. $SERVER:~/red-social/.stage-hooks/
+  ssh $SERVER 'cd ~/red-social && cp -a .stage-hooks/. pb_hooks/ && rm -rf .stage-hooks'
+  ```
+
+  El `cp -a` es local y toma milisegundos, así que el vigilante ve un solo cambio y
+  reinicia una vez con todos los archivos ya en su lugar. Copiar (y no mover el
+  directorio) también preserva lo que exista solo en el servidor.
+
+## Respaldo consistente de la base
+
+El `tar` del paso 3 copia `data.db` mientras PocketBase la está usando, así que puede
+quedar en un estado intermedio. Antes de cualquier deploy que borre o reescriba datos,
+saca además un respaldo consistente con la API de backup de SQLite, que sí es segura en
+caliente:
+
+```bash
+ssh $SERVER 'python3 -c "
+import sqlite3, time
+ts = time.strftime(\"%Y%m%d-%H%M%S\")
+src = sqlite3.connect(\"file:/home/salas/red-social/pb_data/data.db?mode=ro\", uri=True)
+dst = sqlite3.connect(f\"/home/salas/red-social/backups/data-consistente-{ts}.db\")
+with dst: src.backup(dst)
+"'
+```
+
 ## Si algo sale mal (rollback)
 
 El backup se genera automáticamente en cada deploy (paso 3 de arriba), en el servidor:
