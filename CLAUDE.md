@@ -170,9 +170,10 @@ servicio, no por `pb.collection` suelto en la pantalla), componentes compartidos
 
 - **Borrado suave en todos lados.** Casi todo tiene `deleted`; borrar de verdad rompe hilos
   de conversación y referencias. Ver `PRINCIPLES.md`.
-- **Imágenes desde R2, no proxeadas.** Solo las miniaturas realmente chicas (`100x100`,
-  `300x300` de tarjetas de lista) pasan por PocketBase; todo lo demás va directo al CDN.
-  Detalle completo y medido en `PRINCIPLES.md` §2.
+- **Imágenes desde R2, no proxeadas.** Solo las miniaturas `100x100` de avatares y escudos
+  chicos pasan por PocketBase; todo lo demás va directo al CDN. Y nunca se pide miniatura de
+  un `.webp`: PocketBase la re-codifica y sale **más pesada que el original** (medido: 6,8 KB
+  → 103 KB). Detalle completo en `PRINCIPLES.md` §2.
 - **Endpoints públicos dedicados** antes que abrir reglas de colección. Abrir `users` para
   mostrar el nombre de un equipo expondría las 447 cuentas.
 - **El servidor es un Atom con 2 GB y 10 Mbps de subida.** Cualquier cosa que multiplique

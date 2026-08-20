@@ -200,7 +200,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
       : [];
   const thumbUrls =
     item.images && item.images.length > 0
-      ? item.images.map((img) => marketplaceService.getItemImageUrl(item, img, '300x300'))
+      ? item.images.map((img) => marketplaceService.getItemImageUrl(item, img))
       : [];
 
   const handleToggleRecommend = async () => {

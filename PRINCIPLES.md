@@ -63,8 +63,8 @@ R2 (sin `size`) o pasa por PocketBase (con `size`):
 
 | Qué se muestra | Cómo se pide | Por qué |
 |---|---|---|
-| Fotos de perfil y escudos en listas (≤ 60 px), tarjetas del marketplace, previews del editor | `'100x100'` / `'300x300'` por el proxy | Son 7-35 KB. Pedir el original serían 30-190 KB para un círculo de 40 px. |
-| Todo lo demás: foto de un post en el feed, banners de actividades, fotos de Tinder, galerías, avatares grandes | **sin `size`**, directo a R2 | Salen del CDN de Cloudflare y no tocan el servidor. |
+| Fotos de perfil y escudos mostrados a ≤ 60 px (listas, filas, avatares del feed) | `'100x100'` por el proxy | Son ~7 KB contra ~31 KB del original, y son JPEG, así que la miniatura sí achica de verdad. |
+| Todo lo demás: foto de un post, banners, Tinder, marketplace, galerías, avatares grandes | **sin `size`**, directo a R2 | Salen del CDN de Cloudflare y no tocan el servidor. |
 
 Esto **cambió** respecto de la regla anterior, que decía "en listados siempre pasa un `size`".
 El motivo del cambio, medido en producción: las miniaturas también las cachea Cloudflare
@@ -104,7 +104,23 @@ que pasa por el proxy: si nadie pasa nunca por el proxy, la miniatura de una ima
 existe y el CDN devuelve 404. Hace falta o un `onError` que caiga al proxy, o un hook que
 fuerce la generación al subir el archivo.
 
-**Sube imágenes como JPEG (o PNG), no WebP, en cualquier colección con `thumbs` configurado.** El generador de thumbnails de PocketBase (`github.com/disintegration/imaging`) no sabe decodificar WebP como formato de origen — si el archivo almacenado es `.webp`, una petición `?thumb=400x0` sirve el original completo en silencio, sin error, dando una falsa sensación de que el ahorro de datos está funcionando cuando no es así (verificado empíricamente: mismo tamaño de bytes exacto entre "thumb" y original). Por eso `compressImage`/`compressImageNative` se llaman con `format: 'image/jpeg'` explícito en todo lo que sube a `posts`, `marketplace_items`, `activities` y `tinder_profiles` (vía `ImagePicker.tsx`, `MarketplaceItemEditorScreen.tsx`, `TinderScreen.tsx`) — el mismo patrón que ya usaba `SettingsScreen` para avatares, que es la razón por la que esos thumbnails sí funcionaban antes de que el resto se corrigiera. WebP sigue siendo válido únicamente para archivos que no se van a mostrar en miniatura vía PocketBase (ej. adjuntos de `ProblemEditorScreen`, que van a la colección `attachments` sin `thumbs`).
+**No pidas miniaturas de archivos WebP: pesan más que el original.** Medido el 2026-08-20
+sobre 9 archivos `.webp` de producción (marketplace, posts, Tinder): en **8 de los 9** la
+"miniatura" resultó **más grande** que la imagen completa. Casos reales: 6,8 KB → 103,3 KB;
+42,1 KB → 131,2 KB; 50,0 KB → 110,2 KB.
+
+El motivo es que PocketBase decodifica el WebP y re-codifica la miniatura en otro formato,
+perdiendo justamente la compresión que hacía chico al archivo. Ojo: esto **corrige** lo que
+decía antes este documento — la miniatura sí se genera (con PocketBase 0.39 el decodificador
+entiende WebP), pero el resultado es peor que no pedirla. Por eso todo lo que se sube como
+WebP (marketplace, posts, Tinder, vía `compressImage`) se pide **sin `size`**, directo del CDN.
+
+Las miniaturas por proxy quedan solo para avatares y escudos chicos, que se suben como JPEG
+(`SettingsScreen`, `EditTeamScreen`) y ahí sí achican: ~7 KB contra ~31 KB.
+
+**Si agregas un campo de imagen nuevo**, decide con esta pregunta: ¿se va a mostrar alguna vez
+a menos de ~60 px? Si no, no le declares `thumbs` y pídelo siempre sin `size`. Si sí, declara
+`thumbs` en la migración de creación y asegúrate de que lo que se sube a ese campo sea JPEG.
 
 ## 3. Minimizar los datos sensibles que se manejan y exponen
 
