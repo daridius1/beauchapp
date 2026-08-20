@@ -145,6 +145,9 @@ ${CALENDAR_CSS}
         .status-confirmed { background: rgba(56,189,248,0.15); color: #7dd3fc; }
         .status-suspended { background: rgba(234,179,8,0.15); color: #fde047; }
         .status-cancelled { background: rgba(239,68,68,0.15); color: #fca5a5; }
+        .copy-btn { margin-left: 8px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-color); border-radius: 999px; color: var(--text-color); font: inherit; font-size: 10px; font-weight: 700; padding: 1px 8px; cursor: pointer; }
+        .copy-btn:hover { background: rgba(255,255,255,0.16); }
+        .copy-btn.copied { background: var(--success-color); border-color: var(--success-color); color: #05230f; }
         .week-block:first-child .week-label { margin-top: 10px; }
         .match-index { font-size: 11px; font-weight: 800; border-radius: 6px; padding: 2px 7px; background: #16a34a; color: #ffffff; flex-shrink: 0; }
         .match-index.proposed { background: #a855f7; }
@@ -1060,6 +1063,59 @@ ${CALENDAR_FNS}
             return el;
         }
 
+        // El código de arbitraje se comparte por WhatsApp con el árbitro de turno, así
+        // que copiarlo es lo que el admin viene a hacer con él. La API de portapapeles
+        // solo existe en contexto seguro (https o localhost); si se entra por IP de la
+        // red, se cae al textarea + execCommand, que sigue andando ahí.
+        function copyToClipboard(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                return navigator.clipboard.writeText(text);
+            }
+            return new Promise((resolve, reject) => {
+                const ta = document.createElement("textarea");
+                ta.value = text;
+                ta.setAttribute("readonly", "");
+                ta.style.position = "fixed";
+                ta.style.opacity = "0";
+                document.body.appendChild(ta);
+                ta.select();
+                let ok = false;
+                try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+                document.body.removeChild(ta);
+                ok ? resolve() : reject(new Error("No se pudo copiar."));
+            });
+        }
+
+        function codeChip(code) {
+            const el = document.createElement("span");
+            el.className = "fact";
+            el.appendChild(document.createTextNode("Código para arbitrar "));
+            const strong = document.createElement("strong");
+            strong.textContent = code;
+            el.appendChild(strong);
+
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "copy-btn";
+            btn.title = "Copiar el código";
+            btn.textContent = "Copiar";
+            btn.addEventListener("click", async () => {
+                try {
+                    await copyToClipboard(code);
+                    btn.textContent = "Copiado";
+                    btn.classList.add("copied");
+                } catch (err) {
+                    btn.textContent = "No se pudo";
+                }
+                setTimeout(() => {
+                    btn.textContent = "Copiar";
+                    btn.classList.remove("copied");
+                }, 1600);
+            });
+            el.appendChild(btn);
+            return el;
+        }
+
         // Cabecera común de las dos listas: índice + equipos a la izquierda, chip a la
         // derecha. El índice es el mismo que se pinta en la celda del calendario.
         function matchCardHead(index, proposed, teams, chip) {
@@ -1229,7 +1285,7 @@ ${CALENDAR_FNS}
                 } else if (m.status === "confirmed") {
                     // El código es lo que habilita a arbitrar: es el dato que el admin
                     // viene a buscar a esta lista.
-                    facts.appendChild(factChip("Código para arbitrar:", m.code));
+                    facts.appendChild(codeChip(m.code));
                 }
                 if (facts.childNodes.length) card.appendChild(facts);
 
