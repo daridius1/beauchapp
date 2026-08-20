@@ -63,6 +63,35 @@ Después del deploy, verificar a mano:
 curl -s https://tu-dominio.com/api/health
 ```
 
+## Ojo: las `EXPO_PUBLIC_*` se incrustan al compilar
+
+El `.env` de producción vive en el servidor, pero **el frontend se compila en tu máquina**,
+así que ese `.env` no participa del build. Las variables `EXPO_PUBLIC_*` tienen que estar
+en el entorno local al momento de compilar; si falta alguna, queda incrustado el valor por
+defecto (o ninguno) y el sitio sale a producción así, sin ningún error visible.
+
+La que más duele es `EXPO_PUBLIC_R2_URL`: sin ella, **cada imagen a tamaño completo se
+sirve a través de PocketBase** en vez de directo desde R2, en contra de
+[`PRINCIPLES.md`](./PRINCIPLES.md) §2. Y no se nota mirando la página, porque las
+miniaturas pasan por el servidor de todas formas (PocketBase las genera al vuelo): el feed
+y los avatares se ven perfectos aunque la ruta directa esté rota. Para comprobarlo hay que
+mirar el bundle:
+
+```bash
+grep -c "images.tu-dominio.com" frontend/dist/_expo/static/js/web/index-*.js   # debe dar 1
+```
+
+`deploy.sh` carga `frontend/.env` y avisa si la variable falta.
+
+**Cuidado con `EXPO_PUBLIC_API_URL`**: el valor de `.env.example` es `http://127.0.0.1:8090`.
+Si se copia tal cual a `frontend/.env`, queda incrustado en el bundle y **rompe producción**.
+Déjala sin definir: la web usa `window.location.origin`, que es lo correcto servida por
+PocketBase detrás de Cloudflare.
+
+Y compila siempre con `--clear`: sin eso Metro reutiliza el bundle cacheado y un cambio en
+las `EXPO_PUBLIC_*` no se refleja — sale con el mismo hash que antes y parece que no pasó
+nada, porque efectivamente no pasó.
+
 ## Ojo: subir `pb_hooks/` reinicia PocketBase solo
 
 PocketBase corre con `--hooksWatch` (por defecto **true**), así que **cualquier escritura

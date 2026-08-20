@@ -12,11 +12,30 @@ echo "========================================="
 echo "🚀 Iniciando Despliegue en Homeserver"
 echo "========================================="
 
+# Las EXPO_PUBLIC_* se incrustan en el bundle EN EL MOMENTO DE COMPILAR, así que tienen
+# que estar en el entorno de esta máquina — el .env del servidor no participa del build.
+# Si falta EXPO_PUBLIC_R2_URL el sitio igual funciona, pero cada imagen a tamaño completo
+# pasa a servirse a través de PocketBase en vez de directo desde R2 (ver PRINCIPLES.md §2),
+# y eso es invisible mirando la página: las miniaturas van por el servidor de todas formas.
+if [ -f ./frontend/.env ]; then
+  set -a; . ./frontend/.env; set +a
+fi
+
+if [ -z "${EXPO_PUBLIC_R2_URL:-}" ]; then
+  echo "⚠️  EXPO_PUBLIC_R2_URL no está definida: las imágenes se servirán por el proxy de"
+  echo "   PocketBase, no directo desde R2. Defínela en frontend/.env (ver .env.example)"
+  echo "   o exportala antes de correr este script."
+  read -p "   ¿Compilar igual? [s/N] " -n 1 -r; echo
+  [[ $REPLY =~ ^[SsYy]$ ]] || exit 1
+fi
+
 # 1. Verificar si el frontend ya está compilado
 if [ ! -d "$LOCAL_BUILD_DIR" ]; then
   echo "Compilando frontend..."
   cd frontend
-  npx expo export -p web
+  # --clear es necesario: sin él Metro reutiliza el bundle cacheado y un cambio en las
+  # EXPO_PUBLIC_* no se refleja (el bundle sale con el MISMO hash que antes).
+  npx expo export -p web --clear
   cd ..
 fi
 
