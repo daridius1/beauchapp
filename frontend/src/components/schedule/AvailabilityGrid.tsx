@@ -45,6 +45,8 @@ const BLOCKED_BG = '#26262a';
 const BLOCKED_LABEL = 'Bloqueado por el admin';
 const OCCUPIED_BG = '#1e3a5f';
 const OCCUPIED_LABEL = 'Ocupado por un partido';
+const PAST_BG = '#000000';
+const PAST_LABEL = 'Ya pasó';
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
@@ -71,6 +73,21 @@ export function blockCode(dateStr: string, hour: number): string {
 
 export function hourLabel(hour: number): string {
   return `${pad2(hour)}:00`;
+}
+
+// Un bloque queda "pasado" apenas arranca su hora, no cuando termina — no tiene
+// sentido dejar marcar disponibilidad para una hora que ya está corriendo.
+function isBlockPast(dateStr: string, hour: number, now: Date = new Date()): boolean {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d, hour) < now;
+}
+
+// Una semana está totalmente vencida cuando incluso su último bloque (el viernes a
+// END_HOUR) ya pasó — nos ahorra recorrer los 55 bloques para saber si a esta semana
+// le queda algo marcable.
+function weekIsFullyPast(week: WeekInfo, now: Date = new Date()): boolean {
+  const lastDay = week.days[week.days.length - 1];
+  return isBlockPast(lastDay.dateStr, END_HOUR, now);
 }
 
 interface WeekDay {
@@ -172,6 +189,10 @@ export const ScheduleLegend: React.FC<{ binary?: boolean }> = ({ binary }) => (
       </View>
       <Text style={styles.legendText}>{OCCUPIED_LABEL}</Text>
     </View>
+    <View style={styles.legendItem}>
+      <View style={[styles.legendSwatch, styles.legendSwatchPast]} />
+      <Text style={styles.legendText}>{PAST_LABEL}</Text>
+    </View>
   </View>
 );
 
@@ -196,8 +217,17 @@ interface AvailabilityGridProps {
 // muestran aparte y no son tocables.
 export const AvailabilityGrid: React.FC<AvailabilityGridProps> = ({ values, onChange, blockedBlocks, occupiedBlocks, disabled, binary }) => {
   const weeks = getScheduleWindow();
-  const [selectedWeek, setSelectedWeek] = useState(0);
+  // Por defecto se abre en la primera semana que todavía tenga algo marcable, no
+  // siempre en la semana 0: si hoy es sábado o domingo, la semana actual (lun-vie) ya
+  // quedó entera en el pasado y no tiene sentido aterrizar ahí. Solo se calcula una vez
+  // al montar, igual que el resto de la ventana — no se re-evalúa mientras la pantalla
+  // sigue abierta.
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    const idx = weeks.findIndex((w) => !weekIsFullyPast(w));
+    return idx === -1 ? weeks.length - 1 : idx;
+  });
   const week = weeks[Math.min(selectedWeek, weeks.length - 1)];
+  const todayStr = formatDateStr(new Date());
 
   return (
     <View>
@@ -216,12 +246,15 @@ export const AvailabilityGrid: React.FC<AvailabilityGridProps> = ({ values, onCh
 
       <View style={styles.row}>
         <View style={styles.hourLabelCell} />
-        {week.days.map((day) => (
-          <View key={day.dateStr} style={styles.dayHeaderCell}>
-            <Text style={styles.dayHeaderText}>{day.dayLabel}</Text>
-            <Text style={styles.dayHeaderDate}>{day.dayOfMonth}</Text>
-          </View>
-        ))}
+        {week.days.map((day) => {
+          const isToday = day.dateStr === todayStr;
+          return (
+            <View key={day.dateStr} style={[styles.dayHeaderCell, isToday && styles.dayHeaderCellToday]}>
+              <Text style={[styles.dayHeaderText, isToday && styles.dayHeaderTextToday]}>{day.dayLabel}</Text>
+              <Text style={[styles.dayHeaderDate, isToday && styles.dayHeaderTextToday]}>{day.dayOfMonth}</Text>
+            </View>
+          );
+        })}
       </View>
 
       {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i).map((hour) => (
@@ -231,6 +264,13 @@ export const AvailabilityGrid: React.FC<AvailabilityGridProps> = ({ values, onCh
           </View>
           {week.days.map((day) => {
             const block = blockCode(day.dateStr, hour);
+            // El pasado se revisa primero y gana contra cualquier otro estado: un
+            // bloque bloqueado u ocupado que además ya pasó no tiene ninguna acción
+            // pendiente asociada (no se puede "desocupar" ni "desbloquear" el ayer), así
+            // que mostrar el candado o la barra ahí sería sugerir una acción que no existe.
+            if (isBlockPast(day.dateStr, hour)) {
+              return <View key={block} style={[styles.cell, styles.cellPast]} />;
+            }
             if (blockedBlocks?.has(block)) {
               return (
                 <View key={block} style={[styles.cell, { backgroundColor: BLOCKED_BG }]}>
@@ -338,6 +378,16 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 9,
   },
+  // El fondo de la app ya es negro puro (theme.colors.background), así que "hoy" no se
+  // puede marcar con relleno oscuro — se marca con el borde y el color del texto.
+  dayHeaderCellToday: {
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  dayHeaderTextToday: {
+    color: theme.colors.primary,
+  },
   cell: {
     flex: 1,
     height: 26,
@@ -345,6 +395,13 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Mismo negro que el fondo de la app (a propósito: "pasado" debe leerse como un
+  // vacío, no como un color más de la escala) — el borde más claro que el de una celda
+  // normal es lo único que evita que la celda desaparezca contra ese fondo.
+  cellPast: {
+    backgroundColor: PAST_BG,
+    borderColor: '#3f3f46',
   },
   cellText: {
     fontSize: 10,
@@ -377,6 +434,10 @@ const styles = StyleSheet.create({
     backgroundColor: OCCUPIED_BG,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  legendSwatchPast: {
+    backgroundColor: PAST_BG,
+    borderColor: '#3f3f46',
   },
   legendText: {
     color: theme.colors.textMuted,
