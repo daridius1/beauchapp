@@ -355,7 +355,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             onPress={() => setViewerVisible(true)}
           >
             <Image
-              source={{ uri: getFileUrl(post, post.photo, '400x0') }}
+              source={{ uri: getFileUrl(post, post.photo) }}
               style={styles.postImage}
               resizeMode="cover"
             />

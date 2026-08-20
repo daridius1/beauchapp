@@ -26,7 +26,7 @@ cd backend
 ./pocketbase serve
 ```
 
-La consola de administración local estará disponible en: [http://127.0.5.1:8090/_/](http://127.0.5.1:8090/_/)
+La consola de administración local estará disponible en: [http://127.0.0.1:8090/_/](http://127.0.0.1:8090/_/)
 
 ### 2. Cliente Frontend (Expo)
 
@@ -49,6 +49,7 @@ npx expo start --web
 
 | Documento | Contenido |
 |---|---|
+| [`CLAUDE.md`](./CLAUDE.md) | **Empieza por acá.** Orientación completa del proyecto: arquitectura, dónde está cada cosa, y las trampas que cuestan horas (VMs de Goja, variables de compilación, reinicios automáticos) |
 | [`SETUP.md`](./SETUP.md) | Guía de setup detallada (local y producción), variables de entorno |
 | [`PRINCIPLES.md`](./PRINCIPLES.md) | Principios de ingeniería: por qué el código es como es (recursos, R2, datos sensibles, PWA) |
 | [`DESIGN.md`](./DESIGN.md) | Guía de diseño visual y UX |

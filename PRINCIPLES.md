@@ -10,6 +10,16 @@ Beauchapp es un proyecto comunitario universitario, sin fines de lucro, mantenid
 
 ## 1. El servidor hace lo mínimo posible
 
+**Cuál es el servidor, en números medidos (2026-08-20).** No es una metáfora: es un
+**Intel Atom x5-Z8300 con 2 GB de RAM**, en la casa del autor, conectado por cable al router.
+La conexión da **~300 Mbps de bajada pero solo ~10,6 Mbps de subida**, y servir un sitio
+consume subida. Para dimensionar: el pico real de tráfico registrado fue de 268 peticiones por
+minuto, y el feed de 20 posts son ~19 KB de JSON (~5 KB comprimido).
+
+Consecuencias prácticas: una petición de más por usuario se multiplica por todos los usuarios;
+cualquier cosa que se pueda cachear en Cloudflare deja de costar; y un cómputo pesado en un
+hook no compite con "el servidor", compite con los demás usuarios.
+
 **Regla general:** si un cómputo se puede hacer en el cliente (navegador/dispositivo del usuario) en vez del servidor, se hace en el cliente. El servidor es el recurso compartido y escaso; el dispositivo de cada usuario es un recurso que ya está pagado y es proporcional a la cantidad de usuarios.
 
 - **Compresión de imágenes en el cliente, nunca en el servidor.** `frontend/src/utils/imageCompressor.ts` (web, basado en Canvas) y su equivalente `compressImageNative` (nativo/iOS/Android, basado en `expo-image-manipulator`, ya que Canvas/DOM no existen fuera del navegador) redimensionan y comprimen la imagen *antes* de subirla, con reducción progresiva de dimensiones apuntando a ~250KB en la versión web. El servidor jamás recibe ni procesa la imagen original de alta resolución. El formato de salida (WebP vs. JPEG) no es arbitrario — ver el punto sobre thumbnails en la sección 2.
@@ -47,11 +57,52 @@ if (r2Url && !size) {
 
 Esto significa: cada foto de perfil, cada imagen de un post, se descarga desde la red de Cloudflare, no desde el servidor de la app. El servidor de PocketBase solo entra en el camino cuando hace falta un thumbnail generado dinámicamente. Si agregas una funcionalidad nueva que muestra imágenes, usa `getFileUrl()` — no construyas URLs de archivos a mano.
 
-**Pide siempre el tamaño más chico que la vista realmente necesita.** `getFileUrl(record, filename, size)` — el tercer argumento decide tanto el peso de la descarga como si la petición va directo a R2 (imagen completa) o pasa por el proxy de PocketBase (thumbnail):
+**Regla vigente (2026-08-20): del CDN todo, salvo las miniaturas realmente chicas.**
+`getFileUrl(record, filename, size)` — el tercer argumento decide si la petición va directo a
+R2 (sin `size`) o pasa por PocketBase (con `size`):
 
-- En listados, grillas y cards (feed de posts, grilla de Marketplace, cards de Tinder, banners de actividades) **siempre** se pasa un `size` (ej. `'300x300'`, `'400x0'`) — nunca se pide el archivo original para mostrarlo en miniatura.
-- Solo las vistas de zoom/pantalla completa genuinas (el visor de imagen de un post, por ejemplo) piden el original sin `size`.
-- Esto solo funciona si el campo de archivo tiene `thumbs` configurado en su colección (`backend/pb_migrations/1784100000_add_thumbs_to_image_fields.js` los habilitó para `posts.photo`, `marketplace_items.images`, `activities.banner`, `tinder_profiles.photos`, además de `users.avatar` que ya los tenía). Si agregas un campo de imagen nuevo y planeas mostrarlo en una lista, agrégale `thumbs` en la migración de creación, no lo dejes para después.
+| Qué se muestra | Cómo se pide | Por qué |
+|---|---|---|
+| Fotos de perfil y escudos en listas (≤ 60 px), tarjetas del marketplace, previews del editor | `'100x100'` / `'300x300'` por el proxy | Son 7-35 KB. Pedir el original serían 30-190 KB para un círculo de 40 px. |
+| Todo lo demás: foto de un post en el feed, banners de actividades, fotos de Tinder, galerías, avatares grandes | **sin `size`**, directo a R2 | Salen del CDN de Cloudflare y no tocan el servidor. |
+
+Esto **cambió** respecto de la regla anterior, que decía "en listados siempre pasa un `size`".
+El motivo del cambio, medido en producción: las miniaturas también las cachea Cloudflare
+(PocketBase las devuelve con `cache-control: max-age=2592000`, y responden `cf-cache-status:
+HIT`), así que el proxy casi nunca era el problema real; y a cambio, cada tamaño que se pide
+es una oportunidad de equivocarse en silencio (ver los dos párrafos siguientes). El costo del
+cambio está medido y aceptado: la foto de un post en el feed pasa de ~52 KB a ~183 KB de
+mediana, servidos por el CDN en vez del homeserver.
+
+**Un `?thumb=` puede devolver la imagen original sin avisar, por dos razones distintas.** No
+da error, no da warning: devuelve los bytes completos y todo "se ve bien".
+
+1. **El tamaño no está declarado en el campo.** PocketBase solo genera los tamaños listados en
+   `thumbs` de ese campo de archivo. Pedir `300x300` a `posts.photo` (que declara `400x0` y
+   `800x0`) devolvía la original — 174,8 KB en vez de 52,4 KB. Había dos casos así en el
+   código hasta que se corrigieron.
+2. **El archivo de origen es WebP** (ver el párrafo siguiente).
+
+La forma de comprobarlo es comparar bytes, no mirar la pantalla:
+
+```bash
+curl -so /dev/null -w "%{size_download}\n" "$URL"              # original
+curl -so /dev/null -w "%{size_download}\n" "$URL?thumb=400x0"  # si da lo mismo, no hay miniatura
+```
+
+Los tamaños declarados hoy son: `users.avatar` 100x100/500x500 · `users.matchPhoto` y
+`team_players.photo` 100x100/300x300 · `posts.photo`, `tinder_profiles.photos` y
+`activities.banner` 400x0/800x0 · `marketplace_items.images` 300x300/800x0 ·
+`blocked_users.blocked_avatar` 100x100 · `attachments.file` ninguno.
+
+**Optimización pendiente, ya verificada:** las miniaturas que genera PocketBase quedan
+guardadas en R2 y **son accesibles directo por el CDN**, en
+`{colección}/{registro}/thumbs_{archivo}/{tamaño}_{archivo}` (comprobado: responde 200). O sea
+que se podría tener lo mejor de los dos mundos — pocos bytes *y* sin pasar por el servidor. Lo
+que falta resolver es que las miniaturas se generan de forma perezosa, en la primera petición
+que pasa por el proxy: si nadie pasa nunca por el proxy, la miniatura de una imagen nueva no
+existe y el CDN devuelve 404. Hace falta o un `onError` que caiga al proxy, o un hook que
+fuerce la generación al subir el archivo.
 
 **Sube imágenes como JPEG (o PNG), no WebP, en cualquier colección con `thumbs` configurado.** El generador de thumbnails de PocketBase (`github.com/disintegration/imaging`) no sabe decodificar WebP como formato de origen — si el archivo almacenado es `.webp`, una petición `?thumb=400x0` sirve el original completo en silencio, sin error, dando una falsa sensación de que el ahorro de datos está funcionando cuando no es así (verificado empíricamente: mismo tamaño de bytes exacto entre "thumb" y original). Por eso `compressImage`/`compressImageNative` se llaman con `format: 'image/jpeg'` explícito en todo lo que sube a `posts`, `marketplace_items`, `activities` y `tinder_profiles` (vía `ImagePicker.tsx`, `MarketplaceItemEditorScreen.tsx`, `TinderScreen.tsx`) — el mismo patrón que ya usaba `SettingsScreen` para avatares, que es la razón por la que esos thumbnails sí funcionaban antes de que el resto se corrigiera. WebP sigue siendo válido únicamente para archivos que no se van a mostrar en miniatura vía PocketBase (ej. adjuntos de `ProblemEditorScreen`, que van a la colección `attachments` sin `thumbs`).
 
@@ -104,6 +155,7 @@ Si alguna respuesta es dudosa, ese es exactamente el tipo de decisión que vale 
 
 | Documento | Contenido |
 |---|---|
+| [`CLAUDE.md`](./CLAUDE.md) | Orientación para una sesión nueva: arquitectura, dónde está cada cosa, trampas conocidas |
 | [`README.md`](./README.md) | Qué es Beauchapp, cómo levantar el proyecto en local |
 | [`SETUP.md`](./SETUP.md) | Guía de setup detallada (local y producción), variables de entorno |
 | [`PRINCIPLES.md`](./PRINCIPLES.md) | Este documento — por qué el código es como es |

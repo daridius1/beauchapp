@@ -196,7 +196,7 @@ export const MarketplaceItemDetailScreen: React.FC<Props> = ({ route, navigation
 
   const imageUrls =
     item.images && item.images.length > 0
-      ? item.images.map((img) => marketplaceService.getItemImageUrl(item, img, '800x0'))
+      ? item.images.map((img) => marketplaceService.getItemImageUrl(item, img))
       : [];
   const thumbUrls =
     item.images && item.images.length > 0

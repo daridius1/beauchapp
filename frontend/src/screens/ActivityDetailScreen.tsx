@@ -63,7 +63,7 @@ export const ActivityDetailScreen = ({ route, navigation }: any) => {
       setLikeCount(actData.like_count || 0);
       setAttendeeCount(actData.attendee_count || 0);
 
-      const bUrl = activityService.getBannerUrl(actData, '800x0');
+      const bUrl = activityService.getBannerUrl(actData);
       if (bUrl) {
         Image.getSize(
           bUrl,
@@ -256,7 +256,7 @@ export const ActivityDetailScreen = ({ route, navigation }: any) => {
   }
 
   const org = activity.expand?.organization;
-  const bannerUrl = activityService.getBannerUrl(activity, '800x0');
+  const bannerUrl = activityService.getBannerUrl(activity);
 
   return (
     <ScrollView

@@ -183,6 +183,15 @@ routerAdd("GET", "/register-org", (e) => {
         return e.html(400, `<h1 style="color:#ef4444;text-align:center;margin-top:100px;font-family:sans-serif;">Enlace de activación inválido o ya utilizado.</h1>`);
     }
 
+    // El vencimiento se comprueba también acá, no solo al enviar el formulario: si no,
+    // el enlace vencido muestra el formulario completo, la persona llena todo y recién
+    // ahí se entera. POST /api/register-organization lo vuelve a verificar igual — esta
+    // comprobación es de cortesía, la que manda es aquella.
+    const expiraEn = new Date(userRecord.getString("tokenExpiresAt"));
+    if (!userRecord.getString("tokenExpiresAt") || expiraEn < new Date()) {
+        return e.html(400, `<h1 style="color:#ef4444;text-align:center;margin-top:100px;font-family:sans-serif;">Este enlace de activación venció. Pídele uno nuevo a quien te lo compartió.</h1>`);
+    }
+
     const expiresAt = new Date(userRecord.getString("tokenExpiresAt"));
     if (expiresAt < new Date()) {
         return e.html(400, `<h1 style="color:#ef4444;text-align:center;margin-top:100px;font-family:sans-serif;">Este enlace de activación ha expirado.</h1>`);
@@ -765,6 +774,12 @@ routerAdd("GET", "/admin/generate-link", (e) => {
         .copy-btn:hover {
             background: rgba(255, 255, 255, 0.1);
         }
+        .hint-text { display: block; color: var(--text-muted); font-size: 12px; margin-top: 6px; }
+        .link-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .link-row .idx { color: var(--text-muted); font-size: 12px; font-weight: 700; min-width: 22px; }
+        .link-row .url-box { flex: 1; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+        /* .copy-btn trae width:100%; en una fila flex eso aplasta la URL a un carácter. */
+        .link-row .row-copy { flex-shrink: 0; width: auto; margin: 0; padding: 6px 12px; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -796,13 +811,19 @@ routerAdd("GET", "/admin/generate-link", (e) => {
                     ${subtypeOptionsHtml}
                 </select>
             </div>
-            <button type="submit" class="btn">Generar Enlace</button>
+            <div class="form-group">
+                <label for="count">Cantidad de enlaces</label>
+                <input type="number" id="count" min="1" max="25" value="1">
+                <small class="hint-text">Cada enlace sirve una sola vez, para una organización distinta.</small>
+            </div>
+            <button type="submit" class="btn" id="generateBtn">Generar Enlace</button>
             <button type="button" class="copy-btn" id="logoutBtn" style="margin-top: 15px;">Cerrar Sesión</button>
         </form>
 
         <div class="result-container" id="resultBox">
-            <div class="result-title">✓ Enlace Generado Exitosamente</div>
-            <div class="url-box" id="urlBox"></div>
+            <div class="result-title" id="resultTitle">✓ Enlace Generado Exitosamente</div>
+            <div id="expiryNote" class="hint-text" style="margin-bottom: 12px;"></div>
+            <div id="linksList"></div>
             <button class="copy-btn" id="copyBtn">Copiar Enlace</button>
         </div>
     </div>
@@ -822,7 +843,6 @@ routerAdd("GET", "/admin/generate-link", (e) => {
         const generatorForm = document.getElementById("generatorForm");
         const errorAlert = document.getElementById("errorAlert");
         const resultBox = document.getElementById("resultBox");
-        const urlBox = document.getElementById("urlBox");
 
         function showError(msg) {
             errorAlert.textContent = msg;
@@ -890,6 +910,11 @@ routerAdd("GET", "/admin/generate-link", (e) => {
             hideError();
             resultBox.style.display = "none";
             const subtype = document.getElementById("subtype").value;
+            const count = Math.max(1, Math.min(25, parseInt(document.getElementById("count").value, 10) || 1));
+
+            const genBtn = document.getElementById("generateBtn");
+            genBtn.disabled = true;
+            genBtn.textContent = count > 1 ? "Generando " + count + " enlaces..." : "Generando...";
 
             try {
                 const response = await fetch("/api/admin/generate-link", {
@@ -898,7 +923,7 @@ routerAdd("GET", "/admin/generate-link", (e) => {
                         "Content-Type": "application/json",
                         "Authorization": "Bearer " + token
                     },
-                    body: JSON.stringify({ subtype })
+                    body: JSON.stringify({ subtype, count })
                 });
                 const data = await response.json();
                 if (!response.ok) {
@@ -911,45 +936,90 @@ routerAdd("GET", "/admin/generate-link", (e) => {
                     throw new Error(data.error || "Error al generar enlace.");
                 }
 
-                urlBox.textContent = data.link;
-                resultBox.style.display = "block";
+                mostrarEnlaces(data);
             } catch (err) {
                 showError(err.message);
+            } finally {
+                genBtn.disabled = false;
+                genBtn.textContent = "Generar Enlace";
             }
         });
 
-        // Copiar Enlace con fallback para HTTP (contextos no seguros)
-        document.getElementById("copyBtn").addEventListener("click", () => {
-            const urlText = urlBox.textContent;
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(urlText).then(() => {
-                    showCopySuccess();
-                });
-            } else {
-                // Fallback para HTTP IP (donde navigator.clipboard está bloqueado)
-                const textArea = document.createElement("textarea");
-                textArea.value = urlText;
-                textArea.style.position = "fixed";
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                    showCopySuccess();
-                } catch (err) {
-                    console.error('Fallback copy failed', err);
+        // Un enlace por fila, cada uno con su propio botón de copiar; el de abajo copia
+        // la lista completa, que es lo práctico cuando se generan varios de una.
+        let ultimosEnlaces = [];
+        function mostrarEnlaces(data) {
+            ultimosEnlaces = data.links || (data.link ? [data.link] : []);
+            const lista = document.getElementById("linksList");
+            lista.innerHTML = "";
+            ultimosEnlaces.forEach((enlace, i) => {
+                const fila = document.createElement("div");
+                fila.className = "link-row";
+                if (ultimosEnlaces.length > 1) {
+                    const idx = document.createElement("span");
+                    idx.className = "idx";
+                    idx.textContent = (i + 1) + ".";
+                    fila.appendChild(idx);
                 }
-                document.body.removeChild(textArea);
-            }
-        });
+                const caja = document.createElement("div");
+                caja.className = "url-box";
+                caja.textContent = enlace;
+                fila.appendChild(caja);
+                const btn = document.createElement("button");
+                btn.className = "copy-btn row-copy";
+                btn.textContent = "Copiar";
+                btn.addEventListener("click", () => copiar(enlace, btn, "Copiar"));
+                fila.appendChild(btn);
+                lista.appendChild(fila);
+            });
 
-        function showCopySuccess() {
-            const btn = document.getElementById("copyBtn");
-            btn.textContent = "✓ ¡Copiado!";
-            setTimeout(() => {
-                btn.textContent = "Copiar Enlace";
-            }, 2000);
+            document.getElementById("resultTitle").textContent = ultimosEnlaces.length > 1
+                ? "✓ " + ultimosEnlaces.length + " enlaces generados"
+                : "✓ Enlace Generado Exitosamente";
+
+            const vence = data.expiresAt ? new Date(data.expiresAt) : null;
+            document.getElementById("expiryNote").textContent = vence
+                ? "Vencen el " + vence.toLocaleDateString("es-CL", { day: "numeric", month: "long" }) +
+                  " a las " + vence.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) +
+                  " (" + (data.expiresInDays || 7) + " días). Después dejan de servir y hay que generar otros."
+                : "";
+
+            document.getElementById("copyBtn").textContent = ultimosEnlaces.length > 1 ? "Copiar todos" : "Copiar Enlace";
+            if (data.warning) showError(data.warning);
+            resultBox.style.display = "block";
         }
+
+        // Copiar con fallback para contextos no seguros (entrar por IP, sin HTTPS,
+        // donde navigator.clipboard no existe).
+        function copiar(texto, btn, etiquetaOriginal) {
+            const listo = () => {
+                btn.textContent = "✓ ¡Copiado!";
+                setTimeout(() => { btn.textContent = etiquetaOriginal; }, 2000);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(texto).then(listo);
+                return;
+            }
+            const textArea = document.createElement("textarea");
+            textArea.value = texto;
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand("copy");
+                listo();
+            } catch (err) {
+                console.error("Fallback copy failed", err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        document.getElementById("copyBtn").addEventListener("click", () => {
+            const btn = document.getElementById("copyBtn");
+            const etiqueta = ultimosEnlaces.length > 1 ? "Copiar todos" : "Copiar Enlace";
+            copiar(ultimosEnlaces.join("\\n"), btn, etiqueta);
+        });
     </script>
 </body>
 </html>
@@ -958,9 +1028,25 @@ routerAdd("GET", "/admin/generate-link", (e) => {
 });
 
 // Endpoint POST para generar el link de una organización
+// Duración de un enlace de registro, en días. Está acá arriba y no repartido por el
+// archivo porque es lo que hay que mirar (y lo único que hay que cambiar) para saber
+// cuánto vive un enlace: lo escribe este endpoint en tokenExpiresAt y lo verifican
+// tanto GET /register-org como POST /api/register-organization.
+const REGISTRATION_LINK_DAYS = 7;
+const MAX_LINKS_PER_REQUEST = 25;
+
 routerAdd("POST", "/api/admin/generate-link", (e) => {
     const body = e.requestInfo().body;
     const subtype = body.subtype || "";
+
+    // Cuántos enlaces generar de una vez. Cada uno crea su propia cuenta inactiva con
+    // su propio token: son intercambiables pero no compartibles — el primero que use
+    // uno se queda con esa cuenta.
+    let count = parseInt(body.count, 10);
+    if (!Number.isFinite(count) || count < 1) count = 1;
+    if (count > MAX_LINKS_PER_REQUEST) {
+        return e.json(400, { error: "Como máximo " + MAX_LINKS_PER_REQUEST + " enlaces por vez." });
+    }
 
     let validSubtypes = ["center", "team", "community", "band", "organization", "league"];
     try {
@@ -975,39 +1061,61 @@ routerAdd("POST", "/api/admin/generate-link", (e) => {
         return e.json(400, { error: "El subtipo no es válido." });
     }
 
-    // Crear el usuario inactivo con token
-    const usersCol = $app.findCollectionByNameOrId("users");
-    const userRec = new Record(usersCol);
-
-    try {
-        userRec.set("type", "organization");
-        userRec.set("subtype", subtype);
-        userRec.set("verified", false);
-        
-        // Generar token y expiración directamente aquí (las llamadas a $app.save evitan los hooks API onRecordCreateRequest)
-        const token = $security.randomString(15);
-        userRec.set("registrationToken", token);
-        
-        const oneWeekLater = new Date();
-        oneWeekLater.setDate(oneWeekLater.getDate() + 7);
-        userRec.set("tokenExpiresAt", oneWeekLater.toISOString());
-        
-        // Poner contraseña temporal súper segura aleatoria de 30 chars
-        const tempPass = $security.randomString(30);
-        userRec.setPassword(tempPass);
-
-        $app.save(userRec);
-    } catch (err) {
-        return e.json(400, { error: "No se pudo crear la organización inactiva: " + err.message });
-    }
-
-    // Obtener la URL base dinámicamente de los headers o del entorno
+    // La URL base, una sola vez para todos los enlaces de esta tanda.
     const envAppUrl = $os.getenv("APP_URL") || $os.getenv("SITE_URL");
     const host = e.requestInfo().headers["host"] || "localhost:8090";
     const protocol = e.requestInfo().headers["x-forwarded-proto"] || "http";
     const baseUrl = envAppUrl ? envAppUrl.replace(/\/$/, "") : `${protocol}://${host}`;
-    const activationUrl = `${baseUrl}/register-org?token=${userRec.getString("registrationToken")}`;
 
-    return e.json(200, { success: true, link: activationUrl });
+    const usersCol = $app.findCollectionByNameOrId("users");
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + REGISTRATION_LINK_DAYS);
+    const expiresAtIso = expiresAt.toISOString();
+
+    const links = [];
+    for (let i = 0; i < count; i++) {
+        // Cada enlace es una cuenta inactiva independiente. Si uno de la tanda falla se
+        // devuelve lo que sí se creó en vez de perderlo todo: las cuentas ya guardadas
+        // existen igual, y fingir que no sería peor que informarlo.
+        const userRec = new Record(usersCol);
+        try {
+            userRec.set("type", "organization");
+            userRec.set("subtype", subtype);
+            userRec.set("verified", false);
+
+            // Token y expiración se ponen acá directamente: $app.save no dispara los
+            // hooks de onRecordCreateRequest, así que nadie más los va a rellenar.
+            userRec.set("registrationToken", $security.randomString(15));
+            userRec.set("tokenExpiresAt", expiresAtIso);
+
+            // Contraseña temporal aleatoria: la cuenta no debe poder usarse hasta que
+            // alguien complete el registro con el enlace.
+            userRec.setPassword($security.randomString(30));
+
+            $app.save(userRec);
+        } catch (err) {
+            if (links.length === 0) {
+                return e.json(400, { error: "No se pudo crear la organización inactiva: " + err.message });
+            }
+            return e.json(200, {
+                success: true,
+                links: links,
+                link: links[0],
+                expiresAt: expiresAtIso,
+                expiresInDays: REGISTRATION_LINK_DAYS,
+                warning: "Se generaron " + links.length + " de " + count + " enlaces: " + err.message,
+            });
+        }
+        links.push(`${baseUrl}/register-org?token=${userRec.getString("registrationToken")}`);
+    }
+
+    // `link` en singular se mantiene por si algo viejo todavía lo lee.
+    return e.json(200, {
+        success: true,
+        links: links,
+        link: links[0],
+        expiresAt: expiresAtIso,
+        expiresInDays: REGISTRATION_LINK_DAYS,
+    });
 }, $apis.requireSuperuserAuth());
 

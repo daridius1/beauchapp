@@ -1,10 +1,12 @@
 # Reglas del Proyecto Beauchapp
 
-0. **Lectura obligatoria antes de cualquier tarea no trivial:** [`PRINCIPLES.md`](../PRINCIPLES.md) (por qué el código es como es: recursos del servidor, R2, datos sensibles, PWA) y, si la tarea implica desplegar, [`DEPLOY.md`](../DEPLOY.md) (checklist e instrucciones específicas para agentes de IA). Las reglas de este archivo son operativas/puntuales; las de `PRINCIPLES.md` son el criterio de fondo para decidir cómo implementar algo cuando no hay una regla explícita que lo cubra.
+0. **Si es tu primera tarea en este repo, parte por [`CLAUDE.md`](../CLAUDE.md)** — arquitectura, dónde está cada cosa y las trampas conocidas.
+
+0.1. **Lectura obligatoria antes de cualquier tarea no trivial:** [`PRINCIPLES.md`](../PRINCIPLES.md) (por qué el código es como es: recursos del servidor, R2, datos sensibles, PWA) y, si la tarea implica desplegar, [`DEPLOY.md`](../DEPLOY.md) (checklist e instrucciones específicas para agentes de IA). Las reglas de este archivo son operativas/puntuales; las de `PRINCIPLES.md` son el criterio de fondo para decidir cómo implementar algo cuando no hay una regla explícita que lo cubra.
 
 1. **Verificar siempre con la versión moderna:** Antes de proponer o implementar cualquier código, configuración o decisión de diseño (especialmente relacionada a la base de datos o PocketBase), DEBES investigar en internet cómo se hace en la última versión estable (actualmente PocketBase v0.25+). NO asumas que la sintaxis antigua sigue siendo válida, ya que PocketBase introduce cambios mayores entre versiones (ej. hooks JS, migraciones JS, estructuración de configuraciones, etc).
 
-2. **Archivos de prueba:** Si necesitas crear scripts de prueba (archivos temporales de JavaScript, tests de configuración, comprobaciones a la base de datos, etc.), DEBES guardarlos dentro de una carpeta dedicada a pruebas (ej. `/home/betty/beauchapp/tests/` o similar). NUNCA debes dejar scripts de prueba sueltos en carpetas importantes como `pb_hooks`, `pb_migrations` o la raíz del proyecto.
+2. **Archivos de prueba:** Si necesitas crear scripts de prueba (archivos temporales de JavaScript, tests de configuración, comprobaciones a la base de datos, etc.), DEBES guardarlos dentro de una carpeta dedicada a pruebas (ej. ``tests/` en la raíz del repo` o similar). NUNCA debes dejar scripts de prueba sueltos en carpetas importantes como `pb_hooks`, `pb_migrations` o la raíz del proyecto.
 
 3. **Manejo de Base de Datos y PocketBase:**
 - `pb_migrations`: Solo debe contener migraciones definitivas y válidas para el esquema y los datos iniciales.

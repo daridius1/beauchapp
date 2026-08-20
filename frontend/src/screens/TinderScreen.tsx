@@ -239,7 +239,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       // Load existing photos
       if (res.photos && Array.isArray(res.photos)) {
         const existing = res.photos.map((ph: string) => ({
-          uri: getFileUrl(res, ph, '400x0'),
+          uri: getFileUrl(res, ph),
           isLocal: false,
           name: ph
         }));

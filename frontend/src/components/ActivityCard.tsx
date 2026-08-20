@@ -21,7 +21,7 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
   compact = false,
 }) => {
   const org = activity.expand?.organization;
-  const bannerUrl = activityService.getBannerUrl(activity, '400x0');
+  const bannerUrl = activityService.getBannerUrl(activity);
 
   return (
     <TouchableOpacity

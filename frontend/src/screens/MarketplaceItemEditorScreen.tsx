@@ -283,7 +283,7 @@ export const MarketplaceItemEditorScreen: React.FC<Props> = ({ route, navigation
               <View style={styles.imagesRow}>
                 {editingItem && existingImages.map((filename) => (
                   <View key={filename} style={styles.imagePreviewContainer}>
-                    <Image source={{ uri: getFileUrl(editingItem, filename, '200x200') }} style={styles.previewImage} />
+                    <Image source={{ uri: getFileUrl(editingItem, filename, '300x300') }} style={styles.previewImage} />
                     <TouchableOpacity style={styles.removeImageBtn} onPress={() => handleRemoveExistingImage(filename)}>
                       <Feather name="x" size={12} color="#ffffff" />
                     </TouchableOpacity>

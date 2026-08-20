@@ -87,6 +87,37 @@ Están declarados en `pb_hooks/__bootstrap.pb.js`, **no** en el panel `/_/`. Ant
 
 **Caveat verificado a mano:** los valores válidos de `audience` son `""`, `"@guest"` y `"@auth"` — **con arroba**. El `types.d.ts` que trae PocketBase los documenta sin arroba (`"guest"` / `"auth"`), y con esos valores el guardado falla entero con `audience: must be a valid value` y el servidor arranca *sin ningún límite aplicado*, solo dejando una línea en el log. Si tocas estas reglas, revisa el log de arranque.
 
+**Los límites no sirven de nada sin `trustedProxy` (corregido el 2026-08-20).** PocketBase escucha en `127.0.0.1` y todo entra por el túnel de `cloudflared`, que corre en la misma máquina. Con `trustedProxy.headers` vacío, PocketBase veía `127.0.0.1` como IP de **todos** los clientes — verificado en `pb_data/auxiliary.db`: las 45.410 peticiones de una semana figuraban con `remoteIP: 127.0.0.1`.
+
+Como el limitador agrupa por IP, eso convertía cada límite "por usuario" en un límite **global compartido**: 120 peticiones por minuto entre todos los visitantes sin sesión y 600 entre todos los logueados. El pico real medido era de 268/min, o sea el 45% de un techo que debía ser individual — una sola pestaña haciendo scroll podía dejar sin cuota al resto de la facultad. Se corrigió declarando en `__bootstrap.pb.js`:
+
+```js
+settings.trustedProxy.headers = ["CF-Connecting-IP"];
+settings.trustedProxy.useLeftmostIP = false;
+```
+
+Confiar en esa cabecera es seguro **solo mientras el puerto no sea alcanzable desde fuera del túnel**: si algún día se expone directo a internet, cualquiera podría mandar un `CF-Connecting-IP` inventado y saltarse todos los límites. Para comprobar que quedó bien, mirar que los registros nuevos traigan IPs reales:
+
+```python
+sqlite3.connect("file:.../pb_data/auxiliary.db?mode=ro", uri=True)  # tabla _logs, campo data.userIP
+```
+
+---
+
+## 7.1 Enlaces de registro de organizaciones (`/admin/generate-link`)
+
+Una organización (centro de estudiantes, equipo, comunidad, banda, liga) no se registra sola: alguien con cuenta de superusuario genera un enlace en `/admin/generate-link` y se lo pasa.
+
+- Cada enlace crea **una cuenta de organización inactiva** (`verified = false`) con un token aleatorio de 15 caracteres (`registrationToken`) y sirve **una sola vez**: el primero que lo use se queda con esa cuenta. Por eso generar 5 enlaces crea 5 cuentas fantasma, no un enlace reutilizable 5 veces.
+- **Duran 7 días** (`REGISTRATION_LINK_DAYS` en `auth.pb.js`, escrito en `tokenExpiresAt` al generarlos). El vencimiento se verifica en dos lugares: al abrir `GET /register-org` (para no hacer llenar un formulario que va a fallar) y al enviar `POST /api/register-organization`, que es el que realmente manda.
+- Se pueden pedir hasta **25 de una vez** (`MAX_LINKS_PER_REQUEST`). Si uno de la tanda falla, se devuelven los que sí se crearon con un `warning` en vez de perder todo.
+- **Los enlaces vencidos no se limpian solos.** Las cuentas inactivas quedan en `users` con `verified = false` y su token vencido. Hoy no molestan (había 0 en producción), pero si se generan tandas grandes conviene revisarlas de vez en cuando:
+
+  ```sql
+  select id, subtype, created, tokenExpiresAt from users
+  where type='organization' and verified=0 and registrationToken != '';
+  ```
+
 ---
 
 ## 8. Aislamiento de VMs en los hooks (Goja)

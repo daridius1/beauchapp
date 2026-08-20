@@ -44,7 +44,7 @@ export const TinderDiscoverCard: React.FC<TinderDiscoverCardProps> = ({
   // Se precargan todas apenas cambia el perfil para que el resto ya estén en caché del navegador.
   useEffect(() => {
     activePhotos.forEach((photo: any) => {
-      Image.prefetch(getFileUrl(activeDiscoverProfile, photo, '800x0'));
+      Image.prefetch(getFileUrl(activeDiscoverProfile, photo));
     });
   }, [activeDiscoverProfile?.id]);
 
@@ -62,7 +62,7 @@ export const TinderDiscoverCard: React.FC<TinderDiscoverCardProps> = ({
             {activePhotos.length > 0 ? (
               <>
                 <Image
-                  source={{ uri: getFileUrl(activeDiscoverProfile, activePhotos[activePhotoIndex], '800x0') }}
+                  source={{ uri: getFileUrl(activeDiscoverProfile, activePhotos[activePhotoIndex]) }}
                   style={styles.cardImage}
                 />
 

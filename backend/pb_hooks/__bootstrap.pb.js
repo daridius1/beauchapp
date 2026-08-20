@@ -39,6 +39,30 @@ onBootstrap((e) => {
         settings.s3.forcePathStyle = true;
     }
 
+    // 3.4 IP real del cliente detrás de Cloudflare
+    //
+    // PocketBase escucha en 127.0.0.1 y todo el tráfico entra por el túnel de
+    // cloudflared, que corre en la misma máquina. Sin esto, PocketBase ve el
+    // 127.0.0.1 del túnel como IP de TODOS los clientes — verificado en los
+    // registros: las 45.410 peticiones de una semana figuraban con remoteIP
+    // 127.0.0.1.
+    //
+    // La consecuencia no era cosmética: el limitador de tasa agrupa por IP, así que
+    // los límites de abajo se repartían entre TODOS los usuarios juntos (120
+    // peticiones por minuto para todos los visitantes, 600 para todos los logueados).
+    // El pico real medido era de 268/min, o sea el 45% de un techo que debería ser
+    // por persona. Una sola pestaña haciendo scroll podía dejar sin cuota al resto.
+    //
+    // Confiar en la cabecera es seguro acá porque el servidor no es alcanzable desde
+    // fuera del túnel: nadie puede inventarse un CF-Connecting-IP. Si algún día se
+    // expone el puerto directo a internet, esto hay que revisarlo.
+    try {
+        settings.trustedProxy.headers = ["CF-Connecting-IP"];
+        settings.trustedProxy.useLeftmostIP = false;
+    } catch (err) {
+        console.log("[Bootstrap Hook] Error configurando trustedProxy:", err);
+    }
+
     // 3.5 Límites de tasa — versionados acá, no configurados a mano en /_/
     //
     // El resto de los settings ya se declaran en este archivo; los rate limits vivían

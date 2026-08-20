@@ -39,7 +39,7 @@ export const TinderMatchDetailModal: React.FC<TinderMatchDetailModalProps> = ({
   // precargan apenas se abre el perfil para que cambiar de foto no tenga que esperar la carga.
   useEffect(() => {
     (selectedMatch.profile?.photos || []).forEach((photo: any) => {
-      Image.prefetch(getFileUrl(selectedMatch.profile, photo, '800x0'));
+      Image.prefetch(getFileUrl(selectedMatch.profile, photo));
     });
   }, [selectedMatch.profile?.id]);
 
@@ -86,7 +86,7 @@ export const TinderMatchDetailModal: React.FC<TinderMatchDetailModalProps> = ({
               <View style={[styles.profileCard, { height: '100%' }]}>
                 <View style={[styles.cardImageWrapper, { height: '100%' }]}>
                   <Image
-                    source={{ uri: getFileUrl(selectedMatch.profile, selectedMatch.profile.photos[detailPhotoIndex % selectedMatch.profile.photos.length], '800x0') }}
+                    source={{ uri: getFileUrl(selectedMatch.profile, selectedMatch.profile.photos[detailPhotoIndex % selectedMatch.profile.photos.length]) }}
                     style={styles.cardImage}
                   />
 
