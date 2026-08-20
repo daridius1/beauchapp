@@ -21,7 +21,7 @@ import { useAuth } from '../context/AuthContext';
 import { pb } from '../services/pocketbase';
 import { withMinimumDelay } from '../utils/refresh';
 import { RootStackParamList } from '../types/navigation';
-import { MatchEvent, Team, LineupEntry, summarizeEvents, isClockGatedSequenceValid, computeLiveElapsedMs, annotateEventsWithHalfTime, formatClockTime, eventKey, newEventId } from '../utils/matchEvents';
+import { MatchEvent, Team, LineupEntry, summarizeEvents, isClockGatedSequenceValid, computeLiveElapsedMs, annotateEventsWithHalfTime, formatClockTime, eventKey, newEventId, visibleEvents } from '../utils/matchEvents';
 import { leagueService } from '../services/leagueService';
 import { LeagueMatch, MatchReport } from '../types/league';
 import { LeagueBadge, EventBadgeType } from '../components/leagues/LeagueBadge';
@@ -318,11 +318,16 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     await syncToServer(updated);
   };
 
+  // Soft delete: el evento se marca, nunca se saca de la bitácora. La bitácora es la
+  // evidencia de lo que se registró en cancha, y un resultado se puede discutir después
+  // del partido — con un borrado duro no quedaba rastro de que ese gol había existido.
+  // Marcarlo además hace que la fusión entre árbitros trate el borrado como una edición
+  // más del evento, resuelta por id, en vez de depender de `baseKeys`.
   const deleteEventAt = (index: number) => {
     const target = eventsRef.current[index];
     if (!target) return;
-    askConfirm('Eliminar evento', '¿Eliminar este evento? No se puede deshacer.', async () => {
-      const updated = eventsRef.current.filter((_, i) => i !== index);
+    askConfirm('Eliminar evento', '¿Eliminar este evento? Dejará de contar en el partido.', async () => {
+      const updated = eventsRef.current.map((ev, i) => (i === index ? { ...ev, deleted: true } : ev));
       if (!isClockGatedSequenceValid(updated)) {
         Toast.show({
           type: 'error',
@@ -713,7 +718,7 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
       {/* Historial de Eventos, cada uno con su X */}
       <View style={styles.divider} />
       <Text style={styles.sectionHeader}>Historial de Eventos</Text>
-      {events.filter((e) => e.type !== 'lineup').length === 0 ? (
+      {visibleEvents(events).filter((e) => e.type !== 'lineup').length === 0 ? (
         <Text style={styles.emptyEventsText}>Aún no se han registrado eventos en este partido.</Text>
       ) : (
         <View style={styles.eventsList}>
@@ -776,10 +781,7 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
 
       {/* Convocatoria */}
       <View style={styles.divider} />
-      <Text style={styles.sectionHeader}>Convocatoria de Jugadores</Text>
-      <Text style={styles.helpText}>
-        Solo se puede convocar a jugadores ya agregados al roster del equipo (Ajustes → Editar Equipo).
-      </Text>
+      <Text style={styles.sectionHeader}>Convocatoria</Text>
       <View style={styles.lineupRow}>
         {(['A', 'B'] as Team[]).map((team) => {
           const isA = team === 'A';
@@ -787,22 +789,39 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
           const lineup = isA ? summary.lineupA : summary.lineupB;
           const roster = isA ? rosterA : rosterB;
 
+          // La columna del equipo B se invierte para que las dos se lean hacia el
+          // centro (cara-nombre | nombre-cara), igual que los planteles del detalle
+          // del partido. row-reverse en vez de duplicar el JSX.
+          const mirrored = !isA;
+
           return (
             <View key={team} style={styles.lineupCol}>
-              <Text style={styles.lineupColTitle} numberOfLines={1}>{teamName} ({lineup.length})</Text>
+              <Text style={[styles.lineupColTitle, mirrored && styles.textRight]} numberOfLines={1}>
+                {teamName}
+              </Text>
 
               {roster.length === 0 ? (
-                <Text style={styles.mutedTextSmall}>Este equipo todavía no agregó jugadores a su roster.</Text>
+                <Text style={[styles.mutedTextSmall, mirrored && styles.textRight]}>Este equipo todavía no agregó jugadores a su roster.</Text>
               ) : (
                 roster.map((p) => {
                   const isChecked = lineup.some((e) => e.playerId === p.id);
                   return (
-                    <TouchableOpacity key={p.id} style={styles.checklistRow} onPress={() => toggleRosterPlayer(team, p)} activeOpacity={0.7}>
+                    <TouchableOpacity
+                      key={p.id}
+                      style={[styles.checklistRow, mirrored && styles.rowMirrored]}
+                      onPress={() => toggleRosterPlayer(team, p)}
+                      activeOpacity={0.7}
+                    >
                       <View style={[styles.checkboxBox, isChecked && styles.checkboxBoxChecked]}>
                         {isChecked && <Feather name="check" size={11} color="#000000" />}
                       </View>
                       <PlayerAvatar player={{ id: p.id, collectionId: 'team_players', photo: p.photo }} size={22} />
-                      <Text style={[styles.checklistName, isChecked && styles.checklistNameChecked]} numberOfLines={1}>{p.name}</Text>
+                      <Text
+                        style={[styles.checklistName, isChecked && styles.checklistNameChecked, mirrored && styles.textRight]}
+                        numberOfLines={1}
+                      >
+                        {p.name}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })
@@ -983,7 +1002,10 @@ const styles = StyleSheet.create({
   amendBannerText: { color: theme.colors.text, fontSize: 12, flex: 1 },
   codeInput: { width: '100%', maxWidth: 220, backgroundColor: theme.colors.cardBg, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 10, paddingVertical: 14, paddingHorizontal: 14, color: theme.colors.text, fontSize: 24, fontWeight: '800', letterSpacing: 6, textAlign: 'center', marginVertical: theme.spacing.lg },
   divider: { height: 1, backgroundColor: '#1e1e1e', marginVertical: theme.spacing.md },
-  sectionHeader: { fontSize: 13, fontWeight: '700', color: theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
+  sectionHeader: { fontSize: 13, fontWeight: '700', color: theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, textAlign: 'center' },
+  // Columna derecha de la convocatoria: mismo orden de hijos, leído al revés.
+  rowMirrored: { flexDirection: 'row-reverse' },
+  textRight: { textAlign: 'right' },
   scoreboardSection: { alignItems: 'center', paddingVertical: theme.spacing.sm },
   scoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: 10 },
   teamScoreCol: { flex: 1, alignItems: 'center' },
@@ -1032,7 +1054,6 @@ const styles = StyleSheet.create({
   checkboxBoxChecked: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
   checklistName: { color: theme.colors.textMuted, fontSize: 13, flex: 1 },
   checklistNameChecked: { color: theme.colors.text, fontWeight: '600' },
-  helpText: { color: theme.colors.textMuted, fontSize: 11, marginBottom: 8 },
   submitMainBtn: { backgroundColor: theme.colors.primary, borderRadius: 8, paddingVertical: 14, alignItems: 'center' },
   submitMainBtnText: { color: '#000', fontWeight: '800', fontSize: 15 },
   btnDisabled: { opacity: 0.4 },

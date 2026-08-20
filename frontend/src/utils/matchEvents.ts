@@ -31,6 +31,9 @@ export interface LineupEntry {
 interface EventBase {
   id?: string;
   at: string;
+  /** Soft delete: un evento eliminado se marca, nunca se saca de la bitácora.
+   *  Todo lo derivado lo ignora. Ver isDeletedEvent en el lib del backend. */
+  deleted?: boolean;
 }
 
 export type MatchEvent =
@@ -61,6 +64,18 @@ export function newEventId(): string {
 }
 
 export const CLOCK_GATED_TYPES: MatchEvent['type'][] = ['goal', 'yellow_card', 'red_card', 'penalty'];
+
+// Réplica de isDeletedEvent() del backend. Un evento borrado se marca en vez de
+// sacarse del arreglo, así que TODA función que derive algo de la bitácora tiene que
+// saltearlo — si una se olvida, un gol eliminado sigue contando en su vista.
+export function isDeletedEvent(ev: MatchEvent | null | undefined): boolean {
+  return Boolean(ev && ev.deleted);
+}
+
+// La bitácora sin los eventos marcados como borrados, para las vistas que la listan.
+export function visibleEvents(events: MatchEvent[] | null | undefined): MatchEvent[] {
+  return (Array.isArray(events) ? events : []).filter((ev) => !isDeletedEvent(ev));
+}
 
 // Réplica de matchEvents.js — normaliza un elemento de lineup.players a la forma
 // uniforme LineupEntry, sin importar el formato en que haya quedado guardado.
@@ -103,6 +118,7 @@ export function summarizeEvents(events: MatchEvent[] | undefined | null): MatchS
   let clockRunning = false;
 
   for (const ev of list) {
+    if (isDeletedEvent(ev)) continue;
     if (ev.type === 'lineup') {
       const normalized = ev.players.map(normalizeLineupEntry);
       if (ev.team === 'A') lineupA = normalized;
@@ -163,6 +179,7 @@ export function summarizeEvents(events: MatchEvent[] | undefined | null): MatchS
 export function isClockGatedSequenceValid(events: MatchEvent[]): boolean {
   let running = false;
   for (const ev of events) {
+    if (isDeletedEvent(ev)) continue;
     if (ev.type === 'half_start' || ev.type === 'resume') {
       running = true;
     } else if (ev.type === 'half_end' || ev.type === 'pause') {
@@ -256,6 +273,10 @@ export function annotateEventsWithHalfTime(events: MatchEvent[]): AnnotatedEvent
   let half = 0;
 
   events.forEach((ev, index) => {
+    // `index` sigue siendo el de la bitácora COMPLETA — es el que usa la vista de
+    // arbitraje para marcar un evento como borrado, así que no puede ser el de una
+    // lista ya filtrada.
+    if (isDeletedEvent(ev)) return;
     const t = new Date(ev.at).getTime();
 
     if (ev.type === 'half_start') {
@@ -327,7 +348,7 @@ export function computeTopScorers(matchEntries: ScorerMatchEntry[] | null | unde
     const photoByPlayerId: Record<string, string> = {};
     const photoByName: Record<string, string> = {};
     events.forEach((ev) => {
-      if (ev.type !== 'lineup') return;
+      if (ev.type !== 'lineup' || isDeletedEvent(ev)) return;
       ev.players.forEach((raw) => {
         const p = normalizeLineupEntry(raw);
         if (p.playerId && p.photo) photoByPlayerId[p.playerId] = p.photo;
@@ -336,6 +357,7 @@ export function computeTopScorers(matchEntries: ScorerMatchEntry[] | null | unde
     });
 
     events.forEach((ev) => {
+      if (isDeletedEvent(ev)) return;
       const isGoal = ev.type === 'goal' && !ev.ownGoal;
       const isScoredPenalty = ev.type === 'penalty' && ev.scored;
       if (!isGoal && !isScoredPenalty) return;

@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
-import { MatchEvent, Team, LineupEntry } from '../../utils/matchEvents';
+import { MatchEvent, Team, LineupEntry, isDeletedEvent } from '../../utils/matchEvents';
 import { LeagueBadge } from './LeagueBadge';
 import { PlayerAvatar } from '../PlayerAvatar';
 
@@ -39,6 +39,7 @@ export const LeagueMatchLineups: React.FC<LeagueMatchLineupsProps> = ({
   const playerEventsB: Record<string, { goals: number; yellow: number; red: boolean }> = {};
 
   (events || []).forEach((ev) => {
+    if (isDeletedEvent(ev)) return;
     if (ev.type === 'goal' && !ev.ownGoal && ev.player) {
       const player = ev.player;
       const map = ev.team === 'A' ? playerEventsA : playerEventsB;
@@ -62,16 +63,25 @@ export const LeagueMatchLineups: React.FC<LeagueMatchLineupsProps> = ({
     }
   });
 
-  const renderTeamColumn = (team: Team, name: string, lineup: LineupEntry[], eventMap: Record<string, any>) => (
+  // `mirrored` invierte la columna derecha para que las dos se lean hacia el centro:
+  // cara-nombre a la izquierda, nombre-cara a la derecha. Se hace con row-reverse en vez
+  // de duplicar el JSX, así el orden de los hijos es uno solo y no puede divergir.
+  const renderTeamColumn = (
+    team: Team,
+    name: string,
+    lineup: LineupEntry[],
+    eventMap: Record<string, any>,
+    mirrored = false
+  ) => (
     <View style={styles.column}>
       <View style={styles.columnHeader}>
-        <Text style={styles.teamTitle} numberOfLines={1}>
+        <Text style={[styles.teamTitle, mirrored && styles.textRight]} numberOfLines={1}>
           {name}
         </Text>
       </View>
 
       {lineup.length === 0 ? (
-        <Text style={styles.mutedText}>Sin registrar</Text>
+        <Text style={[styles.mutedText, mirrored && styles.textRight]}>Sin registrar</Text>
       ) : (
         lineup.map((player, idx) => {
           const stats = eventMap[player.name];
@@ -80,7 +90,7 @@ export const LeagueMatchLineups: React.FC<LeagueMatchLineupsProps> = ({
           const hasYellow = stats && !hasRed && stats.yellow > 0;
 
           return (
-            <View key={player.playerId || idx} style={styles.playerRow}>
+            <View key={player.playerId || idx} style={[styles.playerRow, mirrored && styles.rowMirrored]}>
               {/* La cara del jugador viene del roster del equipo (team_players.photo),
                   guardada en el propio evento de convocatoria — así el plantel se ve
                   igual aunque el roster cambie después del partido. */}
@@ -92,7 +102,7 @@ export const LeagueMatchLineups: React.FC<LeagueMatchLineupsProps> = ({
                 }}
                 size={26}
               />
-              <Text style={styles.playerName} numberOfLines={1}>
+              <Text style={[styles.playerName, mirrored && styles.textRight]} numberOfLines={1}>
                 {player.name}
               </Text>
               {!!stats && (
@@ -120,7 +130,7 @@ export const LeagueMatchLineups: React.FC<LeagueMatchLineupsProps> = ({
       <View style={styles.columnsRow}>
         {renderTeamColumn('A', teamAName, lineupA || [], playerEventsA)}
         <View style={styles.columnDivider} />
-        {renderTeamColumn('B', teamBName, lineupB || [], playerEventsB)}
+        {renderTeamColumn('B', teamBName, lineupB || [], playerEventsB, true)}
       </View>
     </View>
   );
@@ -171,6 +181,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     flex: 1,
+  },
+  // Columna derecha: el mismo orden de hijos, leído de derecha a izquierda.
+  rowMirrored: {
+    flexDirection: 'row-reverse',
+  },
+  textRight: {
+    textAlign: 'right',
   },
   playerBadges: {
     flexDirection: 'row',

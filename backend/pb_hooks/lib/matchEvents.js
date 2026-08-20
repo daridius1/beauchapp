@@ -1,9 +1,12 @@
 // Lógica pura del arbitraje de partidos de liga: el marcador, tarjetas y convocatoria
 // NUNCA se guardan sueltos — siempre se derivan de `events`, la bitácora completa y
-// ordenada de todo lo que pasó. Esto es lo que hace "eliminar un evento puntual"
-// trivial (sacar ese elemento del arreglo) y el arbitraje resiliente (el arreglo
-// completo es la única fuente de verdad, se puede reconstruir todo desde cero con
-// solo tenerlo). La sesión de arbitraje es compartida — cualquiera con el código del
+// ordenada de todo lo que pasó. Eliminar un evento puntual es marcarlo con
+// `deleted: true` (soft delete, ver isDeletedEvent) — nunca se saca del arreglo: la
+// bitácora es la evidencia de lo que se registró en cancha y un arbitraje se corrige en
+// caliente y a veces se discute después. Todo lo derivado (marcador, tarjetas,
+// convocatoria, reloj, goleadores) ignora los eventos marcados, así que el arbitraje
+// sigue siendo resiliente: el arreglo completo es la única fuente de verdad y se puede
+// reconstruir todo desde cero con solo tenerlo. La sesión de arbitraje es compartida — cualquiera con el código del
 // partido puede agregar eventos, no hay un árbitro "dueño". Sin $app — testeado en
 // __tests__/matchEvents.test.js.
 
@@ -48,9 +51,20 @@ function isValidOptionalPlayer(player) {
     return player === undefined || typeof player === "string";
 }
 
+// Un evento borrado NO se saca de la bitácora: se marca. La bitácora es el registro
+// de lo que pasó en el partido, y un arbitraje se corrige en caliente y a veces se
+// discute después, así que borrar de verdad destruye la única evidencia de que algo se
+// había registrado. Marcarlo además hace la fusión entre árbitros trivial: un borrado
+// es una edición más del evento, se resuelve por id como cualquier otra y ya no depende
+// de que el cliente mande `baseKeys`.
+function isDeletedEvent(ev) {
+    return Boolean(ev && ev.deleted);
+}
+
 function isValidEvent(ev) {
     if (!ev || typeof ev !== "object") return false;
     if (!EVENT_TYPES.includes(ev.type)) return false;
+    if (ev.deleted !== undefined && typeof ev.deleted !== "boolean") return false;
     if (ev.type === "lineup") {
         return (
             (ev.team === "A" || ev.team === "B") &&
@@ -99,7 +113,7 @@ function isClockGatedSequenceValid(events) {
     const list = Array.isArray(events) ? events : [];
     let running = false;
     for (const ev of list) {
-        if (!isValidEvent(ev)) continue;
+        if (!isValidEvent(ev) || isDeletedEvent(ev)) continue;
         if (ev.type === "half_start" || ev.type === "resume") {
             running = true;
         } else if (ev.type === "half_end" || ev.type === "pause") {
@@ -143,7 +157,7 @@ function summarizeEvents(events) {
     let clockRunning = false;
 
     for (const ev of list) {
-        if (!isValidEvent(ev)) continue;
+        if (!isValidEvent(ev) || isDeletedEvent(ev)) continue;
 
         if (ev.type === "lineup") {
             const normalized = ev.players.map(normalizeLineupEntry);
@@ -232,6 +246,7 @@ function computeTopScorers(matchEntries) {
         const photoByName = {};
         for (const ev of events) {
             if (!ev || ev.type !== "lineup" || !Array.isArray(ev.players)) continue;
+            if (isDeletedEvent(ev)) continue;
             for (const raw of ev.players) {
                 const p = normalizeLineupEntry(raw);
                 if (p.playerId && p.photo) photoByPlayerId[p.playerId] = p.photo;
@@ -240,7 +255,7 @@ function computeTopScorers(matchEntries) {
         }
 
         for (const ev of events) {
-            if (!isValidEvent(ev)) continue;
+            if (!isValidEvent(ev) || isDeletedEvent(ev)) continue;
             const isGoal = ev.type === "goal" && !ev.ownGoal;
             const isScoredPenalty = ev.type === "penalty" && ev.scored;
             if (!isGoal && !isScoredPenalty) continue;
@@ -415,4 +430,5 @@ module.exports = {
     mergeEvents,
     matchWriteDecision,
     computeTopScorers,
+    isDeletedEvent,
 };

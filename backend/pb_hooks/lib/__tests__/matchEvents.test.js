@@ -529,3 +529,125 @@ test("computeTopScorers: tolera entradas vacías o mal formadas", () => {
     assert.deepEqual(computeTopScorers([]), []);
     assert.deepEqual(computeTopScorers([partido("a", "b", null)]), []);
 });
+
+// ---------------------------------------------------------------------------------
+// Soft delete: un evento eliminado se marca con `deleted: true` y NO se saca de la
+// bitácora. Todo lo derivado tiene que ignorarlo — si una sola función se olvida, un
+// gol eliminado sigue contando en su vista.
+// ---------------------------------------------------------------------------------
+
+const { isDeletedEvent } = require("../matchEvents.js");
+
+test("isDeletedEvent: solo es true con el flag explícito", () => {
+    assert.equal(isDeletedEvent({ type: "goal", deleted: true }), true);
+    assert.equal(isDeletedEvent({ type: "goal", deleted: false }), false);
+    assert.equal(isDeletedEvent({ type: "goal" }), false);
+    assert.equal(isDeletedEvent(null), false);
+});
+
+test("isValidEvent: acepta el flag deleted y rechaza un valor que no sea booleano", () => {
+    assert.equal(isValidEvent({ type: "goal", team: "A", ownGoal: false, deleted: true }), true);
+    assert.equal(isValidEvent({ type: "goal", team: "A", ownGoal: false, deleted: false }), true);
+    assert.equal(isValidEvent({ type: "goal", team: "A", ownGoal: false, deleted: "sí" }), false);
+});
+
+test("summarizeEvents: un gol borrado no cuenta en el marcador", () => {
+    const s = summarizeEvents([
+        { type: "half_start", half: 1, at: "1" },
+        { type: "goal", team: "A", ownGoal: false, at: "2" },
+        { type: "goal", team: "A", ownGoal: false, at: "3", deleted: true },
+    ]);
+    assert.equal(s.scoreA, 1);
+});
+
+test("summarizeEvents: una tarjeta borrada no cuenta", () => {
+    const s = summarizeEvents([
+        { type: "half_start", half: 1, at: "1" },
+        { type: "yellow_card", team: "B", at: "2", deleted: true },
+        { type: "red_card", team: "B", at: "3" },
+    ]);
+    assert.equal(s.cardsB.yellow, 0);
+    assert.equal(s.cardsB.red, 1);
+});
+
+test("summarizeEvents: un penal convertido y borrado no suma", () => {
+    const s = summarizeEvents([
+        { type: "half_start", half: 1, at: "1" },
+        { type: "penalty", team: "A", scored: true, at: "2", deleted: true },
+    ]);
+    assert.equal(s.scoreA, 0);
+});
+
+test("summarizeEvents: una convocatoria borrada no reemplaza a la vigente", () => {
+    const s = summarizeEvents([
+        { type: "lineup", team: "A", players: ["Diego"], at: "1" },
+        { type: "lineup", team: "A", players: ["Otro"], at: "2", deleted: true },
+    ]);
+    assert.deepEqual(s.lineupA.map((p) => p.name), ["Diego"]);
+});
+
+test("isClockGatedSequenceValid: un gol borrado fuera de tiempo no invalida la secuencia", () => {
+    // Es el caso que permite borrar un evento mal cargado sin que el arreglo entero
+    // quede rechazado por el servidor.
+    const events = [
+        { type: "half_start", half: 1, at: "1" },
+        { type: "half_end", half: 1, at: "2" },
+        { type: "goal", team: "A", ownGoal: false, at: "3", deleted: true },
+    ];
+    assert.equal(isClockGatedSequenceValid(events), true);
+});
+
+test("isClockGatedSequenceValid: un gol vigente fuera de tiempo sí invalida", () => {
+    const events = [
+        { type: "half_start", half: 1, at: "1" },
+        { type: "half_end", half: 1, at: "2" },
+        { type: "goal", team: "A", ownGoal: false, at: "3" },
+    ];
+    assert.equal(isClockGatedSequenceValid(events), false);
+});
+
+test("computeTopScorers: un gol borrado no se le acredita al jugador", () => {
+    const tabla = computeTopScorers([
+        {
+            teamAId: "rojo",
+            teamBId: "azul",
+            events: [
+                { type: "goal", team: "A", player: "Diego", playerId: "p1", ownGoal: false, at: "1" },
+                { type: "goal", team: "A", player: "Diego", playerId: "p1", ownGoal: false, at: "2", deleted: true },
+            ],
+        },
+    ]);
+    assert.equal(tabla[0].goals, 1);
+});
+
+test("computeTopScorers: si todos sus goles se borraron, el jugador sale de la tabla", () => {
+    const tabla = computeTopScorers([
+        {
+            teamAId: "rojo",
+            teamBId: "azul",
+            events: [
+                { type: "goal", team: "A", player: "Diego", playerId: "p1", ownGoal: false, at: "1", deleted: true },
+            ],
+        },
+    ]);
+    assert.deepEqual(tabla, []);
+});
+
+test("mergeEvents: un borrado se propaga como una edición más, sin depender de baseKeys", () => {
+    // Es la ventaja de fondo del soft delete: antes, para que un borrado llegara al
+    // servidor había que mandar `baseKeys`; ahora el evento marcado viaja solo.
+    const vivo = { id: "e1", type: "goal", team: "A", ownGoal: false, at: "2026-08-20T20:00:00.000Z" };
+    const borrado = { ...vivo, deleted: true };
+    const merged = mergeEvents([vivo], [borrado], null);
+    assert.equal(merged.length, 1);
+    assert.equal(merged[0].deleted, true);
+    assert.equal(summarizeEvents(merged).scoreA, 0);
+});
+
+test("mergeEvents: el evento borrado sobrevive a la fusión (no se pierde el rastro)", () => {
+    const otro = { id: "e2", type: "goal", team: "B", ownGoal: false, at: "2026-08-20T20:05:00.000Z" };
+    const borrado = { id: "e1", type: "goal", team: "A", ownGoal: false, at: "2026-08-20T20:00:00.000Z", deleted: true };
+    const merged = mergeEvents([borrado], [otro], []);
+    assert.deepEqual(merged.map((e) => e.id), ["e1", "e2"]);
+    assert.equal(merged[0].deleted, true);
+});

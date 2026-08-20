@@ -320,8 +320,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
           ahora): Estadísticas, Cronología y Planteles en la misma vista */}
       {(isPlayed || isLive) && (
         <View style={styles.playedDetailsSection}>
-          {/* Estadísticas */}
-          <Text style={styles.sectionHeader}>Estadísticas</Text>
+          {/* Estadísticas — sin encabezado: la tabla ya se explica sola */}
           <LeagueMatchStats summary={summary} teamAName={teamAName} teamBName={teamBName} />
 
           {/* Cronología */}
@@ -329,7 +328,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
           <LeagueMatchTimeline events={displayEvents} teamAName={teamAName} teamBName={teamBName} />
 
           {/* Planteles */}
-          <Text style={styles.sectionHeader}>Planteles</Text>
+          <Text style={styles.sectionHeader}>Convocatoria</Text>
           <LeagueMatchLineups
             lineupA={summary.lineupA}
             lineupB={summary.lineupB}
@@ -438,6 +437,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 8,
     marginTop: 12,
+    textAlign: 'center',
   },
   refereeNotesText: {
     color: theme.colors.text,

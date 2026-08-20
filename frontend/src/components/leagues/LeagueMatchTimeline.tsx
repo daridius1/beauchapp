@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
-import { MatchEvent, Team, annotateEventsWithHalfTime } from '../../utils/matchEvents';
+import { MatchEvent, Team, annotateEventsWithHalfTime, visibleEvents } from '../../utils/matchEvents';
 import { LeagueBadge, EventBadgeType } from './LeagueBadge';
 
 interface LeagueMatchTimelineProps {
@@ -16,7 +16,7 @@ export const LeagueMatchTimeline: React.FC<LeagueMatchTimelineProps> = ({
   teamAName,
   teamBName,
 }) => {
-  if (!events || events.length === 0) {
+  if (visibleEvents(events).length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <Feather name="clock" size={24} color={theme.colors.textMuted} style={{ marginBottom: 8 }} />
