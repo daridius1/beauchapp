@@ -67,6 +67,10 @@ export interface LeagueMatch {
   happinessA?: number;
   happinessB?: number;
   gap?: number;
+  /** Instante en que se cierran las apuestas de la Beaupolla para este partido:
+   *  10 minutos antes del bloque agendado, o el momento en que el partido arranca
+   *  en la vista de arbitraje — lo que ocurra primero. Ver lib/polla.js. */
+  bettingClosesAt?: string;
   deleted?: boolean;
   created: string;
   updated: string;

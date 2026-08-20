@@ -265,8 +265,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: theme.spacing.md,
   },
+  // minWidth: 0 — sin esto un nombre largo ensancha su lado y descentra el marcador.
   teamSection: {
     flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -277,6 +279,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
+    minWidth: 0,
   },
   teamNameWinner: {
     color: '#ffffff',

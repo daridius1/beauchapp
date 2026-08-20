@@ -1,6 +1,7 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet, Modal, DeviceEventEmitter } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { withMinimumDelay } from '../utils/refresh';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { theme } from '../theme/theme';
@@ -123,6 +124,15 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
       setLoading(false);
     }
   }, [user]);
+
+  // El botón de actualizar de la cabecera ya se mostraba en esta vista, pero nadie
+  // escuchaba el evento: apretarlo no hacía absolutamente nada. Ver PRINCIPLES.md §6.
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      await withMinimumDelay(() => fetchData(), 400);
+    });
+    return () => sub.remove();
+  }, [fetchData]);
 
   useFocusEffect(
     useCallback(() => {

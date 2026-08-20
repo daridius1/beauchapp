@@ -394,6 +394,19 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         )}
 
+        {/* Único acceso público: mirar las ligas sin cuenta. Lleva a un conjunto
+            cerrado de vistas de solo lectura (más el arbitraje, que pide el código
+            del partido) y no da entrada al resto de la app. */}
+        {!isForgotPassword && (
+          <TouchableOpacity
+            style={styles.publicLink}
+            onPress={() => navigation.navigate('PublicLeagues')}
+            disabled={loading}
+          >
+            <Text style={styles.publicLinkText}>Ver las ligas de Beauchef</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity style={styles.toggleLink} onPress={isForgotPassword ? toggleForgotPassword : toggleMode} disabled={loading}>
           <Text style={styles.toggleLinkText}>
             {isForgotPassword
@@ -549,6 +562,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: theme.spacing.lg,
     paddingVertical: 4,
+  },
+  publicLink: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  publicLinkText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   toggleLinkText: {
     color: theme.colors.accent,

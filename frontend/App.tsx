@@ -56,6 +56,14 @@ import { LeagueDetailScreen } from './src/screens/LeagueDetailScreen';
 import { LeagueMatchDetailScreen } from './src/screens/LeagueMatchDetailScreen';
 import { LeagueMatchArbitratorScreen } from './src/screens/LeagueMatchArbitratorScreen';
 import { TeamProfileScreen } from './src/screens/TeamProfileScreen';
+import { PublicLeaguesScreen } from './src/screens/PublicLeaguesScreen';
+import { PublicLeagueScreen } from './src/screens/PublicLeagueScreen';
+import { PublicMatchScreen } from './src/screens/PublicMatchScreen';
+import { PublicTeamScreen } from './src/screens/PublicTeamScreen';
+import { PollasListScreen } from './src/screens/PollasListScreen';
+import { PollaScreen } from './src/screens/PollaScreen';
+import { PollaMatchScreen } from './src/screens/PollaMatchScreen';
+import { PollaUserBetsScreen } from './src/screens/PollaUserBetsScreen';
 import { AnnouncementModal } from './src/components/AnnouncementModal';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
@@ -305,6 +313,10 @@ function AppContent() {
       case 'LeagueMatchDetail': return 'Partido';
       case 'LeagueMatchArbitrator': return 'Arbitrar';
       case 'TeamProfile': return 'Equipo';
+      case 'PollasList': return 'Beaupolla';
+      case 'Polla': return 'Beaupolla';
+      case 'PollaMatch': return 'Partido';
+      case 'PollaUserBets': return 'Jugador';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
       case 'LadderMatchDetail':
@@ -347,7 +359,7 @@ function AppContent() {
       navigationRef.navigate('Beaudle' as never);
     } else if (currentRouteName === 'LeagueDetail') {
       navigationRef.navigate('LeaguesList' as never);
-    } else if (['LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile'].includes(currentRouteName)) {
+    } else if (['LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'Polla', 'PollaMatch', 'PollaUserBets'].includes(currentRouteName)) {
       navigationRef.navigate('LeaguesList' as never);
     } else if (['LaddersList', 'ProblemsList', 'Marketplace', 'Tinder', 'Reviews', 'Beaudle', 'Beaumarket', 'TeamSchedule', 'LeaguesList'].includes(currentRouteName)) {
       navigationRef.navigate('Beauchapps' as never);
@@ -408,8 +420,10 @@ function AppContent() {
                 BlockedUsers: 'settings/blocked',
                 LaddersList: 'ladders',
                 LadderDetail: 'ladders/:slug',
-                LadderMatchArbitrator: 'ladders/:slug/arbitrate',
+                // La ruta con segmento estático va ANTES que la de parámetro: si no,
+                // /ladders/matches/arbitrate es ambigua entre las dos.
                 LadderMatchDetail: 'ladders/matches/:matchId',
+                LadderMatchArbitrator: 'ladders/:slug/arbitrate',
                 LadderPlayerProfile: 'ladders/:slug/player/:userId',
                 Marketplace: 'marketplace',
                 MarketplaceItemDetail: 'marketplace/item/:itemId',
@@ -417,8 +431,10 @@ function AppContent() {
                 SellerProfileEditor: 'marketplace/seller-editor',
                 MarketplaceItemEditor: 'marketplace/item-editor',
                 Activities: 'activities',
-                ActivityDetail: 'activities/:activityId',
+                // Idem: /activities/editor resolvía a ActivityDetail con
+                // activityId="editor" si la de parámetro se declaraba primero.
                 ActivityEditor: 'activities/editor',
+                ActivityDetail: 'activities/:activityId',
                 Reviews: 'reviews',
                 CourseDetail: 'reviews/course/:courseId',
                 ProfessorDetail: 'reviews/professor/:professorId',
@@ -433,6 +449,14 @@ function AppContent() {
                 LeagueDetail: 'ligas/:leagueId',
                 LeagueMatchDetail: 'partidos/:matchId',
                 TeamProfile: 'ligas/equipo/:teamId',
+                PublicLeagues: 'ligas-publicas',
+                PublicLeague: 'ligas-publicas/:leagueId',
+                PublicMatch: 'ligas-publicas/partido/:matchId',
+                PublicTeam: 'ligas-publicas/equipo/:teamId',
+                PollasList: 'beaupolla',
+                Polla: 'beaupolla/:leagueId',
+                PollaMatch: 'beaupolla/:leagueId/partido/:matchId',
+                PollaUserBets: 'beaupolla/:leagueId/jugador/:userId',
                 LeagueMatchArbitrator: 'partidos/:matchId/arbitrar',
               }
             }
@@ -472,7 +496,7 @@ function AppContent() {
                     title={getScreenTitle(currentRouteName, currentRouteParams)} 
                     onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                     onBack={showBackButton ? handleBack : undefined}
-                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'TeamSchedule', 'LeaguesList', 'LeagueDetail', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile'].includes(currentRouteName) ? () => {
+                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'TeamSchedule', 'LeaguesList', 'LeagueDetail', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'PollasList', 'Polla', 'PollaMatch', 'PollaUserBets'].includes(currentRouteName) ? () => {
                       DeviceEventEmitter.emit('onGlobalRefresh');
                     } : undefined}
                     hasUnreadNotifications={hasUnreadNotifications}
@@ -528,6 +552,10 @@ function AppContent() {
                       <Stack.Screen name="LeagueMatchDetail" component={LeagueMatchDetailScreen} />
                       <Stack.Screen name="LeagueMatchArbitrator" component={LeagueMatchArbitratorScreen} />
                       <Stack.Screen name="TeamProfile" component={TeamProfileScreen} />
+                      <Stack.Screen name="PollasList" component={PollasListScreen} />
+                      <Stack.Screen name="Polla" component={PollaScreen} />
+                      <Stack.Screen name="PollaMatch" component={PollaMatchScreen} />
+                      <Stack.Screen name="PollaUserBets" component={PollaUserBetsScreen} />
                       <Stack.Screen name="NotFound" component={NotFoundScreen} />
                     </Stack.Navigator>
                   </View>
@@ -554,6 +582,15 @@ function AppContent() {
                 <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
                 <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
                 <Stack.Screen name="Info" component={InfoScreen} />
+                {/* Vistas públicas de liga. Este navegador no monta Header ni Sidebar,
+                    así que desde acá no se puede llegar a ninguna otra parte de la app
+                    ni hay nada que insinúe que se pueda. Arbitrar entra acá porque su
+                    autorización es el código del partido, no la sesión. */}
+                <Stack.Screen name="PublicLeagues" component={PublicLeaguesScreen} />
+                <Stack.Screen name="PublicLeague" component={PublicLeagueScreen} />
+                <Stack.Screen name="PublicMatch" component={PublicMatchScreen} />
+                <Stack.Screen name="PublicTeam" component={PublicTeamScreen} />
+                <Stack.Screen name="LeagueMatchArbitrator" component={LeagueMatchArbitratorScreen} />
               </Stack.Navigator>
             )}
           </View>

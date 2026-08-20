@@ -659,13 +659,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  // minWidth: 0 — sin esto un nombre largo ensancha su lado y corre el guion del
+  // marcador, que siempre tiene que quedar centrado.
   teamColumn: {
     flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
   teamColumnRight: {
     flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -673,6 +677,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    minWidth: 0,
+    maxWidth: '100%',
   },
   playerNameRedCentered: {
     fontSize: 13,

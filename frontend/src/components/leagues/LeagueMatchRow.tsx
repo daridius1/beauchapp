@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { theme } from '../../theme/theme';
 import { TeamCrest, matchDisplayName } from './TeamCrest';
-import { hourLabel } from '../schedule/AvailabilityGrid';
+import { formatBlockCode } from '../../utils/blockCode';
 
 interface TeamData {
   id: string;
@@ -45,18 +45,6 @@ interface LeagueMatchRowProps {
   // — repetirlo en cada tarjeta ahí es redundante, a diferencia de "Partidos" donde
   // varias etapas se mezclan en una sola lista y sí hace falta distinguirlas.
   hideStage?: boolean;
-}
-
-const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-const MONTH_LABELS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-
-function formatBlockCode(code: string): string {
-  if (!code || code.length < 13) return code || 'Por definir';
-  const hour = Number(code.slice(-2));
-  const [y, m, d] = code.slice(0, -3).split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  const dayLabel = DAY_LABELS[(date.getDay() + 6) % 7];
-  return `${dayLabel} ${d} ${MONTH_LABELS[m - 1]} · ${hourLabel(hour)}`;
 }
 
 export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
@@ -249,8 +237,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  // minWidth: 0 — sin esto un nombre largo ensancha su lado y corre el marcador central.
   teamColLeft: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
@@ -263,9 +253,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'right',
     flexShrink: 1,
+    minWidth: 0,
   },
   teamColRight: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
@@ -278,6 +270,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'left',
     flexShrink: 1,
+    minWidth: 0,
   },
   teamNameWinner: {
     color: '#ffffff',

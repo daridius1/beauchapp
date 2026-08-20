@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
+  DeviceEventEmitter,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -49,7 +50,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [leagueUser, setLeagueUser] = useState<any>(null);
-  const [stages, setStages] = useState<{ id: string; name: string; type: 'groups' | 'knockout' }[]>([]);
+  const [stages, setStages] = useState<{ id: string; name: string; type: 'groups' | 'knockout'; teams: string[] }[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [matches, setMatches] = useState<LeagueMatchRowData[]>([]);
   const [reports, setReports] = useState<any[]>([]);
@@ -93,7 +94,13 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         ]);
 
         setLeagueUser(userRes);
-        setStages((stagesRes as any[]).map((s) => ({ id: s.id, name: s.name || 'Etapa', type: s.type === 'knockout' ? 'knockout' : 'groups' })));
+        setStages((stagesRes as any[]).map((s) => ({
+          id: s.id,
+          name: s.name || 'Etapa',
+          type: s.type === 'knockout' ? 'knockout' : 'groups',
+          // Participantes explícitos de la etapa (vacío en etapas anteriores al campo).
+          teams: Array.isArray(s.teams) ? s.teams : [],
+        })));
         setTeams(teamsRes);
         setMatches(matchesRes.items as LeagueMatchRowData[]);
         setReports(reportsRes as any[]);
@@ -119,6 +126,19 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     const interval = setInterval(() => setNow(Date.now()), 20000);
     return () => clearInterval(interval);
   }, []);
+
+  // Botón de actualizar de la cabecera. A diferencia del pull-to-refresh (que usa el
+  // indicador nativo de arriba y deja el contenido visible), acá se muestra el spinner
+  // central con un mínimo de 400ms: es lo que hace que el refresco se sienta como una
+  // acción y no como un parpadeo. Ver PRINCIPLES.md §6.
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
+      setLoading(true);
+      await withMinimumDelay(() => fetchData(true), 400);
+      setLoading(false);
+    });
+    return () => sub.remove();
+  }, [fetchData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -306,7 +326,12 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       if (s.type === 'knockout') {
         return { ...s, matches: sortMatchesForDisplay(stageMatches), teams: [] as typeof teams };
       }
-      const participantIds = new Set<string>();
+      // Unión de los participantes declarados por la liga y de quienes efectivamente
+      // jugaron. Los declarados hacen que un grupo recién armado ya muestre su tabla
+      // (con todos en cero) en vez de verse vacío hasta el primer partido; los
+      // derivados de partidos evitan que alguien que sí jugó desaparezca de la tabla
+      // por no estar marcado.
+      const participantIds = new Set<string>(s.teams);
       stageMatches.forEach((m) => {
         const aId = m.expand?.teamA?.id || (m as any).teamA;
         const bId = m.expand?.teamB?.id || (m as any).teamB;
@@ -341,25 +366,40 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         />
       }
     >
-      {/* Cabecera Principal de la Liga */}
-      <TouchableOpacity
-        style={styles.headerSection}
-        activeOpacity={0.7}
-        onPress={() => navigation.push('UserProfile', { userId: leagueId })}
-      >
-        <Avatar user={leagueUser || { name: leagueName }} size={56} />
-        <View style={styles.headerInfo}>
-          <Text style={styles.leagueName}>{leagueName}</Text>
-          {!!leagueUser?.username && (
-            <Text style={styles.leagueHandle}>@{leagueUser.username}</Text>
-          )}
-          {!!leagueUser?.bio && (
-            <Text style={styles.leagueBio} numberOfLines={2}>
-              {leagueUser.bio}
-            </Text>
-          )}
-        </View>
-      </TouchableOpacity>
+      {/* Cabecera Principal de la Liga.
+          La fila es un View y no un TouchableOpacity: el botón de la polla vive en la
+          misma línea, y anidar un táctil dentro de otro deja ambiguo cuál responde. */}
+      <View style={styles.headerSection}>
+        <TouchableOpacity
+          style={styles.headerMain}
+          activeOpacity={0.7}
+          onPress={() => navigation.push('UserProfile', { userId: leagueId })}
+        >
+          <Avatar user={leagueUser || { name: leagueName }} size={56} />
+          <View style={styles.headerInfo}>
+            <Text style={styles.leagueName}>{leagueName}</Text>
+            {!!leagueUser?.username && (
+              <Text style={styles.leagueHandle}>@{leagueUser.username}</Text>
+            )}
+            {!!leagueUser?.bio && (
+              <Text style={styles.leagueBio} numberOfLines={2}>
+                {leagueUser.bio}
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
+
+        {/* Solo si la liga habilitó su Beaupolla. */}
+        {!!leagueUser?.pollaEnabled && (
+          <TouchableOpacity
+            style={styles.pollaBtn}
+            activeOpacity={0.7}
+            onPress={() => navigation.push('Polla', { leagueId })}
+          >
+            <Text style={styles.pollaBtnText}>Polla</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* Selector de Pestañas Planas */}
       <View style={styles.tabBar}>
@@ -647,6 +687,24 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
+  },
+  headerMain: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+  },
+  pollaBtn: {
+    backgroundColor: '#ffffff',
+    borderRadius: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+  },
+  pollaBtnText: {
+    color: '#000000',
+    fontSize: 13,
+    fontWeight: '700',
   },
   headerInfo: {
     flex: 1,

@@ -73,10 +73,10 @@ onRecordUpdateRequest(validateAvailabilitySubmission, "horario_availability");
 // ---------------------------------------------------------------------------------
 
 routerAdd("GET", "/admin/horarios", (e) => {
-    const { PALETTE_CSS } = require(`${__hooks}/lib/adminUi.js`);
-
-    const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie"]; // sin sábado ni domingo
-    const MONTH_LABELS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+    const { PALETTE_CSS, clientCalendarFns } = require(`${__hooks}/lib/adminUi.js`);
+    // Las etiquetas de día/mes y los helpers de la ventana vienen de lib/adminUi.js:
+    // esta página y /admin/liga tienen que dibujar exactamente el mismo calendario.
+    const CALENDAR_FNS = clientCalendarFns();
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="es">
@@ -193,37 +193,8 @@ routerAdd("GET", "/admin/horarios", (e) => {
     </div>
 
     <script>
-        const DAY_LABELS = ${JSON.stringify(DAY_LABELS)};
-        const MONTH_LABELS = ${JSON.stringify(MONTH_LABELS)};
-        const START_HOUR = 9, END_HOUR = 19, WEEKS_WINDOW = 3;
+${CALENDAR_FNS}
 
-        function pad2(n) { return String(n).padStart(2, "0"); }
-        function formatDateStr(d) { return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
-        function startOfWeek(date) {
-            const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-            const dow = d.getDay();
-            const diffToMonday = dow === 0 ? -6 : 1 - dow;
-            d.setDate(d.getDate() + diffToMonday);
-            return d;
-        }
-        function getWindow() {
-            const start = startOfWeek(new Date());
-            const weeks = [];
-            for (let w = 0; w < WEEKS_WINDOW; w++) {
-                const days = [];
-                for (let d = 0; d < DAY_LABELS.length; d++) {
-                    const day = new Date(start);
-                    day.setDate(day.getDate() + w * 7 + d);
-                    days.push({ dateStr: formatDateStr(day), dayOfMonth: day.getDate(), monthIdx: day.getMonth(), dayLabel: DAY_LABELS[d] });
-                }
-                const first = days[0], last = days[days.length - 1];
-                const label = first.monthIdx === last.monthIdx
-                    ? first.dayOfMonth + " al " + last.dayOfMonth + " de " + MONTH_LABELS[first.monthIdx]
-                    : first.dayOfMonth + " " + MONTH_LABELS[first.monthIdx] + " al " + last.dayOfMonth + " " + MONTH_LABELS[last.monthIdx];
-                weeks.push({ label, days });
-            }
-            return weeks;
-        }
         let token = "";
         try {
             const authData = JSON.parse(localStorage.getItem("pb_auth") || localStorage.getItem("pocketbase_auth"));

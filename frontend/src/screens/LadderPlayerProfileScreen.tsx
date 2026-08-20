@@ -354,7 +354,7 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
 
                 <View style={styles.matchCardMain}>
                   {/* Integrantes Equipo Rojo */}
-                  <View style={{ flex: 1, justifyContent: 'center' }}>
+                  <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
                     {m.expand?.team_red && m.expand.team_red.length > 0 ? (
                       m.expand.team_red.map((p) => (
                         <Text key={p.id} style={styles.teamRedName} numberOfLines={1}>
@@ -374,7 +374,7 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
                   </View>
 
                   {/* Integrantes Equipo Azul */}
-                  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-end' }}>
+                  <View style={{ flex: 1, minWidth: 0, justifyContent: 'center', alignItems: 'flex-end' }}>
                     {m.expand?.team_blue && m.expand.team_blue.length > 0 ? (
                       m.expand.team_blue.map((p) => (
                         <Text key={p.id} style={styles.teamBlueNameRight} numberOfLines={1}>

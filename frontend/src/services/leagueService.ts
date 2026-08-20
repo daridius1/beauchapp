@@ -1,4 +1,5 @@
 import { pb } from './pocketbase';
+import { publicLeagueService } from './publicLeagueService';
 import { MatchEvent, MatchSummary, eventKey } from '../utils/matchEvents';
 import { LeagueMatch, LeagueStage, LeagueTeam, MatchReport } from '../types/league';
 
@@ -61,17 +62,32 @@ export const leagueService = {
 
   // ----- Lectura -----
 
-  async getMatch(matchId: string): Promise<LeagueMatch> {
-    return await pb.collection('league_matches').getOne<LeagueMatch>(matchId);
+  // Sin sesión se lee por el endpoint público: arbitrar no exige cuenta (la
+  // autorización es el código del partido), pero las colecciones siguen cerradas.
+  async getMatch(matchId: string, expand?: string): Promise<LeagueMatch> {
+    if (!pb.authStore.isValid) {
+      return (await publicLeagueService.getMatch(matchId)).match;
+    }
+    return await pb.collection('league_matches').getOne<LeagueMatch>(matchId, expand ? { expand } : undefined);
   },
 
   async getReport(reportId: string): Promise<MatchReport> {
     return await pb.collection('match_reports').getOne<MatchReport>(reportId);
   },
 
+  /** Planteles de ambos equipos de un partido, funcione o no la sesión. */
+  async getMatchRosters(matchId: string): Promise<{ rosterA: any[]; rosterB: any[] } | null> {
+    if (pb.authStore.isValid) return null;
+    const data = await publicLeagueService.getMatch(matchId);
+    return { rosterA: data.rosterA || [], rosterB: data.rosterB || [] };
+  },
+
   /** Informe vigente de un partido, o null si todavía nadie lo arbitró. */
   async findReportForMatch(matchId: string): Promise<MatchReport | null> {
     try {
+      if (!pb.authStore.isValid) {
+        return ((await publicLeagueService.getMatch(matchId)).report as any) || null;
+      }
       return await pb
         .collection('match_reports')
         .getFirstListItem<MatchReport>(`match = "${matchId}" && deleted = false`);

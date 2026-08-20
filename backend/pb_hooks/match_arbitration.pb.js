@@ -26,6 +26,13 @@
 // Ver auditoria-2026-08-19.md §4.1 y §4.4.
 // ---------------------------------------------------------------------------------
 
+// ARBITRAR NO REQUIERE SESIÓN. El código del partido siempre fue la autorización real
+// —se reparte en cancha a quien va a arbitrar—, y exigir además una cuenta solo
+// estorbaba a quien está ahí con el teléfono de otra persona. Sin sesión, e.auth es
+// nulo y la identidad pasa a ser "": eso cierra por sí solo la vía de ENMIENDA de un
+// partido ya finalizado, porque esa requiere ser la cuenta de la liga dueña y ""
+// nunca coincide. Un anónimo con el código puede arbitrar un partido en curso; nada más.
+//
 // NOTA DE RUNTIME (verificada a mano, cuesta cara si se olvida): PocketBase ejecuta
 // CADA routerAdd en una VM de Goja aislada. Una función declarada acá, en el scope del
 // módulo, NO existe dentro de los handlers — el endpoint responde
@@ -50,8 +57,9 @@ routerAdd("POST", "/api/league-matches/join", (e) => {
         } catch (err) {
             throw new BadRequestError("El partido indicado no existe.");
         }
+        const authId = (e.auth && e.auth.id) || "";
         const decision = matchWriteDecision(
-            match.getString("status"), match.getString("league"), match.getString("code"), e.auth.id, code
+            match.getString("status"), match.getString("league"), match.getString("code"), authId, code
         );
         if (!decision.ok) throw new BadRequestError(decision.error);
 
@@ -60,11 +68,12 @@ routerAdd("POST", "/api/league-matches/join", (e) => {
         console.error("[match_arbitration.pb.js] Error en POST /api/league-matches/join:", err);
         return e.json(400, { error: (err && err.message) || "No se pudo verificar el código." });
     }
-}, $apis.requireAuth("users"));
+});
 
 routerAdd("POST", "/api/league-matches/events", (e) => {
     try {
         const { isValidEvent, isClockGatedSequenceValid, summarizeEvents, mergeEvents, matchWriteDecision } = require(`${__hooks}/lib/matchEvents.js`);
+        const { isBettingClosed } = require(`${__hooks}/lib/polla.js`);
 
         const body = e.requestInfo().body || {};
         const matchId = String(body.matchId || "");
@@ -89,8 +98,9 @@ routerAdd("POST", "/api/league-matches/events", (e) => {
         // Un partido ya jugado se puede seguir modificando (corregir el informe arbitral
         // oficial) — pero solo la liga dueña, y ahí ya no hay un reloj en vivo que
         // validar, así que esa validación solo aplica mientras sigue 'confirmed'.
+        const authId = (e.auth && e.auth.id) || "";
         const decision = matchWriteDecision(
-            match.getString("status"), match.getString("league"), match.getString("code"), e.auth.id, code
+            match.getString("status"), match.getString("league"), match.getString("code"), authId, code
         );
         if (!decision.ok) throw new BadRequestError(decision.error);
         const isAmend = decision.isAmend;
@@ -117,7 +127,7 @@ routerAdd("POST", "/api/league-matches/events", (e) => {
             const coll = $app.findCollectionByNameOrId("match_reports");
             report = new Record(coll);
             report.set("match", matchId);
-            report.set("referee", e.auth.id);
+            if (authId) report.set("referee", authId);
         }
 
         // Fusión contra lo persistido en vez de sobrescribir: si otra persona subió un
@@ -144,16 +154,27 @@ routerAdd("POST", "/api/league-matches/events", (e) => {
         report.set("status", isAmend ? "approved" : "in_progress");
         report.set("events", mergedEvents);
         if (isAmend) {
-            report.set("amendedBy", e.auth.id);
+            report.set("amendedBy", authId);
             report.set("amendedAt", new Date().toISOString());
         }
         $app.save(report);
 
+        // Segundo motivo de cierre de la polla: el partido arrancó de verdad. Si el
+        // 1er tiempo ya comenzó y la fecha de cierre todavía es futura (el partido
+        // empezó antes de su horario), se adelanta a ahora. Un solo campo resuelve las
+        // dos condiciones, así que la regla de secreto sigue siendo una comparación
+        // contra @now. Ver lib/polla.js y la migración 1787400100.
+        let matchDirty = false;
         if (isAmend) {
             match.set("scoreA", summary.scoreA);
             match.set("scoreB", summary.scoreB);
-            $app.save(match);
+            matchDirty = true;
         }
+        if (summary.halfStarted[1] && !isBettingClosed(match.getString("bettingClosesAt"))) {
+            match.set("bettingClosesAt", new Date().toISOString());
+            matchDirty = true;
+        }
+        if (matchDirty) $app.save(match);
 
         // Se devuelve la bitácora fusionada, no la que mandó el cliente: es la forma en
         // que quien escribe se entera en el acto de lo que subió otra persona.
@@ -162,7 +183,7 @@ routerAdd("POST", "/api/league-matches/events", (e) => {
         console.error("[match_arbitration.pb.js] Error en POST /api/league-matches/events:", err);
         return e.json(400, { error: (err && err.message) || "No se pudo guardar el evento." });
     }
-}, $apis.requireAuth("users"));
+});
 
 routerAdd("POST", "/api/league-matches/notes", (e) => {
     try {
@@ -180,8 +201,9 @@ routerAdd("POST", "/api/league-matches/notes", (e) => {
         } catch (err) {
             throw new BadRequestError("El partido indicado no existe.");
         }
+        const authId = (e.auth && e.auth.id) || "";
         const decision = matchWriteDecision(
-            match.getString("status"), match.getString("league"), match.getString("code"), e.auth.id, code
+            match.getString("status"), match.getString("league"), match.getString("code"), authId, code
         );
         if (!decision.ok) throw new BadRequestError(decision.error);
         const isAmend = decision.isAmend;
@@ -193,7 +215,7 @@ routerAdd("POST", "/api/league-matches/notes", (e) => {
             const coll = $app.findCollectionByNameOrId("match_reports");
             report = new Record(coll);
             report.set("match", matchId);
-            report.set("referee", e.auth.id);
+            if (authId) report.set("referee", authId);
             report.set("status", "in_progress");
             report.set("events", []);
         }
@@ -206,7 +228,7 @@ routerAdd("POST", "/api/league-matches/notes", (e) => {
 
         report.set("notes", notes);
         if (isAmend) {
-            report.set("amendedBy", e.auth.id);
+            report.set("amendedBy", authId);
             report.set("amendedAt", new Date().toISOString());
         }
         $app.save(report);
@@ -216,7 +238,7 @@ routerAdd("POST", "/api/league-matches/notes", (e) => {
         console.error("[match_arbitration.pb.js] Error en POST /api/league-matches/notes:", err);
         return e.json(400, { error: (err && err.message) || "No se pudo guardar el informe." });
     }
-}, $apis.requireAuth("users"));
+});
 
 // Enviar/finalizar es lo mismo: el código ya es la garantía de que quien lo hace
 // tiene derecho a arbitrar este partido, así que el resultado se hace oficial de
@@ -285,4 +307,4 @@ routerAdd("POST", "/api/league-matches/submit", (e) => {
         console.error("[match_arbitration.pb.js] Error en POST /api/league-matches/submit:", err);
         return e.json(400, { error: (err && err.message) || "No se pudo finalizar el partido." });
     }
-}, $apis.requireAuth("users"));
+});

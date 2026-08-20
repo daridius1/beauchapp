@@ -142,16 +142,24 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     try {
       if (!hideLoading) setLoading(true);
       await withMinimumDelay(async () => {
-        const record = await pb.collection('league_matches').getOne<LeagueMatch>(matchId, { expand: 'teamA,teamB' });
+        // Sin sesión esto va por el endpoint público: arbitrar no exige cuenta, el
+        // código del partido es la autorización (ver match_arbitration.pb.js).
+        const record = await leagueService.getMatch(matchId, 'teamA,teamB');
         setMatch(record);
 
         // Roster de cada equipo — única fuente posible para convocatoria y eventos.
-        const [rosterARes, rosterBRes] = await Promise.all([
-          teamPlayersService.listTeamPlayers(record.teamA),
-          teamPlayersService.listTeamPlayers(record.teamB),
-        ]);
-        setRosterA(rosterARes);
-        setRosterB(rosterBRes);
+        const publicRosters = await leagueService.getMatchRosters(matchId);
+        if (publicRosters) {
+          setRosterA(publicRosters.rosterA as TeamPlayerRecord[]);
+          setRosterB(publicRosters.rosterB as TeamPlayerRecord[]);
+        } else {
+          const [rosterARes, rosterBRes] = await Promise.all([
+            teamPlayersService.listTeamPlayers(record.teamA),
+            teamPlayersService.listTeamPlayers(record.teamB),
+          ]);
+          setRosterA(rosterARes);
+          setRosterB(rosterBRes);
+        }
 
         if (record.status !== 'confirmed' && record.status !== 'played') {
           // Cancelado o suspendido: no hace falta código, la vista se muestra en modo
@@ -195,7 +203,7 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
   const loadReportState = async (activeCode: string) => {
     let report: MatchReport | null = null;
     try {
-      report = await pb.collection('match_reports').getFirstListItem<MatchReport>(`match = "${matchId}"`);
+      report = await leagueService.findReportForMatch(matchId);
     } catch {
       report = null;
     }
@@ -255,7 +263,8 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     const interval = setInterval(async () => {
       if (pushInFlightRef.current || !reportIdRef.current) return;
       try {
-        const fresh = await leagueService.getReport(reportIdRef.current);
+        const fresh = await leagueService.findReportForMatch(matchId);
+        if (!fresh) return;
         const freshEvents: MatchEvent[] = fresh.events || [];
         rememberBase(freshEvents);
         if (JSON.stringify(freshEvents) !== JSON.stringify(eventsRef.current)) {
@@ -1008,7 +1017,8 @@ const styles = StyleSheet.create({
   textRight: { textAlign: 'right' },
   scoreboardSection: { alignItems: 'center', paddingVertical: theme.spacing.sm },
   scoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: 10 },
-  teamScoreCol: { flex: 1, alignItems: 'center' },
+  // minWidth: 0 — sin esto un nombre largo corre el guion del marcador.
+  teamScoreCol: { flex: 1, alignItems: 'center', minWidth: 0 },
   teamScoreName: { color: '#cccccc', fontSize: 13, fontWeight: '700', textAlign: 'center', marginBottom: 4 },
   scoreNumber: { color: '#ffffff', fontSize: 42, fontWeight: '800' },
   scoreDash: { color: '#666666', fontSize: 28, fontWeight: '700', marginHorizontal: 12 },
@@ -1054,7 +1064,10 @@ const styles = StyleSheet.create({
   checkboxBoxChecked: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
   checklistName: { color: theme.colors.textMuted, fontSize: 13, flex: 1 },
   checklistNameChecked: { color: theme.colors.text, fontWeight: '600' },
-  submitMainBtn: { backgroundColor: theme.colors.primary, borderRadius: 8, paddingVertical: 14, alignItems: 'center' },
+  // Mismo ancho que el campo de código que tiene justo encima, para que los dos
+  // formen una columna. Sin esto el botón se encogía al texto (el contenedor centra
+  // sus hijos) y "Unirme" quedaba pegado a los bordes.
+  submitMainBtn: { width: '100%', maxWidth: 220, backgroundColor: theme.colors.primary, borderRadius: 8, paddingVertical: 14, paddingHorizontal: 24, alignItems: 'center' },
   submitMainBtnText: { color: '#000', fontWeight: '800', fontSize: 15 },
   btnDisabled: { opacity: 0.4 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: theme.spacing.lg },

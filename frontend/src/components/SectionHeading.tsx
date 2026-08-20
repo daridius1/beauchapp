@@ -6,6 +6,9 @@ interface SectionHeadingProps {
   title: string;
   /** Espacio por encima. Útil cuando el encabezado abre una sección pegada a la anterior. */
   marginTop?: number;
+  /** `lg` para separar bloques grandes dentro de una misma vista (ej. apuestas abiertas
+   *  vs. cerradas), donde el encabezado tiene que pesar más que el de una etapa. */
+  size?: 'md' | 'lg';
 }
 
 // Encabezado de sección: una línea horizontal fina que cruza todo el ancho, cortada en
@@ -20,10 +23,10 @@ interface SectionHeadingProps {
 //
 // Se usa para las etapas de una liga y para las secciones del perfil de un equipo, que
 // son la misma idea de "acá empieza otro bloque".
-export const SectionHeading: React.FC<SectionHeadingProps> = ({ title, marginTop }) => (
-  <View style={[styles.row, marginTop !== undefined && { marginTop }]}>
+export const SectionHeading: React.FC<SectionHeadingProps> = ({ title, marginTop, size = 'md' }) => (
+  <View style={[styles.row, size === 'lg' && styles.rowLg, marginTop !== undefined && { marginTop }]}>
     <View style={styles.line} />
-    <Text style={styles.title}>{title}</Text>
+    <Text style={[styles.title, size === 'lg' && styles.titleLg]}>{title}</Text>
     <View style={styles.line} />
   </View>
 );
@@ -40,10 +43,18 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#222222',
   },
+  rowLg: {
+    marginTop: 22,
+    marginBottom: 14,
+  },
   title: {
     fontSize: 14,
     fontWeight: '700',
     color: '#ffffff',
     textAlign: 'center',
+  },
+  titleLg: {
+    fontSize: 16,
+    fontWeight: '800',
   },
 });
