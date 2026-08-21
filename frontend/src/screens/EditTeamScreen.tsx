@@ -303,7 +303,7 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
                 {crestPreview ? (
                   <Image source={{ uri: crestPreview }} style={styles.crestPreviewImg} resizeMode="contain" />
                 ) : user.matchPhoto ? (
-                  <Image source={{ uri: getFileUrl(user, user.matchPhoto, '100x100') }} style={styles.crestPreviewImg} resizeMode="contain" />
+                  <Image source={{ uri: getFileUrl(user, user.matchPhoto, '100x100f') }} style={styles.crestPreviewImg} resizeMode="contain" />
                 ) : (
                   <Feather name="shield" size={24} color="#8a8a8a" />
                 )}

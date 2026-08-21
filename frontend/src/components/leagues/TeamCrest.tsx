@@ -39,7 +39,11 @@ interface TeamCrestProps {
 // que traía el placeholder, dejaba dos márgenes solapados alrededor del escudo genérico.
 export const TeamCrest: React.FC<TeamCrestProps> = ({ team, size }) => {
   const photo = team?.matchPhoto || team?.avatar;
-  const thumbSize = size <= 60 ? '100x100' : undefined;
+  // La 'f' final es "fit": PocketBase reescala sin recortar (a diferencia de '100x100'
+  // a secas, que recorta al centro para llenar el cuadrado). Sin ella, un escudo más
+  // alto que ancho llegaba desde el servidor ya recortado, y el resizeMode="contain"
+  // de acá abajo no tenía nada que hacer porque el recorte ya había pasado antes.
+  const thumbSize = size <= 60 ? '100x100f' : undefined;
 
   if (!photo) {
     return (

@@ -106,6 +106,8 @@ export const PostCard: React.FC<PostCardProps> = ({
       navigation.push('LeagueMatchDetail', { matchId: post.targetId });
     } else if (post.targetType === 'league') {
       navigation.push('LeagueDetail', { leagueId: post.targetId });
+    } else if (post.targetType === 'team') {
+      navigation.push('TeamProfile', { teamId: post.targetId });
     } else if (post.targetType === 'marketplace_item' || post.targetType === 'product') {
       navigation.push('MarketplaceItemDetail', { itemId: post.targetId });
     } else if (post.targetType === 'seller_profile' || post.targetType === 'seller') {
@@ -308,6 +310,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                 post.targetType === 'match' ? 'Partido: ' :
                 post.targetType === 'league_match' ? 'Partido: ' :
                 post.targetType === 'league' ? 'Liga: ' :
+                post.targetType === 'team' ? 'Equipo: ' :
                 (post.targetType === 'marketplace_item' || post.targetType === 'product') ? 'Producto: ' :
                 (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Vendedor: ' :
                 post.targetType === 'activity' ? 'Actividad: ' :
@@ -325,6 +328,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                   post.targetType === 'match' ? 'Ver partido' :
                   post.targetType === 'league_match' ? 'Ver partido' :
                   post.targetType === 'league' ? 'Ver liga' :
+                  post.targetType === 'team' ? 'Ver equipo' :
                   (post.targetType === 'marketplace_item' || post.targetType === 'product') ? 'Ver producto' :
                   (post.targetType === 'seller_profile' || post.targetType === 'seller') ? 'Ver tienda' :
                   post.targetType === 'activity' ? 'Ver actividad' :
