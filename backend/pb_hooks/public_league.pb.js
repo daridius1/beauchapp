@@ -169,11 +169,15 @@ routerAdd("GET", "/api/public/match", (e) => {
 
         // Planteles de ambos equipos: la vista de arbitraje los necesita para la
         // convocatoria, y arbitrar no exige sesión.
+        // collectionId real (no el nombre "team_players"): la foto a tamaño completo
+        // arma la URL de R2 con este campo, y el nombre de la colección no sirve para
+        // eso (mismo bug que tenía publicAccount con "users" vs "_pb_users_auth_").
+        const teamPlayersCollectionId = $app.findCollectionByNameOrId("team_players").id;
         function rosterOf(teamId) {
             if (!teamId) return [];
             return $app
                 .findRecordsByFilter("team_players", "team = {:t} && deleted = false", "name", 100, 0, { t: teamId })
-                .map((p) => ({ id: p.id, collectionId: "team_players", name: p.getString("name"), photo: p.getString("photo") }));
+                .map((p) => ({ id: p.id, collectionId: teamPlayersCollectionId, name: p.getString("name"), photo: p.getString("photo") }));
         }
 
         return e.json(200, {
@@ -234,12 +238,16 @@ routerAdd("GET", "/api/public/team", (e) => {
         matches.forEach((m) => { ids.push(m.getString("teamA")); ids.push(m.getString("teamB")); });
         const teamById = loadAccounts(ids);
 
+        // collectionId real, no el nombre "team_players" (ver comentario equivalente
+        // en GET /api/public/match).
+        const teamPlayersCollectionId = $app.findCollectionByNameOrId("team_players").id;
+
         return e.json(200, {
             team: publicAccount(team),
             bio: team.getString("bio"),
             players: players.map((p) => ({
                 id: p.id,
-                collectionId: "team_players",
+                collectionId: teamPlayersCollectionId,
                 name: p.getString("name"),
                 photo: p.getString("photo"),
             })),

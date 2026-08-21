@@ -8,12 +8,17 @@
 
 // Una cuenta de equipo o liga reducida a su identidad visible. Nada de correo, tipo de
 // cuenta ni relaciones: es todo lo que la vista pública necesita y nada más.
-// `collectionId` va incluido porque el cliente arma las URLs de archivo con él.
+// `collectionId` va incluido porque el cliente arma las URLs de archivo con él, y para
+// eso necesita el ID real de la colección — "_pb_users_auth_", la constante fija que
+// PocketBase le asigna a la colección de auth base — no su nombre ("users"). Eran
+// distintos y nadie lo notó porque las miniaturas sí cargaban: pasan por el proxy de
+// PocketBase, que resuelve la colección solo; únicamente el escudo/avatar a tamaño
+// completo va directo a R2 armando la URL con este campo, así que ahí sí importaba.
 function publicAccount(record) {
     if (!record) return null;
     return {
         id: record.id,
-        collectionId: "users",
+        collectionId: "_pb_users_auth_",
         name: record.getString("name"),
         username: record.getString("username"),
         avatar: record.getString("avatar"),

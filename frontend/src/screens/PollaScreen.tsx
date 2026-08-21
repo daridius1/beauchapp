@@ -293,8 +293,9 @@ export const PollaScreen: React.FC<Props> = ({ route, navigation }) => {
     >
       <View style={styles.header}>
         <View style={styles.headerInfo}>
-          <Text style={styles.title}>Beaupolla</Text>
-          <Text style={styles.subtitle}>{leagueName}</Text>
+          {/* "Beaupolla" ya lo dice el título del navbar (App.tsx) — repetirlo acá
+              adentro era redundante. Lo grande es el dato que sí varía: la liga. */}
+          <Text style={styles.title}>{leagueName}</Text>
         </View>
         <TouchableOpacity style={styles.infoButton} activeOpacity={0.7} onPress={() => setInfoVisible(true)}>
           <Feather name="info" size={20} color={theme.colors.textMuted} />
@@ -394,7 +395,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   headerInfo: { flex: 1 },
   title: { fontSize: 22, fontWeight: '800', color: '#ffffff' },
-  subtitle: { fontSize: 14, color: theme.colors.textMuted, marginTop: 2 },
   infoButton: { padding: 6 },
 
   tabBar: {
