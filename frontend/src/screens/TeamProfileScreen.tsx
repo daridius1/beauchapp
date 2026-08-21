@@ -314,14 +314,14 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 
-  // Cabecera
+  // Cabecera — sin borde propio ni padding de más: el SectionHeading de "Jugadores" ya
+  // cruza todo el ancho y hace de divisor, y el espacio que sigue lo pone el marginTop
+  // de `section` (styles.section), el mismo que separa Jugadores de Partidos. El
+  // paddingBottom que había acá era solo aire para el borde que ya no existe.
   headerSection: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
   },
   headerInfo: {
     flex: 1,
