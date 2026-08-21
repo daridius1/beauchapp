@@ -379,7 +379,10 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
             <TouchableOpacity
               key={profile.id}
               style={styles.itemContainer}
-              onPress={() => navigation.push('UserProfile', { userId: profile.id, title: profile.name })}
+              // Sin `title` acá: el header debe decir "Perfil" (estudiantes) o el tipo de
+              // organización, nunca el nombre — eso ya lo resuelve ProfileScreen con
+              // navigation.setParams una vez que sabe si es organización y de qué subtipo.
+              onPress={() => navigation.push('UserProfile', { userId: profile.id })}
             >
               <View style={{ marginRight: theme.spacing.md }}>
                 <Avatar user={profile} size={40} />
