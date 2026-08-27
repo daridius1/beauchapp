@@ -198,13 +198,33 @@ function AppContent() {
 
   useEffect(() => {
     checkUnreadNotifications();
-    const interval = setInterval(checkUnreadNotifications, 10000);
+    // 45s en vez de 10s, y sin sondear mientras la pestaña está en segundo plano: esto
+    // era el 80% del tráfico del servidor (un Atom con 2GB) para un dato que no necesita
+    // esa frescura.
+    const interval = setInterval(() => {
+      if (Platform.OS === 'web' && typeof document !== 'undefined' && document.hidden) {
+        return;
+      }
+      checkUnreadNotifications();
+    }, 45000);
     const subRefresh = DeviceEventEmitter.addListener('onGlobalRefresh', checkUnreadNotifications);
     const subRead = DeviceEventEmitter.addListener('onNotificationsRead', checkUnreadNotifications);
+
+    let onVisibilityChange: (() => void) | undefined;
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      onVisibilityChange = () => {
+        if (!document.hidden) checkUnreadNotifications();
+      };
+      document.addEventListener('visibilitychange', onVisibilityChange);
+    }
+
     return () => {
       clearInterval(interval);
       subRefresh.remove();
       subRead.remove();
+      if (onVisibilityChange) {
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+      }
     };
   }, [checkUnreadNotifications]);
 

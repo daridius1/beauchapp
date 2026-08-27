@@ -107,6 +107,25 @@ onBootstrap((e) => {
         console.log("[Bootstrap Hook] Error configurando rate limits:", err);
     }
 
+    // 3.6 Respaldos automáticos hacia el mismo bucket R2
+    //
+    // No había ninguno configurado: backups.cron vacío y backups.s3 desactivado. El único
+    // respaldo real era el que arma deploy.sh a mano en cada deploy, así que cualquier
+    // corrupción o error humano entre deploys no tenía red. R2 ya está andando para las
+    // imágenes (bloque 3 de arriba) — los backups son .zip sueltos en la raíz del bucket,
+    // no pisan las rutas de los archivos, así que reutiliza las mismas credenciales.
+    if (r2Endpoint) {
+        settings.backups.cron = "0 4 * * *"; // diario 4am hora de Chile, tráfico mínimo
+        settings.backups.cronMaxKeep = 7;
+        settings.backups.s3.enabled = true;
+        settings.backups.s3.endpoint = r2Endpoint;
+        settings.backups.s3.bucket = $os.getenv("R2_BUCKET_NAME");
+        settings.backups.s3.region = "auto";
+        settings.backups.s3.accessKey = $os.getenv("R2_ACCESS_KEY_ID");
+        settings.backups.s3.secret = $os.getenv("R2_SECRET_ACCESS_KEY");
+        settings.backups.s3.forcePathStyle = true;
+    }
+
     try {
         $app.save(settings);
     } catch (err) {

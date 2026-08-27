@@ -2,6 +2,12 @@
 
 // Hook para administración de árbol de posts (replyTo / root), citas polimórficas (quote), conteo de citas (quoteCount) y comentarios a objetos no-post (comment)
 
+// Distingue "el objetivo ya no existe" (se citó/comentó algo que después se borró) de un
+// error real: lo primero es esperable y no debe llenar el log de ruido en cada ocurrencia.
+function esTargetInexistente(err) {
+    return String(err).includes("no rows in result set");
+}
+
 onRecordCreateRequest((e) => {
     try {
         const actionType = e.record.getString("actionType");
@@ -23,7 +29,9 @@ onRecordCreateRequest((e) => {
                 let rootId = parent.getString("root") || parent.id;
                 e.record.set("root", rootId);
             } catch (err) {
-                console.error("[forum.pb.js] Error buscando root:", err);
+                if (!esTargetInexistente(err)) {
+                    console.error("[forum.pb.js] Error buscando root:", err);
+                }
             }
         } 
         // 2. Manejo de Comentarios Polimórficos a Objetos No-Post (Problemas, Partidos, etc.)
@@ -36,7 +44,9 @@ onRecordCreateRequest((e) => {
                 const targetTags = targetRecord.get("tags") || [];
                 e.record.set("tags", targetTags);
             } catch (err) {
-                console.error(`[forum.pb.js] Error buscando tags de ${targetType} ${targetId}:`, err);
+                if (!esTargetInexistente(err)) {
+                    console.error(`[forum.pb.js] Error buscando tags de ${targetType} ${targetId}:`, err);
+                }
             }
         }
 
@@ -52,7 +62,9 @@ onRecordCreateRequest((e) => {
                 targetRecord.set("quoteCount", currentQuotes + 1);
                 $app.save(targetRecord);
             } catch (err) {
-                console.error(`[forum.pb.js] Error incrementando quoteCount para ${targetType} ${targetId}:`, err);
+                if (!esTargetInexistente(err)) {
+                    console.error(`[forum.pb.js] Error incrementando quoteCount para ${targetType} ${targetId}:`, err);
+                }
             }
         } else if (actionType === "comment" && targetId && targetType) {
             try {
@@ -62,7 +74,9 @@ onRecordCreateRequest((e) => {
                 targetRecord.set("commentCount", currentCount + 1);
                 $app.save(targetRecord);
             } catch (err) {
-                console.error(`[forum.pb.js] Error incrementando commentCount para ${targetType} ${targetId}:`, err);
+                if (!esTargetInexistente(err)) {
+                    console.error(`[forum.pb.js] Error incrementando commentCount para ${targetType} ${targetId}:`, err);
+                }
             }
         } else {
             let parentId = targetId || replyTo;
@@ -80,7 +94,9 @@ onRecordCreateRequest((e) => {
 
                         parentId = parent.getString("replyTo") || (parent.getString("actionType") === "reply" ? parent.getString("targetId") : "");
                     } catch (err) {
-                        console.error(`[forum.pb.js] Error actualizando commentCount para ancestro ${parentId}:`, err);
+                        if (!esTargetInexistente(err)) {
+                            console.error(`[forum.pb.js] Error actualizando commentCount para ancestro ${parentId}:`, err);
+                        }
                         break;
                     }
                     depth++;
@@ -113,7 +129,9 @@ onRecordDeleteRequest((e) => {
                 targetRecord.set("quoteCount", newQuotes);
                 $app.save(targetRecord);
             } catch (err) {
-                console.error(`[forum.pb.js] Error decrementando quoteCount para ${targetType} ${targetId}:`, err);
+                if (!esTargetInexistente(err)) {
+                    console.error(`[forum.pb.js] Error decrementando quoteCount para ${targetType} ${targetId}:`, err);
+                }
             }
         } else if (actionType === "comment" && targetId && targetType) {
             try {
@@ -124,7 +142,9 @@ onRecordDeleteRequest((e) => {
                 targetRecord.set("commentCount", newCount);
                 $app.save(targetRecord);
             } catch (err) {
-                console.error(`[forum.pb.js] Error decrementando commentCount para ${targetType} ${targetId}:`, err);
+                if (!esTargetInexistente(err)) {
+                    console.error(`[forum.pb.js] Error decrementando commentCount para ${targetType} ${targetId}:`, err);
+                }
             }
         } else {
             let parentId = targetId || replyTo;
@@ -143,7 +163,9 @@ onRecordDeleteRequest((e) => {
 
                         parentId = parent.getString("replyTo");
                     } catch (err) {
-                        console.error(`[forum.pb.js] Error decrementando commentCount para ancestro ${parentId}:`, err);
+                        if (!esTargetInexistente(err)) {
+                            console.error(`[forum.pb.js] Error decrementando commentCount para ancestro ${parentId}:`, err);
+                        }
                         break;
                     }
                     depth++;

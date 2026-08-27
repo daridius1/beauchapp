@@ -2,6 +2,6 @@
   "name": "beauchapp",
   "private": true,
   "scripts": {
-    "test:backend": "node --test backend/pb_hooks/lib/__tests__"
+    "test:backend": "node --test backend/pb_hooks/lib/__tests__/*.test.js"
   }
 }
