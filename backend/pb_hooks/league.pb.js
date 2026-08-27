@@ -9,8 +9,9 @@
 // ---------------------------------------------------------------------------------
 
 routerAdd("GET", "/admin/liga", (e) => {
-    const { PALETTE_CSS, CALENDAR_CSS, clientCalendarFns } = require(`${__hooks}/lib/adminUi.js`);
+    const { PALETTE_CSS, CALENDAR_CSS, clientCalendarFns, clientSessionGateFn } = require(`${__hooks}/lib/adminUi.js`);
     const CALENDAR_FNS = clientCalendarFns();
+    const SESSION_GATE_FN = clientSessionGateFn();
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -161,7 +162,8 @@ ${CALENDAR_CSS}
             <h1>Gestionar Liga</h1>
             <p class="subtitle">Inicia sesión con la cuenta de tu liga</p>
             <div class="alert alert-danger" id="loginError"></div>
-            <form id="loginForm">
+            <p class="hint" id="checkingMsg">Verificando sesión…</p>
+            <form id="loginForm" style="display:none;">
                 <div class="form-group">
                     <label>Usuario</label>
                     <input type="text" id="loginIdentity" required autocapitalize="none" autocomplete="username">
@@ -328,6 +330,7 @@ ${CALENDAR_CSS}
 
     <script>
 ${CALENDAR_FNS}
+${SESSION_GATE_FN}
         function formatBlockLabel(code) {
             const hour = code.slice(-2);
             const dateStr = code.slice(0, -3);
@@ -337,15 +340,13 @@ ${CALENDAR_FNS}
         }
 
         let token = "";
-        try {
-            const authData = JSON.parse(localStorage.getItem("liga_auth"));
-            if (authData && authData.token) token = authData.token;
-        } catch (e) {}
 
         const loginPage = document.getElementById("loginPage");
         const panelPage = document.getElementById("panelPage");
         const stagePage = document.getElementById("stagePage");
         const teamAvailPage = document.getElementById("teamAvailPage");
+        const loginForm = document.getElementById("loginForm");
+        const checkingMsg = document.getElementById("checkingMsg");
         const loginError = document.getElementById("loginError");
         const panelError = document.getElementById("panelError");
         const stageError = document.getElementById("stageError");
@@ -388,6 +389,7 @@ ${CALENDAR_FNS}
         let myLeagueId = "";
 
         function showPanel(name, leagueId) {
+            checkingMsg.style.display = "none";
             loginPage.style.display = "none";
             stagePage.style.display = "none";
             teamAvailPage.style.display = "none";
@@ -399,11 +401,14 @@ ${CALENDAR_FNS}
             loadRoster();
             loadStages();
         }
-        function showLogin() {
+        function showLogin(hadStaleSession) {
+            checkingMsg.style.display = "none";
+            loginForm.style.display = "block";
             loginPage.style.display = "block";
             panelPage.style.display = "none";
             stagePage.style.display = "none";
             teamAvailPage.style.display = "none";
+            if (hadStaleSession) showError(loginError, "Tu sesión expiró. Inicia sesión de nuevo.");
         }
 
         document.getElementById("loginForm").addEventListener("submit", async (e) => {
@@ -1324,14 +1329,15 @@ ${CALENDAR_FNS}
         // script — si este chequeo de sesión corre antes de esas declaraciones, revienta
         // con "can't access lexical declaration before initialization" (temporal dead
         // zone), que es justo el bug que esto corrige.
-        if (token) {
-            try {
-                const authData = JSON.parse(localStorage.getItem("liga_auth"));
-                showPanel(authData && authData.model && authData.model.name, authData && authData.model && authData.model.id);
-            } catch (e) { showLogin(); }
-        } else {
-            showLogin();
-        }
+        //
+        // gateSession valida el token contra el servidor (auth-refresh) antes de decidir
+        // qué mostrar — antes se confiaba en que un token presente en localStorage
+        // seguía sirviendo, así que una sesión vencida mostraba el panel igual y recién
+        // fallaba al primer POST.
+        gateSession("users", "liga_auth", (freshToken, record) => {
+            token = freshToken;
+            showPanel(record && record.name, record && record.id);
+        }, (hadStaleSession) => showLogin(hadStaleSession));
     </script>
 </body>
 </html>

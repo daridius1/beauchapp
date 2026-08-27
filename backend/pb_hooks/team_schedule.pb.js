@@ -73,10 +73,11 @@ onRecordUpdateRequest(validateAvailabilitySubmission, "horario_availability");
 // ---------------------------------------------------------------------------------
 
 routerAdd("GET", "/admin/horarios", (e) => {
-    const { PALETTE_CSS, clientCalendarFns } = require(`${__hooks}/lib/adminUi.js`);
+    const { PALETTE_CSS, clientCalendarFns, clientSessionGateFn } = require(`${__hooks}/lib/adminUi.js`);
     // Las etiquetas de día/mes y los helpers de la ventana vienen de lib/adminUi.js:
     // esta página y /admin/liga tienen que dibujar exactamente el mismo calendario.
     const CALENDAR_FNS = clientCalendarFns();
+    const SESSION_GATE_FN = clientSessionGateFn();
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="es">
@@ -160,7 +161,8 @@ routerAdd("GET", "/admin/horarios", (e) => {
             <h1>Horarios</h1>
             <p class="subtitle">Administración de horarios (bloqueados y ocupados)</p>
             <div class="alert alert-danger" id="loginError"></div>
-            <form id="loginForm">
+            <p class="hint" id="checkingMsg">Verificando sesión…</p>
+            <form id="loginForm" style="display:none;">
                 <div class="form-group">
                     <label>Correo del Administrador</label>
                     <input type="email" id="loginEmail" required>
@@ -194,23 +196,28 @@ routerAdd("GET", "/admin/horarios", (e) => {
 
     <script>
 ${CALENDAR_FNS}
+${SESSION_GATE_FN}
 
         let token = "";
-        try {
-            const authData = JSON.parse(localStorage.getItem("pb_auth") || localStorage.getItem("pocketbase_auth"));
-            if (authData && authData.token) token = authData.token;
-        } catch (e) {}
 
         const loginPage = document.getElementById("loginPage");
         const panelPage = document.getElementById("panelPage");
         const loginError = document.getElementById("loginError");
         const panelError = document.getElementById("panelError");
+        const checkingMsg = document.getElementById("checkingMsg");
+        const loginForm = document.getElementById("loginForm");
 
         function showError(el, msg) { el.textContent = msg; el.style.display = "block"; }
         function hideError(el) { el.style.display = "none"; }
 
-        function showPanel() { loginPage.style.display = "none"; panelPage.style.display = "block"; loadBlockedGrid(); }
-        function showLogin() { loginPage.style.display = "block"; panelPage.style.display = "none"; }
+        function showPanel() { checkingMsg.style.display = "none"; loginPage.style.display = "none"; panelPage.style.display = "block"; loadBlockedGrid(); }
+        function showLogin(hadStaleSession) {
+            checkingMsg.style.display = "none";
+            loginForm.style.display = "block";
+            loginPage.style.display = "block";
+            panelPage.style.display = "none";
+            if (hadStaleSession) showError(loginError, "Tu sesión expiró. Inicia sesión de nuevo.");
+        }
 
         document.getElementById("loginForm").addEventListener("submit", async (e) => {
             e.preventDefault();
@@ -329,7 +336,15 @@ ${CALENDAR_FNS}
         // corre antes de esas declaraciones, revienta con "can't access lexical
         // declaration before initialization" (temporal dead zone) cada vez que ya había
         // un token guardado (es decir, en toda carga de página después del primer login).
-        if (token) showPanel(); else showLogin();
+        //
+        // gateSession valida el token contra el servidor (auth-refresh) antes de decidir
+        // qué mostrar — antes se confiaba en que un token presente en localStorage
+        // seguía sirviendo, así que una sesión vencida mostraba el panel igual y recién
+        // fallaba al primer POST.
+        gateSession("_superusers", "pb_auth", (freshToken) => {
+            token = freshToken;
+            showPanel();
+        }, (hadStaleSession) => showLogin(hadStaleSession));
     </script>
 </body>
 </html>

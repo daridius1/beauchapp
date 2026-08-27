@@ -11,6 +11,13 @@
 //
 // Se consume con require() DENTRO de cada routerAdd — PocketBase corre cada handler en
 // una VM aislada y no ve el scope del módulo .pb.js (ver la nota en match_arbitration.pb.js).
+//
+// Toda página nueva de este estilo (login con token guardado en localStorage + panel)
+// TIENE que usar clientSessionGateFn() para decidir qué mostrar al cargar, no un
+// "if (token) showPanel(); else showLogin();" a mano. Ese chequeo síncrono es justo el
+// bug que se corrigió acá: un token vencido igual mostraba el panel, y recién la
+// primera acción fallaba con 401/403. clientSessionGateFn() valida contra el servidor
+// (auth-refresh) ANTES de mostrar nada.
 
 // Paleta de DESIGN.md §2. Era byte a byte la misma en las cinco páginas.
 const PALETTE_CSS = `:root {
@@ -51,6 +58,35 @@ function clientEscapeHtmlFn() {
                 .replace(/>/g, "&gt;")
                 .replace(/"/g, "&quot;")
                 .replace(/'/g, "&#39;");
+        }`;
+}
+
+// Todas las páginas de admin guardaban el token de localStorage y decidían qué mostrar
+// con un simple "if (token) showPanel(); else showLogin();" — nunca validaban contra el
+// servidor si ese token seguía sirviendo. Con un token vencido eso muestra el panel como
+// si hubiera sesión, y recién la primera acción (POST) revienta con 401 y ahí recién cae
+// al login. Este helper reemplaza ese chequeo síncrono por uno real: usa el
+// auth-refresh que ya trae PocketBase (valida el token Y lo renueva en un solo viaje),
+// así que si el token vencido en verdad ya no sirve, se descubre ANTES de mostrar nada
+// que dependa de una sesión que ya no existe.
+function clientSessionGateFn() {
+    return `
+        async function gateSession(collection, storageKey, onReady, onLogin) {
+            let stored = null;
+            try { stored = JSON.parse(localStorage.getItem(storageKey)); } catch (e) {}
+            if (!stored || !stored.token) { onLogin(false); return; }
+            try {
+                const res = await fetch("/api/collections/" + collection + "/auth-refresh", {
+                    headers: { "Authorization": "Bearer " + stored.token }
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error();
+                localStorage.setItem(storageKey, JSON.stringify({ token: data.token, model: data.record }));
+                onReady(data.token, data.record);
+            } catch (e) {
+                localStorage.removeItem(storageKey);
+                onLogin(true);
+            }
         }`;
 }
 
@@ -136,5 +172,6 @@ module.exports = {
     SCHEDULE_WEEKS_WINDOW,
     escapeHtml,
     clientEscapeHtmlFn,
+    clientSessionGateFn,
     clientCalendarFns,
 };

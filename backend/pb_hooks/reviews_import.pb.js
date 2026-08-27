@@ -6,7 +6,8 @@
 // solo accesible por URL directa + login de superusuario.
 
 routerAdd("GET", "/admin/reviews-import", (e) => {
-    const { PALETTE_CSS } = require(`${__hooks}/lib/adminUi.js`);
+    const { PALETTE_CSS, clientSessionGateFn } = require(`${__hooks}/lib/adminUi.js`);
+    const SESSION_GATE_FN = clientSessionGateFn();
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -177,6 +178,7 @@ routerAdd("GET", "/admin/reviews-import", (e) => {
         <p class="subtitle" id="formSubtitle">Sube el JSON scrapeado de ucampus para actualizar la base de datos de Reseñas</p>
 
         <div class="alert alert-danger" id="errorAlert"></div>
+        <p class="subtitle" id="checkingMsg">Verificando sesión…</p>
 
         <!-- Vista de Login -->
         <form id="loginForm" style="display: none;">
@@ -206,16 +208,14 @@ routerAdd("GET", "/admin/reviews-import", (e) => {
     </div>
 
     <script>
-        let token = "";
+${SESSION_GATE_FN}
 
-        try {
-            const authData = JSON.parse(localStorage.getItem("pb_auth") || localStorage.getItem("pocketbase_auth"));
-            if (authData && authData.token) token = authData.token;
-        } catch (e) {}
+        let token = "";
 
         const loginForm = document.getElementById("loginForm");
         const importForm = document.getElementById("importForm");
         const errorAlert = document.getElementById("errorAlert");
+        const checkingMsg = document.getElementById("checkingMsg");
         const logBox = document.getElementById("logBox");
         const importBtn = document.getElementById("importBtn");
 
@@ -235,15 +235,21 @@ routerAdd("GET", "/admin/reviews-import", (e) => {
         }
 
         function showImporter() {
+            checkingMsg.style.display = "none";
             loginForm.style.display = "none";
             importForm.style.display = "block";
         }
-        function showLogin() {
+        function showLogin(hadStaleSession) {
+            checkingMsg.style.display = "none";
             loginForm.style.display = "block";
             importForm.style.display = "none";
+            if (hadStaleSession) showError("Tu sesión expiró. Inicia sesión de nuevo.");
         }
 
-        if (token) showImporter(); else showLogin();
+        gateSession("_superusers", "pb_auth", (freshToken) => {
+            token = freshToken;
+            showImporter();
+        }, (hadStaleSession) => showLogin(hadStaleSession));
 
         loginForm.addEventListener("submit", async (e) => {
             e.preventDefault();

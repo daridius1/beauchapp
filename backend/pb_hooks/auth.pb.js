@@ -561,7 +561,8 @@ routerAdd("POST", "/api/register-organization", (e) => {
 
 // 10. Servir la vista del generador de enlaces (para administradores)
 routerAdd("GET", "/admin/generate-link", (e) => {
-    const { PALETTE_CSS } = require(`${__hooks}/lib/adminUi.js`);
+    const { PALETTE_CSS, clientSessionGateFn } = require(`${__hooks}/lib/adminUi.js`);
+    const SESSION_GATE_FN = clientSessionGateFn();
 
     let subtypeOptionsHtml = "";
     const subtypeLabels = {
@@ -780,6 +781,22 @@ routerAdd("GET", "/admin/generate-link", (e) => {
         .link-row .url-box { flex: 1; margin: 0; min-width: 0; overflow-wrap: anywhere; }
         /* .copy-btn trae width:100%; en una fila flex eso aplasta la URL a un carácter. */
         .link-row .row-copy { flex-shrink: 0; width: auto; margin: 0; padding: 6px 12px; font-size: 12px; }
+
+        .tab-switch { display: none; gap: 8px; margin-bottom: 24px; }
+        .tab-btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .tab-btn.active { background: rgba(56, 189, 248, 0.15); border-color: var(--primary-color); color: var(--primary-color); }
+        select#orgSelect { cursor: pointer; }
     </style>
 </head>
 <body>
@@ -788,6 +805,7 @@ routerAdd("GET", "/admin/generate-link", (e) => {
         <p class="subtitle" id="formSubtitle">Crea un enlace de registro seguro para una nueva organización</p>
         
         <div class="alert alert-danger" id="errorAlert"></div>
+        <p class="subtitle" id="checkingMsg">Verificando sesión…</p>
 
         <!-- Vista de Login si no está autenticado -->
         <form id="loginForm" style="display: none;">
@@ -803,6 +821,11 @@ routerAdd("GET", "/admin/generate-link", (e) => {
             <button type="submit" class="btn">Iniciar Sesión</button>
         </form>
 
+        <div class="tab-switch" id="tabSwitch">
+            <button type="button" class="tab-btn active" id="tabCreate">Crear organización</button>
+            <button type="button" class="tab-btn" id="tabReset">Resetear contraseña</button>
+        </div>
+
         <!-- Vista del Generador -->
         <form id="generatorForm" style="display: none;">
             <div class="form-group">
@@ -817,8 +840,21 @@ routerAdd("GET", "/admin/generate-link", (e) => {
                 <small class="hint-text">Cada enlace sirve una sola vez, para una organización distinta.</small>
             </div>
             <button type="submit" class="btn" id="generateBtn">Generar Enlace</button>
-            <button type="button" class="copy-btn" id="logoutBtn" style="margin-top: 15px;">Cerrar Sesión</button>
         </form>
+
+        <!-- Vista de reset de contraseña para una organización ya activa -->
+        <div id="resetOrgForm" style="display: none;">
+            <div class="form-group">
+                <label for="orgSelect">Organización</label>
+                <select id="orgSelect" required>
+                    <option value="">Cargando organizaciones...</option>
+                </select>
+                <small class="hint-text">El enlace generado vence a los 30 minutos.</small>
+            </div>
+            <button type="button" class="btn" id="resetGenerateBtn">Generar Enlace de Reset</button>
+        </div>
+
+        <button type="button" class="copy-btn" id="logoutBtn" style="margin-top: 15px; display: none;">Cerrar Sesión</button>
 
         <div class="result-container" id="resultBox">
             <div class="result-title" id="resultTitle">✓ Enlace Generado Exitosamente</div>
@@ -829,19 +865,19 @@ routerAdd("GET", "/admin/generate-link", (e) => {
     </div>
 
     <script>
-        let token = "";
+${SESSION_GATE_FN}
 
-        // Intentar recuperar sesión existente
-        try {
-            const authData = JSON.parse(localStorage.getItem("pocketbase_auth") || localStorage.getItem("pb_auth"));
-            if (authData && authData.token) {
-                token = authData.token;
-            }
-        } catch (e) {}
+        let token = "";
 
         const loginForm = document.getElementById("loginForm");
         const generatorForm = document.getElementById("generatorForm");
+        const resetOrgForm = document.getElementById("resetOrgForm");
+        const tabSwitch = document.getElementById("tabSwitch");
+        const tabCreate = document.getElementById("tabCreate");
+        const tabReset = document.getElementById("tabReset");
+        const logoutBtn = document.getElementById("logoutBtn");
         const errorAlert = document.getElementById("errorAlert");
+        const checkingMsg = document.getElementById("checkingMsg");
         const resultBox = document.getElementById("resultBox");
 
         function showError(msg) {
@@ -853,23 +889,147 @@ routerAdd("GET", "/admin/generate-link", (e) => {
             errorAlert.style.display = "none";
         }
 
+        // Si ya se cargó la lista una vez no se vuelve a pedir cada vez que se cambia de
+        // pestaña — solo al reintentar tras un error (orgsLoaded queda en false).
+        let orgsLoaded = false;
+
+        function activarTab(tab) {
+            hideError();
+            resultBox.style.display = "none";
+            if (tab === "reset") {
+                tabCreate.classList.remove("active");
+                tabReset.classList.add("active");
+                generatorForm.style.display = "none";
+                resetOrgForm.style.display = "block";
+                document.getElementById("formSubtitle").textContent = "Genera un enlace para que una organización ya activa rehaga su contraseña";
+                if (!orgsLoaded) cargarOrganizaciones();
+            } else {
+                tabReset.classList.remove("active");
+                tabCreate.classList.add("active");
+                resetOrgForm.style.display = "none";
+                generatorForm.style.display = "block";
+                document.getElementById("formSubtitle").textContent = "Crea un enlace de registro seguro para una nueva organización";
+            }
+        }
+
+        tabCreate.addEventListener("click", () => activarTab("create"));
+        tabReset.addEventListener("click", () => activarTab("reset"));
+
+        async function cargarOrganizaciones() {
+            const select = document.getElementById("orgSelect");
+            select.innerHTML = "";
+            const cargando = document.createElement("option");
+            cargando.value = "";
+            cargando.textContent = "Cargando organizaciones...";
+            select.appendChild(cargando);
+
+            try {
+                const response = await fetch("/api/admin/organizations", {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        token = "";
+                        localStorage.removeItem("pb_auth");
+                        showLogin();
+                        throw new Error("Sesión expirada. Por favor, inicia sesión de nuevo.");
+                    }
+                    throw new Error(data.error || "No se pudieron cargar las organizaciones.");
+                }
+
+                const orgs = data.organizations || [];
+                select.innerHTML = "";
+                const placeholder = document.createElement("option");
+                placeholder.value = "";
+                placeholder.textContent = orgs.length > 0 ? "Elige una organización..." : "No hay organizaciones activas";
+                select.appendChild(placeholder);
+                orgs.forEach((org) => {
+                    const opt = document.createElement("option");
+                    opt.value = org.id;
+                    opt.textContent = org.name + " (@" + org.username + ")";
+                    select.appendChild(opt);
+                });
+                orgsLoaded = true;
+            } catch (err) {
+                select.innerHTML = "";
+                const errOpt = document.createElement("option");
+                errOpt.value = "";
+                errOpt.textContent = "Error al cargar";
+                select.appendChild(errOpt);
+                showError(err.message);
+            }
+        }
+
+        document.getElementById("resetGenerateBtn").addEventListener("click", async () => {
+            hideError();
+            resultBox.style.display = "none";
+            const orgId = document.getElementById("orgSelect").value;
+            if (!orgId) {
+                showError("Elige una organización.");
+                return;
+            }
+
+            const btn = document.getElementById("resetGenerateBtn");
+            btn.disabled = true;
+            btn.textContent = "Generando...";
+
+            try {
+                const response = await fetch("/api/admin/org-reset-link", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + token
+                    },
+                    body: JSON.stringify({ orgId })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        token = "";
+                        localStorage.removeItem("pb_auth");
+                        showLogin();
+                        throw new Error("Sesión expirada. Por favor, inicia sesión de nuevo.");
+                    }
+                    throw new Error(data.error || "Error al generar enlace.");
+                }
+
+                mostrarEnlaces(data);
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Generar Enlace de Reset";
+            }
+        });
+
         function showGenerator() {
+            checkingMsg.style.display = "none";
             loginForm.style.display = "none";
-            generatorForm.style.display = "block";
             document.getElementById("formSubtitle").style.display = "block";
+            tabSwitch.style.display = "flex";
+            logoutBtn.style.display = "block";
+            activarTab("create");
         }
 
         function showLogin() {
+            checkingMsg.style.display = "none";
             loginForm.style.display = "block";
             generatorForm.style.display = "none";
+            resetOrgForm.style.display = "none";
+            tabSwitch.style.display = "none";
+            logoutBtn.style.display = "none";
             document.getElementById("formSubtitle").style.display = "none";
+            resultBox.style.display = "none";
         }
 
-        if (token) {
+        gateSession("_superusers", "pb_auth", (freshToken) => {
+            token = freshToken;
             showGenerator();
-        } else {
+        }, (hadStaleSession) => {
+            if (hadStaleSession) showError("Tu sesión expiró. Inicia sesión de nuevo.");
             showLogin();
-        }
+        });
 
         // Manejar Login
         loginForm.addEventListener("submit", async (e) => {
@@ -973,16 +1133,20 @@ routerAdd("GET", "/admin/generate-link", (e) => {
                 lista.appendChild(fila);
             });
 
-            document.getElementById("resultTitle").textContent = ultimosEnlaces.length > 1
-                ? "✓ " + ultimosEnlaces.length + " enlaces generados"
-                : "✓ Enlace Generado Exitosamente";
+            document.getElementById("resultTitle").textContent = data.orgName
+                ? "✓ Enlace generado para " + data.orgName
+                : (ultimosEnlaces.length > 1
+                    ? "✓ " + ultimosEnlaces.length + " enlaces generados"
+                    : "✓ Enlace Generado Exitosamente");
 
             const vence = data.expiresAt ? new Date(data.expiresAt) : null;
-            document.getElementById("expiryNote").textContent = vence
-                ? "Vencen el " + vence.toLocaleDateString("es-CL", { day: "numeric", month: "long" }) +
-                  " a las " + vence.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) +
-                  " (" + (data.expiresInDays || 7) + " días). Después dejan de servir y hay que generar otros."
-                : "";
+            const horaVence = vence ? vence.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "";
+            document.getElementById("expiryNote").textContent = !vence ? ""
+                : data.expiresInMinutes
+                    ? "Vence a las " + horaVence + " (" + data.expiresInMinutes + " minutos). Después hay que generar uno nuevo."
+                    : "Vencen el " + vence.toLocaleDateString("es-CL", { day: "numeric", month: "long" }) +
+                      " a las " + horaVence +
+                      " (" + (data.expiresInDays || 7) + " días). Después dejan de servir y hay que generar otros.";
 
             document.getElementById("copyBtn").textContent = ultimosEnlaces.length > 1 ? "Copiar todos" : "Copiar Enlace";
             if (data.warning) showError(data.warning);
@@ -1120,4 +1284,115 @@ routerAdd("POST", "/api/admin/generate-link", (e) => {
         expiresInDays: REGISTRATION_LINK_DAYS,
     });
 }, $apis.requireSuperuserAuth());
+
+// Lista de organizaciones activas, para poblar el selector de la pestaña "Resetear
+// contraseña" en /admin/generate-link.
+routerAdd("GET", "/api/admin/organizations", (e) => {
+    let orgs = [];
+    try {
+        orgs = $app.findRecordsByFilter("users", "type = 'organization' && verified = true", "name", 500, 0);
+    } catch (err) {
+        return e.json(500, { error: "No se pudieron obtener las organizaciones: " + err.message });
+    }
+
+    return e.json(200, {
+        organizations: orgs.map((org) => ({
+            id: org.id,
+            name: org.getString("name") || org.getString("username"),
+            username: org.getString("username"),
+            subtype: org.getString("subtype"),
+        })),
+    });
+}, $apis.requireSuperuserAuth());
+
+// Enlace de reset de contraseña para una organización YA activa. A diferencia de
+// /api/admin/generate-link (que crea una cuenta nueva con un registrationToken propio),
+// acá se usa el mecanismo nativo de PocketBase (newPasswordResetToken) sobre el record
+// existente: no depende de que la organización tenga email, porque el token se genera a
+// partir del propio record y se entrega como link, nunca por correo.
+routerAdd("POST", "/api/admin/org-reset-link", (e) => {
+    const RESET_LINK_MINUTES = 30; // Duración fija por passwordResetToken.duration en el schema de users.
+
+    const body = e.requestInfo().body;
+    const orgId = body.orgId || "";
+    if (!orgId) {
+        return e.json(400, { error: "Falta el id de la organización." });
+    }
+
+    let orgRecord;
+    try {
+        orgRecord = $app.findRecordById("users", orgId);
+    } catch (err) {
+        return e.json(404, { error: "La organización no existe." });
+    }
+
+    if (orgRecord.getString("type") !== "organization" || !orgRecord.getBool("verified")) {
+        return e.json(400, { error: "Solo se puede generar este enlace para una organización ya activa." });
+    }
+
+    const token = orgRecord.newPasswordResetToken();
+
+    const envAppUrl = $os.getenv("APP_URL") || $os.getenv("SITE_URL");
+    const host = e.requestInfo().headers["host"] || "localhost:8090";
+    const protocol = e.requestInfo().headers["x-forwarded-proto"] || "http";
+    const baseUrl = envAppUrl ? envAppUrl.replace(/\/$/, "") : `${protocol}://${host}`;
+
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + RESET_LINK_MINUTES);
+
+    return e.json(200, {
+        success: true,
+        link: `${baseUrl}/reset-password?token=${token}`,
+        orgName: orgRecord.getString("name") || orgRecord.getString("username"),
+        expiresAt: expiresAt.toISOString(),
+        expiresInMinutes: RESET_LINK_MINUTES,
+    });
+}, $apis.requireSuperuserAuth());
+
+// Alerta de "login desde nueva ubicación" de PocketBase por Telegram en vez de correo.
+//
+// El authAlert de la colección "users" ya está desactivado (ver __bootstrap.pb.js), pero
+// el de "_superusers" sigue con el default de PocketBase (habilitado) — por eso cada
+// login del panel de admin gastaba una de las 100 cuotas diarias de Resend sin que nadie
+// lo hubiera pedido. En vez de apagarlo también ahí (perdiendo la detección de "nueva
+// ubicación" que trae PocketBase), se intercepta el envío del correo y se manda el aviso
+// por Telegram, reusando las mismas TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID que reports.pb.js.
+// No llamar a e.next() es lo que evita que el correo se termine enviando.
+onMailerRecordAuthAlertSend((e) => {
+    try {
+        const botToken = $os.getenv("TELEGRAM_BOT_TOKEN");
+        const chatId = $os.getenv("TELEGRAM_CHAT_ID");
+        if (!botToken || !chatId) {
+            // Sin Telegram configurado, se prefiere dejar pasar el correo (mejor avisar
+            // por un canal más caro que no avisar nada).
+            return e.next();
+        }
+
+        const record = e.record;
+        let label = record.id;
+        try {
+            label = record.getString("email") || record.getString("username") || record.id;
+        } catch (err) {}
+
+        const collectionName = (record.collection && record.collection() && record.collection().name) || "?";
+        const appUrl = $os.getenv("APP_URL");
+        const envLabel = appUrl ? appUrl.replace(/\/$/, "") : "local (sin APP_URL configurada)";
+
+        const text = "Inicio de sesión desde una nueva ubicación\n\n" +
+            "Cuenta: " + label + " (" + collectionName + ")\n" +
+            "Entorno: " + envLabel;
+
+        $http.send({
+            url: "https://api.telegram.org/bot" + botToken + "/sendMessage",
+            method: "POST",
+            body: JSON.stringify({ chat_id: chatId, text: text }),
+            headers: { "Content-Type": "application/json" },
+            timeout: 10,
+        });
+        // Sin e.next(): se corta la cadena acá y el correo de authAlert no se envía.
+    } catch (err) {
+        console.error("[auth.pb.js] Error enviando alerta de login a Telegram, se deja pasar el correo:", err.message || err);
+        return e.next();
+    }
+});
 
