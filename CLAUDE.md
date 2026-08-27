@@ -1,8 +1,8 @@
 # Beauchapp — contexto para una sesión nueva
 
 Red social y plataforma comunitaria de la Facultad de Ciencias Físicas y Matemáticas de la
-Universidad de Chile (Beauchef). Está **en producción con usuarios reales** (447 cuentas a
-2026-08-20), así que cada cambio en `master` puede terminar frente a gente de verdad.
+Universidad de Chile (Beauchef). Está **en producción con usuarios reales** (645 cuentas a
+2026-08-27), así que cada cambio en `master` puede terminar frente a gente de verdad.
 
 Lee esto entero antes de tocar nada. Está ordenado de lo que más se necesita a lo que menos.
 
@@ -184,8 +184,16 @@ servicio, no por `pb.collection` suelto en la pantalla), componentes compartidos
 
 ## 6. Producción
 
-Homeserver del usuario, `ssh salas@192.168.0.6`, directorio `~/red-social`, servicio systemd
-`pocketbase`, dominio <https://beauchapp.daridius.cl>.
+Homeserver del usuario, mismo hardware de siempre (Atom x5-Z8300, 2 GB RAM) pero con un
+fresh-start de la distro: ahora **Debian 13 (trixie)**, hostname `irina`. Conéctate con
+`ssh homeserver` (alias ya definido en `~/.ssh/config` → `salas@192.168.0.6`; no hace falta
+escribir la IP a mano). Directorio `~/red-social`, servicio systemd `pocketbase`, túnel de
+Cloudflare ya activo (`cloudflared.service`), dominio <https://beauchapp.daridius.cl>.
+
+Tras el fresh-start se verificó que nada más relevante cambió: `apt` como gestor de
+paquetes, las herramientas que `deploy.sh` necesita (`wget`, `unzip`, `git`, `tmux`, `mc`,
+`curl`) ya están instaladas, `python3` sigue disponible para inspección de solo lectura
+(§3), y `pocketbase` sigue en 0.39.x.
 
 **El `sudo` pide contraseña**, así que un agente no puede reiniciar el servicio: se hacen los
 pasos sin sudo y el `sudo systemctl restart pocketbase` lo corre la persona. En la práctica
