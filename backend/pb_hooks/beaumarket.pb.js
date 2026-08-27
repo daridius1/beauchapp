@@ -401,8 +401,9 @@ routerAdd("POST", "/api/beaumarket/sell", (e) => {
 // ---------------------------------------------------------------------------------
 
 routerAdd("GET", "/admin/beaumarket", (e) => {
-    const { PALETTE_CSS, clientEscapeHtmlFn } = require(`${__hooks}/lib/adminUi.js`);
+    const { PALETTE_CSS, clientEscapeHtmlFn, clientSessionGateFn } = require(`${__hooks}/lib/adminUi.js`);
     const ESC_FN = clientEscapeHtmlFn();
+    const SESSION_GATE_FN = clientSessionGateFn();
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -482,7 +483,8 @@ routerAdd("GET", "/admin/beaumarket", (e) => {
             <h1>Beaumarket</h1>
             <p class="subtitle">Administración de mercados de predicción</p>
             <div class="alert alert-danger" id="loginError"></div>
-            <form id="loginForm">
+            <p class="hint" id="checkingMsg">Verificando sesión…</p>
+            <form id="loginForm" style="display:none;">
                 <div class="form-group">
                     <label>Correo del Administrador</label>
                     <input type="email" id="loginEmail" required>
@@ -531,19 +533,68 @@ routerAdd("GET", "/admin/beaumarket", (e) => {
     </div>
 
     <script>
+${SESSION_GATE_FN}
+
         let token = "";
-        try {
-            const authData = JSON.parse(localStorage.getItem("pb_auth") || localStorage.getItem("pocketbase_auth"));
-            if (authData && authData.token) token = authData.token;
-        } catch (e) {}
 
         const loginPage = document.getElementById("loginPage");
         const panelPage = document.getElementById("panelPage");
         const loginError = document.getElementById("loginError");
         const panelError = document.getElementById("panelError");
+        const checkingMsg = document.getElementById("checkingMsg");
+        const loginForm = document.getElementById("loginForm");
 
         function showError(el, msg) { el.textContent = msg; el.style.display = "block"; }
         function hideError(el) { el.style.display = "none"; }
+
+        function showPanel() { checkingMsg.style.display = "none"; loginPage.style.display = "none"; panelPage.style.display = "block"; loadMarkets(); }
+        function showLogin(hadStaleSession) {
+            checkingMsg.style.display = "none";
+            loginForm.style.display = "block";
+            loginPage.style.display = "block";
+            panelPage.style.display = "none";
+            if (hadStaleSession) showError(loginError, "Tu sesión expiró. Inicia sesión de nuevo.");
+        }
+
+        loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            hideError(loginError);
+            const email = document.getElementById("loginEmail").value;
+            const password = document.getElementById("loginPassword").value;
+            try {
+                const res = await fetch("/api/collections/_superusers/auth-with-password", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ identity: email, password: password })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || "Credenciales incorrectas.");
+                token = data.token;
+                localStorage.setItem("pb_auth", JSON.stringify({ token, model: data.record }));
+                showPanel();
+            } catch (err) { showError(loginError, err.message); }
+        });
+
+        document.getElementById("logoutBtn").addEventListener("click", () => {
+            token = ""; localStorage.removeItem("pb_auth"); showLogin();
+        });
+
+        async function apiCall(path, method, payload) {
+            const res = await fetch(path, {
+                method: method,
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                body: payload ? JSON.stringify(payload) : undefined,
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                if (res.status === 401 || res.status === 403) {
+                    token = ""; localStorage.removeItem("pb_auth");
+                    showLogin(true);
+                    throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
+                }
+                throw new Error(data.error || data.message || "Error.");
+            }
+            return data;
+        }
 
         // Título, descripción y etiquetas de resultado de un mercado son texto libre.
         // Hoy solo los escribe el propio superusuario desde esta página (self-XSS), pero
@@ -684,6 +735,15 @@ routerAdd("GET", "/admin/beaumarket", (e) => {
                 data.markets.forEach((m) => marketsList.appendChild(renderMarket(m)));
             } catch (err) { showError(panelError, err.message); }
         }
+
+        // Al final del script a propósito: gateSession usa showPanel()/showLogin(), que a
+        // su vez usan loadMarkets() — si corriera antes de esas declaraciones, revienta
+        // por temporal dead zone en cada carga con un token ya guardado (o sea, en toda
+        // carga después del primer login). Mismo motivo documentado en team_schedule.pb.js.
+        gateSession("_superusers", "pb_auth", (freshToken) => {
+            token = freshToken;
+            showPanel();
+        }, (hadStaleSession) => showLogin(hadStaleSession));
     </script>
 </body>
 </html>
