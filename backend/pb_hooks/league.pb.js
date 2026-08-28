@@ -1006,12 +1006,12 @@ ${SESSION_GATE_FN}
             window.scrollTo(0, 0);
         }
 
-        // Los equipos que participan de la etapa. Una etapa anterior a este campo no
-        // tiene ninguno definido: ahí se cae al roster completo de la liga, que es como
-        // se comportaba antes.
+        // Los equipos que participan de la etapa. Vacío significa que todavía no se
+        // marcó ninguno — las etapas viejas que dependían del fallback a "todo el
+        // roster" quedaron congeladas con sus participantes reales por la migración
+        // 1788100000_backfill_league_stage_teams.
         function stageParticipants() {
             const ids = (activeStage && activeStage.teams) || [];
-            if (!ids.length) return rosterTeams;
             return rosterTeams.filter((t) => ids.indexOf(t.id) !== -1);
         }
 
@@ -2927,15 +2927,15 @@ routerAdd("POST", "/api/liga/matches/set-referees", (e) => {
                 throw new BadRequestError("Los equipos árbitro deben pertenecer a tu liga.");
             }
 
-            // "de la MISMA etapa del partido": si la etapa define participantes, los
-            // árbitros tienen que estar entre ellos.
+            // "de la MISMA etapa del partido": los árbitros tienen que estar entre los
+            // participantes marcados de esa etapa.
             let stageTeams = [];
             try {
                 stageTeams = ($app.findRecordById("league_stages", match.getString("stage")).get("teams") || []).map(String);
             } catch (err) {
                 stageTeams = [];
             }
-            if (stageTeams.length > 0 && !refereeTeamIds.every((id) => stageTeams.includes(id))) {
+            if (!refereeTeamIds.every((id) => stageTeams.includes(id))) {
                 throw new BadRequestError("Los equipos árbitro deben participar de la misma etapa del partido.");
             }
         }
@@ -2992,7 +2992,7 @@ routerAdd("GET", "/api/liga/difficulty-summary", (e) => {
         });
 
         const stageTeams = (stage.get("teams") || []).map(String);
-        const participantIds = stageTeams.length ? stageTeams : rosterRows.map((r) => r.getString("team"));
+        const participantIds = stageTeams;
 
         // status != 'cancelled': un partido cancelado nunca ocurrió, no debe pesar en
         // el balance ni en el conteo — confirmado explícitamente con el usuario.
@@ -3090,15 +3090,12 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
         if (!teamIds.every((id) => rosterSet.has(id))) {
             throw new BadRequestError("Todos los equipos elegidos deben pertenecer a tu liga.");
         }
-        // Si la etapa define participantes, agendar queda restringido a ellos — es la
+        // Agendar queda restringido a los participantes marcados de la etapa — es la
         // misma regla que aplica el selector del panel, pero impuesta en el servidor.
-        // Una etapa sin participantes definidos (anterior al campo) no restringe nada.
         const stageTeams = (stage.get("teams") || []).map(String);
-        if (stageTeams.length > 0) {
-            const stageSet = new Set(stageTeams);
-            if (!teamIds.every((id) => stageSet.has(id))) {
-                throw new BadRequestError("Todos los equipos elegidos deben participar de esta etapa.");
-            }
+        const stageSet = new Set(stageTeams);
+        if (!teamIds.every((id) => stageSet.has(id))) {
+            throw new BadRequestError("Todos los equipos elegidos deben participar de esta etapa.");
         }
 
 
@@ -3297,15 +3294,12 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
         if (!rosterSet.has(teamA) || !rosterSet.has(teamB)) {
             throw new BadRequestError("Ambos equipos deben pertenecer a tu liga.");
         }
-        // Si la etapa define participantes, agendar queda restringido a ellos — es la
+        // Agendar queda restringido a los participantes marcados de la etapa — es la
         // misma regla que aplica el selector del panel, pero impuesta en el servidor.
-        // Una etapa sin participantes definidos (anterior al campo) no restringe nada.
         const stageTeams = (stage.get("teams") || []).map(String);
-        if (stageTeams.length > 0) {
-            const stageSet = new Set(stageTeams);
-            if (!(stageSet.has(teamA) && stageSet.has(teamB))) {
-                throw new BadRequestError("Ambos equipos deben participar de esta etapa.");
-            }
+        const stageSet = new Set(stageTeams);
+        if (!(stageSet.has(teamA) && stageSet.has(teamB))) {
+            throw new BadRequestError("Ambos equipos deben participar de esta etapa.");
         }
 
 
@@ -3378,13 +3372,12 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
             record.set("beaumarketMarket", market.id);
         }
 
-        // Árbitros automáticos: entre los participantes de la etapa (o todo el roster
-        // si la etapa no define participantes) que no sean los dos que juegan, elige
-        // los 2 que menos han arbitrado hasta ahora. status != 'cancelled': un partido
-        // cancelado no cuenta.
+        // Árbitros automáticos: entre los participantes de la etapa que no sean los dos
+        // que juegan, elige los 2 que menos han arbitrado hasta ahora. status !=
+        // 'cancelled': un partido cancelado no cuenta.
         if (autoAssignReferees) {
             const { pickLeastBusyReferees } = require(`${__hooks}/lib/refereeAssignment.js`);
-            const candidatePool = stageTeams.length ? stageTeams : Array.from(rosterSet);
+            const candidatePool = stageTeams;
             const refRows = $app.findRecordsByFilter(
                 "league_matches", "league = {:league} && deleted = false && status != 'cancelled'",
                 "", 0, 0, { league: e.auth.id }
@@ -3439,8 +3432,8 @@ routerAdd("POST", "/api/liga/matches/retroactive", (e) => {
         }
         if (hour < START_HOUR || hour > END_HOUR) throw new BadRequestError("Hora inválida.");
 
-        // Igual que /accept: etapa propia, ambos equipos en el roster de la liga y, si
-        // la etapa define participantes, en la etapa.
+        // Igual que /accept: etapa propia, ambos equipos en el roster de la liga y
+        // entre los participantes marcados de la etapa.
         let stage;
         try {
             stage = $app.findRecordById("league_stages", stageId);
@@ -3465,11 +3458,9 @@ routerAdd("POST", "/api/liga/matches/retroactive", (e) => {
         }
 
         const stageTeams = (stage.get("teams") || []).map(String);
-        if (stageTeams.length > 0) {
-            const stageSet = new Set(stageTeams);
-            if (!(stageSet.has(teamA) && stageSet.has(teamB))) {
-                throw new BadRequestError("Ambos equipos deben participar de esta etapa.");
-            }
+        const stageSet = new Set(stageTeams);
+        if (!(stageSet.has(teamA) && stageSet.has(teamB))) {
+            throw new BadRequestError("Ambos equipos deben participar de esta etapa.");
         }
 
         // Este endpoint es SOLO para resultado ya jugado: nada de reloj. Sin
