@@ -174,12 +174,26 @@ nano .env  # Pegar RESEND_API_KEY
 cd ../frontend
 npm install
 
-# Definir la URL pública del backend
-export EXPO_PUBLIC_API_URL=https://tu-dominio.com
+# Definir de dónde vienen las imágenes a tamaño completo (Cloudflare R2, no proxeadas
+# por PocketBase — ver PRINCIPLES.md §2 y DEPLOY.md). Sin esta variable el sitio igual
+# funciona, pero cada imagen grande pasa por el servidor en vez de ir directo a R2, y
+# no se nota mirando la página porque las miniaturas sí pasan por PocketBase de todas
+# formas.
+export EXPO_PUBLIC_R2_URL=https://images.tu-dominio.com
 
 # Compilar los archivos estáticos
 npx expo export --platform web
 ```
+
+> [!WARNING]
+> **No definas `EXPO_PUBLIC_API_URL`** si vas a servir el sitio detrás de un dominio
+> propio (con o sin Cloudflare) — déjala sin exportar. El frontend web usa
+> `window.location.origin` para hablarle a la API, que es lo correcto cuando
+> PocketBase sirve la API y el frontend desde el mismo origen. Definirla apunta el
+> bundle compilado a un valor fijo (típicamente `http://127.0.0.1:8090` si se copió de
+> `.env.example` sin cambiarla) y **rompe producción** — ver DEPLOY.md, sección
+> "Ojo: las `EXPO_PUBLIC_*` se incrustan al compilar". Es útil solo si el frontend
+> corre en un origen distinto al de la API (poco común en este proyecto).
 
 Esto genera la carpeta `frontend/dist/` con los archivos estáticos.
 

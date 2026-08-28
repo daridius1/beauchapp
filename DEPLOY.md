@@ -43,11 +43,25 @@ No saltarse ninguno de estos pasos, en este orden:
 
 ```bash
 # Desde la raíz del repo, en tu máquina local
-export DEPLOY_SERVER=usuario@tu-servidor        # obligatorio
+export DEPLOY_SERVER=salas@homeserver           # obligatorio — ver nota abajo
 export DEPLOY_REMOTE_DIR=red-social             # opcional, default "red-social"
 
 ./deploy.sh
 ```
+
+**`DEPLOY_SERVER` tiene que ser `usuario@host`, nunca un alias de SSH a secas.**
+`deploy.sh` deriva `REMOTE_USER` cortando todo lo que sigue a la `@`
+(`REMOTE_USER="${SERVER%@*}"`) para armar el `User=` del servicio systemd. Si
+`DEPLOY_SERVER` no tiene ninguna `@` — por ejemplo, usar directamente el alias
+`homeserver` de `~/.ssh/config` (ver `CLAUDE.md` §6) — no hay nada que cortar y
+`REMOTE_USER` queda igual al alias completo, así que el servicio se crea con un
+usuario (`homeserver`) que no existe en el servidor, y `pocketbase.service`
+nunca arranca. La forma correcta de aprovechar ese alias es anteponerle el
+usuario explícito: `salas@homeserver` — ssh sigue resolviendo `homeserver` a
+través del alias (IP, puerto, clave), pero el script ya tiene la `@` que
+necesita para extraer `REMOTE_USER` bien. `salas@192.168.0.6` (la IP directa)
+funciona igual de bien si el alias no está configurado en la máquina desde la
+que se despliega.
 
 Qué hace `deploy.sh`, en orden:
 1. Compila el frontend (`npx expo export -p web`) si `frontend/dist/` no existe ya.
