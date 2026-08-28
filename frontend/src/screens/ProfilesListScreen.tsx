@@ -3,7 +3,7 @@ import {
   StyleSheet,
   View,
   Text,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   ActivityIndicator,
   DeviceEventEmitter,
@@ -56,6 +56,11 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
   // aparecía en el resultado sin importar qué se buscara.
   const [activeSearch, setActiveSearch] = useState('');
 
+  const PER_PAGE = 30;
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   // Filtros de Selectores
   const [profileType, setProfileType] = useState<'all' | 'student' | 'organization'>('all');
   const [orgSubtype, setOrgSubtype] = useState<'all' | 'community' | 'center' | 'team' | 'band' | 'organization' | 'league'>('all');
@@ -96,9 +101,36 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   }, [profileType, orgSubtype]);
 
+  const buildUsersFilter = () => {
+    let filterParts: string[] = [];
+
+    if (profileType === 'student') {
+      filterParts.push('type != "organization"');
+    } else if (profileType === 'organization') {
+      filterParts.push('type = "organization"');
+    }
+
+    if (orgSubtype !== 'all') {
+      if (profileType === 'all') {
+        filterParts.push(`type = "organization" && subtype = "${orgSubtype}"`);
+      } else {
+        filterParts.push(`subtype = "${orgSubtype}"`);
+      }
+    }
+
+    if (activeSearch) {
+      const safeSearch = activeSearch.replace(/"/g, '\\"');
+      filterParts.push(`(name ~ "${safeSearch}" || username ~ "${safeSearch}")`);
+    }
+
+    return filterParts.join(' && ');
+  };
+
   const fetchProfiles = async (hideLoading = false) => {
     try {
       if (!hideLoading) setLoading(true);
+
+      setHasMore(false);
 
       if (routeName === 'FollowList') {
         const userId = routeParams?.userId;
@@ -170,32 +202,13 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
           setProfiles(mappedUsers);
         }
       } else {
-        let filterParts: string[] = [];
-
-        if (profileType === 'student') {
-          filterParts.push('type != "organization"');
-        } else if (profileType === 'organization') {
-          filterParts.push('type = "organization"');
-        }
-
-        if (orgSubtype !== 'all') {
-          if (profileType === 'all') {
-            filterParts.push(`type = "organization" && subtype = "${orgSubtype}"`);
-          } else {
-            filterParts.push(`subtype = "${orgSubtype}"`);
-          }
-        }
-
-        if (activeSearch) {
-          const safeSearch = activeSearch.replace(/"/g, '\\"');
-          filterParts.push(`(name ~ "${safeSearch}" || username ~ "${safeSearch}")`);
-        }
-
-        const res = await pb.collection('users').getList(1, 500, {
-          filter: filterParts.join(' && '),
+        const res = await pb.collection('users').getList(1, PER_PAGE, {
+          filter: buildUsersFilter(),
           sort: 'name',
         });
         setProfiles(res.items);
+        setPage(1);
+        setHasMore(res.page < res.totalPages);
       }
     } catch (err) {
       console.error(`Error fetching profiles list:`, err);
@@ -225,6 +238,25 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
     setRefreshing(true);
     await withMinimumDelay(() => fetchProfiles(true));
     setRefreshing(false);
+  };
+
+  const handleLoadMore = async () => {
+    if (loadingMore || !hasMore || routeName === 'FollowList') return;
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const res = await pb.collection('users').getList(nextPage, PER_PAGE, {
+        filter: buildUsersFilter(),
+        sort: 'name',
+      });
+      setProfiles((prev) => [...prev, ...res.items]);
+      setPage(nextPage);
+      setHasMore(res.page < res.totalPages);
+    } catch (err) {
+      console.error('Error loading more profiles:', err);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   const handleSearch = () => {
@@ -356,28 +388,36 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
       )}
 
       {/* Lista de Resultados */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[theme.colors.primary]}
-            tintColor={theme.colors.primary}
-          />
-        }
-      >
-        {loading && !refreshing ? (
-          <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 50 }} />
-        ) : profiles.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Feather name="users" size={40} color={theme.colors.textMuted} style={{ marginBottom: 12 }} />
-            <Text style={styles.emptyText}>{emptyText}</Text>
-          </View>
-        ) : (
-          profiles.map((profile) => (
+      {loading && !refreshing ? (
+        <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 50 }} />
+      ) : (
+        <FlatList
+          data={profiles}
+          keyExtractor={(profile) => profile.id}
+          contentContainerStyle={styles.scrollContent}
+          onEndReachedThreshold={0.3}
+          onEndReached={handleLoadMore}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Feather name="users" size={40} color={theme.colors.textMuted} style={{ marginBottom: 12 }} />
+              <Text style={styles.emptyText}>{emptyText}</Text>
+            </View>
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 16 }} />
+            ) : null
+          }
+          renderItem={({ item: profile }) => (
             <TouchableOpacity
-              key={profile.id}
               style={styles.itemContainer}
               // Sin `title` acá: el header debe decir "Perfil" (estudiantes) o el tipo de
               // organización, nunca el nombre — eso ya lo resuelve ProfileScreen con
@@ -418,9 +458,9 @@ export const ProfilesListScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
               <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
             </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
+          )}
+        />
+      )}
 
       {/* Selector Modal: Tipo de Perfil */}
       <SelectorModal
