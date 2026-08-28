@@ -4,25 +4,16 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Beauchapps'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Juegos'>;
 
-export const BeauchappsScreen: React.FC<Props> = ({ navigation }) => {
-  const { user } = useAuth();
-
+export const JuegosScreen: React.FC<Props> = ({ navigation }) => {
   const apps = [
     {
-      id: 'Marketplace',
-      title: 'Marketplace',
-      icon: 'shopping-bag',
-      screen: 'Marketplace',
-    },
-    {
-      id: 'ProblemsList',
-      title: 'Pautas',
-      icon: 'book-open',
-      screen: 'ProblemsList',
+      id: 'Beaudle',
+      title: 'Beaudle',
+      icon: 'grid',
+      screen: 'Beaudle',
     },
     {
       id: 'LaddersList',
@@ -31,28 +22,10 @@ export const BeauchappsScreen: React.FC<Props> = ({ navigation }) => {
       screen: 'LaddersList',
     },
     {
-      id: 'Reviews',
-      title: 'Reseñas',
-      icon: 'star',
-      screen: 'Reviews',
-    },
-    {
-      id: 'Beaudle',
-      title: 'Beaudle',
-      icon: 'grid',
-      screen: 'Beaudle',
-    },
-    {
       id: 'Beaumarket',
       title: 'Beaumarket',
       icon: 'trending-up',
       screen: 'Beaumarket',
-    },
-    {
-      id: 'LeaguesList',
-      title: 'Ligas',
-      icon: 'flag',
-      screen: 'LeaguesList',
     },
     {
       id: 'PollasList',
@@ -60,27 +33,6 @@ export const BeauchappsScreen: React.FC<Props> = ({ navigation }) => {
       icon: 'target',
       screen: 'PollasList',
     },
-    ...(user && user.type !== 'organization'
-      ? [
-          {
-            id: 'Tinder',
-            title: 'Tinder Beauchef',
-            icon: 'heart',
-            screen: 'Tinder',
-          },
-        ]
-      : []),
-    // Horarios pide sesión: es la disponibilidad de la cuenta que la marca.
-    ...(user
-      ? [
-          {
-            id: 'TeamSchedule',
-            title: 'Horarios',
-            icon: 'calendar',
-            screen: 'TeamSchedule',
-          },
-        ]
-      : []),
   ];
 
   return (

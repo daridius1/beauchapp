@@ -53,13 +53,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
     if (onClose) onClose();
   };
 
-  const beauchappsScreens = ['Beauchapps', 'Marketplace', 'ProblemsList', 'LaddersList', 'Tinder', 'Reviews'];
+  // Cada categoría de nivel superior es en realidad una pantalla-grilla (ver
+  // Comunidad/Academico/Deportes/JuegosScreen) que navega a estas subpantallas.
+  // Esta tabla es la que decide qué ítem del sidebar queda resaltado cuando el
+  // usuario está adentro de una de ellas — hay que mantenerla sincronizada a mano
+  // con la lista `apps` de cada pantalla-grilla y con el mapeo de `handleBack` en App.tsx.
+  const categoryScreens: Record<string, string[]> = {
+    Comunidad: ['Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'SellerProfileEditor', 'MarketplaceItemEditor', 'Tinder', 'Directory', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'UserProfile', 'FollowList', 'Activities', 'ActivityDetail', 'ActivityEditor'],
+    Academico: ['ProblemsList', 'ProblemDetail', 'ProblemEditor', 'Reviews', 'CourseDetail', 'ProfessorDetail'],
+    Deportes: ['LeaguesList', 'LeagueDetail', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'Polla', 'PollaMatch', 'PollaUserBets', 'TeamSchedule'],
+    Juegos: ['LaddersList', 'LadderDetail', 'LadderMatchArbitrator', 'LadderMatchDetail', 'LadderPlayerProfile', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'PollasList'],
+  };
 
   const menuItems = [
     { id: 'Home', label: 'Inicio' },
-    { id: 'Activities', label: 'Actividades' },
-    { id: 'Directory', label: 'Perfiles' },
-    { id: 'Beauchapps', label: 'Beauchapps' },
+    { id: 'Comunidad', label: 'Comunidad' },
+    { id: 'Academico', label: 'Académico' },
+    { id: 'Deportes', label: 'Deportes' },
+    { id: 'Juegos', label: 'Juegos' },
     // Instalar como PWA solo tiene sentido en el navegador y si todavía no está instalada
     // (si ya se abrió en modo standalone, no hay nada que instalar). Va al final del arreglo
     // a propósito para que quede como el último ítem del sidebar.
@@ -143,7 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
       {/* Enlaces de Navegación */}
       <View style={styles.navLinks}>
         {menuItems.map((item: any) => {
-          const isActive = activeScreen === item.id || (item.id === 'Beauchapps' && beauchappsScreens.includes(activeScreen));
+          const isActive = activeScreen === item.id || (categoryScreens[item.id]?.includes(activeScreen) ?? false);
           return (
             <TouchableOpacity
               key={item.id}

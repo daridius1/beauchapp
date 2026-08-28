@@ -14,7 +14,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'PollasList'>;
 // Entrada global a la Beaupolla.
 //
 // La polla no es una app suelta: hay UNA POR LIGA, y solo en las que la habilitaron.
-// Por eso la entrada de Beauchapps no puede abrir "la polla" directamente —necesita
+// Por eso la entrada de Juegos no puede abrir "la polla" directamente —necesita
 // saber cuál— y lo que abre es esta lista. Sin ella la polla solo se alcanzaba entrando
 // primero a la liga, que es un camino que nadie encuentra por su cuenta.
 export const PollasListScreen: React.FC<Props> = ({ navigation }) => {

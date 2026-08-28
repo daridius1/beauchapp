@@ -17,7 +17,10 @@ export type RootStackParamList = {
   EditTeam: undefined;
   BlockedUsers: undefined;
   Directory: undefined;
-  Beauchapps: undefined;
+  Comunidad: undefined;
+  Academico: undefined;
+  Deportes: undefined;
+  Juegos: undefined;
   Students: undefined;
   FollowList: { userId: string; type: 'followers' | 'following' | 'members' | 'recommendations' | 'attendees' | 'poll_voters'; username?: string; title?: string; optionIndex?: number };
   ProblemsList: undefined;

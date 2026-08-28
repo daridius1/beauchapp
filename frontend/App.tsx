@@ -40,7 +40,10 @@ import { MarketplaceItemEditorScreen } from './src/screens/MarketplaceItemEditor
 import { ActivitiesScreen } from './src/screens/ActivitiesScreen';
 import { ActivityDetailScreen } from './src/screens/ActivityDetailScreen';
 import { ActivityEditorScreen } from './src/screens/ActivityEditorScreen';
-import { BeauchappsScreen } from './src/screens/BeauchappsScreen';
+import { ComunidadScreen } from './src/screens/ComunidadScreen';
+import { AcademicoScreen } from './src/screens/AcademicoScreen';
+import { DeportesScreen } from './src/screens/DeportesScreen';
+import { JuegosScreen } from './src/screens/JuegosScreen';
 import { ReviewsScreen } from './src/screens/ReviewsScreen';
 import { CourseDetailScreen } from './src/screens/CourseDetailScreen';
 import { ProfessorDetailScreen } from './src/screens/ProfessorDetailScreen';
@@ -290,7 +293,10 @@ function AppContent() {
       case 'Centers': return 'Centros';
       case 'Teams': return 'Equipos';
       case 'Bands': return 'Bandas';
-      case 'Beauchapps': return 'Beauchapps';
+      case 'Comunidad': return 'Comunidad';
+      case 'Academico': return 'Académico';
+      case 'Deportes': return 'Deportes';
+      case 'Juegos': return 'Juegos';
       case 'Settings': return 'Ajustes';
       case 'EditProfile': return 'Editar Datos';
       case 'EditTeam': return 'Editar Equipo';
@@ -356,7 +362,8 @@ function AppContent() {
     }
   };
 
-  const showBackButton = currentRouteName !== 'Home' && currentRouteName !== 'Directory' && currentRouteName !== 'Beauchapps' && currentRouteName !== 'Activities';
+  const TOP_LEVEL_SCREENS = ['Home', 'Comunidad', 'Academico', 'Deportes', 'Juegos'];
+  const showBackButton = !TOP_LEVEL_SCREENS.includes(currentRouteName);
 
   const handleBack = () => {
     // 1. Si hay historial real en la pila de navegación, volvemos limpiamente hacia atrás
@@ -381,8 +388,14 @@ function AppContent() {
       navigationRef.navigate('LeaguesList' as never);
     } else if (['LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'Polla', 'PollaMatch', 'PollaUserBets'].includes(currentRouteName)) {
       navigationRef.navigate('LeaguesList' as never);
-    } else if (['LaddersList', 'ProblemsList', 'Marketplace', 'Tinder', 'Reviews', 'Beaudle', 'Beaumarket', 'TeamSchedule', 'LeaguesList'].includes(currentRouteName)) {
-      navigationRef.navigate('Beauchapps' as never);
+    } else if (['ProblemsList', 'Reviews'].includes(currentRouteName)) {
+      navigationRef.navigate('Academico' as never);
+    } else if (['LeaguesList', 'TeamSchedule'].includes(currentRouteName)) {
+      navigationRef.navigate('Deportes' as never);
+    } else if (['LaddersList', 'Beaudle', 'Beaumarket', 'PollasList'].includes(currentRouteName)) {
+      navigationRef.navigate('Juegos' as never);
+    } else if (['Marketplace', 'Tinder', 'Directory', 'Activities'].includes(currentRouteName)) {
+      navigationRef.navigate('Comunidad' as never);
     } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'FollowList'].includes(currentRouteName)) {
       navigationRef.navigate('Directory' as never);
     } else if (['ActivityDetail', 'ActivityEditor'].includes(currentRouteName)) {
@@ -421,7 +434,10 @@ function AppContent() {
                 Teams: 'teams',
                 Bands: 'bands',
                 Directory: 'directory',
-                Beauchapps: 'beauchapps',
+                Comunidad: 'comunidad',
+                Academico: 'academico',
+                Deportes: 'deportes',
+                Juegos: 'juegos',
                 PostDetail: 'posts/:postId',
                 UserProfile: 'users/:userId',
                 Students: 'students',
@@ -526,7 +542,10 @@ function AppContent() {
                       <Stack.Screen name="Home" component={HomeScreen} />
                       <Stack.Screen name="Profile" component={ProfileScreen} />
                       <Stack.Screen name="Directory" component={DirectoryScreen} />
-                      <Stack.Screen name="Beauchapps" component={BeauchappsScreen} />
+                      <Stack.Screen name="Comunidad" component={ComunidadScreen} />
+                      <Stack.Screen name="Academico" component={AcademicoScreen} />
+                      <Stack.Screen name="Deportes" component={DeportesScreen} />
+                      <Stack.Screen name="Juegos" component={JuegosScreen} />
                       <Stack.Screen name="Students" component={ProfilesListScreen} />
                       <Stack.Screen name="Communities" component={ProfilesListScreen} />
                       <Stack.Screen name="Centers" component={ProfilesListScreen} />
