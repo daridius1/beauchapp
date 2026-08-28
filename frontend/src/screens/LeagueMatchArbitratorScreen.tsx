@@ -16,13 +16,14 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { Feather } from '@expo/vector-icons';
+import NetInfo from '@react-native-community/netinfo';
 import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
-import { pb } from '../services/pocketbase';
+import { pb, POCKETBASE_URL } from '../services/pocketbase';
 import { withMinimumDelay } from '../utils/refresh';
 import { RootStackParamList } from '../types/navigation';
 import { MatchEvent, Team, LineupEntry, summarizeEvents, isClockGatedSequenceValid, computeLiveElapsedMs, annotateEventsWithHalfTime, formatClockTime, eventKey, newEventId, visibleEvents } from '../utils/matchEvents';
-import { leagueService } from '../services/leagueService';
+import { leagueService, classifyPushError, PushErrorKind } from '../services/leagueService';
 import { LeagueMatch, MatchReport } from '../types/league';
 import { LeagueBadge, EventBadgeType } from '../components/leagues/LeagueBadge';
 import { PlayerAvatar } from '../components/PlayerAvatar';
@@ -32,7 +33,36 @@ type Props = NativeStackScreenProps<RootStackParamList, 'LeagueMatchArbitrator'>
 
 const eventsStorageKey = (matchId: string) => `arbitration_events_${matchId}`;
 const codeStorageKey = (matchId: string) => `arbitration_code_${matchId}`;
+const finalizeStorageKey = (matchId: string) => `arbitration_finalize_${matchId}`;
 const POLL_INTERVAL_MS = 10000;
+
+// Sin esto, en web NetInfo cae a `navigator.onLine`: eso solo dice que el navegador
+// cree tener ALGUNA red, no que ESTE servidor (el Atom detrás del túnel) responda. Con
+// `reachabilityUrl` apuntando a nuestro propio /api/health (endpoint de fábrica de
+// PocketBase), un wifi con internet pero con el túnel caído se detecta como offline de
+// verdad. Se configura una sola vez al cargar el módulo — es un ajuste global del SDK,
+// no algo que dependa de esta pantalla en particular.
+NetInfo.configure({
+  reachabilityUrl: `${POCKETBASE_URL}/api/health`,
+  reachabilityTest: async (response) => response.status === 200,
+  reachabilityLongTimeout: 60 * 1000,
+  reachabilityShortTimeout: 5 * 1000,
+  reachabilityRequestTimeout: 15 * 1000,
+});
+
+// Backoff exponencial con jitter para reintentar un push que falló por corte de red —
+// no por rechazo del servidor (ver PushErrorKind). Base baja para que un corte breve se
+// recupere rápido, techo bajo para no bombardear el servidor (un Atom con 2GB/10Mbps de
+// subida, ver CLAUDE.md) si el corte dura minutos, jitter para que varios dispositivos
+// reconectando al mismo tiempo (se cayó el wifi de la cancha) no golpeen todos en el
+// mismo instante.
+const RETRY_BASE_MS = 4000;
+const RETRY_MAX_MS = 60000;
+function nextRetryDelayMs(attempt: number): number {
+  const base = Math.min(RETRY_BASE_MS * 2 ** attempt, RETRY_MAX_MS);
+  const jitter = base * 0.2 * (Math.random() * 2 - 1);
+  return Math.max(1000, Math.round(base + jitter));
+}
 
 // Opción "en blanco" del picker de jugador — un gol/tarjeta/penal puede quedar sin
 // asignar a nadie. Referencia estable (no un objeto nuevo cada render) para poder
@@ -63,7 +93,17 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [notes, setNotes] = useState('');
   const [synced, setSynced] = useState(true);
+  // Por qué `!synced` ahora mismo — determina si conviene reintentar solo (`network`) o
+  // si es un rechazo terminal que necesita que el árbitro haga algo (`orphaned`/`rejected`).
+  const [syncFailureKind, setSyncFailureKind] = useState<PushErrorKind | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // ¿Hay una intención de "terminar partido" persistida que todavía no confirmó el
+  // servidor? Sobrevive a que la app se cierre a mitad del intento.
+  const [pendingFinalize, setPendingFinalize] = useState(false);
+  const [finalizeFailureKind, setFinalizeFailureKind] = useState<PushErrorKind | null>(null);
+  // null = todavía no llegó el primer aviso de NetInfo — se evita mostrar "sin conexión"
+  // de entrada mientras no se sabe de verdad.
+  const [isOnline, setIsOnline] = useState<boolean | null>(null);
 
   // Código de la sesión — o lo creamos, o hay que pedirlo para unirse.
   const [code, setCode] = useState<string | null>(null);
@@ -113,9 +153,62 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     baseKeysRef.current = list.map(eventKey);
   };
 
+  // Reintento en background de eventos pendientes (§3 del plan) — independiente del
+  // reintento de finalizar (más abajo), porque son dos pushes distintos que pueden
+  // quedar pendientes a la vez (ej. el half_end de cierre y el submit del partido).
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryAttemptRef = useRef(0);
+  const wasOfflineRef = useRef(false);
+  const syncFailureKindRef = useRef<PushErrorKind | null>(null);
+  syncFailureKindRef.current = syncFailureKind;
+
+  // Reintento en background de "terminar partido" — mismo patrón, timer/contador propios.
+  const finalizeRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finalizeRetryAttemptRef = useRef(0);
+  const pendingFinalizeRef = useRef(false);
+  pendingFinalizeRef.current = pendingFinalize;
+
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Disparador principal del reintento: apenas NetInfo detecta que la conexión volvió
+  // (transición offline→online, no cualquier callback), se reintenta de inmediato en
+  // vez de esperar al backoff. El backoff de scheduleRetry sigue siendo la red de
+  // seguridad para cuando NetInfo se equivoca (típico en web, ver configuración de
+  // arriba) o para el primer fallo, que todavía no tiene ningún listener que lo salve.
+  useEffect(() => {
+    const unsub = NetInfo.addEventListener((state) => {
+      const nowOnline = state.isConnected === true && state.isInternetReachable !== false;
+      setIsOnline(nowOnline);
+      const reconnected = nowOnline && wasOfflineRef.current;
+      wasOfflineRef.current = !nowOnline;
+      if (!reconnected || pushInFlightRef.current) return;
+      if (!synced && syncFailureKindRef.current === 'network') {
+        cancelScheduledRetry();
+        retryAttemptRef.current = 0;
+        syncToServer(eventsRef.current);
+      }
+      if (pendingFinalizeRef.current) {
+        cancelFinalizeRetry();
+        finalizeRetryAttemptRef.current = 0;
+        attemptFinalize();
+      }
+    });
+    return () => unsub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [synced, matchId]);
+
+  // Los timers de reintento son estado de la pantalla, no del SO — se limpian al
+  // desmontar (mismo alcance que el poll de lectura de 10s, más abajo). El respaldo
+  // real ante "la app se cerró mientras estaba offline" sigue siendo loadReportState.
+  useEffect(() => {
+    return () => {
+      cancelScheduledRetry();
+      cancelFinalizeRetry();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const askConfirm = (
@@ -180,6 +273,22 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
             codeRef.current = storedCode;
             setNeedsCode(false);
             await loadReportState(storedCode);
+
+            // ¿Había una intención de "terminar partido" pendiente de un intento que no
+            // llegó a confirmarse (ej. la app se cerró offline justo después de tocarlo)?
+            // Si el servidor todavía ve el partido 'confirmed', se reintenta solo. Si ya
+            // está 'played', eso YA es el éxito que se buscaba — no hace falta reintentar
+            // nada, solo limpiar el rastro persistido.
+            const rawFinalize = await AsyncStorage.getItem(finalizeStorageKey(matchId));
+            if (rawFinalize) {
+              if (record.status === 'confirmed') {
+                setPendingFinalize(true);
+                setSubmitting(true);
+                await attemptFinalize();
+              } else {
+                await AsyncStorage.removeItem(finalizeStorageKey(matchId));
+              }
+            }
           } catch (err) {
             await AsyncStorage.removeItem(codeStorageKey(matchId));
             setNeedsCode(true);
@@ -283,12 +392,30 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     return () => clearInterval(interval);
   }, [matchId]);
 
+  const cancelScheduledRetry = () => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+  };
+
+  const scheduleRetry = () => {
+    cancelScheduledRetry();
+    const delay = nextRetryDelayMs(retryAttemptRef.current);
+    retryTimerRef.current = setTimeout(() => {
+      if (!pushInFlightRef.current) syncToServer(eventsRef.current);
+    }, delay);
+  };
+
   const syncToServer = async (updated: MatchEvent[], codeOverride?: string) => {
     const activeCode = codeOverride || codeRef.current;
     if (!activeCode) {
       setSynced(false);
       return;
     }
+    // Un intento manual (nueva acción del árbitro) reemplaza cualquier reintento
+    // programado en background — no tiene sentido dejar los dos en vuelo.
+    cancelScheduledRetry();
     pushInFlightRef.current = true;
     try {
       const res = await leagueService.pushEvents(matchId, activeCode, updated, baseKeysRef.current);
@@ -304,14 +431,45 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
         rememberBase(updated);
       }
       setSynced(true);
+      setSyncFailureKind(null);
+      retryAttemptRef.current = 0;
     } catch (err: any) {
       console.error('Error sincronizando arbitraje con el servidor:', err);
+      const kind = classifyPushError(err);
       setSynced(false);
-      Toast.show({
-        type: 'error',
-        text1: 'No se pudo respaldar en el servidor',
-        text2: err?.data?.error || 'Sigue guardado en este celular, se reintentará.',
-      });
+      setSyncFailureKind(kind);
+      if (kind === 'network') {
+        // Solo se avisa con Toast en el primer fallo de una racha — cada reintento en
+        // background que vuelve a fallar no necesita saturar al árbitro con la misma
+        // notificación; el banner persistente ya comunica el estado.
+        if (retryAttemptRef.current === 0) {
+          Toast.show({
+            type: 'error',
+            text1: 'No se pudo respaldar en el servidor',
+            text2: 'Sigue guardado en este celular, se reintentará solo.',
+          });
+        }
+        retryAttemptRef.current += 1;
+        scheduleRetry();
+      } else if (kind === 'orphaned') {
+        // Caso terminal: el partido ya se cerró por otra vía y este dispositivo nunca
+        // va a poder colar este evento. Reintentar en loop no serviría de nada — solo
+        // se avisa una vez y se deja el banner de "huérfano" hasta que el árbitro
+        // recargue o el estado cambie por otra acción.
+        Toast.show({
+          type: 'error',
+          text1: 'Este partido ya fue finalizado',
+          text2: 'Tus últimos cambios no se guardaron — avisa a la liga.',
+        });
+      } else {
+        // Rechazo real (código incorrecto, arbitraje ya enviado, etc.) — tampoco tiene
+        // sentido reintentar solo, requiere que el árbitro haga algo distinto.
+        Toast.show({
+          type: 'error',
+          text1: 'No se pudo respaldar en el servidor',
+          text2: err?.data?.error || 'Sigue guardado en este celular.',
+        });
+      }
     } finally {
       pushInFlightRef.current = false;
     }
@@ -476,21 +634,74 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     closeActionModal();
   };
 
+  const cancelFinalizeRetry = () => {
+    if (finalizeRetryTimerRef.current) {
+      clearTimeout(finalizeRetryTimerRef.current);
+      finalizeRetryTimerRef.current = null;
+    }
+  };
+
+  const scheduleFinalizeRetry = () => {
+    cancelFinalizeRetry();
+    const delay = nextRetryDelayMs(finalizeRetryAttemptRef.current);
+    finalizeRetryTimerRef.current = setTimeout(() => attemptFinalize(), delay);
+  };
+
+  const onFinalizeSuccess = async () => {
+    await AsyncStorage.removeItem(finalizeStorageKey(matchId));
+    cancelFinalizeRetry();
+    finalizeRetryAttemptRef.current = 0;
+    setPendingFinalize(false);
+    setFinalizeFailureKind(null);
+    setSubmitting(false);
+    Toast.show({ type: 'success', text1: 'Partido finalizado', text2: 'El resultado ya es oficial.' });
+    navigation.replace('LeagueMatchDetail', { matchId });
+  };
+
+  const attemptFinalize = async () => {
+    const activeCode = codeRef.current;
+    if (!activeCode) return;
+    try {
+      await leagueService.submitMatch(matchId, activeCode);
+      await onFinalizeSuccess();
+    } catch (err: any) {
+      // "already_played" es alguien más (otro árbitro con el mismo código, o esta misma
+      // app en un intento previo cuya respuesta se perdió) ya cerró el partido — es
+      // éxito de facto, exactamente lo que este botón buscaba lograr.
+      if (err?.data?.reason === 'already_played') {
+        await onFinalizeSuccess();
+        return;
+      }
+      const kind = classifyPushError(err);
+      if (kind === 'network') {
+        setFinalizeFailureKind('network');
+        finalizeRetryAttemptRef.current += 1;
+        scheduleFinalizeRetry();
+      } else {
+        // Rechazo real y no recuperable reintentando (código incorrecto, el 2do tiempo
+        // no había terminado) — se detiene el loop y se limpia la intención persistida,
+        // porque reintentar sería igual de inútil.
+        await AsyncStorage.removeItem(finalizeStorageKey(matchId));
+        setPendingFinalize(false);
+        setFinalizeFailureKind(null);
+        setSubmitting(false);
+        Toast.show({ type: 'error', text1: 'No se pudo finalizar', text2: err?.data?.error || err?.message });
+      }
+    }
+  };
+
   const finalizeMatch = async () => {
     // Sin código no hay nada que finalizar. Antes esto mandaba `code: null` al servidor
     // y el árbitro veía un "Falta matchId o código" en vez de nada; lo destapó el tipado
     // del servicio nuevo (auditoria-2026-08-19.md §4.8).
     if (!codeRef.current) return;
+    await AsyncStorage.setItem(
+      finalizeStorageKey(matchId),
+      JSON.stringify({ code: codeRef.current, requestedAt: new Date().toISOString() })
+    );
+    setPendingFinalize(true);
     setSubmitting(true);
-    try {
-      await leagueService.submitMatch(matchId, codeRef.current);
-      Toast.show({ type: 'success', text1: 'Partido finalizado', text2: 'El resultado ya es oficial.' });
-      navigation.replace('LeagueMatchDetail', { matchId });
-    } catch (err: any) {
-      Toast.show({ type: 'error', text1: 'No se pudo finalizar', text2: err?.data?.error || err?.message });
-    } finally {
-      setSubmitting(false);
-    }
+    await attemptFinalize();
   };
 
   const openNotesModal = () => {
@@ -594,9 +805,33 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {!synced && (
+      {/* Banners de estado de sincronización — mutuamente excluyentes, en orden de
+          prioridad: huérfano (requiere acción del árbitro) > sin conexión (transitorio,
+          esperado) > rechazo con conexión (rojo genérico, ya existía). */}
+      {syncFailureKind === 'orphaned' ? (
+        <View style={styles.orphanBanner}>
+          <Feather name="alert-triangle" size={13} color="#f59e0b" style={{ marginRight: 6 }} />
+          <Text style={styles.orphanBannerText}>
+            Este partido ya fue finalizado por otra vía mientras estabas sin conexión. Los últimos cambios registrados en
+            este dispositivo no se van a guardar solos — contacta a la liga.
+          </Text>
+        </View>
+      ) : !synced && isOnline === false ? (
+        <View style={styles.offlineBanner}>
+          <Feather name="wifi-off" size={13} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.offlineBannerText}>Sin conexión — los cambios se guardan en este dispositivo y se enviarán solos al reconectar.</Text>
+        </View>
+      ) : (
+        !synced && (
+          <View style={styles.syncWarning}>
+            <Text style={styles.syncWarningText}>Sin sincronizar con el servidor — los datos están respaldados en este dispositivo.</Text>
+          </View>
+        )
+      )}
+
+      {pendingFinalize && finalizeFailureKind === 'network' && (
         <View style={styles.syncWarning}>
-          <Text style={styles.syncWarningText}>Sin sincronizar con el servidor — los datos están respaldados en este dispositivo.</Text>
+          <Text style={styles.syncWarningText}>No se pudo confirmar el cierre del partido — reintentando automáticamente.</Text>
         </View>
       )}
 
@@ -665,9 +900,15 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
             </TouchableOpacity>
           )}
           {summary.halfStarted[2] && !summary.halfEnded[2] && (
-            <TouchableOpacity style={[styles.halfControlBtn, styles.halfControlBtnStop]} onPress={() => requestHalfEnd(2)}>
+            <TouchableOpacity
+              style={[styles.halfControlBtn, styles.halfControlBtnStop, (submitting || pendingFinalize) && styles.btnDisabled]}
+              onPress={() => requestHalfEnd(2)}
+              disabled={submitting || pendingFinalize}
+            >
               <Feather name="square" size={14} color="#ffffff" style={{ marginRight: 6 }} />
-              <Text style={[styles.halfControlBtnText, { color: '#ffffff' }]}>Terminar partido</Text>
+              <Text style={[styles.halfControlBtnText, { color: '#ffffff' }]}>
+                {submitting || pendingFinalize ? 'Finalizando...' : 'Terminar partido'}
+              </Text>
             </TouchableOpacity>
           )}
           {canPause && (
@@ -1004,6 +1245,14 @@ const styles = StyleSheet.create({
   mutedTextSmall: { color: theme.colors.textMuted, fontSize: 11, fontStyle: 'italic', paddingVertical: 4 },
   syncWarning: { backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: theme.colors.danger, borderRadius: 4, padding: theme.spacing.sm, marginBottom: theme.spacing.sm },
   syncWarningText: { color: theme.colors.text, fontSize: 12 },
+  // Gris/neutro a propósito — "sin conexión" es un estado esperado y transitorio, no un
+  // error (a diferencia del rojo de syncWarning, que sí implica algo salió mal).
+  offlineBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(148,163,184,0.12)', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 4, padding: theme.spacing.sm, marginBottom: theme.spacing.sm },
+  offlineBannerText: { color: theme.colors.textMuted, fontSize: 12, flex: 1 },
+  // Ámbar como amendBanner — "esto necesita que TÚ hagas algo", no "estamos
+  // reintentando solos" (por eso no comparte el rojo de syncWarning).
+  orphanBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(245,158,11,0.1)', borderWidth: 1, borderColor: '#f59e0b', borderRadius: 8, padding: theme.spacing.sm, marginBottom: theme.spacing.sm },
+  orphanBannerText: { color: theme.colors.text, fontSize: 12, flex: 1 },
   codeBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(56,189,248,0.1)', borderWidth: 1, borderColor: theme.colors.primary, borderRadius: 8, paddingVertical: 8, marginBottom: theme.spacing.sm },
   codeBannerText: { color: theme.colors.textMuted, fontSize: 12 },
   codeBannerCode: { color: theme.colors.primary, fontWeight: '800', letterSpacing: 2 },

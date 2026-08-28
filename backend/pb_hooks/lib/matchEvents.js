@@ -380,17 +380,22 @@ function mergeEvents(stored, incoming, baseKeys) {
 //    alguna vez podía reescribir el marcador de un partido cerrado semanas atrás.
 //  - cualquier otro estado: nadie.
 //
-// Devuelve { ok, isAmend, error } en vez de lanzar, para que este módulo siga siendo
-// puro (sin BadRequestError ni nada del runtime de PocketBase) y testeable con Node.
-// Va acá y no en el .pb.js porque PocketBase ejecuta cada routerAdd en una VM aislada:
-// una función declarada en el scope del módulo NO es visible dentro del handler
-// (verificado: "assertMatchWritable is not defined"). Lo único que cruza esa frontera
-// es un require() hecho dentro del propio handler.
+// Devuelve { ok, isAmend, error, reason } en vez de lanzar, para que este módulo siga
+// siendo puro (sin BadRequestError ni nada del runtime de PocketBase) y testeable con
+// Node. Va acá y no en el .pb.js porque PocketBase ejecuta cada routerAdd en una VM
+// aislada: una función declarada en el scope del módulo NO es visible dentro del
+// handler (verificado: "assertMatchWritable is not defined"). Lo único que cruza esa
+// frontera es un require() hecho dentro del propio handler.
+// `reason` es la versión máquina-legible de `error` — el cliente la usa para decidir
+// si conviene reintentar solo (nunca, para ninguno de estos casos: todos son rechazos
+// estructurales, no cortes de red transitorios) o si además hay que avisarle al usuario
+// que algo pendiente en su dispositivo no se va a guardar solo (`amend_forbidden`, el
+// caso de un árbitro que reconecta después de que el partido se cerró por otra vía).
 // Ver auditoria-2026-08-19.md §4.4.
 // ---------------------------------------------------------------------------------
 function matchWriteDecision(status, matchLeagueId, matchCode, authId, providedCode) {
     if (status !== "confirmed" && status !== "played") {
-        return { ok: false, isAmend: false, error: "Este partido ya no se puede arbitrar." };
+        return { ok: false, isAmend: false, error: "Este partido ya no se puede arbitrar.", reason: "not_arbitrable" };
     }
 
     const isAmend = status === "played";
@@ -400,15 +405,16 @@ function matchWriteDecision(status, matchLeagueId, matchCode, authId, providedCo
                 ok: false,
                 isAmend: true,
                 error: "Este partido ya está finalizado. Solo la liga organizadora puede corregir el informe.",
+                reason: "amend_forbidden",
             };
         }
-        return { ok: true, isAmend: true, error: "" };
+        return { ok: true, isAmend: true, error: "", reason: null };
     }
 
     if (matchCode !== providedCode) {
-        return { ok: false, isAmend: false, error: "Código incorrecto." };
+        return { ok: false, isAmend: false, error: "Código incorrecto.", reason: "bad_code" };
     }
-    return { ok: true, isAmend: false, error: "" };
+    return { ok: true, isAmend: false, error: "", reason: null };
 }
 
 // 6 caracteres, mayúsculas + dígitos, sin O/0/I/1 (fáciles de confundir al

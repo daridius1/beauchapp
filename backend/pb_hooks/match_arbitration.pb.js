@@ -61,7 +61,13 @@ routerAdd("POST", "/api/league-matches/join", (e) => {
         const decision = matchWriteDecision(
             match.getString("status"), match.getString("league"), match.getString("code"), authId, code
         );
-        if (!decision.ok) throw new BadRequestError(decision.error);
+        // Respuesta directa, no BadRequestError: el segundo argumento de BadRequestError
+        // no es un data bag libre — PocketBase lo trata como errores de validación por
+        // campo y normaliza cualquier valor que no reconozca a un genérico
+        // {code:"validation_invalid_value"}, perdiendo el `reason` real (verificado a
+        // mano contra el servidor). `return e.json(...)` es además el patrón que ya usa
+        // el resto del proyecto para errores con datos extra (ver auth.pb.js, beaudle.pb.js).
+        if (!decision.ok) return e.json(400, { error: decision.error, reason: decision.reason });
 
         return e.json(200, { success: true });
     } catch (err) {
@@ -102,7 +108,9 @@ routerAdd("POST", "/api/league-matches/events", (e) => {
         const decision = matchWriteDecision(
             match.getString("status"), match.getString("league"), match.getString("code"), authId, code
         );
-        if (!decision.ok) throw new BadRequestError(decision.error);
+        // Ver comentario en /join: respuesta directa, no BadRequestError, para que
+        // `reason` llegue tal cual al cliente.
+        if (!decision.ok) return e.json(400, { error: decision.error, reason: decision.reason });
         const isAmend = decision.isAmend;
         if (!isAmend && !isClockGatedSequenceValid(events)) {
             throw new BadRequestError(
@@ -205,7 +213,9 @@ routerAdd("POST", "/api/league-matches/notes", (e) => {
         const decision = matchWriteDecision(
             match.getString("status"), match.getString("league"), match.getString("code"), authId, code
         );
-        if (!decision.ok) throw new BadRequestError(decision.error);
+        // Ver comentario en /join: respuesta directa, no BadRequestError, para que
+        // `reason` llegue tal cual al cliente.
+        if (!decision.ok) return e.json(400, { error: decision.error, reason: decision.reason });
         const isAmend = decision.isAmend;
 
         let report;
@@ -268,7 +278,12 @@ routerAdd("POST", "/api/league-matches/submit", (e) => {
             throw new BadRequestError("Código incorrecto.");
         }
         if (match.getString("status") !== "confirmed") {
-            throw new BadRequestError("Este partido ya no se puede arbitrar.");
+            // "already_played" es el caso "alguien más ya cerró este partido mientras yo
+            // reintentaba" (mismo código, otro dispositivo) — el cliente lo trata como
+            // éxito de facto, no como error, porque es justo lo que este botón buscaba
+            // lograr. Respuesta directa, no BadRequestError: ver comentario en /join.
+            const reason = match.getString("status") === "played" ? "already_played" : "not_confirmed";
+            return e.json(400, { error: "Este partido ya no se puede arbitrar.", reason });
         }
 
         let report;

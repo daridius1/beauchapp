@@ -21,6 +21,28 @@ export interface EventsPushResult {
   events?: MatchEvent[];
 }
 
+/**
+ * 'network'  — no hubo respuesta real del servidor (corte de red, timeout, DNS) o el
+ *              servidor devolvió 5xx (caído/sobrecargado). Vale la pena reintentar solo.
+ * 'orphaned' — el servidor SÍ respondió y rechazó el push porque el partido ya fue
+ *              finalizado por otra vía (`reason: 'amend_forbidden'` de matchWriteDecision).
+ *              Reintentar nunca va a funcionar: es un rechazo estructural, no transitorio.
+ * 'rejected' — cualquier otro 4xx (código incorrecto, informe ya enviado, etc.). Tampoco
+ *              conviene reintentar en loop — requiere que el árbitro haga algo distinto.
+ */
+export type PushErrorKind = 'network' | 'orphaned' | 'rejected';
+
+/**
+ * Clasifica un error de `pb.send(...)` (ClientResponseError del SDK de PocketBase) para
+ * decidir si conviene reintentar en background. Ver PushErrorKind arriba.
+ */
+export function classifyPushError(err: any): PushErrorKind {
+  if (!err?.status || err.isAbort) return 'network';
+  if (err.status >= 500) return 'network';
+  if (err?.data?.reason === 'amend_forbidden') return 'orphaned';
+  return 'rejected';
+}
+
 export const leagueService = {
   // ----- Arbitraje -----
 

@@ -44,7 +44,10 @@ const getBackendUrl = () => {
   return `http://${localIp}:8090`;
 };
 
-const POCKETBASE_URL = getBackendUrl();
+// Exportada para que NetInfo (ver LeagueMatchArbitratorScreen.tsx) pueda verificar
+// conectividad real contra ESTE servidor, no solo que el navegador crea tener alguna
+// red — reusa el mismo cálculo de URL en vez de duplicarlo.
+export const POCKETBASE_URL = getBackendUrl();
 
 export const pb = new PocketBase(POCKETBASE_URL, nativeAuthStore);
 

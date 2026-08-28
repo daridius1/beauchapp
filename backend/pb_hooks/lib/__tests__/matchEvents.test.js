@@ -428,7 +428,28 @@ test("matchWriteDecision: un partido suspendido o cancelado no lo escribe nadie"
         const d = matchWriteDecision(status, LIGA, CODE, LIGA, CODE);
         assert.equal(d.ok, false, `status ${status} no debería autorizar`);
         assert.match(d.error, /ya no se puede arbitrar/);
+        assert.equal(d.reason, "not_arbitrable");
     }
+});
+
+test("matchWriteDecision: partido finalizado sin autorización — reason 'amend_forbidden'", () => {
+    // El caso "huérfano": un árbitro que reconecta después de que el partido se
+    // cerró por otra vía. El cliente usa este reason (no el texto del error) para
+    // saber que reintentar solo nunca va a funcionar.
+    const d = matchWriteDecision("played", LIGA, CODE, OTRO, CODE);
+    assert.equal(d.reason, "amend_forbidden");
+});
+
+test("matchWriteDecision: código incorrecto — reason 'bad_code'", () => {
+    const d = matchWriteDecision("confirmed", LIGA, CODE, OTRO, "ZZZZZZ");
+    assert.equal(d.reason, "bad_code");
+});
+
+test("matchWriteDecision: autorizado — reason es null", () => {
+    const d1 = matchWriteDecision("confirmed", LIGA, CODE, OTRO, CODE);
+    assert.equal(d1.reason, null);
+    const d2 = matchWriteDecision("played", LIGA, CODE, LIGA, CODE);
+    assert.equal(d2.reason, null);
 });
 
 // ---------------------------------------------------------------------------------
