@@ -125,32 +125,17 @@ export const BeaumarketDetailScreen: React.FC<Props> = ({ route, navigation }) =
     await withMinimumDelay(() => fetchMarket(true));
   };
 
-  const handleBuy = async (budgetPoints: number) => {
+  const handleBet = async (amount: number) => {
     if (tradeOutcome === null || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
-      await beaumarketService.buyShares(marketId, tradeOutcome, budgetPoints);
-      // El modal se queda abierto (comprar y vender conviven en el mismo modal) — solo
-      // se refresca el mercado para que el saldo, el precio y "tienes X acciones" queden
-      // al día para la próxima operación.
+      await beaumarketService.placeBet(marketId, tradeOutcome, amount);
+      // El modal se queda abierto (se puede seguir apostando en otro resultado) — solo
+      // se refresca el mercado para que el saldo y el pozo queden al día.
       await fetchMarket(true);
     } catch (err: any) {
-      setError(err?.data?.error || err?.message || 'No se pudo completar la compra.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleSell = async (shares: number) => {
-    if (tradeOutcome === null || submitting) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      await beaumarketService.sellShares(marketId, tradeOutcome, shares);
-      await fetchMarket(true);
-    } catch (err: any) {
-      setError(err?.data?.error || err?.message || 'No se pudo completar la venta.');
+      setError(err?.data?.error || err?.message || 'No se pudo completar la apuesta.');
     } finally {
       setSubmitting(false);
     }
@@ -177,12 +162,14 @@ export const BeaumarketDetailScreen: React.FC<Props> = ({ route, navigation }) =
     );
   }
 
-  // Se puede seguir comprando/vendiendo mientras el mercado esté abierto — el precio se
-  // mueve solo con la actividad de trading, así que siempre hay motivo para volver.
+  // Se puede seguir apostando mientras el mercado esté abierto — el pozo se mueve solo
+  // con la actividad real de apuestas, así que siempre hay motivo para volver. Las
+  // apuestas son definitivas, no hay forma de retirarlas.
   const canTrade = market.status === 'open';
-  const heldShares = tradeOutcome !== null
-    ? market.myPositions.find((p) => p.outcomeIndex === tradeOutcome)?.shares ?? 0
-    : 0;
+
+  const closesAtLabel = market.closesAt
+    ? new Date(market.closesAt).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : null;
 
   return (
     <ScrollView
@@ -199,6 +186,11 @@ export const BeaumarketDetailScreen: React.FC<Props> = ({ route, navigation }) =
     >
       <Text style={styles.title}>{market.title}</Text>
       {!!market.description && <Text style={styles.description}>{market.description}</Text>}
+      {!!closesAtLabel && (
+        <Text style={styles.closesAt}>
+          {market.status === 'open' ? `Cierra el ${closesAtLabel}` : `Cerró el ${closesAtLabel}`}
+        </Text>
+      )}
 
       {market.history && market.history.length > 0 && (
         <>
@@ -219,14 +211,10 @@ export const BeaumarketDetailScreen: React.FC<Props> = ({ route, navigation }) =
         visible={tradeOutcome !== null}
         outcomeLabel={tradeOutcome !== null ? market.outcomes[tradeOutcome] : null}
         outcomeIndex={tradeOutcome}
-        q={market.q}
-        b={market.b}
         balance={user?.beautokens ?? 0}
-        heldShares={heldShares}
         submitting={submitting}
         error={error}
-        onBuy={handleBuy}
-        onSell={handleSell}
+        onBet={handleBet}
         onClose={closeTradeModal}
       />
 

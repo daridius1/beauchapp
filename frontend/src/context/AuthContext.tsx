@@ -38,6 +38,7 @@ interface AuthContextType {
   loading: boolean;
   isInitialized: boolean;
   error: string | null;
+  unverifiedEmail: string | null;
   developerMode: boolean;
   setDeveloperMode: (enabled: boolean) => void;
   login: (email: string, password: string) => Promise<void>;
@@ -104,6 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(false);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [developerMode, setDeveloperModeState] = useState<boolean>(() => storage.getItem('beauchapp_dev_mode') === 'true');
 
   const setDeveloperMode = (enabled: boolean) => {
@@ -146,11 +148,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
+    setUnverifiedEmail(null);
     try {
       const authData = await pb.collection('users').authWithPassword(email, password);
       setUser(authData.record as unknown as User);
     } catch (err: any) {
       console.error('login error:', err);
+      if (err.message && err.message.includes("doesn't satisfy the collection requirements")) {
+        // El login acepta nombre de usuario sin dominio; requestVerification necesita el correo real.
+        setUnverifiedEmail(email.includes('@') ? email : `${email}@ing.uchile.cl`);
+      }
       setError(getFriendlyErrorMessage(err, 'Error al iniciar sesión.'));
       throw err;
     } finally {
@@ -218,6 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearError = () => {
     setError(null);
+    setUnverifiedEmail(null);
   };
 
   const requestVerification = async (email: string) => {
@@ -283,6 +291,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         isInitialized,
         error,
+        unverifiedEmail,
         developerMode,
         setDeveloperMode,
         login,

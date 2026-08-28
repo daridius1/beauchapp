@@ -121,7 +121,7 @@ export const BeaumarketScreen: React.FC<Props> = ({ navigation }) => {
       ) : (
         sortedMarkets.map((m) => {
           const topIdx = m.prices.length > 0 ? m.prices.indexOf(Math.max(...m.prices)) : -1;
-          const totalShares = m.myPositions.reduce((sum, p) => sum + p.shares, 0);
+          const totalBet = m.myPositions.reduce((sum, p) => sum + p.amount, 0);
           return (
             <TouchableOpacity
               key={m.id}
@@ -138,10 +138,10 @@ export const BeaumarketScreen: React.FC<Props> = ({ navigation }) => {
                       {m.outcomes[topIdx]} favorito · {m.prices[topIdx].toFixed(0)}%
                     </Text>
                   )}
-                  {totalShares > 0 && (
+                  {totalBet > 0 && (
                     <>
                       {topIdx >= 0 && <Text style={styles.marketMetaDivider}>·</Text>}
-                      <Text style={styles.marketMetaAccent}>Tus acciones: {totalShares}</Text>
+                      <Text style={styles.marketMetaAccent}>Tu apuesta: {totalBet} ℬ</Text>
                     </>
                   )}
                 </View>

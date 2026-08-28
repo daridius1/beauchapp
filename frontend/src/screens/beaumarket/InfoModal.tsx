@@ -17,47 +17,40 @@ interface Section {
 const SECTIONS: Section[] = [
   {
     title: '¿Qué es Beaumarket?',
-    body: 'Mercados de predicción para jugar entre la comunidad — se apuesta con BeauTokens (ℬ), una moneda de juego sin valor real. Cada mercado tiene resultados posibles (ej. "Sí" / "No") y un precio para cada uno, que representa qué tan probable cree la comunidad que sea.',
+    body: 'Mercados de predicción para jugar entre la comunidad — se apuesta con BeauTokens (ℬ), una moneda de juego sin valor real. Cada mercado tiene resultados posibles (ej. "Sí" / "No") y un porcentaje para cada uno, que representa qué tan probable cree la comunidad que sea.',
   },
   {
-    title: '¿Cómo se mueve el precio?',
-    body: 'No es un pozo que se reparte: el precio lo fija un algoritmo automático (market maker) en función de cuánta gente compró cada resultado. Comprar un resultado sube su precio; venderlo lo baja. Por eso el precio se mueve solo, sin tener que esperar a que otra persona apueste.',
+    title: '¿Cómo se mueve el porcentaje?',
+    body: 'Es un pozo: todo lo que se apuesta a un resultado se suma a su propio pozo. El porcentaje que ves es exactamente la fracción del pozo total que representa ese resultado — no hay ningún algoritmo de por medio. Apostar a un resultado sube su porcentaje (y baja el de los demás, porque el pozo total creció).',
   },
   {
-    title: 'Comprar y vender',
-    body: 'Comprar acciones de un resultado cuesta puntos según el precio actual — mientras más gente compra ese lado, más caro se pone. Puedes vender tus acciones en cualquier momento antes de que el mercado se resuelva, al precio que tenga en ese momento (puede ser más o menos de lo que pagaste).',
+    title: 'Apostar',
+    body: 'Apostar mueve exactamente el monto que escribes al pozo del resultado elegido — nunca cuesta más ni menos que eso. Las apuestas son definitivas: una vez hecha, no se puede retirar ni deshacer, así que piénsalo antes de confirmar.',
+  },
+  {
+    title: '¿Cuánto ganarías?',
+    body: 'En "tus apuestas" (debajo de cada resultado que ya jugaste) se muestra una proyección de cuánto recibirías si ese resultado gana, calculada con el pozo tal como está ahora mismo — se sigue moviendo con cada apuesta de cualquiera hasta que el mercado cierra, así que es una estimación, no una promesa. Esa cifra a propósito NO aparece en el momento de apostar: justo ahí sería más fácil de leer como una garantía. Recién al resolverse el mercado, con el pozo ya congelado, esa misma cifra pasa a ser el pago real.',
+  },
+  {
+    title: 'Cierre automático',
+    body: 'Cada mercado nace con una fecha de cierre: desde ahí nadie puede seguir apostando, aunque todavía no se sepa el resultado. Un administrador puede cerrarlo antes a mano, pero nunca extender esa fecha.',
   },
   {
     title: 'Al resolverse',
-    body: 'Cuando el mercado se resuelve, cada acción del resultado ganador vale exactamente 1 ℬ — sin importar a qué precio la compraste. Las acciones del resultado que no ganó valen 0. Si un mercado se cancela, se reembolsa 1 ℬ por acción sin importar el resultado.',
+    body: 'Cuando el mercado se resuelve, el pozo TOTAL (de todos los resultados juntos) se reparte entre quienes apostaron al resultado ganador, a prorrata de lo que apostó cada quien. Quien puso una fracción más grande del pozo ganador se lleva una fracción más grande del pozo total. Si un mercado se cancela, cada quien recupera exactamente lo que apostó.',
   },
   {
     title: 'BeauTokens (ℬ)',
-    body: 'Todos empiezan con un saldo inicial y reciben una acumulación diaria solo por ser parte de la comunidad. Es plata de juego — la idea es que el gráfico de cada mercado se sienta vivo y entretenido de seguir, no ganar algo real.',
+    body: 'Todos empiezan con un saldo inicial y reciben una acumulación diaria solo por ser parte de la comunidad. Es plata de juego — la idea es que el pozo de cada mercado se sienta vivo y entretenido de seguir, no ganar algo real.',
   },
   {
-    title: 'La matemática: LMSR',
-    body: 'El mecanismo se llama LMSR (Logarithmic Market Scoring Rule). Cada mercado guarda un vector q = [q₁, q₂, ...], con la cantidad neta de acciones compradas de cada resultado (arranca en todo ceros), y un número b elegido por quien crea el mercado — la "liquidez": con b bajo el precio se mueve fuerte y rápido; con b alto hace falta mucho volumen para moverlo. De ahí sale una función de costo:',
-    formulas: ['C(q) = b · ln( Σᵢ e^(qᵢ /b) )'],
+    title: 'La matemática: pari-mutuel',
+    body: 'Este mecanismo se llama pari-mutuel — el mismo que usan históricamente las apuestas hípicas. Si apostaste "apuesta" ℬ al resultado ganador, y el pozo de ese resultado terminó siendo "pozoGanador" (la suma de tu apuesta y la de todos los que acertaron), tu pago es tu fracción de ese pozo ganador aplicada al pozo total del mercado entero:',
+    formulas: ['pago = apuesta · (pozoTotal / pozoGanador)'],
   },
   {
-    title: 'El precio de cada resultado',
-    body: 'El precio que ves (la probabilidad implícita) es la derivada de esa función de costo — siempre da un número entre 0% y 100%, y los precios de todos los resultados de un mercado siempre suman 100%:',
-    formulas: ['pᵢ = e^(qᵢ /b) / Σⱼ e^(qⱼ /b)'],
-  },
-  {
-    title: 'Costo de comprar o vender',
-    body: 'Comprar k acciones del resultado i mueve q así: qᵢ → qᵢ + k. Lo que pagas (o recibes, si vendes con k negativo) es la diferencia de costo entre el "antes" y el "después" — nunca un precio fijo, siempre recalculado en el momento contra el estado real del mercado:',
-    formulas: ['costo = C(q después) − C(q antes)'],
-  },
-  {
-    title: 'El redondeo siempre juega en tu contra',
-    body: 'Como los ℬ son enteros, cada operación se redondea: al comprar, el costo se redondea hacia arriba; al vender, lo que recibes se redondea hacia abajo. Es a propósito — así ni comprando ni vendiendo en pedacitos muy chicos se puede sacar ventaja del redondeo. De hecho, partir una operación grande en muchas chicas siempre sale más caro (o rinde menos), nunca más barato.',
-  },
-  {
-    title: 'Pérdida máxima garantizada',
-    body: 'No importa qué tan hábil sea la gente operando: la pérdida máxima posible del sistema en un mercado está acotada desde que se crea, en función de b y de la cantidad de resultados n:',
-    formulas: ['pérdida máxima = b · ln(n)'],
+    title: 'La casa nunca gana ni pierde',
+    body: 'A diferencia de un market maker automático, acá no hay ningún algoritmo tomando el otro lado de la apuesta: todo lo que entra al pozo sale repartido entre los ganadores. La única excepción es el redondeo — los pagos se redondean siempre hacia abajo, así que puede quedar un resto muy chico sin repartir (nunca al revés, nunca se reparte más de lo que hay).',
   },
 ];
 

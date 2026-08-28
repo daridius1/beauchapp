@@ -10,7 +10,7 @@ import { pb } from '../services/pocketbase';
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
-  const { login, signup, requestPasswordReset, error, clearError, loading } = useAuth();
+  const { login, signup, requestPasswordReset, requestVerification, error, unverifiedEmail, clearError, loading } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(true);
   const [registrationClosedMessage, setRegistrationClosedMessage] = useState(
@@ -28,6 +28,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [hasSentResetEmail, setHasSentResetEmail] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [verificationResendCooldown, setVerificationResendCooldown] = useState(0);
   const emailInputRef = useRef<TextInput>(null);
 
   const handleEmailChange = (text: string) => {
@@ -55,6 +56,14 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
     return () => clearTimeout(timer);
   }, [resendCooldown]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (verificationResendCooldown > 0) {
+      timer = setTimeout(() => setVerificationResendCooldown(verificationResendCooldown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [verificationResendCooldown]);
 
   // Config pública y editable desde el dashboard de admin (Collections > app_config) —
   // si el registro está cerrado, la vista de registro se reemplaza por un mensaje en vez
@@ -161,6 +170,16 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  const handleResendVerification = async () => {
+    if (verificationResendCooldown > 0 || !unverifiedEmail) return;
+    try {
+      await requestVerification(unverifiedEmail);
+      setVerificationResendCooldown(60);
+    } catch (err) {
+      // handled globally
+    }
+  };
+
   const toggleMode = () => {
     setIsSignUp(!isSignUp);
     clearError();
@@ -197,6 +216,20 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{activeError}</Text>
           </View>
+        )}
+
+        {!!unverifiedEmail && (
+          <TouchableOpacity
+            style={[styles.linkButton, styles.verificationResendButton, (loading || verificationResendCooldown > 0) && styles.disabledButton]}
+            onPress={handleResendVerification}
+            disabled={loading || verificationResendCooldown > 0}
+          >
+            <Text style={styles.linkButtonText}>
+              {verificationResendCooldown > 0
+                ? `Reenviar en ${verificationResendCooldown}s`
+                : 'Reenviar correo de verificación'}
+            </Text>
+          </TouchableOpacity>
         )}
 
         {isForgotPassword && hasSentResetEmail ? (
@@ -614,6 +647,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  verificationResendButton: {
+    marginBottom: theme.spacing.md,
   },
   secondaryLinkButton: {
     paddingVertical: 10,

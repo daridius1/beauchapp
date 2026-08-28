@@ -88,9 +88,13 @@ onBootstrap((e) => {
             { label: "POST /api/collections/_superusers/auth-with-password", audience: "", duration: 60, maxRequests: 5 },
 
             // Mutaciones de saldo: acotan tanto el abuso como un bucle accidental del
-            // cliente que vacíe una cuenta a fuerza de reintentos.
-            { label: "POST /api/beaumarket/buy", audience: "@auth", duration: 60, maxRequests: 30 },
-            { label: "POST /api/beaumarket/sell", audience: "@auth", duration: 60, maxRequests: 30 },
+            // cliente que vacíe una cuenta a fuerza de reintentos. Con el modelo
+            // pari-mutuel (ver migración beaumarket_pari_mutuel) ya no hay una cota
+            // matemática de pérdida máxima como con LMSR — este límite y el cooldown de
+            // 3s por (mercado, usuario) en el propio handler son la única defensa real,
+            // así que importa que la ruta esté bien escrita: /buy y /sell ya no existen,
+            // todo pasa por /bet.
+            { label: "POST /api/beaumarket/bet", audience: "@auth", duration: 60, maxRequests: 30 },
 
             // El juego diario: una cantidad razonable de intentos, no un bot.
             { label: "POST /api/beaudle/guess", audience: "@auth", duration: 60, maxRequests: 30 },

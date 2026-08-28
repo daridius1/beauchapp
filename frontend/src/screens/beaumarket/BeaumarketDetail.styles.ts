@@ -28,6 +28,12 @@ export const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: theme.spacing.md,
   },
+  closesAt: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: theme.spacing.md,
+  },
   divider: {
     height: 1,
     backgroundColor: theme.colors.border,

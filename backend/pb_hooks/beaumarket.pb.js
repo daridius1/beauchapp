@@ -1,14 +1,25 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Beaumarket: mercados de predicción con puntos (BeauTokens, símbolo ℬ, jugado
-// únicamente sobre users.beautokens, nunca dinero real), con un market maker automático LMSR
-// (Logarithmic Market Scoring Rule) en vez de pari-mutuel — el precio de cada resultado
-// se mueve solo con la actividad de compra/venta, así que siempre hay motivo para volver
-// a mirar/operar un mercado (no hace falta esperar a que otra persona apueste para que
-// el gráfico se mueva). La garantía anti-abuso central es matemática, no una regla
-// inventada: la pérdida máxima de la casa en un mercado, sin importar qué tan
-// adversarial sea el trading, está acotada por b*ln(n) (b = liquidez elegida por el
-// admin al crear, n = cantidad de resultados) — ver lib/beaumarket.js.
+// únicamente sobre users.beautokens, nunca dinero real) — pari-mutuel: cada apuesta va
+// directo al pozo del resultado elegido (sin market maker, sin curva de precio), el
+// porcentaje que se muestra es proporcional a lo apostado, y al resolver el pozo total se
+// reparte entre quienes acertaron a prorrata de su apuesta. La casa nunca gana ni pierde:
+// todo lo que entra al pozo sale repartido (con el resto del redondeo hacia abajo
+// quedando sin repartir — "breakage", ver lib/beaumarket.js).
+//
+// Las apuestas son definitivas: a diferencia de LMSR (donde "vender" tenía sentido porque
+// había un precio de salida en todo momento), acá no existe forma de retirar una apuesta
+// ya hecha — apostar es la única operación, y por eso el modal para apostar (POST /bet)
+// nunca muestra una previsualización de "ganarías X": justo en el momento de decidir el
+// monto sería la promesa más engañosa, porque el pago real depende de cuánto apueste
+// todavía el resto antes del cierre. GET /markets sí manda ese estimado (estimatedPayout,
+// dentro de myPositions) para la lista de "tus apuestas" — ahí es simple seguimiento de
+// algo ya hecho, no una promesa para convencer de apostar.
+//
+// Todo mercado nace con una fecha de cierre automático (closesAt) — un cron pasa a
+// "closed" cualquier mercado abierto que ya la cumplió, sin depender de que un admin
+// entre a cerrarlo a mano.
 //
 // Cada callback de abajo es autocontenido (require() propio en vez de compartir
 // const/function de nivel de archivo) por el mismo motivo documentado en karma.pb.js: el
@@ -41,15 +52,40 @@ cronAdd("credit_daily_beautokens", "5 4 * * *", () => {
     }
 });
 
-// GET /api/beaumarket/markets — lista de mercados con precios LMSR calculados en vivo
-// desde q/b (ninguna agregación de filas necesaria, más barato que el pari-mutuel
-// anterior) y, si el usuario tiene posiciones abiertas, incluidas. Con ?id=<marketId>
-// devuelve solo ese mercado, con "history" incluido (la oscilación de precios trade a
-// trade, para el gráfico tipo Polymarket) — no se calcula para la lista completa a
-// propósito, para no pagar ese costo extra en cada carga de la pantalla de lista.
+// Cierre automático: cada 5 minutos (no hace falta más frecuencia — closesAt no es un
+// resultado que dependa de milisegundos, y en un servidor tan chico no vale la pena
+// consultar más seguido) pasa a "closed" cualquier mercado abierto cuya fecha de cierre
+// ya se cumplió. El botón "Cerrar operaciones" del panel admin sigue existiendo para
+// cerrar ANTES de esa fecha si hace falta — este cron nunca reabre ni extiende nada, solo
+// empuja hacia "closed" en una dirección.
+cronAdd("beaumarket_autoclose", "*/5 * * * *", () => {
+    try {
+        const now = new Date().toISOString();
+        const dueMarkets = $app.findRecordsByFilter(
+            "beaumarkets", "status = 'open' && closesAt != '' && closesAt <= {:now}", "", 200, 0, { now }
+        );
+        dueMarkets.forEach((market) => {
+            try {
+                market.set("status", "closed");
+                $app.save(market);
+            } catch (err) {
+                console.error("[beaumarket.pb.js] Error autocerrando mercado", market.id, err.message || err);
+            }
+        });
+    } catch (err) {
+        console.error("[beaumarket.pb.js] Error en cron beaumarket_autoclose:", err);
+    }
+});
+
+// GET /api/beaumarket/markets — lista de mercados con porcentajes pari-mutuel calculados
+// en vivo desde "pool" (ninguna agregación de filas necesaria) y, si el usuario tiene
+// posiciones abiertas, incluidas. Con ?id=<marketId> devuelve solo ese mercado, con
+// "history" incluido (la oscilación del pozo apuesta a apuesta, para el gráfico) — no se
+// calcula para la lista completa a propósito, para no pagar ese costo extra en cada carga
+// de la pantalla de lista.
 routerAdd("GET", "/api/beaumarket/markets", (e) => {
     try {
-        const { prices, computeLmsrPriceHistory, MAX_CHART_POINTS } = require(`${__hooks}/lib/beaumarket.js`);
+        const { poolPercentages, payoutForStake, computePoolHistory, MAX_CHART_POINTS } = require(`${__hooks}/lib/beaumarket.js`);
         const status = e.requestInfo().query["status"] || "";
         const singleId = e.requestInfo().query["id"] || "";
 
@@ -65,12 +101,9 @@ routerAdd("GET", "/api/beaumarket/markets", (e) => {
 
         const markets = $app.findRecordsByFilter("beaumarkets", filter, "-created", 100, 0, params);
 
-        // Antes acá había un N+1: por CADA mercado (hasta 100) se hacían dos consultas
-        // sin límite para traer las posiciones y los trades propios, o sea ~200 consultas
-        // por carga de la pantalla y por usuario. Ahora son dos consultas totales,
-        // filtradas por el conjunto de ids ya cargados y agrupadas en memoria — el mismo
-        // patrón que PRINCIPLES.md §1 documenta para la cadena de ancestros de un hilo.
-        // Ver auditoria-2026-08-19.md §4.2.
+        // Dos consultas totales (no N+1) para las posiciones y apuestas propias de TODOS
+        // los mercados de la página, filtradas por el conjunto de ids ya cargados y
+        // agrupadas en memoria. Ver auditoria-2026-08-19.md §4.2.
         //
         // El filtro se arma parametrizado ({:m0} || {:m1} || ...), nunca interpolando
         // los ids como strings: es la regla que no se negocia de PRINCIPLES.md §4.
@@ -87,7 +120,7 @@ routerAdd("GET", "/api/beaumarket/markets", (e) => {
             return { filter: `(${clauses.join(" || ")})${extraClause || ""}`, bind: bind };
         }
 
-        // Paginación real: la cantidad de trades de un usuario no tiene techo natural,
+        // Paginación real: la cantidad de apuestas de un usuario no tiene techo natural,
         // así que se recorre por páginas en vez de pedir "todo" y confiar en que sea poco.
         function findAllPaged(collection, filter, bind, sort) {
             const out = [];
@@ -102,80 +135,58 @@ routerAdd("GET", "/api/beaumarket/markets", (e) => {
             return out;
         }
 
-        // { marketId: { outcomeIndex: shares } } y { marketId: { outcomeIndex: netInvested } }
-        const sharesByMarket = {};
-        const netInvestedByMarket = {};
+        // { marketId: { outcomeIndex: amount } } — ℬ vigentes de este usuario en cada
+        // resultado de cada mercado.
+        const amountByMarket = {};
 
         if (marketIds.length > 0) {
             const posQuery = buildMarketFilter(marketIds, " && user = {:u}");
             findAllPaged("beaumarket_positions", posQuery.filter, posQuery.bind).forEach((p) => {
                 const mid = p.getString("market");
-                if (!sharesByMarket[mid]) sharesByMarket[mid] = {};
-                sharesByMarket[mid][p.getInt("outcomeIndex")] = p.getInt("shares");
-            });
-
-            // netInvested = neto de caja histórico de esta posición: suma de "cost" de
-            // todos los trades propios en ese resultado (positivo al comprar, negativo al
-            // vender — ver POST /buy y /sell). A diferencia de un costo promedio
-            // ponderado, esto SÍ puede quedar en negativo si ya vendiste una parte de la
-            // posición recibiendo más de lo que gastaste en total (estás "jugando con
-            // ganancia ya realizada") — a propósito, es justamente lo que se quiere
-            // mostrar: cuánta plata neta llevas puesta en esta apuesta ahora mismo, no un
-            // piso artificial en 0. Se consulta siempre (no solo si hay posición vigente)
-            // porque un resultado puede tener historial de trades sin tener ya ninguna
-            // acción (se vendió todo, la posición se borra al llegar a 0 en /sell) — igual
-            // debe mostrarse cuánto llevas invertido en él.
-            const tradesQuery = buildMarketFilter(marketIds, " && user = {:u}");
-            findAllPaged("beaumarket_trades", tradesQuery.filter, tradesQuery.bind).forEach((t) => {
-                const mid = t.getString("market");
-                if (!netInvestedByMarket[mid]) netInvestedByMarket[mid] = {};
-                const idx = t.getInt("outcomeIndex");
-                netInvestedByMarket[mid][idx] = (netInvestedByMarket[mid][idx] || 0) + t.getInt("cost");
+                if (!amountByMarket[mid]) amountByMarket[mid] = {};
+                amountByMarket[mid][p.getInt("outcomeIndex")] = p.getInt("amount");
             });
         }
 
         const result = markets.map((m) => {
             const outcomes = JSON.parse(m.getString("outcomes") || "[]");
-            const b = m.getFloat("b");
-            const q = JSON.parse(m.getString("q") || "[]");
-            const marketPrices = prices(q, b).map((p) => p * 100);
+            const pool = JSON.parse(m.getString("pool") || "[]");
+            const totalPool = pool.reduce((a, c) => a + c, 0);
+            const marketPrices = poolPercentages(pool);
 
-            const netInvestedByOutcome = netInvestedByMarket[m.id] || {};
-
-            const sharesByOutcome = sharesByMarket[m.id] || {};
-
-            // Unión de resultados con acciones vigentes y resultados con historial de
-            // trades (aunque ya no tengan acciones) — cada uno de estos es "una apuesta
-            // que hice" y debe tener su barra en el front, no solo las abiertas.
-            const outcomeIndexes = new Set([
-                ...Object.keys(sharesByOutcome).map(Number),
-                ...Object.keys(netInvestedByOutcome).map(Number),
-            ]);
-            const myPositions = Array.from(outcomeIndexes).sort((a, b) => a - b).map((outcomeIndex) => ({
-                outcomeIndex,
-                shares: sharesByOutcome[outcomeIndex] || 0,
-                netInvested: netInvestedByOutcome[outcomeIndex] || 0,
-            }));
+            // estimatedPayout se manda siempre, en la lista de "tus apuestas" de cada
+            // posición — pero OJO: solo ahí. El modal para apostar (POST /bet) nunca
+            // muestra esta cifra mientras se decide el monto, justo porque en ese momento
+            // sería la más engañosa (una promesa fresca, mientras se está por confirmar
+            // una apuesta). Acá, en cambio, es simple información de seguimiento sobre una
+            // apuesta ya hecha: antes de resolver, es una proyección al estado ACTUAL del
+            // pozo (sigue moviéndose con cada apuesta de cualquiera); al resolver, el pozo
+            // queda congelado y esta misma cuenta pasa a ser, sin ningún caso especial,
+            // "lo ganado" (si acertó) o "lo que pudo haber ganado" (si no).
+            const amountByOutcome = amountByMarket[m.id] || {};
+            const myPositions = Object.keys(amountByOutcome).map(Number).sort((a, b) => a - b).map((outcomeIndex) => {
+                const amount = amountByOutcome[outcomeIndex];
+                const estimatedPayout = Math.floor(payoutForStake(amount, pool[outcomeIndex] || 0, totalPool));
+                return { outcomeIndex, amount, estimatedPayout };
+            });
 
             let history;
             if (singleId) {
                 // El eje X del gráfico es tiempo real: desde que se creó el mercado hasta
-                // ahora (o hasta que se resolvió/canceló, si ya terminó — no tiene
+                // ahora (o hasta que se cerró/resolvió/canceló, si ya terminó — no tiene
                 // sentido seguir "avanzando" el gráfico después de eso).
-                // getDateTime(...).unix() evita parsear a mano el string de fecha de
-                // PocketBase.
                 const rangeStartMs = m.getDateTime("created").unix() * 1000;
-                const isFinished = m.getString("status") === "resolved" || m.getString("status") === "cancelled";
+                const isFinished = m.getString("status") !== "open";
                 const rangeEndMs = isFinished ? (m.getDateTime("updated").unix() * 1000) : Date.now();
                 // Solo en la vista de detalle (un mercado), y paginado: el volumen de
-                // trades de un mercado no tiene techo. Ver auditoria-2026-08-19.md §4.2.
+                // apuestas de un mercado no tiene techo. Ver auditoria-2026-08-19.md §4.2.
                 const trades = findAllPaged("beaumarket_trades", "market = {:id}", { id: m.id }, "created");
-                const plainTrades = trades.map((t) => ({
+                const plainBets = trades.map((t) => ({
                     outcomeIndex: t.getInt("outcomeIndex"),
-                    sharesDelta: t.getInt("sharesDelta"),
+                    amountDelta: t.getInt("amountDelta"),
                     createdAtMs: t.getDateTime("created").unix() * 1000,
                 }));
-                history = computeLmsrPriceHistory(plainTrades, outcomes.length, b, rangeStartMs, rangeEndMs, MAX_CHART_POINTS);
+                history = computePoolHistory(plainBets, outcomes.length, rangeStartMs, rangeEndMs, MAX_CHART_POINTS);
             }
 
             return {
@@ -185,8 +196,7 @@ routerAdd("GET", "/api/beaumarket/markets", (e) => {
                 outcomes,
                 status: m.getString("status"),
                 winningOutcomeIndex: m.getString("status") === "resolved" ? m.getInt("winningOutcomeIndex") : null,
-                b,
-                q,
+                closesAt: m.getString("closesAt"),
                 prices: marketPrices,
                 history,
                 myPositions,
@@ -200,38 +210,34 @@ routerAdd("GET", "/api/beaumarket/markets", (e) => {
     }
 }, $apis.requireAuth("users"));
 
-// POST /api/beaumarket/buy — body {marketId, outcomeIndex, budgetPoints}. Trade
-// denominado en puntos (cuánto quiero gastar), no en acciones — más natural para el
-// usuario ("quiero apostar 50 puntos" en vez de "quiero comprar 6.3 acciones"). Se
-// compra la mayor cantidad ENTERA de acciones que ese presupuesto alcanza (sin venta en
-// corto, sin fracciones), y se cobra el costo EXACTO de esa cantidad entera, redondeado
-// hacia arriba (a favor de la casa) — nunca se cobra menos de lo que cuesta ni se
-// permite gastar más del presupuesto declarado.
-routerAdd("POST", "/api/beaumarket/buy", (e) => {
+// POST /api/beaumarket/bet — body {marketId, outcomeIndex, amount}. A diferencia del LMSR
+// anterior, apostar es simplemente sumar el monto al pozo del resultado elegido: no hay
+// curva de precio que recalcular ni redondeo de acciones fraccionarias, el costo es
+// exactamente el monto pedido.
+routerAdd("POST", "/api/beaumarket/bet", (e) => {
     try {
-        const { costForShares, sharesForBudget } = require(`${__hooks}/lib/beaumarket.js`);
         const body = e.requestInfo().body || {};
         const marketId = String(body.marketId || "");
         const outcomeIndex = Number.isInteger(body.outcomeIndex) ? body.outcomeIndex : -1;
-        const budgetPoints = Number.isInteger(body.budgetPoints) ? body.budgetPoints : 0;
+        const amount = Number.isInteger(body.amount) ? body.amount : 0;
 
-        if (!marketId || outcomeIndex < 0 || budgetPoints <= 0) {
-            throw new BadRequestError("Datos de compra inválidos.");
+        if (!marketId || outcomeIndex < 0 || amount <= 0) {
+            throw new BadRequestError("Datos de apuesta inválidos.");
         }
-
-        let result = null;
 
         $app.runInTransaction((txApp) => {
             const market = txApp.findRecordById("beaumarkets", marketId);
-            if (market.getString("status") !== "open") {
-                throw new BadRequestError("Este mercado no está abierto para operar.");
+            const closesAt = market.getString("closesAt");
+            if (market.getString("status") !== "open" || (closesAt && closesAt <= new Date().toISOString())) {
+                throw new BadRequestError("Este mercado no está abierto para apostar.");
             }
 
-            // Cooldown anti-flood: no es una defensa "de plata" (esa ya la da la cota
-            // b*ln(n) de LMSR), es solo para que un script no pueda saturar la ruta de
-            // trading. Se inlinea acá (en vez de una función de nivel de archivo) porque
-            // el JSVM no conserva referencias de nivel de archivo entre callbacks
-            // registrados por separado — mismo patrón ya establecido en este archivo.
+            // Cooldown anti-flood: acá no hay una cota matemática de pérdida que
+            // reemplace esta defensa (como sí tenía LMSR) — sin ella, un script podría
+            // saturar la ruta sin ningún costo real más allá del propio saldo. Se
+            // inlinea (en vez de una función de nivel de archivo) porque el JSVM no
+            // conserva referencias de nivel de archivo entre callbacks registrados por
+            // separado — mismo patrón ya establecido en este archivo.
             const lastTrade = txApp.findRecordsByFilter(
                 "beaumarket_trades", "market = {:m} && user = {:u}", "-created", 1, 0,
                 { m: marketId, u: e.auth.id }
@@ -239,7 +245,7 @@ routerAdd("POST", "/api/beaumarket/buy", (e) => {
             if (lastTrade.length > 0) {
                 const waitMs = 3000 - (Date.now() - lastTrade[0].getDateTime("created").unix() * 1000);
                 if (waitMs > 0) {
-                    throw new BadRequestError(`Espera ${Math.ceil(waitMs / 1000)}s antes de operar de nuevo en este mercado.`);
+                    throw new BadRequestError(`Espera ${Math.ceil(waitMs / 1000)}s antes de apostar de nuevo en este mercado.`);
                 }
             }
 
@@ -248,27 +254,17 @@ routerAdd("POST", "/api/beaumarket/buy", (e) => {
                 throw new BadRequestError("Resultado inválido.");
             }
 
-            const b = market.getFloat("b");
-            const q = JSON.parse(market.getString("q") || "[]");
-
-            const rawShares = sharesForBudget(q, b, outcomeIndex, budgetPoints);
-            const shares = Math.floor(rawShares);
-            if (!(shares > 0)) {
-                throw new BadRequestError("Tu presupuesto no alcanza para comprar ni una acción entera al precio actual.");
-            }
-            const exactCost = costForShares(q, b, outcomeIndex, shares);
-            const cost = Math.ceil(exactCost); // a favor de la casa: nunca se cobra menos de lo real
-
             const res = txApp.db()
                 .newQuery("UPDATE users SET beautokens = beautokens - {:amt} WHERE id = {:id} AND beautokens >= {:amt}")
-                .bind({ amt: cost, id: e.auth.id })
+                .bind({ amt: amount, id: e.auth.id })
                 .execute();
             if (res.rowsAffected() === 0) {
                 throw new BadRequestError("Saldo insuficiente de BeauTokens.");
             }
 
-            q[outcomeIndex] += shares;
-            market.set("q", JSON.stringify(q));
+            const pool = JSON.parse(market.getString("pool") || "[]");
+            pool[outcomeIndex] += amount;
+            market.set("pool", JSON.stringify(pool));
             txApp.save(market);
 
             const existing = txApp.findRecordsByFilter(
@@ -277,14 +273,14 @@ routerAdd("POST", "/api/beaumarket/buy", (e) => {
             );
             if (existing.length > 0) {
                 const pos = existing[0];
-                pos.set("shares", pos.getInt("shares") + shares);
+                pos.set("amount", pos.getInt("amount") + amount);
                 txApp.save(pos);
             } else {
                 const pos = new Record(txApp.findCollectionByNameOrId("beaumarket_positions"));
                 pos.set("market", marketId);
                 pos.set("user", e.auth.id);
                 pos.set("outcomeIndex", outcomeIndex);
-                pos.set("shares", shares);
+                pos.set("amount", amount);
                 txApp.save(pos);
             }
 
@@ -292,105 +288,14 @@ routerAdd("POST", "/api/beaumarket/buy", (e) => {
             trade.set("market", marketId);
             trade.set("user", e.auth.id);
             trade.set("outcomeIndex", outcomeIndex);
-            trade.set("sharesDelta", shares);
-            trade.set("cost", cost);
+            trade.set("amountDelta", amount);
             txApp.save(trade);
-
-            result = { shares, cost };
         });
 
-        return e.json(200, { success: true, shares: result.shares, cost: result.cost });
+        return e.json(200, { success: true, amount });
     } catch (err) {
-        console.error("[beaumarket.pb.js] Error en POST /api/beaumarket/buy:", err);
-        const msg = (err && err.message) || "No se pudo completar la compra.";
-        return e.json(400, { error: msg });
-    }
-}, $apis.requireAuth("users"));
-
-// POST /api/beaumarket/sell — body {marketId, outcomeIndex, shares}. Trade denominado en
-// acciones (cuántas quiero vender) — a diferencia de comprar, acá el usuario sí conoce
-// la cantidad exacta que tiene (se la mostramos en el modal de venta). Nunca se puede
-// vender más de lo que se tiene en la posición (sin venta en corto), así que no hay
-// forma de terminar un mercado debiendo puntos.
-routerAdd("POST", "/api/beaumarket/sell", (e) => {
-    try {
-        const { costForShares } = require(`${__hooks}/lib/beaumarket.js`);
-        const body = e.requestInfo().body || {};
-        const marketId = String(body.marketId || "");
-        const outcomeIndex = Number.isInteger(body.outcomeIndex) ? body.outcomeIndex : -1;
-        const sharesToSell = Number.isInteger(body.shares) ? body.shares : 0;
-
-        if (!marketId || outcomeIndex < 0 || sharesToSell <= 0) {
-            throw new BadRequestError("Datos de venta inválidos.");
-        }
-
-        let result = null;
-
-        $app.runInTransaction((txApp) => {
-            const market = txApp.findRecordById("beaumarkets", marketId);
-            if (market.getString("status") !== "open") {
-                throw new BadRequestError("Este mercado no está abierto para operar.");
-            }
-
-            const lastTrade = txApp.findRecordsByFilter(
-                "beaumarket_trades", "market = {:m} && user = {:u}", "-created", 1, 0,
-                { m: marketId, u: e.auth.id }
-            );
-            if (lastTrade.length > 0) {
-                const waitMs = 3000 - (Date.now() - lastTrade[0].getDateTime("created").unix() * 1000);
-                if (waitMs > 0) {
-                    throw new BadRequestError(`Espera ${Math.ceil(waitMs / 1000)}s antes de operar de nuevo en este mercado.`);
-                }
-            }
-
-            const positions = txApp.findRecordsByFilter(
-                "beaumarket_positions", "market = {:m} && user = {:u} && outcomeIndex = {:o}", "", 1, 0,
-                { m: marketId, u: e.auth.id, o: outcomeIndex }
-            );
-            const position = positions[0];
-            const heldShares = position ? position.getInt("shares") : 0;
-            if (sharesToSell > heldShares) {
-                throw new BadRequestError("No tienes esa cantidad de acciones en este resultado.");
-            }
-
-            const b = market.getFloat("b");
-            const q = JSON.parse(market.getString("q") || "[]");
-
-            const exactProceeds = -costForShares(q, b, outcomeIndex, -sharesToSell);
-            const proceeds = Math.floor(exactProceeds); // a favor de la casa: nunca se paga de más
-
-            txApp.db()
-                .newQuery("UPDATE users SET beautokens = COALESCE(beautokens, 0) + {:amt} WHERE id = {:id}")
-                .bind({ amt: proceeds, id: e.auth.id })
-                .execute();
-
-            q[outcomeIndex] -= sharesToSell;
-            market.set("q", JSON.stringify(q));
-            txApp.save(market);
-
-            const remaining = heldShares - sharesToSell;
-            if (remaining > 0) {
-                position.set("shares", remaining);
-                txApp.save(position);
-            } else {
-                txApp.delete(position);
-            }
-
-            const trade = new Record(txApp.findCollectionByNameOrId("beaumarket_trades"));
-            trade.set("market", marketId);
-            trade.set("user", e.auth.id);
-            trade.set("outcomeIndex", outcomeIndex);
-            trade.set("sharesDelta", -sharesToSell);
-            trade.set("cost", -proceeds);
-            txApp.save(trade);
-
-            result = { shares: sharesToSell, proceeds };
-        });
-
-        return e.json(200, { success: true, shares: result.shares, proceeds: result.proceeds });
-    } catch (err) {
-        console.error("[beaumarket.pb.js] Error en POST /api/beaumarket/sell:", err);
-        const msg = (err && err.message) || "No se pudo completar la venta.";
+        console.error("[beaumarket.pb.js] Error en POST /api/beaumarket/bet:", err);
+        const msg = (err && err.message) || "No se pudo completar la apuesta.";
         return e.json(400, { error: msg });
     }
 }, $apis.requireAuth("users"));
@@ -443,7 +348,7 @@ routerAdd("GET", "/admin/beaumarket", (e) => {
         .card { background: var(--card-bg); backdrop-filter: blur(16px); border: 1px solid var(--border-color); border-radius: 18px; padding: 24px; margin-bottom: 20px; }
         .form-group { text-align: left; margin-bottom: 16px; }
         label { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
-        input[type="text"], input[type="email"], input[type="password"], input[type="number"], textarea {
+        input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="datetime-local"], textarea {
             width: 100%; background: rgba(15,23,42,0.6); border: 1px solid var(--border-color);
             border-radius: 10px; padding: 10px 14px; color: var(--text-color); font-size: 14px; outline: none;
         }
@@ -520,9 +425,9 @@ routerAdd("GET", "/admin/beaumarket", (e) => {
                     <button type="button" class="btn btn-secondary btn-sm" id="addOutcomeBtn" style="margin-top:4px;">+ Agregar resultado</button>
                 </div>
                 <div class="form-group">
-                    <label>Liquidez (b)</label>
-                    <input type="number" id="newB" min="5" max="500" value="30" required>
-                    <div class="hint" id="maxLossHint"></div>
+                    <label>Cierre automático</label>
+                    <input type="datetime-local" id="newClosesAt" required>
+                    <div class="hint">Desde esa fecha nadie puede seguir apostando — se puede cerrar antes a mano, nunca extender después.</div>
                 </div>
                 <button type="submit" class="btn" id="createBtn">Crear mercado</button>
             </form>
@@ -604,7 +509,7 @@ ${SESSION_GATE_FN}
         // para todas las páginas de administración, en vez de una copia por página.
         ${ESC_FN}
 
-        // --- Formulario de creación: lista dinámica de resultados + hint de pérdida máxima ---
+        // --- Formulario de creación: lista dinámica de resultados + fecha de cierre ---
         const outcomesList = document.getElementById("outcomesList");
         function addOutcomeRow(value) {
             const row = document.createElement("div");
@@ -612,22 +517,12 @@ ${SESSION_GATE_FN}
             row.innerHTML = '<input type="text" placeholder="Resultado" value="' + esc(value) + '">' +
                 '<button type="button" class="btn btn-secondary btn-sm" style="margin:0;">Quitar</button>';
             row.querySelector("button").addEventListener("click", () => {
-                if (outcomesList.children.length > 2) { row.remove(); updateMaxLossHint(); }
+                if (outcomesList.children.length > 2) row.remove();
             });
-            row.querySelector("input").addEventListener("input", updateMaxLossHint);
             outcomesList.appendChild(row);
-            updateMaxLossHint();
-        }
-        function updateMaxLossHint() {
-            const n = outcomesList.querySelectorAll("input").length;
-            const b = Number(document.getElementById("newB").value) || 0;
-            const maxLoss = b * Math.log(n);
-            document.getElementById("maxLossHint").textContent =
-                "Pérdida máxima teórica de la casa en este mercado: " + maxLoss.toFixed(1) + " ℬ";
         }
         addOutcomeRow("Sí");
         addOutcomeRow("No");
-        document.getElementById("newB").addEventListener("input", updateMaxLossHint);
         document.getElementById("addOutcomeBtn").addEventListener("click", () => {
             if (outcomesList.children.length < 10) addOutcomeRow("");
         });
@@ -639,15 +534,17 @@ ${SESSION_GATE_FN}
             const title = document.getElementById("newTitle").value.trim();
             const description = document.getElementById("newDescription").value.trim();
             const outcomes = Array.from(outcomesList.querySelectorAll("input")).map(i => i.value.trim()).filter(Boolean);
-            const b = Number(document.getElementById("newB").value);
+            // datetime-local no trae zona horaria — el navegador la interpreta como hora
+            // local, y toISOString() la convierte a UTC antes de mandarla: el backend
+            // solo compara strings ISO, nunca reinterpreta zona horaria por su cuenta.
+            const closesAtLocal = document.getElementById("newClosesAt").value;
+            const closesAt = closesAtLocal ? new Date(closesAtLocal).toISOString() : "";
             createBtn.disabled = true;
             try {
-                await apiCall("/api/admin/beaumarket/create", "POST", { title, description, outcomes, b });
+                await apiCall("/api/admin/beaumarket/create", "POST", { title, description, outcomes, closesAt });
                 document.getElementById("createForm").reset();
                 outcomesList.innerHTML = "";
                 addOutcomeRow("Sí"); addOutcomeRow("No");
-                document.getElementById("newB").value = 30;
-                updateMaxLossHint();
                 loadMarkets();
             } catch (err) { showError(panelError, err.message); }
             finally { createBtn.disabled = false; }
@@ -656,15 +553,22 @@ ${SESSION_GATE_FN}
         // --- Listado de mercados ---
         const marketsList = document.getElementById("marketsList");
 
+        function formatClosesAt(iso) {
+            if (!iso) return "sin fecha";
+            const d = new Date(iso);
+            return d.toLocaleString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+        }
+
         function renderMarket(m) {
             const div = document.createElement("div");
             div.className = "card";
             let outcomesHtml = m.outcomes.map((label, idx) => {
                 const pct = m.prices[idx] || 0;
+                const pool = m.pool[idx] || 0;
                 const isWinner = m.status === "resolved" && m.winningOutcomeIndex === idx;
                 return '<div class="outcome-line' + (isWinner ? ' winner' : '') + '">' +
                     '<span>' + (isWinner ? '🏆 ' : '') + esc(label) + '</span>' +
-                    '<span>' + pct.toFixed(1) + '%</span></div>';
+                    '<span>' + pct.toFixed(1) + '% · ' + pool + ' ℬ</span></div>';
             }).join("");
 
             let actionsHtml = "";
@@ -680,13 +584,13 @@ ${SESSION_GATE_FN}
                 m.outcomes.map((label, idx) => '<label><input type="radio" name="winner-' + esc(m.id) + '" value="' + idx + '"> ' + esc(label) + '</label>').join("") +
                 '<button class="btn btn-sm" data-action="confirm-resolve" style="margin-top:8px;">Confirmar</button></div>';
 
-            const maxLoss = m.b * Math.log(m.outcomes.length);
+            const totalPool = m.pool.reduce((a, c) => a + c, 0);
             div.innerHTML =
                 '<span class="status-badge status-' + esc(m.status) + '">' + esc(m.status) + '</span>' +
                 '<div class="market-title">' + esc(m.title) + '</div>' +
                 (m.description ? '<div class="market-desc">' + esc(m.description) + '</div>' : '') +
                 outcomesHtml +
-                '<div style="font-size:11px;color:var(--text-muted);margin-top:8px;">b=' + m.b + ' &middot; pérdida máx.: ' + maxLoss.toFixed(1) + ' ℬ &middot; ' + m.tradeCount + ' operaciones</div>' +
+                '<div style="font-size:11px;color:var(--text-muted);margin-top:8px;">pozo total: ' + totalPool + ' ℬ &middot; ' + m.betCount + ' apuestas &middot; cierra ' + formatClosesAt(m.closesAt) + '</div>' +
                 '<div style="margin-top:10px;">' + actionsHtml + '</div>' +
                 resolvePickerHtml;
 
@@ -753,29 +657,28 @@ ${SESSION_GATE_FN}
 
 routerAdd("GET", "/api/admin/beaumarket/list", (e) => {
     try {
-        const { prices } = require(`${__hooks}/lib/beaumarket.js`);
+        const { poolPercentages } = require(`${__hooks}/lib/beaumarket.js`);
         const markets = $app.findRecordsByFilter("beaumarkets", "", "-created", 200, 0);
 
-        // tradeCount es solo un número en pantalla, pero antes se traían TODAS las filas
-        // de trades de cada mercado (hasta 200 consultas sin límite) únicamente para leer
-        // su .length. Un solo agregado lo resuelve. Ver auditoria-2026-08-19.md §4.2.
-        const tradeCounts = {};
+        // betCount es solo un número en pantalla, pero antes se traían TODAS las filas
+        // de apuestas de cada mercado (hasta 200 consultas sin límite) únicamente para
+        // leer su .length. Un solo agregado lo resuelve. Ver auditoria-2026-08-19.md §4.2.
+        const betCounts = {};
         try {
             const rows = arrayOf(new DynamicModel({ market: "", total: 0 }));
             $app.db()
                 .newQuery("SELECT market, COUNT(*) AS total FROM beaumarket_trades GROUP BY market")
                 .all(rows);
-            rows.forEach((r) => { tradeCounts[r.market] = r.total; });
+            rows.forEach((r) => { betCounts[r.market] = r.total; });
         } catch (err) {
             // Si el agregado falla, el panel se sigue mostrando con el contador en 0 en
             // vez de caerse entero: es un dato informativo, no el propósito de la vista.
-            console.error("[beaumarket.pb.js] No se pudo contar trades por mercado:", err);
+            console.error("[beaumarket.pb.js] No se pudo contar apuestas por mercado:", err);
         }
 
         const result = markets.map((m) => {
             const outcomes = JSON.parse(m.getString("outcomes") || "[]");
-            const b = m.getFloat("b");
-            const q = JSON.parse(m.getString("q") || "[]");
+            const pool = JSON.parse(m.getString("pool") || "[]");
             return {
                 id: m.id,
                 title: m.getString("title"),
@@ -783,9 +686,10 @@ routerAdd("GET", "/api/admin/beaumarket/list", (e) => {
                 outcomes,
                 status: m.getString("status"),
                 winningOutcomeIndex: m.getString("status") === "resolved" ? m.getInt("winningOutcomeIndex") : null,
-                b,
-                prices: prices(q, b).map((p) => p * 100),
-                tradeCount: tradeCounts[m.id] || 0,
+                closesAt: m.getString("closesAt"),
+                pool,
+                prices: poolPercentages(pool),
+                betCount: betCounts[m.id] || 0,
             };
         });
         return e.json(200, { markets: result });
@@ -797,21 +701,22 @@ routerAdd("GET", "/api/admin/beaumarket/list", (e) => {
 
 routerAdd("POST", "/api/admin/beaumarket/create", (e) => {
     try {
-        const { MIN_OUTCOMES, MAX_OUTCOMES, MIN_B, MAX_B, DEFAULT_B } = require(`${__hooks}/lib/beaumarket.js`);
+        const { MIN_OUTCOMES, MAX_OUTCOMES } = require(`${__hooks}/lib/beaumarket.js`);
         const body = e.requestInfo().body || {};
         const title = String(body.title || "").trim();
         const description = String(body.description || "").trim();
         const outcomes = Array.isArray(body.outcomes)
             ? body.outcomes.map((o) => String(o).trim()).filter(Boolean)
             : [];
-        const b = Number.isFinite(body.b) ? body.b : DEFAULT_B;
+        const closesAt = String(body.closesAt || "");
 
         if (!title) throw new BadRequestError("El título es requerido.");
         if (outcomes.length < MIN_OUTCOMES || outcomes.length > MAX_OUTCOMES) {
             throw new BadRequestError(`Debe haber entre ${MIN_OUTCOMES} y ${MAX_OUTCOMES} resultados.`);
         }
-        if (b < MIN_B || b > MAX_B) {
-            throw new BadRequestError(`La liquidez (b) debe estar entre ${MIN_B} y ${MAX_B}.`);
+        const closesAtDate = closesAt ? new Date(closesAt) : null;
+        if (!closesAtDate || isNaN(closesAtDate.getTime()) || closesAtDate.getTime() <= Date.now()) {
+            throw new BadRequestError("La fecha de cierre debe ser una fecha futura válida.");
         }
 
         const market = new Record($app.findCollectionByNameOrId("beaumarkets"));
@@ -819,8 +724,8 @@ routerAdd("POST", "/api/admin/beaumarket/create", (e) => {
         market.set("description", description);
         market.set("outcomes", JSON.stringify(outcomes));
         market.set("status", "open");
-        market.set("b", b);
-        market.set("q", JSON.stringify(new Array(outcomes.length).fill(0)));
+        market.set("closesAt", closesAtDate.toISOString());
+        market.set("pool", JSON.stringify(new Array(outcomes.length).fill(0)));
         $app.save(market);
 
         return e.json(200, { success: true, id: market.id });
@@ -846,12 +751,13 @@ routerAdd("POST", "/api/admin/beaumarket/close", (e) => {
     }
 }, $apis.requireSuperuserAuth());
 
-// POST /api/admin/beaumarket/resolve — a diferencia del pari-mutuel anterior (repartir un
-// pot), acá el pago es directo: cada acción del resultado ganador vale exactamente 1
-// punto (así se definió el mecanismo LMSR desde el principio, comprar una acción a
-// precio p es "apostar" a que vale 1 si gana). Sin redondeo posible: shares ya es entero.
+// POST /api/admin/beaumarket/resolve — reparte el pozo total entre las posiciones del
+// resultado ganador, a prorrata de lo que apostó cada quien (ver finalPayout en
+// lib/beaumarket.js). El pozo ya no cambia después de esto, así que el pago es un cálculo
+// puro y determinista sobre el estado guardado.
 routerAdd("POST", "/api/admin/beaumarket/resolve", (e) => {
     try {
+        const { finalPayout } = require(`${__hooks}/lib/beaumarket.js`);
         const body = e.requestInfo().body || {};
         const marketId = String(body.marketId || "");
         const winningOutcomeIndex = Number.isInteger(body.winningOutcomeIndex) ? body.winningOutcomeIndex : -1;
@@ -868,16 +774,21 @@ routerAdd("POST", "/api/admin/beaumarket/resolve", (e) => {
                 throw new BadRequestError("Resultado ganador inválido.");
             }
 
+            const pool = JSON.parse(market.getString("pool") || "[]");
+            const totalPool = pool.reduce((a, c) => a + c, 0);
+            const winnerPool = pool[winningOutcomeIndex] || 0;
+
             const positions = txApp.findRecordsByFilter(
                 "beaumarket_positions", "market = {:m} && outcomeIndex = {:o}", "", 0, 0,
                 { m: marketId, o: winningOutcomeIndex }
             );
             positions.forEach((pos) => {
-                const shares = pos.getInt("shares");
-                if (shares > 0) {
+                const amount = pos.getInt("amount");
+                const payout = finalPayout(amount, winnerPool, totalPool);
+                if (payout > 0) {
                     txApp.db()
                         .newQuery("UPDATE users SET beautokens = COALESCE(beautokens, 0) + {:amt} WHERE id = {:id}")
-                        .bind({ amt: shares, id: pos.getString("user") })
+                        .bind({ amt: payout, id: pos.getString("user") })
                         .execute();
                 }
             });
@@ -895,9 +806,9 @@ routerAdd("POST", "/api/admin/beaumarket/resolve", (e) => {
 }, $apis.requireSuperuserAuth());
 
 // POST /api/admin/beaumarket/cancel — reembolsa cada posición vigente (en cualquier
-// resultado) a razón de 1 punto por acción, igual de simple que resolve — evita el caso
-// ambiguo de tener que sumar el historial completo de compras/ventas de cada usuario
-// para calcular un neto "justo".
+// resultado) su monto exacto, 1:1 — en pari-mutuel nunca hace falta calcular un neto
+// "justo" sobre un historial de compras/ventas, porque lo que se apostó siempre fue
+// exactamente lo que se puso.
 routerAdd("POST", "/api/admin/beaumarket/cancel", (e) => {
     try {
         const body = e.requestInfo().body || {};
@@ -912,11 +823,11 @@ routerAdd("POST", "/api/admin/beaumarket/cancel", (e) => {
 
             const positions = txApp.findRecordsByFilter("beaumarket_positions", "market = {:m}", "", 0, 0, { m: marketId });
             positions.forEach((pos) => {
-                const shares = pos.getInt("shares");
-                if (shares > 0) {
+                const amount = pos.getInt("amount");
+                if (amount > 0) {
                     txApp.db()
                         .newQuery("UPDATE users SET beautokens = COALESCE(beautokens, 0) + {:amt} WHERE id = {:id}")
-                        .bind({ amt: shares, id: pos.getString("user") })
+                        .bind({ amt: amount, id: pos.getString("user") })
                         .execute();
                 }
             });

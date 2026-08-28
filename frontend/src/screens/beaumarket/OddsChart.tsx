@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, LayoutChangeEvent } from 'react-native';
-import Svg, { Polyline, Line as SvgLine, Circle } from 'react-native-svg';
+import Svg, { Path, Line as SvgLine, Circle } from 'react-native-svg';
 import { theme } from '../../theme/theme';
 import { BeaumarketOddsHistoryPoint, BeaumarketPosition } from '../../services/beaumarketService';
 import { OUTCOME_COLORS } from './chartColors';
 import { LegendRow } from './LegendRow';
 import { computePositionBar } from './positionBar';
+import { smoothPathD } from './smoothPath';
 
 // Ancho de referencia SOLO para el primer render (antes de medir el contenedor real por
 // onLayout) — nunca se usa para dibujar de verdad, así que no importa que no coincida
@@ -93,10 +94,10 @@ export const OddsChart: React.FC<OddsChartProps> = ({ outcomes, history, winning
   if (!history || history.length === 0) return null;
 
   // Referencia para que el pill de cada posición sea comparable en tamaño entre sí: la
-  // posición más grande (en acciones) ocupa el ancho completo, las demás se ven más
-  // cortas en proporción. El reparto sólido/extensión DENTRO de cada pill no usa esta
+  // posición más grande (en pago proyectado) ocupa el ancho completo, las demás se ven
+  // más cortas en proporción. El reparto sólido/extensión DENTRO de cada pill no usa esta
   // escala (ver positionBar.ts) — así ambas cosas se leen bien a la vez.
-  const maxPositionScale = Math.max(1, ...myPositions.map((p) => p.shares));
+  const maxPositionScale = Math.max(1, ...myPositions.map((p) => Math.max(p.amount, p.estimatedPayout)));
 
   // El eje X es tiempo real (history[i].t, en epoch ms) — la cantidad de puntos y su
   // espaciado ya vienen decididos por el backend (computeOddsHistoryByTime), no se
@@ -131,13 +132,11 @@ export const OddsChart: React.FC<OddsChartProps> = ({ outcomes, history, winning
 
             {outcomes.map((_, outcomeIdx) => {
               const color = OUTCOME_COLORS[outcomeIdx % OUTCOME_COLORS.length];
-              const points = history
-                .map((p) => `${xFor(p.t)},${yFor(p.percentages[outcomeIdx] ?? 0)}`)
-                .join(' ');
+              const points = history.map((p) => ({ x: xFor(p.t), y: yFor(p.percentages[outcomeIdx] ?? 0) }));
               const last = history[history.length - 1];
               return (
                 <React.Fragment key={outcomeIdx}>
-                  <Polyline points={points} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                  <Path d={smoothPathD(points)} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
                   <Circle cx={xFor(last.t)} cy={yFor(last.percentages[outcomeIdx] ?? 0)} r={MARKER_RADIUS} fill={color} />
                 </React.Fragment>
               );
