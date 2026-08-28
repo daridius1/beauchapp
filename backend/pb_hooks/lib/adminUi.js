@@ -91,6 +91,34 @@ function clientSessionGateFn() {
 }
 
 
+// Las cinco páginas repetían un apiCall() que trataba 401 y 403 como si fueran lo
+// mismo: cualquiera de los dos borraba la sesión guardada y mandaba de vuelta al
+// login con "Sesión expirada". Pero un 403 significa "el token sirve, la API rule de
+// la colección rechazó ESTA acción" (una edición fuera de la ventana permitida, un
+// equipo que ya no califica en esa etapa, etc.) — no que la sesión venció. Con eso,
+// cualquier acción legítima que chocara con una regla de negocio cerraba una sesión
+// válida en pleno uso. Solo 401 (lo que devuelve auth-refresh cuando el token en
+// verdad no sirve) desloguea; un 403 se muestra como el error que es.
+function clientApiCallFn(storageKey) {
+    return `
+        async function apiCall(path, method, payload) {
+            const res = await fetch(path, {
+                method: method,
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                body: payload ? JSON.stringify(payload) : undefined,
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                if (res.status === 401) {
+                    token = ""; localStorage.removeItem("${storageKey}"); showLogin(true);
+                    throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
+                }
+                throw new Error(data.error || data.message || "Error.");
+            }
+            return data;
+        }`;
+}
+
 // Constantes de la ventana horaria, compartidas con lib/teamSchedule.js (que es quien
 // manda en el servidor). Se repiten acá porque estas páginas corren en el navegador y
 // no pueden requerir el módulo del backend.
@@ -173,5 +201,6 @@ module.exports = {
     escapeHtml,
     clientEscapeHtmlFn,
     clientSessionGateFn,
+    clientApiCallFn,
     clientCalendarFns,
 };

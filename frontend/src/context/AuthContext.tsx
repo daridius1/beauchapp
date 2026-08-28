@@ -113,7 +113,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     storage.setItem('beauchapp_dev_mode', enabled.toString());
   };
 
-  // Sincronizar el estado con el AuthStore de PocketBase al iniciar
+  // Sincronizar el estado con el AuthStore de PocketBase al iniciar, y refrescar el
+  // token periódicamente mientras la app queda abierta (es una PWA, se puede quedar
+  // horas en una pestaña sin remontar el provider).
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -124,16 +126,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           setUser(null);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error al restaurar sesión:', err);
-        pb.authStore.clear();
-        setUser(null);
+        // Solo un 401 real significa "el token ya no sirve". Cualquier otra falla
+        // (sin red, 5xx, timeout) no debe cerrar una sesión que sigue siendo válida —
+        // el próximo refresh (periódico o al reabrir la app) puede recuperarse solo.
+        if (err?.status === 401) {
+          pb.authStore.clear();
+          setUser(null);
+        }
       } finally {
         setIsInitialized(true);
       }
     };
 
     checkAuth();
+    const refreshInterval = setInterval(checkAuth, 10 * 60 * 1000);
 
     // Escuchar cambios en authStore (ej. logout en otra pestaña)
     const unsubscribe = pb.authStore.onChange((token, model) => {
@@ -141,6 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
+      clearInterval(refreshInterval);
       unsubscribe();
     };
   }, []);

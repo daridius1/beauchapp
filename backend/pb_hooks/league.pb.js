@@ -9,9 +9,10 @@
 // ---------------------------------------------------------------------------------
 
 routerAdd("GET", "/admin/liga", (e) => {
-    const { PALETTE_CSS, CALENDAR_CSS, clientCalendarFns, clientSessionGateFn } = require(`${__hooks}/lib/adminUi.js`);
+    const { PALETTE_CSS, CALENDAR_CSS, clientCalendarFns, clientSessionGateFn, clientApiCallFn } = require(`${__hooks}/lib/adminUi.js`);
     const CALENDAR_FNS = clientCalendarFns();
     const SESSION_GATE_FN = clientSessionGateFn();
+    const API_CALL_FN = clientApiCallFn("liga_auth");
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -139,6 +140,11 @@ routerAdd("GET", "/admin/liga", (e) => {
         .dynamic-row label { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 400; color: var(--text-color); margin-bottom: 0; white-space: nowrap; }
         .remove-row-btn { background: none; border: none; color: var(--danger-color); font-size: 20px; line-height: 1; cursor: pointer; padding: 0 4px; margin-left: auto; }
         .player-checkbox-list { max-height: 160px; overflow-y: auto; margin-top: 4px; }
+        .summary-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .summary-table th, .summary-table td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border-color); }
+        .summary-table th:first-child, .summary-table td:first-child { text-align: left; }
+        .summary-table th { color: var(--text-muted); font-weight: 600; font-size: 11px; }
+        .summary-table tbody tr:last-child td { border-bottom: none; }
 ${CALENDAR_CSS}
         /* Partido sugerido pero todavía no aceptado: se distingue de lo ya agendado. */
         .grid-cell.proposed { background: #a855f7; }
@@ -585,22 +591,7 @@ ${SESSION_GATE_FN}
             token = ""; localStorage.removeItem("liga_auth"); showLogin();
         });
 
-        async function apiCall(path, method, payload) {
-            const res = await fetch(path, {
-                method: method,
-                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-                body: payload ? JSON.stringify(payload) : undefined,
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                if (res.status === 401 || res.status === 403) {
-                    token = ""; localStorage.removeItem("liga_auth"); showLogin();
-                    throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
-                }
-                throw new Error(data.error || data.message || "Error.");
-            }
-            return data;
-        }
+${API_CALL_FN}
 
         // --- Beaupolla ---
         //
@@ -1827,16 +1818,30 @@ ${SESSION_GATE_FN}
                 list.innerHTML = '<p class="hint">Esta etapa todavía no tiene participantes.</p>';
                 return;
             }
+            const table = document.createElement("table");
+            table.className = "summary-table";
+            const thead = document.createElement("thead");
+            thead.innerHTML = "<tr><th>Equipo</th><th>Nota</th><th>Partidos</th><th>Suma rival</th><th>Promedio rival</th></tr>";
+            table.appendChild(thead);
+            const tbody = document.createElement("tbody");
             data.teams.forEach((t) => {
-                const row = document.createElement("p");
-                row.style.cssText = "font-size:13px; margin-bottom:6px;";
-                const ownPart = t.ownDifficulty !== null ? " (nota propia: " + t.ownDifficulty + ")" : " (sin nota propia)";
-                const facedPart = t.matchesCount
-                    ? t.facedTotal + " en " + t.matchesCount + " partido" + (t.matchesCount === 1 ? "" : "s") + " — promedio " + t.average.toFixed(1)
-                    : "sin partidos con dificultad conocida todavía";
-                row.textContent = t.teamName + ownPart + ": " + facedPart;
-                list.appendChild(row);
+                const tr = document.createElement("tr");
+                const cells = [
+                    t.teamName,
+                    t.ownDifficulty !== null ? String(t.ownDifficulty) : "—",
+                    t.matchesCount ? String(t.matchesCount) : "—",
+                    t.matchesCount ? String(t.facedTotal) : "—",
+                    t.matchesCount ? t.average.toFixed(1) : "—",
+                ];
+                cells.forEach((text) => {
+                    const td = document.createElement("td");
+                    td.textContent = text;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
             });
+            table.appendChild(tbody);
+            list.appendChild(table);
         }
 
         // --- Cargar partido jugado (retroactivo) ---

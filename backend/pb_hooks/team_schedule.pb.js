@@ -80,11 +80,12 @@ onRecordUpdateRequest(validateAvailabilitySubmission, "horario_availability");
 // ---------------------------------------------------------------------------------
 
 routerAdd("GET", "/admin/horarios", (e) => {
-    const { PALETTE_CSS, clientCalendarFns, clientSessionGateFn } = require(`${__hooks}/lib/adminUi.js`);
+    const { PALETTE_CSS, clientCalendarFns, clientSessionGateFn, clientApiCallFn } = require(`${__hooks}/lib/adminUi.js`);
     // Las etiquetas de día/mes y los helpers de la ventana vienen de lib/adminUi.js:
     // esta página y /admin/liga tienen que dibujar exactamente el mismo calendario.
     const CALENDAR_FNS = clientCalendarFns();
     const SESSION_GATE_FN = clientSessionGateFn();
+    const API_CALL_FN = clientApiCallFn("pb_auth");
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="es">
@@ -248,22 +249,7 @@ ${SESSION_GATE_FN}
             token = ""; localStorage.removeItem("pb_auth"); showLogin();
         });
 
-        async function apiCall(path, method, payload) {
-            const res = await fetch(path, {
-                method: method,
-                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-                body: payload ? JSON.stringify(payload) : undefined,
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                if (res.status === 401 || res.status === 403) {
-                    token = ""; localStorage.removeItem("pb_auth"); showLogin();
-                    throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
-                }
-                throw new Error(data.error || data.message || "Error.");
-            }
-            return data;
-        }
+${API_CALL_FN}
 
         // --- Grilla de bloques cerrados (3 semanas x 7 días x 11 horas) ---
         async function loadBlockedGrid() {

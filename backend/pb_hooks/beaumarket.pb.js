@@ -306,9 +306,10 @@ routerAdd("POST", "/api/beaumarket/bet", (e) => {
 // ---------------------------------------------------------------------------------
 
 routerAdd("GET", "/admin/beaumarket", (e) => {
-    const { PALETTE_CSS, clientEscapeHtmlFn, clientSessionGateFn } = require(`${__hooks}/lib/adminUi.js`);
+    const { PALETTE_CSS, clientEscapeHtmlFn, clientSessionGateFn, clientApiCallFn } = require(`${__hooks}/lib/adminUi.js`);
     const ESC_FN = clientEscapeHtmlFn();
     const SESSION_GATE_FN = clientSessionGateFn();
+    const API_CALL_FN = clientApiCallFn("pb_auth");
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -483,23 +484,7 @@ ${SESSION_GATE_FN}
             token = ""; localStorage.removeItem("pb_auth"); showLogin();
         });
 
-        async function apiCall(path, method, payload) {
-            const res = await fetch(path, {
-                method: method,
-                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-                body: payload ? JSON.stringify(payload) : undefined,
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                if (res.status === 401 || res.status === 403) {
-                    token = ""; localStorage.removeItem("pb_auth");
-                    showLogin(true);
-                    throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
-                }
-                throw new Error(data.error || data.message || "Error.");
-            }
-            return data;
-        }
+${API_CALL_FN}
 
         // Título, descripción y etiquetas de resultado de un mercado son texto libre.
         // Hoy solo los escribe el propio superusuario desde esta página (self-XSS), pero

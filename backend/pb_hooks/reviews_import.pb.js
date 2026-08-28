@@ -6,8 +6,9 @@
 // solo accesible por URL directa + login de superusuario.
 
 routerAdd("GET", "/admin/reviews-import", (e) => {
-    const { PALETTE_CSS, clientSessionGateFn } = require(`${__hooks}/lib/adminUi.js`);
+    const { PALETTE_CSS, clientSessionGateFn, clientApiCallFn } = require(`${__hooks}/lib/adminUi.js`);
     const SESSION_GATE_FN = clientSessionGateFn();
+    const API_CALL_FN = clientApiCallFn("pb_auth");
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -278,24 +279,7 @@ ${SESSION_GATE_FN}
             showLogin();
         });
 
-        async function postBatch(path, payload) {
-            const response = await fetch(path, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-            if (!response.ok) {
-                if (response.status === 401 || response.status === 403) {
-                    token = "";
-                    localStorage.removeItem("pb_auth");
-                    showLogin();
-                    throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
-                }
-                throw new Error(data.error || data.message || "Error en la importación.");
-            }
-            return data;
-        }
+${API_CALL_FN}
 
         function chunk(arr, size) {
             const out = [];
@@ -343,7 +327,7 @@ ${SESSION_GATE_FN}
                 const courseBatches = chunk(courseItems, 300);
                 let cCreated = 0, cUpdated = 0, cErrors = 0;
                 for (let i = 0; i < courseBatches.length; i++) {
-                    const res = await postBatch("/api/admin/reviews-import/courses", { courses: courseBatches[i] });
+                    const res = await apiCall("/api/admin/reviews-import/courses", "POST", { courses: courseBatches[i] });
                     Object.assign(courseIdByCodigo, res.map || {});
                     cCreated += res.created || 0;
                     cUpdated += res.updated || 0;
@@ -359,7 +343,7 @@ ${SESSION_GATE_FN}
                 const professorBatches = chunk(professorItems, 300);
                 let pCreated = 0, pUpdated = 0, pErrors = 0;
                 for (let i = 0; i < professorBatches.length; i++) {
-                    const res = await postBatch("/api/admin/reviews-import/professors", { professors: professorBatches[i] });
+                    const res = await apiCall("/api/admin/reviews-import/professors", "POST", { professors: professorBatches[i] });
                     Object.assign(professorIdByNombre, res.map || {});
                     pCreated += res.created || 0;
                     pUpdated += res.updated || 0;
@@ -385,7 +369,7 @@ ${SESSION_GATE_FN}
                 const linkBatches = chunk(linkItems, 500);
                 let lCreated = 0, lUpdated = 0, lErrors = 0;
                 for (let i = 0; i < linkBatches.length; i++) {
-                    const res = await postBatch("/api/admin/reviews-import/links", { links: linkBatches[i] });
+                    const res = await apiCall("/api/admin/reviews-import/links", "POST", { links: linkBatches[i] });
                     lCreated += res.created || 0;
                     lUpdated += res.updated || 0;
                     lErrors += (res.errors || []).length;
