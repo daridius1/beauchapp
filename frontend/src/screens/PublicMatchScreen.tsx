@@ -12,7 +12,8 @@ import { LeagueMatchScoreboard } from '../components/leagues/LeagueMatchScoreboa
 import { LeagueMatchStats } from '../components/leagues/LeagueMatchStats';
 import { LeagueMatchTimeline } from '../components/leagues/LeagueMatchTimeline';
 import { LeagueMatchLineups } from '../components/leagues/LeagueMatchLineups';
-import { publicLeagueService, PublicMatchData } from '../services/publicLeagueService';
+import { BeaumarketProbabilityBar } from '../components/leagues/BeaumarketProbabilityBar';
+import { publicLeagueService, PublicMatchData, PublicMatchBeaumarket } from '../services/publicLeagueService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PublicMatch'>;
 
@@ -23,6 +24,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'PublicMatch'>;
 export const PublicMatchScreen: React.FC<Props> = ({ route, navigation }) => {
   const { matchId } = route.params;
   const [data, setData] = useState<PublicMatchData | null>(null);
+  const [beaumarket, setBeaumarket] = useState<PublicMatchBeaumarket | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -35,6 +37,11 @@ export const PublicMatchScreen: React.FC<Props> = ({ route, navigation }) => {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+    try {
+      setBeaumarket(await publicLeagueService.getMatchBeaumarket(matchId));
+    } catch (err) {
+      console.error('Error cargando la predicción de Beaumarket:', err);
     }
   }, [matchId]);
 
@@ -95,6 +102,14 @@ export const PublicMatchScreen: React.FC<Props> = ({ route, navigation }) => {
                 : undefined
             }
           />
+
+          {beaumarket?.hasMarket && (
+            <BeaumarketProbabilityBar
+              prices={beaumarket.prices}
+              winningOutcomeIndex={beaumarket.winningOutcomeIndex}
+              status={beaumarket.status}
+            />
+          )}
 
           {(isPlayed || isLive) && (
             <View style={styles.section}>

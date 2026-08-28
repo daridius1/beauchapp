@@ -194,6 +194,50 @@ routerAdd("GET", "/api/public/match", (e) => {
     }
 });
 
+// Solo las probabilidades del mercado de Beaumarket de un partido, para quien no tiene
+// sesión — nada de posiciones, historial ni la posibilidad de apostar (eso sigue
+// exigiendo cuenta, vía GET /api/beaumarket/markets). Deliberadamente un endpoint
+// aparte y angosto en vez de sumarle campos a /api/public/match: lo único que hace
+// falta acá es la línea de probabilidad, no el resto del mercado.
+routerAdd("GET", "/api/public/match-beaumarket", (e) => {
+    try {
+        const matchId = String(e.requestInfo().query["id"] || "");
+        if (!matchId) throw new BadRequestError("Falta el id del partido.");
+
+        let match;
+        try {
+            match = $app.findRecordById("league_matches", matchId);
+        } catch (err) {
+            throw new BadRequestError("Ese partido no existe.");
+        }
+
+        const marketId = match.getString("beaumarketMarket");
+        if (!marketId) return e.json(200, { hasMarket: false });
+
+        let market;
+        try {
+            market = $app.findRecordById("beaumarkets", marketId);
+        } catch (err) {
+            return e.json(200, { hasMarket: false });
+        }
+
+        const { poolPercentages } = require(`${__hooks}/lib/beaumarket.js`);
+        const pool = JSON.parse(market.getString("pool") || "[]");
+        const status = market.getString("status");
+
+        return e.json(200, {
+            hasMarket: true,
+            outcomes: JSON.parse(market.getString("outcomes") || "[]"),
+            prices: poolPercentages(pool),
+            status: status,
+            winningOutcomeIndex: status === "resolved" ? market.getInt("winningOutcomeIndex") : null,
+        });
+    } catch (err) {
+        console.error("[public_league.pb.js] Error en GET /api/public/match-beaumarket:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo cargar la predicción." });
+    }
+});
+
 // Un equipo: identidad, plantel y sus partidos.
 //
 // El plantel NO expone a qué cuenta de estudiante está vinculado cada jugador: en la

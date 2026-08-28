@@ -213,6 +213,18 @@ ${CALENDAR_CSS}
         </details>
 
         <details class="card card-collapsible">
+            <summary>Mercado automático (Beaumarket)</summary>
+            <p class="hint" style="margin-top:0;margin-bottom:12px;">
+                Al agendar un partido, crea automáticamente un mercado de predicción de
+                3 resultados (gana local, empate, gana visita) que cierra 10 minutos
+                antes del horario del partido, igual que la polla. Es una opción aparte
+                de la polla, no depende de ella. Al terminar el partido, el mercado se
+                resuelve solo con el resultado real.
+            </p>
+            <div id="beaumarketAutoState"><p class="hint">Cargando...</p></div>
+        </details>
+
+        <details class="card card-collapsible">
             <summary>Equipos de la liga</summary>
             <div id="rosterList"><p class="hint">Cargando...</p></div>
         </details>
@@ -511,6 +523,7 @@ ${SESSION_GATE_FN}
             if (leagueId !== undefined) myLeagueId = leagueId || "";
             hideError(panelError);
             loadPolla();
+            loadBeaumarketAuto();
             loadRoster();
             loadStages();
         }
@@ -636,6 +649,54 @@ ${SESSION_GATE_FN}
             try {
                 await apiCall("/api/liga/polla", "POST", { enabled: enabled, confirmName: confirmName || "" });
                 await loadPolla();
+            } catch (err) {
+                showError(currentError(), err.message);
+                btn.disabled = false;
+            }
+        }
+
+        // --- Mercado automático (Beaumarket) ---
+        //
+        // A diferencia de la polla, apagarlo no oculta nada de lo que ya exista — solo
+        // deja de crear un mercado nuevo para partidos que se agenden de acá en
+        // adelante. Por eso es un toggle directo, sin pedir confirmación escrita.
+        const beaumarketAutoState = document.getElementById("beaumarketAutoState");
+        let beaumarketAutoEnabled = false;
+
+        async function loadBeaumarketAuto() {
+            beaumarketAutoState.innerHTML = '<p class="hint">Cargando...</p>';
+            try {
+                const data = await apiCall("/api/liga/beaumarket-auto", "GET");
+                beaumarketAutoEnabled = Boolean(data.enabled);
+                renderBeaumarketAuto();
+            } catch (err) { showError(currentError(), err.message); }
+        }
+
+        function renderBeaumarketAuto() {
+            beaumarketAutoState.innerHTML = "";
+
+            const status = document.createElement("p");
+            status.style.fontSize = "13px";
+            status.style.marginBottom = "12px";
+            status.textContent = beaumarketAutoEnabled
+                ? "Habilitado: cada partido nuevo agendado va a tener su mercado."
+                : "Deshabilitado.";
+            status.style.color = beaumarketAutoEnabled ? "var(--success-color)" : "var(--text-muted)";
+            beaumarketAutoState.appendChild(status);
+
+            const btn = document.createElement("button");
+            btn.className = beaumarketAutoEnabled ? "btn btn-secondary btn-sm" : "btn btn-accept btn-sm";
+            btn.textContent = beaumarketAutoEnabled ? "Deshabilitar" : "Habilitar mercado automático";
+            btn.addEventListener("click", () => setBeaumarketAuto(!beaumarketAutoEnabled, btn));
+            beaumarketAutoState.appendChild(btn);
+        }
+
+        async function setBeaumarketAuto(enabled, btn) {
+            hideError(panelError);
+            btn.disabled = true;
+            try {
+                await apiCall("/api/liga/beaumarket-auto", "POST", { enabled: enabled });
+                await loadBeaumarketAuto();
             } catch (err) {
                 showError(currentError(), err.message);
                 btn.disabled = false;
@@ -1861,6 +1922,41 @@ routerAdd("POST", "/api/liga/polla", (e) => {
     }
 }, $apis.requireAuth("users"));
 
+routerAdd("GET", "/api/liga/beaumarket-auto", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        return e.json(200, { enabled: e.auth.getBool("beaumarketAutoEnabled") });
+    } catch (err) {
+        console.error("[league.pb.js] Error en GET /api/liga/beaumarket-auto:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo leer el estado del mercado automático." });
+    }
+}, $apis.requireAuth("users"));
+
+// A diferencia de la polla, apagar esto no oculta nada con lo que la gente ya esté
+// jugando — solo deja de crear un mercado nuevo para partidos que se agenden de acá en
+// adelante. Los mercados ya creados siguen su curso normal. Por eso es un toggle
+// directo, sin la barrera de "escribe el nombre de la liga" que sí tiene la polla.
+routerAdd("POST", "/api/liga/beaumarket-auto", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        const body = e.requestInfo().body || {};
+        const enabled = Boolean(body.enabled);
+
+        const league = $app.findRecordById("users", e.auth.id);
+        league.set("beaumarketAutoEnabled", enabled);
+        $app.save(league);
+
+        return e.json(200, { success: true, enabled: enabled });
+    } catch (err) {
+        console.error("[league.pb.js] Error en POST /api/liga/beaumarket-auto:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo cambiar el estado del mercado automático." });
+    }
+}, $apis.requireAuth("users"));
+
 routerAdd("GET", "/api/liga/roster", (e) => {
     try {
         if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
@@ -2331,6 +2427,23 @@ routerAdd("POST", "/api/liga/matches/suspend", (e) => {
         match.set("status", "suspended");
         $app.save(match);
 
+        // Si tiene mercado automático de Beaumarket, se cierra (no se cancela/reembolsa):
+        // un partido suspendido puede reagendarse más tarde, así que no hace falta
+        // deshacer nada todavía — solo dejar de aceptar apuestas nuevas sobre un
+        // horario que por ahora no va a ocurrir.
+        const marketId = match.getString("beaumarketMarket");
+        if (marketId) {
+            try {
+                const market = $app.findRecordById("beaumarkets", marketId);
+                if (market.getString("status") === "open") {
+                    market.set("status", "closed");
+                    $app.save(market);
+                }
+            } catch (err) {
+                // El mercado pudo haberse borrado a mano — no bloquea la suspensión.
+            }
+        }
+
         return e.json(200, { success: true });
     } catch (err) {
         console.error("[league.pb.js] Error en POST /api/liga/matches/suspend:", err);
@@ -2655,6 +2768,30 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
         // arbitraje, el hook de eventos adelanta esta fecha. Ver lib/polla.js.
         const closesAt = bettingCloseTimeFromBlock(block);
         if (closesAt) record.set("bettingClosesAt", closesAt);
+
+        // Mercado automático de Beaumarket: mismo cierre que la polla (10 min antes del
+        // bloque), 3 resultados fijos (local/empate/visita) para que la vista del
+        // partido pueda mostrar la probabilidad como en un partido real. Solo si la
+        // liga lo habilitó — es una opción aparte de la polla, no atada a ella.
+        if (e.auth.getBool("beaumarketAutoEnabled") && closesAt) {
+            const nameOf = (id) => {
+                try {
+                    const t = $app.findRecordById("users", id);
+                    return t.getString("name") || t.getString("username") || id;
+                } catch (err) { return id; }
+            };
+            const teamAName = nameOf(teamA);
+            const teamBName = nameOf(teamB);
+            const market = new Record($app.findCollectionByNameOrId("beaumarkets"));
+            market.set("title", teamAName + " vs " + teamBName);
+            market.set("outcomes", JSON.stringify(["Gana " + teamAName, "Empate", "Gana " + teamBName]));
+            market.set("status", "open");
+            market.set("closesAt", closesAt);
+            market.set("pool", JSON.stringify([0, 0, 0]));
+            $app.save(market);
+            record.set("beaumarketMarket", market.id);
+        }
+
         $app.save(record);
 
         return e.json(200, { success: true, id: record.id });

@@ -80,6 +80,7 @@ routerAdd("POST", "/api/league-matches/events", (e) => {
     try {
         const { isValidEvent, isClockGatedSequenceValid, summarizeEvents, mergeEvents, matchWriteDecision } = require(`${__hooks}/lib/matchEvents.js`);
         const { isBettingClosed } = require(`${__hooks}/lib/polla.js`);
+        const { finalPayout } = require(`${__hooks}/lib/beaumarket.js`);
 
         const body = e.requestInfo().body || {};
         const matchId = String(body.matchId || "");
@@ -177,6 +178,59 @@ routerAdd("POST", "/api/league-matches/events", (e) => {
             match.set("scoreA", summary.scoreA);
             match.set("scoreB", summary.scoreB);
             matchDirty = true;
+
+            // Si el resultado corregido cambia quién ganó y el mercado de Beaumarket ya
+            // pagó sobre el resultado viejo, se revierte ese pago y se aplica el nuevo.
+            // El pozo no cambió desde que se resolvió (una vez resuelto, /bet ya no
+            // acepta apuestas nuevas), así que recalcular el pago viejo con la misma
+            // fórmula da EXACTAMENTE lo que se pagó la primera vez — la reversión es
+            // exacta, no una aproximación. Si alguien ya gastó lo que había ganado de
+            // más, su saldo puede quedar en negativo: se acepta a propósito, porque la
+            // alternativa (no corregir nunca un mercado ya pagado) deja pagando premios
+            // para siempre sobre un resultado que se sabe que estaba mal.
+            const marketId = match.getString("beaumarketMarket");
+            if (marketId) {
+                const newWinningIndex = summary.scoreA > summary.scoreB ? 0 : summary.scoreA < summary.scoreB ? 2 : 1;
+                try {
+                    $app.runInTransaction((txApp) => {
+                        const market = txApp.findRecordById("beaumarkets", marketId);
+                        if (market.getString("status") !== "resolved") return;
+                        const oldWinningIndex = market.getInt("winningOutcomeIndex");
+                        if (oldWinningIndex === newWinningIndex) return;
+
+                        const pool = JSON.parse(market.getString("pool") || "[]");
+                        const totalPool = pool.reduce((a, c) => a + c, 0);
+
+                        function settle(outcomeIndex, sign) {
+                            const outcomePool = pool[outcomeIndex] || 0;
+                            const positions = txApp.findRecordsByFilter(
+                                "beaumarket_positions", "market = {:m} && outcomeIndex = {:o}", "", 0, 0,
+                                { m: marketId, o: outcomeIndex }
+                            );
+                            positions.forEach((pos) => {
+                                const amount = pos.getInt("amount");
+                                const payout = finalPayout(amount, outcomePool, totalPool);
+                                if (payout > 0) {
+                                    txApp.db()
+                                        .newQuery("UPDATE users SET beautokens = COALESCE(beautokens, 0) + {:amt} WHERE id = {:id}")
+                                        .bind({ amt: sign * payout, id: pos.getString("user") })
+                                        .execute();
+                                }
+                            });
+                        }
+                        settle(oldWinningIndex, -1); // revierte lo pagado de más
+                        settle(newWinningIndex, 1); // paga lo que corresponde de verdad
+
+                        market.set("winningOutcomeIndex", newWinningIndex);
+                        txApp.save(market);
+                    });
+                } catch (err) {
+                    // No bloquea la corrección del marcador — el mercado queda
+                    // desincronizado hasta que alguien lo note, pero el resultado del
+                    // partido (lo importante acá) ya quedó bien.
+                    console.error("[match_arbitration.pb.js] No se pudo re-resolver el mercado de Beaumarket tras la enmienda:", err);
+                }
+            }
         }
         if (summary.halfStarted[1] && !isBettingClosed(match.getString("bettingClosesAt"))) {
             match.set("bettingClosesAt", new Date().toISOString());
@@ -315,6 +369,50 @@ routerAdd("POST", "/api/league-matches/submit", (e) => {
             const txReport = txApp.findRecordById("match_reports", report.id);
             txReport.set("status", "approved");
             txApp.save(txReport);
+
+            // Si el partido tiene un mercado automático de Beaumarket (ver
+            // POST /api/liga/matches/accept en league.pb.js), se resuelve acá mismo,
+            // en la misma transacción que fija el resultado — el resultado real recién
+            // se conoce en este instante. Resultado 0 = gana local, 1 = empate,
+            // 2 = gana visita (mismo orden en que se generaron los 3 outcomes al crear
+            // el mercado). No se re-resuelve si una enmienda posterior corrige el
+            // marcador: el mercado ya pagó sobre el resultado que se conocía en ese
+            // momento, y un mercado resuelto no admite un segundo pago.
+            const marketId = txMatch.getString("beaumarketMarket");
+            if (marketId) {
+                const { finalPayout } = require(`${__hooks}/lib/beaumarket.js`);
+                let market;
+                try {
+                    market = txApp.findRecordById("beaumarkets", marketId);
+                } catch (err) {
+                    market = null;
+                }
+                if (market && (market.getString("status") === "open" || market.getString("status") === "closed")) {
+                    const winningOutcomeIndex = summary.scoreA > summary.scoreB ? 0 : summary.scoreA < summary.scoreB ? 2 : 1;
+                    const pool = JSON.parse(market.getString("pool") || "[]");
+                    const totalPool = pool.reduce((a, c) => a + c, 0);
+                    const winnerPool = pool[winningOutcomeIndex] || 0;
+
+                    const positions = txApp.findRecordsByFilter(
+                        "beaumarket_positions", "market = {:m} && outcomeIndex = {:o}", "", 0, 0,
+                        { m: marketId, o: winningOutcomeIndex }
+                    );
+                    positions.forEach((pos) => {
+                        const amount = pos.getInt("amount");
+                        const payout = finalPayout(amount, winnerPool, totalPool);
+                        if (payout > 0) {
+                            txApp.db()
+                                .newQuery("UPDATE users SET beautokens = COALESCE(beautokens, 0) + {:amt} WHERE id = {:id}")
+                                .bind({ amt: payout, id: pos.getString("user") })
+                                .execute();
+                        }
+                    });
+
+                    market.set("status", "resolved");
+                    market.set("winningOutcomeIndex", winningOutcomeIndex);
+                    txApp.save(market);
+                }
+            }
         });
 
         return e.json(200, { success: true, scoreA: summary.scoreA, scoreB: summary.scoreB });

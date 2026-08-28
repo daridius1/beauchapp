@@ -49,6 +49,20 @@ export interface PublicMatchData {
   rosterB: PublicPlayer[];
 }
 
+// Solo la predicción de Beaumarket de un partido, sin sesión — ver
+// GET /api/public/match-beaumarket. `hasMarket: false` cuando el partido no tiene
+// ningún mercado enlazado (la liga no tiene la opción habilitada, o el partido es
+// anterior a esta funcionalidad).
+export type PublicMatchBeaumarket =
+  | { hasMarket: false }
+  | {
+      hasMarket: true;
+      outcomes: string[];
+      prices: number[];
+      status: 'open' | 'closed' | 'resolved' | 'cancelled';
+      winningOutcomeIndex: number | null;
+    };
+
 export const publicLeagueService = {
   async listLeagues(): Promise<OrgAccountRef[]> {
     const res: any = await pb.send('/api/public/leagues', { method: 'GET' });
@@ -61,6 +75,10 @@ export const publicLeagueService = {
 
   async getMatch(matchId: string): Promise<PublicMatchData> {
     return await pb.send('/api/public/match', { method: 'GET', query: { id: matchId } });
+  },
+
+  async getMatchBeaumarket(matchId: string): Promise<PublicMatchBeaumarket> {
+    return await pb.send('/api/public/match-beaumarket', { method: 'GET', query: { id: matchId } });
   },
 
   async getTeam(teamId: string): Promise<PublicTeamData> {

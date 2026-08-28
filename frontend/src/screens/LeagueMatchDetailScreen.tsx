@@ -25,7 +25,9 @@ import { LeagueMatchScoreboard } from '../components/leagues/LeagueMatchScoreboa
 import { LeagueMatchTimeline } from '../components/leagues/LeagueMatchTimeline';
 import { LeagueMatchLineups } from '../components/leagues/LeagueMatchLineups';
 import { LeagueMatchStats } from '../components/leagues/LeagueMatchStats';
+import { BeaumarketProbabilityBar } from '../components/leagues/BeaumarketProbabilityBar';
 import { matchDisplayName } from '../components/leagues/TeamCrest';
+import { beaumarketService, BeaumarketMarket } from '../services/beaumarketService';
 import { EntityCommentBox } from '../components/EntityCommentBox';
 import { PostCard } from '../components/PostCard';
 
@@ -54,6 +56,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
   const [approvedEvents, setApprovedEvents] = useState<MatchEvent[]>([]);
   const [reportEvents, setReportEvents] = useState<MatchEvent[]>([]);
   const [comments, setComments] = useState<any[]>([]);
+  const [beaumarketMarket, setBeaumarketMarket] = useState<BeaumarketMarket | null>(null);
   const [now, setNow] = useState(Date.now());
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -79,6 +82,18 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
           if (matchRes.status === 'fulfilled') {
             matchRecord = matchRes.value;
             setMatch(matchRecord);
+            // Si la liga tiene el mercado automático habilitado (ver
+            // POST /api/liga/matches/accept en league.pb.js), el partido ya trae el id
+            // del mercado enlazado — se pide aparte porque vive en una colección con
+            // sus propias reglas de acceso (GET /api/beaumarket/markets).
+            if (matchRecord.beaumarketMarket) {
+              beaumarketService
+                .getMarketDetail(matchRecord.beaumarketMarket)
+                .then(setBeaumarketMarket)
+                .catch((err) => console.error('Error cargando mercado de Beaumarket del partido:', err));
+            } else {
+              setBeaumarketMarket(null);
+            }
           } else {
             console.error('Error cargando partido de liga:', matchRes.reason);
           }
@@ -315,6 +330,19 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
         }
         onPressArbitrate={() => navigation.push('LeagueMatchArbitrator', { matchId })}
       />
+
+      {beaumarketMarket && (
+        <BeaumarketProbabilityBar
+          prices={beaumarketMarket.prices}
+          winningOutcomeIndex={beaumarketMarket.winningOutcomeIndex}
+          status={beaumarketMarket.status}
+          onPress={
+            beaumarketMarket.status !== 'cancelled'
+              ? () => navigation.push('BeaumarketDetail', { marketId: beaumarketMarket.id, title: beaumarketMarket.title })
+              : undefined
+          }
+        />
+      )}
 
       {/* Si el partido ya se jugó (o está en vivo, con los eventos que lleve hasta
           ahora): Estadísticas, Cronología y Planteles en la misma vista */}
