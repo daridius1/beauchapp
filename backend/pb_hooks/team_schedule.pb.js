@@ -15,7 +15,7 @@ const validateAvailabilitySubmission = (e) => {
         throw new BadRequestError("No puedes enviar disponibilidad en nombre de otra cuenta.");
     }
 
-    const { windowBlockCodes, windowBlockRange, computeValidBlocks } = require(`${__hooks}/lib/teamSchedule.js`);
+    const { windowBlockCodes, windowBlockRange, computeValidBlocks, filterToBlocks } = require(`${__hooks}/lib/teamSchedule.js`);
     // Acotado a la ventana móvil: sin este rango se traían TODOS los partidos jugados
     // de la historia para calcular qué bloques de las próximas 3 semanas están libres.
     // El límite es el tamaño de la ventana porque no puede haber más bloques ocupados
@@ -45,18 +45,25 @@ const validateAvailabilitySubmission = (e) => {
     // pasar por getString()+JSON.parse() explícito (mismo bug encontrado y corregido
     // en polls.pb.js esta misma sesión).
     const happiness = JSON.parse(e.record.getString("happiness") || "{}");
-    const happinessKeys = Object.keys(happiness);
 
-    if (happinessKeys.length !== validBlocks.length || !validBlocks.every((b) => b in happiness)) {
-        throw new BadRequestError(
-            "Debes calificar exactamente los bloques disponibles de las próximas 3 semanas (sin contar los bloqueados por el administrador ni los ya ocupados por un partido), ni más ni menos."
-        );
-    }
-    for (const v of Object.values(happiness)) {
+    // Se acepta lo que el cliente mande, aunque no coincida exactamente con la ventana
+    // vigente en este preciso instante en el servidor — exigir completitud exacta
+    // rebotaba envíos legítimos de clientes con la página abierta desde antes de un
+    // cambio en el rango horario (ej. al sumar bloques nuevos), o simplemente con la
+    // pestaña abierta el tiempo suficiente para que la ventana móvil se corriera un
+    // día, o para que un bloque se bloqueara/ocupara mientras la tenían abierta.
+    // filterToBlocks() descarta en silencio lo que ya no es válido (fuera de ventana,
+    // bloqueado u ocupado); lo que falte del lado contrario (válido ahora pero ausente
+    // en lo que mandó el cliente) simplemente queda sin calificar — fillDefaultHappiness()
+    // ya trata cualquier bloque sin calificar como "Regular" al leerlo para el
+    // algoritmo, así que no hace falta exigir que venga completo.
+    const filteredHappiness = filterToBlocks(happiness, validBlocks);
+    for (const v of Object.values(filteredHappiness)) {
         if (!Number.isInteger(v) || v < 1 || v > 5) {
             throw new BadRequestError("Cada calificación debe ser un número entero entre 1 (muy mala) y 5 (excelente).");
         }
     }
+    e.record.set("happiness", JSON.stringify(filteredHappiness));
 
     return e.next();
 };
