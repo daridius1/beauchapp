@@ -83,7 +83,7 @@ interface ConfirmModalState {
 }
 
 export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { matchId } = route.params;
+  const { matchId, code: linkCode } = route.params;
   const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -291,6 +291,14 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
             }
           } catch (err) {
             await AsyncStorage.removeItem(codeStorageKey(matchId));
+            setNeedsCode(true);
+          }
+        } else if (linkCode && linkCode.trim().length === 6) {
+          // El código vino en el link de arbitraje (ver /admin/liga, "Link para
+          // arbitrar") — se entra directo, sin mostrar el formulario de código.
+          try {
+            await joinWithCode(linkCode);
+          } catch (err) {
             setNeedsCode(true);
           }
         } else {
@@ -512,17 +520,23 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
   const summary = summarizeEvents(events);
   const annotatedEvents = annotateEventsWithHalfTime(events);
 
+  // Extraído para reusarlo también cuando el código llega solo por el link de
+  // arbitraje (ver linkCode en loadInitial) — mismo flujo que tipearlo a mano.
+  const joinWithCode = async (rawCode: string) => {
+    const c = rawCode.trim().toUpperCase();
+    await leagueService.joinMatch(matchId, c);
+    setCode(c);
+    codeRef.current = c;
+    await AsyncStorage.setItem(codeStorageKey(matchId), c);
+    setNeedsCode(false);
+    await loadReportState(c);
+  };
+
   const handleJoin = async () => {
     if (codeInput.trim().length !== 6) return;
     setJoiningCode(true);
     try {
-      const c = codeInput.trim().toUpperCase();
-      await leagueService.joinMatch(matchId, c);
-      setCode(c);
-      codeRef.current = c;
-      await AsyncStorage.setItem(codeStorageKey(matchId), c);
-      setNeedsCode(false);
-      await loadReportState(c);
+      await joinWithCode(codeInput);
       Toast.show({ type: 'success', text1: 'Código verificado' });
     } catch (err: any) {
       Toast.show({ type: 'error', text1: 'Código incorrecto', text2: err?.data?.error || err?.message });

@@ -51,7 +51,7 @@ export type RootStackParamList = {
   LeaguesList: undefined;
   LeagueDetail: { leagueId: string; name?: string };
   LeagueMatchDetail: { matchId: string };
-  LeagueMatchArbitrator: { matchId: string };
+  LeagueMatchArbitrator: { matchId: string; code?: string };
   TeamProfile: { teamId: string };
   PublicLeagues: undefined;
   PublicLeague: { leagueId: string };

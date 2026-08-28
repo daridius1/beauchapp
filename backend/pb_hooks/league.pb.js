@@ -226,6 +226,10 @@ ${CALENDAR_CSS}
 
         <details class="card card-collapsible">
             <summary>Equipos de la liga</summary>
+            <p class="hint" style="margin-top:0;margin-bottom:10px;">
+                El contacto y la nota de dificultad de cada equipo son privados de esta
+                liga — nunca se muestran en su perfil ni a nadie más.
+            </p>
             <div id="rosterList"><p class="hint">Cargando...</p></div>
         </details>
 
@@ -268,6 +272,17 @@ ${CALENDAR_CSS}
             <div id="stageParticipantsList"><p class="hint">Cargando...</p></div>
         </details>
 
+        <details class="card card-collapsible" id="difficultySummaryCard">
+            <summary>Dificultad acumulada (solo tú la ves)</summary>
+            <p class="hint" style="margin-top:0;margin-bottom:12px;">
+                Cuánta dificultad de rival ha enfrentado cada equipo EN ESTA ETAPA — se
+                usa para que el algoritmo de sugerencia vaya emparejando rivales de nivel
+                parecido a lo largo del campeonato. Cargá la nota de dificultad (1-10) de
+                cada equipo desde "Equipos de la liga" para que esto tenga datos.
+            </p>
+            <div id="difficultySummaryList"><p class="hint">Cargando...</p></div>
+        </details>
+
         <div class="card">
             <h2 style="margin-top:0;">Agregar partidos</h2>
             <p class="hint">Elige los equipos de la liga que van a jugar y corre el algoritmo. Cada sugerencia se acepta o descarta individualmente.</p>
@@ -290,6 +305,10 @@ ${CALENDAR_CSS}
             <label style="display:flex; align-items:center; gap:6px; margin-top:14px; font-size:13px;">
                 <input type="checkbox" id="avoidRematchesCheck">
                 Evitar repetir rivales (agendados o ya jugados)
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; margin-top:6px; font-size:13px;">
+                <input type="checkbox" id="autoAssignRefereesCheck">
+                Asignar árbitros automáticamente (prioriza a quien menos ha arbitrado)
             </label>
             <button class="btn btn-sm" id="proposeBtn" style="margin-top:10px;" disabled>Sugerir partidos</button>
             <p class="hint" id="proposeHint" style="margin-top:6px;">Elige al menos un horario para poder sugerir partidos.</p>
@@ -321,6 +340,10 @@ ${CALENDAR_CSS}
                     <select id="manualHour"></select>
                 </div>
             </div>
+            <label style="display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:13px;">
+                <input type="checkbox" id="autoAssignRefereesManualCheck">
+                Asignar árbitros automáticamente (prioriza a quien menos ha arbitrado)
+            </label>
             <div class="alert alert-danger" id="manualScheduleError"></div>
             <button class="btn btn-sm" id="manualScheduleBtn">Agendar</button>
         </details>
@@ -707,6 +730,79 @@ ${SESSION_GATE_FN}
         const rosterList = document.getElementById("rosterList");
         let rosterTeams = [];
 
+        // Contacto privado (WhatsApp/Telegram/Instagram/Signal) y nota de dificultad
+        // (1-10) de un equipo YA en el roster — ver POST /api/liga/roster/team-details.
+        // Deliberadamente separado del perfil del equipo: la liga es la única dueña de
+        // este dato, nunca se expone a nadie más.
+        function renderTeamDetailsRow(t) {
+            const wrap = document.createElement("div");
+            wrap.style.cssText = "display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:0 0 12px 24px; margin-top:-4px; border-bottom:1px solid var(--border-color); font-size:12px;";
+
+            const typeSelect = document.createElement("select");
+            typeSelect.style.cssText = "width:auto; margin-bottom:0;";
+            [["", "Sin contacto"], ["whatsapp", "WhatsApp"], ["telegram", "Telegram"], ["instagram", "Instagram"], ["signal", "Signal"]]
+                .forEach(([value, text]) => {
+                    const opt = document.createElement("option");
+                    opt.value = value;
+                    opt.textContent = text;
+                    if (value === (t.contactType || "")) opt.selected = true;
+                    typeSelect.appendChild(opt);
+                });
+
+            const valueInput = document.createElement("input");
+            valueInput.type = "text";
+            valueInput.placeholder = "Número o usuario";
+            valueInput.value = t.contactValue || "";
+            valueInput.style.cssText = "width:140px; margin-bottom:0;";
+
+            const difficultyInput = document.createElement("input");
+            difficultyInput.type = "number";
+            difficultyInput.min = "1";
+            difficultyInput.max = "10";
+            difficultyInput.placeholder = "Dificultad 1-10";
+            difficultyInput.value = t.difficulty !== null && t.difficulty !== undefined ? t.difficulty : "";
+            difficultyInput.style.cssText = "width:120px; background:rgba(15,23,42,0.6); border:1px solid var(--border-color); border-radius:10px; padding:8px 10px; color:var(--text-color); font-size:12px;";
+
+            const errorEl = document.createElement("span");
+            errorEl.style.cssText = "color:var(--danger-color); display:none;";
+
+            const saveBtn = document.createElement("button");
+            saveBtn.type = "button";
+            saveBtn.className = "btn btn-sm";
+            saveBtn.style.marginTop = "0";
+            saveBtn.textContent = "Guardar";
+            saveBtn.addEventListener("click", async () => {
+                errorEl.style.display = "none";
+                const rawDiff = difficultyInput.value.trim();
+                if (rawDiff !== "" && (Number(rawDiff) < 1 || Number(rawDiff) > 10)) {
+                    errorEl.textContent = "La dificultad va de 1 a 10.";
+                    errorEl.style.display = "inline";
+                    return;
+                }
+                saveBtn.disabled = true;
+                try {
+                    await apiCall("/api/liga/roster/team-details", "POST", {
+                        teamId: t.id,
+                        contactType: typeSelect.value || null,
+                        contactValue: valueInput.value.trim(),
+                        difficulty: rawDiff === "" ? null : Number(rawDiff),
+                    });
+                    await loadRoster();
+                } catch (err) {
+                    errorEl.textContent = err.message;
+                    errorEl.style.display = "inline";
+                    saveBtn.disabled = false;
+                }
+            });
+
+            wrap.appendChild(typeSelect);
+            wrap.appendChild(valueInput);
+            wrap.appendChild(difficultyInput);
+            wrap.appendChild(saveBtn);
+            wrap.appendChild(errorEl);
+            return wrap;
+        }
+
         async function loadRoster() {
             hideError(panelError);
             rosterList.innerHTML = '<p class="hint">Cargando...</p>';
@@ -739,6 +835,7 @@ ${SESSION_GATE_FN}
                         finally { ev.target.disabled = false; }
                     });
                     rosterList.appendChild(row);
+                    if (myTeamIds.has(t.id)) rosterList.appendChild(renderTeamDetailsRow(t));
                 });
             } catch (err) { showError(currentError(), err.message); }
         }
@@ -905,6 +1002,7 @@ ${SESSION_GATE_FN}
             document.getElementById("leagueGridWrap").innerHTML = '<p class="hint">Cargando...</p>';
             loadCalendar();
             loadStageMatches();
+            loadDifficultySummary();
             window.scrollTo(0, 0);
         }
 
@@ -1023,6 +1121,7 @@ ${SESSION_GATE_FN}
             try {
                 await apiCall("/api/liga/matches/accept", "POST", {
                     stageId: activeStage.id, teamA, teamB, block: date + "-" + pad2(hour),
+                    autoAssignReferees: document.getElementById("autoAssignRefereesManualCheck").checked,
                 });
                 document.getElementById("manualScheduleCard").removeAttribute("open");
                 loadStageMatches();
@@ -1362,6 +1461,64 @@ ${SESSION_GATE_FN}
             return el;
         }
 
+        // Mismo patrón que codeChip, para un link que ya trae el código incluido —
+        // quien lo recibe entra directo a arbitrar sin tipear nada.
+        function linkChip(url) {
+            const el = document.createElement("span");
+            el.className = "fact";
+            el.appendChild(document.createTextNode("Link para arbitrar"));
+
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "copy-btn";
+            btn.title = "Copiar el link";
+            btn.textContent = "Copiar link";
+            btn.addEventListener("click", async () => {
+                try {
+                    await copyToClipboard(url);
+                    btn.textContent = "Copiado";
+                    btn.classList.add("copied");
+                } catch (err) {
+                    btn.textContent = "No se pudo";
+                }
+                setTimeout(() => {
+                    btn.textContent = "Copiar link";
+                    btn.classList.remove("copied");
+                }, 1600);
+            });
+            el.appendChild(btn);
+            return el;
+        }
+
+        // Botón que abre el contacto privado de un equipo (WhatsApp/Telegram/
+        // Instagram/Signal, cargado desde el roster) — null si no cargó ninguno. Mismas
+        // fórmulas que frontend/src/components/SocialButtonsRow.tsx, reimplementadas acá
+        // porque esta página no puede importar un componente de React Native.
+        function contactUrl(contact) {
+            if (!contact || !contact.type || !contact.value) return null;
+            const value = contact.value.trim();
+            if (contact.type === "whatsapp") return "https://wa.me/" + value.replace(/[^0-9]/g, "");
+            const handle = value.replace(/^@+/, "");
+            if (contact.type === "telegram") return "https://t.me/" + handle;
+            if (contact.type === "instagram") return "https://instagram.com/" + handle;
+            if (contact.type === "signal") return "https://signal.me/#p/" + handle;
+            return null;
+        }
+
+        const CONTACT_LABELS = { whatsapp: "WhatsApp", telegram: "Telegram", instagram: "Instagram", signal: "Signal" };
+
+        function teamContactButton(teamName, contact) {
+            const url = contactUrl(contact);
+            if (!url) return null;
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "btn btn-sm btn-secondary";
+            btn.style.marginTop = "6px";
+            btn.textContent = (CONTACT_LABELS[contact.type] || "Contacto") + ": " + teamName;
+            btn.addEventListener("click", () => window.open(url, "_blank"));
+            return btn;
+        }
+
         // Cabecera común de las dos listas: índice + equipos a la izquierda, chip a la
         // derecha. El índice es el mismo que se pinta en la celda del calendario.
         function matchCardHead(index, proposed, teams, chip) {
@@ -1464,6 +1621,7 @@ ${SESSION_GATE_FN}
                             stageId: activeStage.id,
                             teamA: m.teamA, teamB: m.teamB, block: m.block,
                             happinessA: m.happinessA, happinessB: m.happinessB, gap: m.gap,
+                            autoAssignReferees: document.getElementById("autoAssignRefereesCheck").checked,
                         });
                         delete proposedByBlock[m.block];
                         card.remove();
@@ -1486,6 +1644,78 @@ ${SESSION_GATE_FN}
             });
 
             renderLeagueGrid();
+        }
+
+        // 2 equipos árbitro por partido, de la misma etapa, siempre editable. Los
+        // candidatos son los participantes de la etapa que no juegan este partido —
+        // etiquetados con cuántos partidos ya arbitraron, para que el admin vea a
+        // simple vista a quién le toca antes de elegir.
+        function renderRefereeAssignment(m, refereeCounts) {
+            const wrap = document.createElement("div");
+            wrap.style.marginTop = "10px";
+
+            const label = document.createElement("div");
+            label.className = "hint";
+            label.style.marginBottom = "4px";
+            label.textContent = "Árbitros:";
+            wrap.appendChild(label);
+
+            const candidates = stageParticipants().filter((t) => t.id !== m.teamA && t.id !== m.teamB);
+
+            function buildSelect(selectedId) {
+                const select = document.createElement("select");
+                const noneOpt = document.createElement("option");
+                noneOpt.value = "";
+                noneOpt.textContent = "Sin asignar";
+                select.appendChild(noneOpt);
+                candidates.forEach((t) => {
+                    const opt = document.createElement("option");
+                    opt.value = t.id;
+                    opt.textContent = teamLabel(t) + " (arbitró " + (refereeCounts[t.id] || 0) + ")";
+                    if (t.id === selectedId) opt.selected = true;
+                    select.appendChild(opt);
+                });
+                return select;
+            }
+
+            const currentRefs = m.refereeTeams || [];
+            const selectA = buildSelect(currentRefs[0]);
+            const selectB = buildSelect(currentRefs[1]);
+            wrap.appendChild(selectA);
+            wrap.appendChild(selectB);
+
+            const errorEl = document.createElement("p");
+            errorEl.className = "hint";
+            errorEl.style.color = "var(--danger-color)";
+            errorEl.style.display = "none";
+            wrap.appendChild(errorEl);
+
+            const saveBtn = document.createElement("button");
+            saveBtn.type = "button";
+            saveBtn.className = "btn btn-sm";
+            saveBtn.style.marginTop = "6px";
+            saveBtn.textContent = "Guardar árbitros";
+            saveBtn.addEventListener("click", async () => {
+                errorEl.style.display = "none";
+                const ids = [selectA.value, selectB.value].filter(Boolean);
+                if (ids.length === 2 && ids[0] === ids[1]) {
+                    errorEl.textContent = "Los dos árbitros no pueden ser el mismo equipo.";
+                    errorEl.style.display = "block";
+                    return;
+                }
+                saveBtn.disabled = true;
+                try {
+                    await apiCall("/api/liga/matches/set-referees", "POST", { matchId: m.id, refereeTeamIds: ids });
+                    loadStageMatches();
+                } catch (err) {
+                    errorEl.textContent = err.message;
+                    errorEl.style.display = "block";
+                    saveBtn.disabled = false;
+                }
+            });
+            wrap.appendChild(saveBtn);
+
+            return wrap;
         }
 
         async function loadStageMatches() {
@@ -1530,10 +1760,23 @@ ${SESSION_GATE_FN}
                     facts.appendChild(factChip("Resultado:", (m.scoreA || 0) + " - " + (m.scoreB || 0)));
                 } else if (m.status === "confirmed") {
                     // El código es lo que habilita a arbitrar: es el dato que el admin
-                    // viene a buscar a esta lista.
+                    // viene a buscar a esta lista. El link ya lo trae incluido, para
+                    // compartir de una sola vez.
                     facts.appendChild(codeChip(m.code));
+                    if (m.arbitrateUrl) facts.appendChild(linkChip(m.arbitrateUrl));
                 }
                 if (facts.childNodes.length) card.appendChild(facts);
+
+                const contactsRow = document.createElement("div");
+                const contactBtnA = teamContactButton(m.teamAName, m.teamAContact);
+                const contactBtnB = teamContactButton(m.teamBName, m.teamBContact);
+                if (contactBtnA) contactsRow.appendChild(contactBtnA);
+                if (contactBtnB) contactsRow.appendChild(contactBtnB);
+                if (contactsRow.childNodes.length) card.appendChild(contactsRow);
+
+                if (m.status !== "cancelled") {
+                    card.appendChild(renderRefereeAssignment(m, data.refereeCounts || {}));
+                }
 
                 if (m.status === "confirmed" || m.status === "suspended") {
                     const actions = document.createElement("div");
@@ -1563,6 +1806,37 @@ ${SESSION_GATE_FN}
             });
 
             renderLeagueGrid();
+        }
+
+        // Dificultad acumulada de rivales, EN ESTA ETAPA (no toda la liga — cada etapa
+        // arranca el balance desde cero) — solo lectura, solo para este panel.
+        async function loadDifficultySummary() {
+            if (!activeStage) return;
+            const list = document.getElementById("difficultySummaryList");
+            list.innerHTML = '<p class="hint">Cargando...</p>';
+            let data;
+            try {
+                data = await apiCall("/api/liga/difficulty-summary?stageId=" + activeStage.id, "GET");
+            } catch (err) {
+                list.innerHTML = "";
+                showError(currentError(), err.message);
+                return;
+            }
+            list.innerHTML = "";
+            if (!data.teams.length) {
+                list.innerHTML = '<p class="hint">Esta etapa todavía no tiene participantes.</p>';
+                return;
+            }
+            data.teams.forEach((t) => {
+                const row = document.createElement("p");
+                row.style.cssText = "font-size:13px; margin-bottom:6px;";
+                const ownPart = t.ownDifficulty !== null ? " (nota propia: " + t.ownDifficulty + ")" : " (sin nota propia)";
+                const facedPart = t.matchesCount
+                    ? t.facedTotal + " en " + t.matchesCount + " partido" + (t.matchesCount === 1 ? "" : "s") + " — promedio " + t.average.toFixed(1)
+                    : "sin partidos con dificultad conocida todavía";
+                row.textContent = t.teamName + ownPart + ": " + facedPart;
+                list.appendChild(row);
+            });
         }
 
         // --- Cargar partido jugado (retroactivo) ---
@@ -1964,9 +2238,27 @@ routerAdd("GET", "/api/liga/roster", (e) => {
         }
         const allTeams = $app.findRecordsByFilter("users", "type = 'organization' && subtype = 'team'", "name", 500, 0);
         const myRows = $app.findRecordsByFilter("league_teams", "league = {:league} && deleted = false", "", 0, 0, { league: e.auth.id });
+        const myTeamIds = new Set(myRows.map((r) => r.getString("team")));
+        // Contacto y dificultad son detalles PRIVADOS de administración de esta liga
+        // (viven en league_teams, nunca en users) — solo tiene sentido incluirlos para
+        // equipos que ya están en el roster; para el resto (candidatos a agregar) alcanza
+        // con la identidad básica.
+        const detailsByTeam = {};
+        myRows.forEach((r) => {
+            const difficulty = r.get("difficulty");
+            detailsByTeam[r.getString("team")] = {
+                contactType: r.getString("contactType") || null,
+                contactValue: r.getString("contactValue") || "",
+                difficulty: difficulty !== null && difficulty !== undefined && difficulty !== "" ? Number(difficulty) : null,
+            };
+        });
         return e.json(200, {
-            allTeams: allTeams.map((t) => ({ id: t.id, name: t.getString("name"), username: t.getString("username") })),
-            myTeamIds: myRows.map((r) => r.getString("team")),
+            allTeams: allTeams.map((t) => {
+                const base = { id: t.id, name: t.getString("name"), username: t.getString("username") };
+                if (myTeamIds.has(t.id)) Object.assign(base, detailsByTeam[t.id]);
+                return base;
+            }),
+            myTeamIds: Array.from(myTeamIds),
         });
     } catch (err) {
         console.error("[league.pb.js] Error en GET /api/liga/roster:", err);
@@ -2023,6 +2315,61 @@ routerAdd("POST", "/api/liga/roster/toggle", (e) => {
     } catch (err) {
         console.error("[league.pb.js] Error en POST /api/liga/roster/toggle:", err);
         return e.json(400, { error: (err && err.message) || "No se pudo actualizar el roster." });
+    }
+}, $apis.requireAuth("users"));
+
+// Contacto privado de administración (nunca el perfil social del equipo, ver la
+// migración 1788000000) y nota de dificultad (1-10, para el balance del algoritmo de
+// sugerencia) — ambos viven en la fila de league_teams de ESTA liga, nunca en `users`.
+routerAdd("POST", "/api/liga/roster/team-details", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        const body = e.requestInfo().body || {};
+        const teamId = String(body.teamId || "");
+        if (!teamId) throw new BadRequestError("Falta teamId.");
+
+        let rosterRow;
+        try {
+            rosterRow = $app.findFirstRecordByFilter(
+                "league_teams", "league = {:league} && team = {:team} && deleted = false",
+                { league: e.auth.id, team: teamId }
+            );
+        } catch (err) {
+            throw new BadRequestError("Ese equipo no pertenece a tu liga.");
+        }
+
+        if (Object.prototype.hasOwnProperty.call(body, "difficulty")) {
+            const raw = body.difficulty;
+            if (raw === null || raw === "") {
+                rosterRow.set("difficulty", null);
+            } else {
+                const n = Number(raw);
+                if (!Number.isFinite(n) || n < 1 || n > 10) {
+                    throw new BadRequestError("La dificultad debe ser un número entre 1 y 10.");
+                }
+                rosterRow.set("difficulty", Math.round(n));
+            }
+        }
+
+        const VALID_CONTACT_TYPES = ["whatsapp", "telegram", "instagram", "signal"];
+        if (Object.prototype.hasOwnProperty.call(body, "contactType")) {
+            const t = body.contactType === null ? "" : String(body.contactType || "");
+            if (t && !VALID_CONTACT_TYPES.includes(t)) {
+                throw new BadRequestError("Tipo de contacto inválido.");
+            }
+            rosterRow.set("contactType", t);
+        }
+        if (Object.prototype.hasOwnProperty.call(body, "contactValue")) {
+            rosterRow.set("contactValue", String(body.contactValue || ""));
+        }
+
+        $app.save(rosterRow);
+        return e.json(200, { success: true });
+    } catch (err) {
+        console.error("[league.pb.js] Error en POST /api/liga/roster/team-details:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo guardar." });
     }
 }, $apis.requireAuth("users"));
 
@@ -2374,24 +2721,78 @@ routerAdd("GET", "/api/liga/matches", (e) => {
             }
         }
 
+        // Contacto privado de administración de un equipo (nunca el perfil social,
+        // ver migración 1788000000) — null si no cargó ninguno.
+        function teamContact(teamId) {
+            try {
+                const row = $app.findFirstRecordByFilter(
+                    "league_teams", "league = {:league} && team = {:team} && deleted = false",
+                    { league: e.auth.id, team: teamId }
+                );
+                const type = row.getString("contactType");
+                const value = row.getString("contactValue");
+                if (!type || !value) return null;
+                return { type, value };
+            } catch (err) {
+                return null;
+            }
+        }
+
+        // Cuántos partidos ha arbitrado cada equipo hasta ahora — una sola consulta +
+        // tally en JS (mismo patrón que ya usa avoidRematches con pairKey), no un
+        // contador guardado: así una reasignación de árbitro nunca puede desincronizarse.
+        // status != 'cancelled' incluye confirmed/played/suspended — un partido
+        // suspendido sigue comprometido, solo está pausado.
+        function computeRefereeCounts() {
+            const rows = $app.findRecordsByFilter(
+                "league_matches", "league = {:league} && deleted = false && status != 'cancelled'",
+                "", 0, 0, { league: e.auth.id }
+            );
+            const counts = {};
+            rows.forEach((m) => (m.get("refereeTeams") || []).forEach((id) => { counts[id] = (counts[id] || 0) + 1; }));
+            return counts;
+        }
+        const refereeCounts = computeRefereeCounts();
+
+        // URL base de la app — mismo patrón que auth.pb.js: variable de entorno si está
+        // configurada, si no se deriva del propio request (funciona en local sin nada
+        // que configurar).
+        const envAppUrl = $os.getenv("APP_URL") || $os.getenv("SITE_URL");
+        const host = e.requestInfo().headers["host"] || "localhost:8090";
+        const protocol = e.requestInfo().headers["x-forwarded-proto"] || "http";
+        const baseUrl = envAppUrl ? envAppUrl.replace(/\/$/, "") : `${protocol}://${host}`;
+
         // Ordenados por bloque (no por creación): el índice de cada partido en esta
         // lista es el que se pinta en la celda del calendario, así que numerarlos en
         // orden cronológico es lo que hace que ambos se lean juntos.
         const matches = $app.findRecordsByFilter("league_matches", "stage = {:stage} && deleted = false", "blockCode", 0, 0, { stage: stageId });
         return e.json(200, {
-            matches: matches.map((m) => ({
-                id: m.id,
-                teamA: m.getString("teamA"),
-                teamB: m.getString("teamB"),
-                teamAName: teamDisplay(m.getString("teamA")),
-                teamBName: teamDisplay(m.getString("teamB")),
-                blockCode: m.getString("blockCode"),
-                status: m.getString("status"),
-                scoreA: m.getInt("scoreA"),
-                scoreB: m.getInt("scoreB"),
-                code: m.getString("code"),
-                reportStatus: reportStatusFor(m.id),
-            })),
+            refereeCounts,
+            matches: matches.map((m) => {
+                const teamA = m.getString("teamA");
+                const teamB = m.getString("teamB");
+                const refereeTeams = m.get("refereeTeams") || [];
+                return {
+                    id: m.id,
+                    teamA,
+                    teamB,
+                    teamAName: teamDisplay(teamA),
+                    teamBName: teamDisplay(teamB),
+                    teamAContact: teamContact(teamA),
+                    teamBContact: teamContact(teamB),
+                    blockCode: m.getString("blockCode"),
+                    status: m.getString("status"),
+                    scoreA: m.getInt("scoreA"),
+                    scoreB: m.getInt("scoreB"),
+                    code: m.getString("code"),
+                    arbitrateUrl: m.getString("status") === "confirmed"
+                        ? `${baseUrl}/partidos/${m.id}/arbitrar?code=${m.getString("code")}`
+                        : null,
+                    refereeTeams,
+                    refereeTeamNames: refereeTeams.map(teamDisplay),
+                    reportStatus: reportStatusFor(m.id),
+                };
+            }),
         });
     } catch (err) {
         console.error("[league.pb.js] Error en GET /api/liga/matches:", err);
@@ -2483,6 +2884,156 @@ routerAdd("POST", "/api/liga/matches/reactivate", (e) => {
     }
 }, $apis.requireAuth("users"));
 
+// Equipo(s) árbitro asignados a un partido — siempre se puede modificar, sin importar
+// el estado del partido. Distinto de match_reports.refereeId (quién efectivamente
+// corre el reloj EN VIVO con el código de arbitraje) — este es el compromiso
+// organizativo asignado de antemano por la liga, ver migración 1788000000.
+routerAdd("POST", "/api/liga/matches/set-referees", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        const body = e.requestInfo().body || {};
+        const matchId = String(body.matchId || "");
+        const refereeTeamIds = Array.isArray(body.refereeTeamIds) ? body.refereeTeamIds.map(String).filter(Boolean) : [];
+        if (!matchId) throw new BadRequestError("Falta matchId.");
+        if (refereeTeamIds.length > 2) throw new BadRequestError("Como máximo 2 equipos árbitro.");
+        if (new Set(refereeTeamIds).size !== refereeTeamIds.length) {
+            throw new BadRequestError("Los equipos árbitro no pueden repetirse.");
+        }
+
+        let match;
+        try {
+            match = $app.findRecordById("league_matches", matchId);
+        } catch (err) {
+            throw new BadRequestError("El partido indicado no existe.");
+        }
+        if (match.getString("league") !== e.auth.id) {
+            throw new BadRequestError("Ese partido no pertenece a tu liga.");
+        }
+
+        const teamA = match.getString("teamA");
+        const teamB = match.getString("teamB");
+        if (refereeTeamIds.includes(teamA) || refereeTeamIds.includes(teamB)) {
+            throw new BadRequestError("Un equipo no puede arbitrar su propio partido.");
+        }
+
+        if (refereeTeamIds.length) {
+            const rosterRows = $app.findRecordsByFilter(
+                "league_teams", "league = {:league} && deleted = false", "", 0, 0, { league: e.auth.id }
+            );
+            const rosterSet = new Set(rosterRows.map((r) => r.getString("team")));
+            if (!refereeTeamIds.every((id) => rosterSet.has(id))) {
+                throw new BadRequestError("Los equipos árbitro deben pertenecer a tu liga.");
+            }
+
+            // "de la MISMA etapa del partido": si la etapa define participantes, los
+            // árbitros tienen que estar entre ellos.
+            let stageTeams = [];
+            try {
+                stageTeams = ($app.findRecordById("league_stages", match.getString("stage")).get("teams") || []).map(String);
+            } catch (err) {
+                stageTeams = [];
+            }
+            if (stageTeams.length > 0 && !refereeTeamIds.every((id) => stageTeams.includes(id))) {
+                throw new BadRequestError("Los equipos árbitro deben participar de la misma etapa del partido.");
+            }
+        }
+
+        match.set("refereeTeams", refereeTeamIds);
+        $app.save(match);
+
+        return e.json(200, { success: true });
+    } catch (err) {
+        console.error("[league.pb.js] Error en POST /api/liga/matches/set-referees:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudieron guardar los árbitros." });
+    }
+}, $apis.requireAuth("users"));
+
+// Solo lectura, solo admin: dificultad acumulada de RIVALES que le han tocado a cada
+// equipo, en ESTA etapa (no toda la liga — así lo confirmó el usuario explícitamente:
+// cada etapa arranca el balance desde cero). Alimenta la misma noción que usa el
+// algoritmo de sugerencia (ver POST /api/liga/matches/propose) para poder mostrarle al
+// admin, en la misma pantalla, por qué el algoritmo prioriza como prioriza.
+routerAdd("GET", "/api/liga/difficulty-summary", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        const stageId = String(e.requestInfo().query.stageId || "");
+        if (!stageId) throw new BadRequestError("Falta stageId.");
+
+        let stage;
+        try {
+            stage = $app.findRecordById("league_stages", stageId);
+        } catch (err) {
+            throw new BadRequestError("La etapa indicada no existe.");
+        }
+        if (stage.getString("league") !== e.auth.id) {
+            throw new BadRequestError("Esa etapa no pertenece a tu liga.");
+        }
+
+        function teamDisplay(teamId) {
+            try {
+                const team = $app.findRecordById("users", teamId);
+                return team.getString("name") || team.getString("username") || teamId;
+            } catch (err) {
+                return teamId;
+            }
+        }
+
+        const rosterRows = $app.findRecordsByFilter(
+            "league_teams", "league = {:league} && deleted = false", "", 0, 0, { league: e.auth.id }
+        );
+        const difficultyByTeam = {};
+        rosterRows.forEach((r) => {
+            const d = r.get("difficulty");
+            if (d !== null && d !== undefined && d !== "") difficultyByTeam[r.getString("team")] = Number(d);
+        });
+
+        const stageTeams = (stage.get("teams") || []).map(String);
+        const participantIds = stageTeams.length ? stageTeams : rosterRows.map((r) => r.getString("team"));
+
+        // status != 'cancelled': un partido cancelado nunca ocurrió, no debe pesar en
+        // el balance ni en el conteo — confirmado explícitamente con el usuario.
+        const stageMatches = $app.findRecordsByFilter(
+            "league_matches", "stage = {:stage} && deleted = false && status != 'cancelled'",
+            "", 0, 0, { stage: stageId }
+        );
+        const summary = {};
+        participantIds.forEach((id) => { summary[id] = { totalFaced: 0, matchesCount: 0 }; });
+        stageMatches.forEach((m) => {
+            const a = m.getString("teamA");
+            const b = m.getString("teamB");
+            if (difficultyByTeam[b] !== undefined && summary[a]) {
+                summary[a].totalFaced += difficultyByTeam[b];
+                summary[a].matchesCount += 1;
+            }
+            if (difficultyByTeam[a] !== undefined && summary[b]) {
+                summary[b].totalFaced += difficultyByTeam[a];
+                summary[b].matchesCount += 1;
+            }
+        });
+
+        return e.json(200, {
+            teams: participantIds.map((id) => {
+                const s = summary[id];
+                return {
+                    teamId: id,
+                    teamName: teamDisplay(id),
+                    ownDifficulty: difficultyByTeam[id] !== undefined ? difficultyByTeam[id] : null,
+                    facedTotal: s.totalFaced,
+                    matchesCount: s.matchesCount,
+                    average: s.matchesCount ? s.totalFaced / s.matchesCount : null,
+                };
+            }),
+        });
+    } catch (err) {
+        console.error("[league.pb.js] Error en GET /api/liga/difficulty-summary:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo calcular el resumen de dificultad." });
+    }
+}, $apis.requireAuth("users"));
+
 // teamDisplay/loadValidBlocks/loadMatchInputs se definen DENTRO de cada routerAdd que
 // las usa — ver la nota equivalente en team_schedule.pb.js sobre por qué una función
 // top-level de este archivo no se puede llamar de forma confiable desde el closure de
@@ -2499,6 +3050,7 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
             computeValidBlocks,
             fillDefaultHappiness,
             DEFAULT_HAPPINESS_LEVEL,
+            DEFAULT_TEMPERATURE,
             suggestByeTeam,
             proposeMatches,
             pairKey,
@@ -2642,7 +3194,40 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
             );
         }
 
-        const result = proposeMatches(teamIds, happinessByTeam, excludedPairs);
+        // Balance de dificultad: cuánta dificultad de rival ha enfrentado cada equipo
+        // hasta ahora, EN ESTA ETAPA (cada etapa arranca el balance desde cero — así lo
+        // pidió el usuario explícitamente). Un equipo sin nota de dificultad no
+        // participa del criterio (ver difficultyBalanceGain). status != 'cancelled':
+        // un partido cancelado nunca ocurrió, no pesa en el balance.
+        const difficultyByTeam = {};
+        rosterRows.forEach((r) => {
+            const d = r.get("difficulty");
+            if (d !== null && d !== undefined && d !== "") difficultyByTeam[r.getString("team")] = Number(d);
+        });
+        const stageMatchesForDifficulty = $app.findRecordsByFilter(
+            "league_matches", "stage = {:stage} && deleted = false && status != 'cancelled'",
+            "", 0, 0, { stage: stageId }
+        );
+        const facedByTeam = {};
+        function addFaced(teamId, opponentDifficulty) {
+            if (opponentDifficulty === undefined) return;
+            if (!facedByTeam[teamId]) facedByTeam[teamId] = { totalFaced: 0, matchesCount: 0 };
+            facedByTeam[teamId].totalFaced += opponentDifficulty;
+            facedByTeam[teamId].matchesCount += 1;
+        }
+        stageMatchesForDifficulty.forEach((m) => {
+            const a = m.getString("teamA");
+            const b = m.getString("teamB");
+            if (difficultyByTeam[b] !== undefined) addFaced(a, difficultyByTeam[b]);
+            if (difficultyByTeam[a] !== undefined) addFaced(b, difficultyByTeam[a]);
+        });
+        const batchDifficulties = teamIds.map((id) => difficultyByTeam[id]).filter((d) => d !== undefined);
+        const targetAvg = batchDifficulties.length
+            ? batchDifficulties.reduce((s, d) => s + d, 0) / batchDifficulties.length
+            : 0;
+        const difficultyContext = { difficultyByTeam, facedByTeam, targetAvg, temperature: DEFAULT_TEMPERATURE };
+
+        const result = proposeMatches(teamIds, happinessByTeam, excludedPairs, difficultyContext);
         if (result.infeasible) {
             return e.json(200, { infeasible: true, byeTeamId: byeTeamId || null });
         }
@@ -2684,6 +3269,7 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
         const happinessA = Number.isFinite(body.happinessA) ? body.happinessA : null;
         const happinessB = Number.isFinite(body.happinessB) ? body.happinessB : null;
         const gap = Number.isFinite(body.gap) ? body.gap : null;
+        const autoAssignReferees = !!body.autoAssignReferees;
 
         if (!stageId || !teamA || !teamB || !block) {
             throw new BadRequestError("Faltan datos del partido.");
@@ -2790,6 +3376,23 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
             market.set("pool", JSON.stringify([0, 0, 0]));
             $app.save(market);
             record.set("beaumarketMarket", market.id);
+        }
+
+        // Árbitros automáticos: entre los participantes de la etapa (o todo el roster
+        // si la etapa no define participantes) que no sean los dos que juegan, elige
+        // los 2 que menos han arbitrado hasta ahora. status != 'cancelled': un partido
+        // cancelado no cuenta.
+        if (autoAssignReferees) {
+            const { pickLeastBusyReferees } = require(`${__hooks}/lib/refereeAssignment.js`);
+            const candidatePool = stageTeams.length ? stageTeams : Array.from(rosterSet);
+            const refRows = $app.findRecordsByFilter(
+                "league_matches", "league = {:league} && deleted = false && status != 'cancelled'",
+                "", 0, 0, { league: e.auth.id }
+            );
+            const countByTeam = {};
+            refRows.forEach((m) => (m.get("refereeTeams") || []).forEach((id) => { countByTeam[id] = (countByTeam[id] || 0) + 1; }));
+            const chosen = pickLeastBusyReferees(candidatePool, countByTeam, [teamA, teamB]);
+            if (chosen.length) record.set("refereeTeams", chosen);
         }
 
         $app.save(record);

@@ -14,6 +14,7 @@ const {
     maxWeightMatching,
     suggestByeTeam,
     proposeMatches,
+    difficultyBalanceGain,
 } = require("../teamSchedule.js");
 
 test("startOfWeek: devuelve el lunes de la semana, sin importar qué día de la semana se pase", () => {
@@ -28,13 +29,13 @@ test("startOfWeek: devuelve el lunes de la semana, sin importar qué día de la 
     assert.equal(sunday.getDate(), 10);
 });
 
-test("windowBlockCodes: 3 semanas x 5 días (lun-vie) x 11 horas (9 a 19) = 165 bloques, sin sábado ni domingo", () => {
+test("windowBlockCodes: 3 semanas x 5 días (lun-vie) x 13 horas (8 a 20) = 195 bloques, sin sábado ni domingo", () => {
     const codes = windowBlockCodes(new Date(2026, 7, 19), 3);
-    assert.equal(codes.length, 165);
-    assert.equal(codes[0], "2026-08-17-09"); // lunes
-    assert.equal(codes[10], "2026-08-17-19");
-    assert.equal(codes[11], "2026-08-18-09"); // martes
-    assert.equal(codes[codes.length - 1], "2026-09-04-19"); // viernes de la 3ra semana
+    assert.equal(codes.length, 195);
+    assert.equal(codes[0], "2026-08-17-08"); // lunes
+    assert.equal(codes[12], "2026-08-17-20");
+    assert.equal(codes[13], "2026-08-18-08"); // martes
+    assert.equal(codes[codes.length - 1], "2026-09-04-20"); // viernes de la 3ra semana
 
     // Ningún bloque cae en sábado (2026-08-22) ni domingo (2026-08-23) de la 1ra semana.
     assert.ok(!codes.some((c) => c.startsWith("2026-08-22")));
@@ -295,4 +296,85 @@ test("windowBlockRange: un bloque anterior o posterior a la ventana queda fuera 
     const { from, to } = windowBlockRange(ref);
     assert.ok(!("2020-01-01-12" >= from && "2020-01-01-12" <= to));
     assert.ok(!("2099-01-01-12" >= from && "2099-01-01-12" <= to));
+});
+
+// --- Balance de dificultad (difficultyBalanceGain / buildEdges / proposeMatches) ---
+
+test("difficultyBalanceGain: sin nota de dificultad para alguno de los dos, da 0 (neutro)", () => {
+    assert.equal(difficultyBalanceGain(null, { totalFaced: 0, matchesCount: 0 }, 8, { totalFaced: 0, matchesCount: 0 }, 5), 0);
+    assert.equal(difficultyBalanceGain(8, { totalFaced: 0, matchesCount: 0 }, undefined, { totalFaced: 0, matchesCount: 0 }, 5), 0);
+});
+
+test("difficultyBalanceGain: mejora el balance cuando el rival nuevo acerca a ambos a su promedio esperado", () => {
+    // A ya enfrentó rivales fáciles (imbalance -5, "necesita" un rival difícil ahora).
+    // B tiene nota 9 (difícil) — emparejarlos acerca a A hacia 0.
+    const facedA = { totalFaced: 0, matchesCount: 1 }; // imbalance = 0 - 1*5 = -5
+    const facedB = { totalFaced: 0, matchesCount: 0 }; // sin historial, imbalance 0
+    const gain = difficultyBalanceGain(3, facedA, 9, facedB, 5);
+    assert.ok(gain > 0, `se esperaba gain positivo, dio ${gain}`);
+});
+
+test("difficultyBalanceGain: empeora el balance cuando el rival nuevo aleja a ambos de su promedio esperado", () => {
+    // A ya enfrentó rivales difíciles (imbalance +5, "necesita" un rival fácil ahora),
+    // pero B también tiene nota alta (9) — el emparejamiento lo aleja más de 0.
+    const facedA = { totalFaced: 10, matchesCount: 1 }; // imbalance = 10 - 1*5 = +5
+    const facedB = { totalFaced: 0, matchesCount: 0 };
+    const gain = difficultyBalanceGain(3, facedA, 9, facedB, 5);
+    assert.ok(gain < 0, `se esperaba gain negativo, dio ${gain}`);
+});
+
+test("buildEdges/proposeMatches: sin difficultyContext (u omitido/undefined), el resultado es IDÉNTICO al de siempre", () => {
+    const edgesSinContexto = buildEdges(FOUR_TEAMS, FOUR_TEAM_HAPPINESS);
+    const edgesConUndefined = buildEdges(FOUR_TEAMS, FOUR_TEAM_HAPPINESS, null, undefined);
+    assert.deepEqual(edgesSinContexto, edgesConUndefined);
+
+    const result = proposeMatches(FOUR_TEAMS, FOUR_TEAM_HAPPINESS, null, undefined);
+    assert.equal(result.threshold, 0);
+    assert.equal(result.totalScore, 4);
+    const pairsAsNames = result.matches
+        .map((m) => [m.teamA, m.teamB].sort())
+        .sort((a, b) => a[0].localeCompare(b[0]));
+    assert.deepEqual(pairsAsNames, [["T1", "T2"], ["T3", "T4"]]);
+});
+
+test("proposeMatches: con difficultyContext, el criterio de dificultad puede cambiar el emparejamiento elegido", () => {
+    // Los 4 equipos comparten un único bloque con la MISMA nota — así la felicidad da
+    // exactamente el mismo score (1.0) para CUALQUIER par posible, y el único criterio
+    // que puede desempatar es la dificultad. Temperatura en 0 para que el test sea
+    // determinista (sin aleatoriedad).
+    const teams = ["T1", "T2", "T3", "T4"];
+    const flatHappiness = {
+        T1: { "2026-08-17-09": 3 },
+        T2: { "2026-08-17-09": 3 },
+        T3: { "2026-08-17-09": 3 },
+        T4: { "2026-08-17-09": 3 },
+    };
+
+    // Sin dificultad: el DP resuelve el empate por orden natural, T1-T2 + T3-T4.
+    const baseline = proposeMatches(teams, flatHappiness);
+    const baselinePairs = baseline.matches
+        .map((m) => [m.teamA, m.teamB].sort())
+        .sort((a, b) => a[0].localeCompare(b[0]));
+    assert.deepEqual(baselinePairs, [["T1", "T2"], ["T3", "T4"]]);
+
+    // T1 y T3 ya enfrentaron rivales flojos (imbalance -5, "necesitan" un rival duro);
+    // T2 y T4 ya enfrentaron rivales duros (imbalance +5, "necesitan" uno flojo). T1 y
+    // T3 tienen nota 9 (duros); T2 y T4 tienen nota 1 (fáciles) — emparejar T1-T3 y
+    // T2-T4 mejora el balance de los 4 a la vez; T1-T2 y T3-T4 lo empeora de los 4.
+    const difficultyContext = {
+        difficultyByTeam: { T1: 9, T2: 1, T3: 9, T4: 1 },
+        facedByTeam: {
+            T1: { totalFaced: 0, matchesCount: 1 },
+            T2: { totalFaced: 10, matchesCount: 1 },
+            T3: { totalFaced: 0, matchesCount: 1 },
+            T4: { totalFaced: 10, matchesCount: 1 },
+        },
+        targetAvg: 5,
+        temperature: 0,
+    };
+    const withDifficulty = proposeMatches(teams, flatHappiness, null, difficultyContext);
+    const withDifficultyPairs = withDifficulty.matches
+        .map((m) => [m.teamA, m.teamB].sort())
+        .sort((a, b) => a[0].localeCompare(b[0]));
+    assert.deepEqual(withDifficultyPairs, [["T1", "T3"], ["T2", "T4"]]);
 });

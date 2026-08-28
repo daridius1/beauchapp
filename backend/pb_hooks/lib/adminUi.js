@@ -94,8 +94,8 @@ function clientSessionGateFn() {
 // Constantes de la ventana horaria, compartidas con lib/teamSchedule.js (que es quien
 // manda en el servidor). Se repiten acá porque estas páginas corren en el navegador y
 // no pueden requerir el módulo del backend.
-const SCHEDULE_START_HOUR = 9;
-const SCHEDULE_END_HOUR = 19;
+const SCHEDULE_START_HOUR = 8;
+const SCHEDULE_END_HOUR = 20;
 const SCHEDULE_WEEKS_WINDOW = 3;
 
 // Helpers de calendario para el <script> de una página de administración, como fuente.

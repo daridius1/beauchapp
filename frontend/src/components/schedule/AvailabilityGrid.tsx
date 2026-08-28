@@ -3,8 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 
-export const START_HOUR = 9;
-export const END_HOUR = 19;
+export const START_HOUR = 8;
+export const END_HOUR = 20;
 const WEEKS_WINDOW = 3;
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie']; // sin sábado ni domingo

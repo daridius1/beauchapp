@@ -3,8 +3,8 @@
 // y, dentro de eso, maximiza la felicidad total. Sin $app — testeado en
 // __tests__/teamSchedule.test.js.
 
-const START_HOUR = 9;
-const END_HOUR = 19; // último bloque: 19:00-20:00
+const START_HOUR = 8;
+const END_HOUR = 20; // último bloque: 20:00-21:00
 const DAYS_PER_WEEK = 7; // largo real de una semana calendario, para el offset entre semanas
 const WEEKDAYS_PER_WEEK = 5; // lunes a viernes — sábado/domingo quedan fuera de horarios
 const WEEKS_WINDOW = 3; // semana actual + 2 más
@@ -166,10 +166,50 @@ function pairKey(teamIdA, teamIdB) {
     return teamIdA < teamIdB ? `${teamIdA}|${teamIdB}` : `${teamIdB}|${teamIdA}`;
 }
 
+// score de felicidad normalizada ∈ [0,2] (computePairEdge: a+b con a,b∈[0,1]). Con este
+// peso, un gain típico de difficultyBalanceGain (unas pocas unidades) pesa parecido a
+// la diferencia entre un horario bueno y uno regular, sin poder tapar por sí solo una
+// diferencia grande de felicidad — la justicia de horario sigue siendo la prioridad.
+const DIFFICULTY_WEIGHT = 0.25;
+// Math.random()-0.5 ∈ [-0.5,0.5]; con este factor el aporte de temperatura queda en
+// ±0.15 — variedad perceptible entre corridas sucesivas de "Sugerir partidos" sin
+// dominar sobre felicidad ni dificultad.
+const DEFAULT_TEMPERATURE = 0.3;
+
+// Cuánto por ENCIMA (+) o por DEBAJO (-) del promedio esperado quedó la dificultad
+// acumulada de los rivales que le tocaron a un equipo hasta ahora. `faced` es
+// {totalFaced, matchesCount} — sin partidos previos, 0 (ni a favor ni en contra).
+function imbalance(faced, targetAvg) {
+    if (!faced || !faced.matchesCount) return 0;
+    return faced.totalFaced - faced.matchesCount * targetAvg;
+}
+
+// Cuánto MEJORA (+) o EMPEORA (-) el balance de dificultad si A y B se enfrentan.
+// Un equipo con imbalance negativo (rivales más fáciles que el promedio hasta ahora)
+// se beneficia de un rival con dificultad alta, y viceversa — el gain es positivo
+// cuando el emparejamiento acerca a AMBOS a su promedio esperado, negativo cuando los
+// aleja. Sin nota de dificultad para alguno de los dos (null/undefined), no hay
+// ninguna señal que usar: 0, neutro.
+function difficultyBalanceGain(difficultyA, facedA, difficultyB, facedB, targetAvg) {
+    if (difficultyA == null || difficultyB == null) return 0;
+    const imbA = imbalance(facedA, targetAvg);
+    const imbB = imbalance(facedB, targetAvg);
+    const newImbA = imbA + (difficultyB - targetAvg);
+    const newImbB = imbB + (difficultyA - targetAvg);
+    return (Math.abs(imbA) - Math.abs(newImbA)) + (Math.abs(imbB) - Math.abs(newImbB));
+}
+
 // edges[i][j] (i<j) = computePairEdge(equipo i, equipo j) | null, para cada índice
 // en el arreglo `teams`. `excludedPairs` (Set de pairKey) fuerza esos pares a null —
 // mismo tratamiento que un par sin ningún bloque en común (infactible para el matching).
-function buildEdges(teams, happinessByTeam, excludedPairs) {
+//
+// `difficultyContext` es OPCIONAL y retrocompatible: sin él, el comportamiento es
+// idéntico al de siempre (nada de dificultad ni de temperatura). Con él —
+// { difficultyByTeam, facedByTeam, targetAvg, temperature } — enriquece SOLO el
+// `score` de cada edge (la fase de optimización), nunca el `gap` (la fase de
+// justicia de horario): nadie debe quedar con un horario injustamente malo solo por
+// mejorar el balance de dificultad.
+function buildEdges(teams, happinessByTeam, excludedPairs, difficultyContext) {
     const normalized = teams.map((t) => normalizeTeamHappiness((happinessByTeam || {})[t] || {}));
     const n = teams.length;
     const edges = {};
@@ -178,9 +218,23 @@ function buildEdges(teams, happinessByTeam, excludedPairs) {
         for (let j = i + 1; j < n; j++) {
             if (excludedPairs && excludedPairs.has(pairKey(teams[i], teams[j]))) {
                 edges[i][j] = null;
-            } else {
-                edges[i][j] = computePairEdge(normalized[i], normalized[j]);
+                continue;
             }
+            const edge = computePairEdge(normalized[i], normalized[j]);
+            if (edge && difficultyContext) {
+                const dc = difficultyContext;
+                const dByTeam = dc.difficultyByTeam || {};
+                const fByTeam = dc.facedByTeam || {};
+                const gain = difficultyBalanceGain(
+                    dByTeam[teams[i]],
+                    fByTeam[teams[i]],
+                    dByTeam[teams[j]],
+                    fByTeam[teams[j]],
+                    dc.targetAvg || 0
+                );
+                edge.score += DIFFICULTY_WEIGHT * gain + (dc.temperature || 0) * (Math.random() - 0.5);
+            }
+            edges[i][j] = edge;
         }
     }
     return edges;
@@ -366,7 +420,7 @@ function resolveBlockCollisions(pairEdges, normalized) {
 // bye antes de llamar) y devuelve la propuesta de emparejamiento con ids reales.
 // `excludedPairs` (Set de pairKey, opcional) evita que el batch proponga un partido
 // entre dos equipos que ya se enfrentaron (según el criterio que decida el caller).
-function proposeMatches(teams, happinessByTeam, excludedPairs) {
+function proposeMatches(teams, happinessByTeam, excludedPairs, difficultyContext) {
     if (teams.length % 2 !== 0) {
         throw new Error("proposeMatches requiere una cantidad par de equipos.");
     }
@@ -374,7 +428,7 @@ function proposeMatches(teams, happinessByTeam, excludedPairs) {
         return { threshold: null, totalScore: 0, matches: [], infeasible: false };
     }
 
-    const edges = buildEdges(teams, happinessByTeam, excludedPairs);
+    const edges = buildEdges(teams, happinessByTeam, excludedPairs, difficultyContext);
     const threshold = findTightestThreshold(teams.length, edges);
     if (threshold === null) {
         return { threshold: null, totalScore: null, matches: null, infeasible: true };
@@ -422,6 +476,9 @@ module.exports = {
     fillDefaultHappiness,
     computePairEdge,
     pairKey,
+    DIFFICULTY_WEIGHT,
+    DEFAULT_TEMPERATURE,
+    difficultyBalanceGain,
     buildEdges,
     findTightestThreshold,
     maxWeightMatching,
