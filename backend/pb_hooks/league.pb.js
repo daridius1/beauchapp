@@ -121,6 +121,24 @@ routerAdd("GET", "/admin/liga", (e) => {
         }
         .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
         .modal-actions .btn { margin-top: 0; margin-right: 0; }
+        /* Variante más ancha, con scroll propio: el modal de partido retroactivo tiene
+           contenido dinámico (filas de goles/tarjetas/penales) que puede crecer bastante. */
+        .modal-box-lg { max-width: 560px; max-height: 85vh; overflow-y: auto; }
+        .form-row { display: flex; gap: 10px; }
+        .form-row > .form-group { flex: 1; min-width: 0; }
+        textarea {
+            width: 100%; background: rgba(15,23,42,0.6); border: 1px solid var(--border-color);
+            border-radius: 10px; padding: 10px 14px; color: var(--text-color); font-size: 14px;
+            outline: none; font-family: inherit; resize: vertical; min-height: 60px;
+        }
+        /* Una fila de gol/tarjeta/penal: equipo + jugador + lo específico del tipo +
+           minuto opcional, todo en una línea que puede envolver en pantallas chicas. */
+        .dynamic-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; }
+        .dynamic-row select { margin-bottom: 0; min-width: 120px; flex: 1; }
+        .dynamic-row input[type="number"] { width: 90px; background: rgba(15,23,42,0.6); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 10px; color: var(--text-color); font-size: 13px; }
+        .dynamic-row label { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 400; color: var(--text-color); margin-bottom: 0; white-space: nowrap; }
+        .remove-row-btn { background: none; border: none; color: var(--danger-color); font-size: 20px; line-height: 1; cursor: pointer; padding: 0 4px; margin-left: auto; }
+        .player-checkbox-list { max-height: 160px; overflow-y: auto; margin-top: 4px; }
 ${CALENDAR_CSS}
         /* Partido sugerido pero todavía no aceptado: se distingue de lo ya agendado. */
         .grid-cell.proposed { background: #a855f7; }
@@ -266,6 +284,35 @@ ${CALENDAR_CSS}
             <div id="proposalsWrap"></div>
         </div>
 
+        <details class="card card-collapsible" id="manualScheduleCard">
+            <summary>Agendar manualmente</summary>
+            <p class="hint" style="margin-top:0;margin-bottom:12px;">
+                Elige los equipos y el horario a mano, sin correr el algoritmo de sugerencias.
+            </p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="manualTeamA">Equipo A</label>
+                    <select id="manualTeamA"></select>
+                </div>
+                <div class="form-group">
+                    <label for="manualTeamB">Equipo B</label>
+                    <select id="manualTeamB"></select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="manualDate">Fecha</label>
+                    <input type="date" id="manualDate">
+                </div>
+                <div class="form-group">
+                    <label for="manualHour">Hora</label>
+                    <select id="manualHour"></select>
+                </div>
+            </div>
+            <div class="alert alert-danger" id="manualScheduleError"></div>
+            <button class="btn btn-sm" id="manualScheduleBtn">Agendar</button>
+        </details>
+
         <div class="card">
             <h2 style="margin-top:0;">Calendario de la liga</h2>
             <p class="hint">Los partidos ya agendados o jugados de tu liga, las sugerencias que todavía no aceptas, y qué bloques están tomados por otras. El número de cada bloque es el del partido en la lista de abajo (los sugeridos van con S).</p>
@@ -280,7 +327,10 @@ ${CALENDAR_CSS}
         </div>
 
         <div class="card">
-            <h2 style="margin-top:0;">Partidos</h2>
+            <div class="card-header">
+                <h2>Partidos</h2>
+                <button class="btn btn-sm" id="openRetroactiveBtn">Cargar partido jugado</button>
+            </div>
             <div id="stageMatchesList"></div>
         </div>
     </div>
@@ -323,6 +373,69 @@ ${CALENDAR_CSS}
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary btn-sm" id="cancelCreateStageBtn">Cancelar</button>
                     <button type="submit" class="btn btn-sm">Crear etapa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de partido retroactivo: carga un partido que ya se jugó, con todo lo que
+         un árbitro real habría podido registrar en vivo, pero sin depender de que cada
+         evento tenga hora exacta — a posteriori nadie recuerda el minuto preciso. -->
+    <div class="modal-backdrop" id="retroactiveMatchModal">
+        <div class="modal-box modal-box-lg">
+            <h2 style="margin-top:0;">Cargar partido jugado</h2>
+            <div class="alert alert-danger" id="retroactiveError"></div>
+            <form id="retroactiveForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="retroTeamA">Equipo A</label>
+                        <select id="retroTeamA"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="retroTeamB">Equipo B</label>
+                        <select id="retroTeamB"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="retroDate">Fecha</label>
+                        <input type="date" id="retroDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="retroHour">Hora (opcional)</label>
+                        <select id="retroHour"></select>
+                    </div>
+                </div>
+
+                <details class="card-collapsible" id="retroLineupACard" style="margin-bottom:12px;">
+                    <summary>Convocatoria — Equipo A (opcional)</summary>
+                    <div class="player-checkbox-list" id="retroLineupA"><p class="hint">Elige el equipo A para ver su plantel.</p></div>
+                </details>
+                <details class="card-collapsible" id="retroLineupBCard" style="margin-bottom:12px;">
+                    <summary>Convocatoria — Equipo B (opcional)</summary>
+                    <div class="player-checkbox-list" id="retroLineupB"><p class="hint">Elige el equipo B para ver su plantel.</p></div>
+                </details>
+
+                <h2 style="font-size:14px; margin:18px 0 6px;">Goles</h2>
+                <div id="retroGoalsList"></div>
+                <button type="button" class="btn btn-secondary btn-sm" id="addGoalBtn">+ Agregar gol</button>
+
+                <h2 style="font-size:14px; margin:18px 0 6px;">Tarjetas</h2>
+                <div id="retroCardsList"></div>
+                <button type="button" class="btn btn-secondary btn-sm" id="addCardBtn">+ Agregar tarjeta</button>
+
+                <h2 style="font-size:14px; margin:18px 0 6px;">Penales</h2>
+                <div id="retroPenaltiesList"></div>
+                <button type="button" class="btn btn-secondary btn-sm" id="addPenaltyBtn">+ Agregar penal</button>
+
+                <div class="form-group" style="margin-top:18px;">
+                    <label for="retroNotes">Notas (opcional)</label>
+                    <textarea id="retroNotes" placeholder="Informe del partido, incidencias, etc."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" id="cancelRetroBtn">Cancelar</button>
+                    <button type="submit" class="btn btn-sm" id="submitRetroBtn">Guardar partido</button>
                 </div>
             </form>
         </div>
@@ -714,6 +827,15 @@ ${SESSION_GATE_FN}
             document.getElementById("proposalsWrap").innerHTML = "";
             renderStageParticipants();
             renderStageTeamOptions();
+            renderManualScheduleTeamOptions();
+            populateHourSelect(document.getElementById("manualHour"), 12);
+            const manualDate = document.getElementById("manualDate");
+            manualDate.min = formatDateStr(new Date());
+            const scheduleWindow = getWindow();
+            const lastWeek = scheduleWindow[scheduleWindow.length - 1];
+            manualDate.max = lastWeek.days[lastWeek.days.length - 1].dateStr;
+            manualDate.value = "";
+            hideError(document.getElementById("manualScheduleError"));
             // La selección de horarios es de cada tanda, no se arrastra entre etapas.
             allowedBlocks = new Set();
             proposedByBlock = {};
@@ -792,6 +914,64 @@ ${SESSION_GATE_FN}
                 wrap.appendChild(row);
             });
         }
+
+        // --- Agendar manualmente ---
+        //
+        // Mismo endpoint que aceptar una sugerencia (/api/liga/matches/accept): no
+        // depende de que exista una propuesta previa del algoritmo, solo revalida que
+        // el bloque siga libre. Acá el admin elige equipos y horario a mano.
+        function renderManualScheduleTeamOptions() {
+            const selectA = document.getElementById("manualTeamA");
+            const selectB = document.getElementById("manualTeamB");
+            selectA.innerHTML = "";
+            selectB.innerHTML = "";
+            stageParticipants().forEach((t) => {
+                const optA = document.createElement("option");
+                optA.value = t.id;
+                optA.textContent = teamLabel(t);
+                selectA.appendChild(optA);
+                selectB.appendChild(optA.cloneNode(true));
+            });
+            if (selectB.options.length > 1) selectB.selectedIndex = 1;
+        }
+
+        function populateHourSelect(select, defaultHour) {
+            select.innerHTML = "";
+            for (let h = START_HOUR; h <= END_HOUR; h++) {
+                const opt = document.createElement("option");
+                opt.value = String(h);
+                opt.textContent = pad2(h) + ":00";
+                if (h === defaultHour) opt.selected = true;
+                select.appendChild(opt);
+            }
+        }
+
+        document.getElementById("manualScheduleBtn").addEventListener("click", async () => {
+            const errorEl = document.getElementById("manualScheduleError");
+            hideError(errorEl);
+            if (!activeStage) return;
+            const teamA = document.getElementById("manualTeamA").value;
+            const teamB = document.getElementById("manualTeamB").value;
+            const date = document.getElementById("manualDate").value;
+            const hour = Number(document.getElementById("manualHour").value);
+            if (!teamA || !teamB) { showError(errorEl, "Elige los dos equipos."); return; }
+            if (teamA === teamB) { showError(errorEl, "Los dos equipos no pueden ser el mismo."); return; }
+            if (!date) { showError(errorEl, "Elige una fecha."); return; }
+            const btn = document.getElementById("manualScheduleBtn");
+            btn.disabled = true;
+            try {
+                await apiCall("/api/liga/matches/accept", "POST", {
+                    stageId: activeStage.id, teamA, teamB, block: date + "-" + pad2(hour),
+                });
+                document.getElementById("manualScheduleCard").removeAttribute("open");
+                loadStageMatches();
+                loadCalendar();
+            } catch (err) {
+                showError(errorEl, err.message);
+            } finally {
+                btn.disabled = false;
+            }
+        });
 
         // --- Calendarios de la etapa ---
         //
@@ -1323,6 +1503,294 @@ ${SESSION_GATE_FN}
 
             renderLeagueGrid();
         }
+
+        // --- Cargar partido jugado (retroactivo) ---
+        //
+        // Crea el partido directo en status:'played', con todo lo que un árbitro real
+        // habría podido registrar en vivo (convocatoria, goles, tarjetas, penales) pero
+        // sin depender de que cada evento tenga hora exacta: el minuto es opcional por
+        // fila, y no se generan eventos de reloj — summarizeEvents() no los necesita
+        // para derivar el marcador de un partido que ya nace 'played'.
+        const retroactiveModal = document.getElementById("retroactiveMatchModal");
+        const retroactiveForm = document.getElementById("retroactiveForm");
+        const retroactiveError = document.getElementById("retroactiveError");
+        let retroRosterCache = {};
+
+        // Réplica de newEventId() de frontend/src/utils/matchEvents.ts: cada evento
+        // necesita una identidad propia, porque sin la hora real la clave legada del
+        // servidor ("legacy:tipo@undefined") colisionaría entre dos goles del mismo tipo.
+        function newClientEventId() {
+            if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+            return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+        }
+
+        async function loadTeamRoster(teamId) {
+            if (retroRosterCache[teamId]) return retroRosterCache[teamId];
+            const filter = 'team = "' + teamId + '" && deleted = false';
+            const data = await apiCall("/api/collections/team_players/records?filter=" + encodeURIComponent(filter) + "&sort=name&perPage=200", "GET");
+            const roster = data.items || [];
+            retroRosterCache[teamId] = roster;
+            return roster;
+        }
+
+        function teamIdForLetter(letter) {
+            return document.getElementById(letter === "A" ? "retroTeamA" : "retroTeamB").value;
+        }
+        function teamNameForLetter(letter) {
+            const select = document.getElementById(letter === "A" ? "retroTeamA" : "retroTeamB");
+            const opt = select.selectedOptions[0];
+            return opt ? opt.textContent : "Equipo " + letter;
+        }
+
+        function resetRetroDynamicSections() {
+            document.getElementById("retroGoalsList").innerHTML = "";
+            document.getElementById("retroCardsList").innerHTML = "";
+            document.getElementById("retroPenaltiesList").innerHTML = "";
+            document.getElementById("retroLineupA").innerHTML = '<p class="hint">Elige el equipo A para ver su plantel.</p>';
+            document.getElementById("retroLineupB").innerHTML = '<p class="hint">Elige el equipo B para ver su plantel.</p>';
+            document.getElementById("retroLineupACard").open = false;
+            document.getElementById("retroLineupBCard").open = false;
+        }
+        document.getElementById("retroTeamA").addEventListener("change", resetRetroDynamicSections);
+        document.getElementById("retroTeamB").addEventListener("change", resetRetroDynamicSections);
+
+        async function renderLineupChecklist(side) {
+            const teamId = teamIdForLetter(side);
+            const wrap = document.getElementById(side === "A" ? "retroLineupA" : "retroLineupB");
+            wrap.innerHTML = '<p class="hint">Cargando...</p>';
+            let roster;
+            try {
+                roster = await loadTeamRoster(teamId);
+            } catch (err) {
+                wrap.innerHTML = "";
+                showError(retroactiveError, err.message);
+                return;
+            }
+            wrap.innerHTML = "";
+            if (!roster.length) {
+                wrap.innerHTML = '<p class="hint">Este equipo no tiene jugadores cargados en su plantel.</p>';
+                return;
+            }
+            roster.forEach((p) => {
+                const row = document.createElement("label");
+                row.className = "team-checkbox-row";
+                const input = document.createElement("input");
+                input.type = "checkbox";
+                input.value = p.id;
+                input.dataset.name = p.name;
+                row.appendChild(input);
+                row.appendChild(document.createTextNode(" " + p.name));
+                wrap.appendChild(row);
+            });
+        }
+        document.getElementById("retroLineupACard").addEventListener("toggle", (e) => {
+            if (e.target.open) renderLineupChecklist("A");
+        });
+        document.getElementById("retroLineupBCard").addEventListener("toggle", (e) => {
+            if (e.target.open) renderLineupChecklist("B");
+        });
+
+        // Una fila de gol/tarjeta/penal: equipo + jugador (del roster, "Sin jugador" si
+        // se deja en blanco) + lo específico del tipo + minuto opcional. La convocatoria
+        // queda completamente desacoplada de este selector: se puede anotar un gol de un
+        // jugador sin haberlo marcado antes en "Convocatoria".
+        function addEventRow(listId, kind) {
+            const list = document.getElementById(listId);
+            const row = document.createElement("div");
+            row.className = "dynamic-row";
+
+            const teamSelect = document.createElement("select");
+            ["A", "B"].forEach((letter) => {
+                const opt = document.createElement("option");
+                opt.value = letter;
+                opt.textContent = teamNameForLetter(letter);
+                teamSelect.appendChild(opt);
+            });
+            row.appendChild(teamSelect);
+
+            const playerSelect = document.createElement("select");
+            row.appendChild(playerSelect);
+            populateRowPlayerSelect(playerSelect, teamSelect.value);
+            teamSelect.addEventListener("change", () => populateRowPlayerSelect(playerSelect, teamSelect.value));
+
+            let extraControl;
+            if (kind === "goal") {
+                const label = document.createElement("label");
+                extraControl = document.createElement("input");
+                extraControl.type = "checkbox";
+                label.appendChild(extraControl);
+                label.appendChild(document.createTextNode(" Autogol"));
+                row.appendChild(label);
+            } else if (kind === "card") {
+                extraControl = document.createElement("select");
+                extraControl.style.minWidth = "90px";
+                [["yellow_card", "Amarilla"], ["red_card", "Roja"]].forEach((pair) => {
+                    const opt = document.createElement("option");
+                    opt.value = pair[0];
+                    opt.textContent = pair[1];
+                    extraControl.appendChild(opt);
+                });
+                row.appendChild(extraControl);
+            } else {
+                const label = document.createElement("label");
+                extraControl = document.createElement("input");
+                extraControl.type = "checkbox";
+                extraControl.checked = true;
+                label.appendChild(extraControl);
+                label.appendChild(document.createTextNode(" Convertido"));
+                row.appendChild(label);
+            }
+
+            const minuteInput = document.createElement("input");
+            minuteInput.type = "number";
+            minuteInput.min = "0";
+            minuteInput.max = "200";
+            minuteInput.placeholder = "Minuto";
+            row.appendChild(minuteInput);
+
+            const removeBtn = document.createElement("button");
+            removeBtn.type = "button";
+            removeBtn.className = "remove-row-btn";
+            removeBtn.title = "Quitar fila";
+            removeBtn.textContent = "×";
+            removeBtn.addEventListener("click", () => row.remove());
+            row.appendChild(removeBtn);
+
+            row._retroGetEvent = function () {
+                const letter = teamSelect.value;
+                const playerOpt = playerSelect.selectedOptions[0];
+                const base = { id: newClientEventId(), team: letter };
+                if (playerOpt && playerOpt.value) {
+                    base.playerId = playerOpt.value;
+                    base.player = playerOpt.textContent;
+                }
+                if (minuteInput.value !== "") base.minute = Number(minuteInput.value);
+                if (kind === "goal") { base.type = "goal"; base.ownGoal = extraControl.checked; }
+                else if (kind === "card") { base.type = extraControl.value; }
+                else { base.type = "penalty"; base.scored = extraControl.checked; }
+                return base;
+            };
+
+            list.appendChild(row);
+        }
+
+        async function populateRowPlayerSelect(playerSelect, letter) {
+            playerSelect.innerHTML = '<option value="">Sin jugador</option>';
+            const teamId = teamIdForLetter(letter);
+            if (!teamId) return;
+            let roster;
+            try { roster = await loadTeamRoster(teamId); } catch (err) { return; }
+            roster.forEach((p) => {
+                const opt = document.createElement("option");
+                opt.value = p.id;
+                opt.textContent = p.name;
+                playerSelect.appendChild(opt);
+            });
+        }
+
+        document.getElementById("addGoalBtn").addEventListener("click", () => addEventRow("retroGoalsList", "goal"));
+        document.getElementById("addCardBtn").addEventListener("click", () => addEventRow("retroCardsList", "card"));
+        document.getElementById("addPenaltyBtn").addEventListener("click", () => addEventRow("retroPenaltiesList", "penalty"));
+
+        function openRetroactiveModal() {
+            if (!activeStage) return;
+            hideError(retroactiveError);
+            retroactiveForm.reset();
+            retroRosterCache = {};
+            resetRetroDynamicSections();
+
+            const selectA = document.getElementById("retroTeamA");
+            const selectB = document.getElementById("retroTeamB");
+            selectA.innerHTML = "";
+            selectB.innerHTML = "";
+            stageParticipants().forEach((t) => {
+                const optA = document.createElement("option");
+                optA.value = t.id;
+                optA.textContent = teamLabel(t);
+                selectA.appendChild(optA);
+                selectB.appendChild(optA.cloneNode(true));
+            });
+            if (selectB.options.length > 1) selectB.selectedIndex = 1;
+
+            const dateInput = document.getElementById("retroDate");
+            dateInput.max = formatDateStr(new Date());
+            dateInput.value = "";
+
+            const hourSelect = document.getElementById("retroHour");
+            hourSelect.innerHTML = '<option value="">Sin especificar</option>';
+            for (let h = START_HOUR; h <= END_HOUR; h++) {
+                const opt = document.createElement("option");
+                opt.value = String(h);
+                opt.textContent = pad2(h) + ":00";
+                hourSelect.appendChild(opt);
+            }
+
+            retroactiveModal.classList.add("open");
+        }
+        function closeRetroactiveModal() { retroactiveModal.classList.remove("open"); }
+
+        document.getElementById("openRetroactiveBtn").addEventListener("click", openRetroactiveModal);
+        document.getElementById("cancelRetroBtn").addEventListener("click", closeRetroactiveModal);
+        retroactiveModal.addEventListener("click", (e) => { if (e.target === retroactiveModal) closeRetroactiveModal(); });
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && retroactiveModal.classList.contains("open")) closeRetroactiveModal();
+        });
+
+        retroactiveForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            hideError(retroactiveError);
+            if (!activeStage) return;
+
+            const teamA = document.getElementById("retroTeamA").value;
+            const teamB = document.getElementById("retroTeamB").value;
+            const date = document.getElementById("retroDate").value;
+            const hourValue = document.getElementById("retroHour").value;
+            const notes = document.getElementById("retroNotes").value.trim();
+
+            if (!teamA || !teamB) { showError(retroactiveError, "Elige los dos equipos."); return; }
+            if (teamA === teamB) { showError(retroactiveError, "Los dos equipos no pueden ser el mismo."); return; }
+            if (!date) { showError(retroactiveError, "Elige una fecha."); return; }
+
+            const events = [];
+
+            function lineupEvent(side) {
+                const wrap = document.getElementById(side === "A" ? "retroLineupA" : "retroLineupB");
+                const checked = Array.from(wrap.querySelectorAll('input[type="checkbox"]:checked'));
+                if (!checked.length) return null;
+                return {
+                    id: newClientEventId(),
+                    type: "lineup",
+                    team: side,
+                    players: checked.map((input) => ({ playerId: input.value, name: input.dataset.name })),
+                };
+            }
+            const lineupA = lineupEvent("A");
+            const lineupB = lineupEvent("B");
+            if (lineupA) events.push(lineupA);
+            if (lineupB) events.push(lineupB);
+
+            ["retroGoalsList", "retroCardsList", "retroPenaltiesList"].forEach((listId) => {
+                document.getElementById(listId).querySelectorAll(".dynamic-row").forEach((row) => {
+                    if (row._retroGetEvent) events.push(row._retroGetEvent());
+                });
+            });
+
+            const payload = { stageId: activeStage.id, teamA, teamB, date, notes, events };
+            if (hourValue) payload.hour = Number(hourValue);
+
+            const btn = document.getElementById("submitRetroBtn");
+            btn.disabled = true;
+            try {
+                await apiCall("/api/liga/matches/retroactive", "POST", payload);
+                closeRetroactiveModal();
+                loadStageMatches();
+                loadCalendar();
+            } catch (err) {
+                showError(retroactiveError, err.message);
+            } finally {
+                btn.disabled = false;
+            }
+        });
 
         // Al final del script a propósito: showPanel()/loadRoster()/loadStages() usan
         // consts (rosterList, stagesList, etc.) declaradas más abajo en este mismo
@@ -2193,5 +2661,121 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
     } catch (err) {
         console.error("[league.pb.js] Error en POST /api/liga/matches/accept:", err);
         return e.json(400, { error: (err && err.message) || "No se pudo agregar el partido." });
+    }
+}, $apis.requireAuth("users"));
+
+// Carga retroactiva de un partido que ya se jugó fuera de la app (por ejemplo,
+// arbitrado en papel): crea el partido directo en status:'played' con el resultado y
+// los eventos que la liga ya tiene, sin pasar por el código de arbitraje ni por el
+// reloj en vivo. A diferencia de /accept, esto NO revalida disponibilidad de bloque —
+// una fecha pasada nunca cae dentro de windowBlockRange() (que siempre mira desde hoy
+// hacia adelante), así que no compite por el mismo recurso que /accept protege. La
+// corrección posterior de este partido no necesita ningún endpoint nuevo: ya cae
+// gratis de matchWriteDecision() en lib/matchEvents.js, que trata todo partido
+// 'played' de la propia liga como una enmienda sin código ni reloj (ver
+// POST /api/league-matches/events en match_arbitration.pb.js).
+routerAdd("POST", "/api/liga/matches/retroactive", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        const { isValidEvent, summarizeEvents, CODE_ALPHABET, CODE_LENGTH } = require(`${__hooks}/lib/matchEvents.js`);
+        const { formatDate, blockCode, START_HOUR, END_HOUR } = require(`${__hooks}/lib/teamSchedule.js`);
+
+        const body = e.requestInfo().body || {};
+        const stageId = String(body.stageId || "");
+        const teamA = String(body.teamA || "");
+        const teamB = String(body.teamB || "");
+        const date = String(body.date || "");
+        const hour = Number.isInteger(body.hour) ? body.hour : 12;
+        const notes = String(body.notes || "");
+        const events = Array.isArray(body.events) ? body.events : [];
+
+        if (!stageId || !teamA || !teamB || !date) throw new BadRequestError("Faltan datos del partido.");
+        if (teamA === teamB) throw new BadRequestError("Los dos equipos no pueden ser el mismo.");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new BadRequestError("Fecha inválida.");
+        if (date > formatDate(new Date())) {
+            throw new BadRequestError('No se puede cargar un partido con fecha futura — usa "Agendar manualmente".');
+        }
+        if (hour < START_HOUR || hour > END_HOUR) throw new BadRequestError("Hora inválida.");
+
+        // Igual que /accept: etapa propia, ambos equipos en el roster de la liga y, si
+        // la etapa define participantes, en la etapa.
+        let stage;
+        try {
+            stage = $app.findRecordById("league_stages", stageId);
+        } catch (err) {
+            throw new BadRequestError("La etapa indicada no existe.");
+        }
+        if (stage.getString("league") !== e.auth.id) {
+            throw new BadRequestError("Esa etapa no pertenece a tu liga.");
+        }
+
+        const rosterRows = $app.findRecordsByFilter(
+            "league_teams",
+            "league = {:league} && deleted = false",
+            "",
+            0,
+            0,
+            { league: e.auth.id }
+        );
+        const rosterSet = new Set(rosterRows.map((r) => r.getString("team")));
+        if (!rosterSet.has(teamA) || !rosterSet.has(teamB)) {
+            throw new BadRequestError("Ambos equipos deben pertenecer a tu liga.");
+        }
+
+        const stageTeams = (stage.get("teams") || []).map(String);
+        if (stageTeams.length > 0) {
+            const stageSet = new Set(stageTeams);
+            if (!(stageSet.has(teamA) && stageSet.has(teamB))) {
+                throw new BadRequestError("Ambos equipos deben participar de esta etapa.");
+            }
+        }
+
+        // Este endpoint es SOLO para resultado ya jugado: nada de reloj. Sin
+        // half_start/half_end/pause/resume, summarizeEvents() no necesita ningún
+        // contexto de reloj para derivar el marcador — currentHalf/clockRunning quedan
+        // en su default, que es justo lo correcto para un partido que nace 'played'.
+        const CLOCK_TYPES = new Set(["half_start", "half_end", "pause", "resume"]);
+        for (const ev of events) {
+            if (ev && CLOCK_TYPES.has(ev.type)) {
+                throw new BadRequestError("Este formulario no admite eventos de reloj — es solo para partidos ya jugados.");
+            }
+            if (!isValidEvent(ev)) throw new BadRequestError("Hay un evento con formato inválido.");
+        }
+
+        const summary = summarizeEvents(events);
+
+        const coll = $app.findCollectionByNameOrId("league_matches");
+        const record = new Record(coll);
+        record.set("league", e.auth.id);
+        record.set("stage", stageId);
+        record.set("teamA", teamA);
+        record.set("teamB", teamB);
+        record.set("blockCode", blockCode(date, hour));
+        record.set("status", "played");
+        record.set("scoreA", summary.scoreA);
+        record.set("scoreB", summary.scoreB);
+        // El código de arbitraje queda sin uso real (el partido ya nace cerrado), pero
+        // el campo es requerido por el esquema — se genera igual que en /accept.
+        record.set("code", $security.randomStringWithAlphabet(CODE_LENGTH, CODE_ALPHABET));
+        // Sin bettingClosesAt: polla_bets.createRule exige "match.bettingClosesAt >
+        // @now" (migración 1787400100) — un campo vacío nunca cumple esa comparación,
+        // así que la Beaupolla queda cerrada por la misma regla declarativa que ya
+        // protege el resto de partidos, sin chequeo defensivo aparte.
+        $app.save(record);
+
+        const reportColl = $app.findCollectionByNameOrId("match_reports");
+        const report = new Record(reportColl);
+        report.set("match", record.id);
+        report.set("events", events);
+        report.set("status", "approved");
+        if (notes) report.set("notes", notes);
+        $app.save(report);
+
+        return e.json(200, { success: true, id: record.id });
+    } catch (err) {
+        console.error("[league.pb.js] Error en POST /api/liga/matches/retroactive:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo cargar el partido." });
     }
 }, $apis.requireAuth("users"));

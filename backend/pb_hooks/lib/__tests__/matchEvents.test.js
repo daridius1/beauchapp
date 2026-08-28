@@ -152,6 +152,18 @@ test("isValidEvent: goal/yellow_card/red_card/penalty pueden quedar sin jugador 
     assert.equal(isValidEvent({ type: "goal", team: "A", player: 123, ownGoal: false }), false);
 });
 
+test("isValidEvent/summarizeEvents: un evento sin `at` pero con `minute` sigue siendo válido y se sigue contando — contrato a propósito para la carga retroactiva de partidos (/admin/liga), no un accidente", () => {
+    const events = [
+        { type: "goal", team: "A", player: "Pedro", ownGoal: false, minute: 35 },
+        { type: "yellow_card", team: "B", player: "Juan", minute: 12 },
+    ];
+    assert.equal(isValidEvent(events[0]), true);
+    assert.equal(isValidEvent(events[1]), true);
+    const s = summarizeEvents(events);
+    assert.equal(s.scoreA, 1);
+    assert.equal(s.cardsB.yellow, 1);
+});
+
 test("summarizeEvents: un gol/tarjeta/penal sin jugador asignado se sigue contando para el marcador/tarjetas", () => {
     const s = summarizeEvents([
         { type: "goal", team: "A", ownGoal: false },

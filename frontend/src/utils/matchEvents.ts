@@ -30,7 +30,9 @@ export interface LineupEntry {
 // cliente como el servidor derivan la clave del contenido con eventKey().
 interface EventBase {
   id?: string;
-  at: string;
+  /** Opcional: un partido cargado retroactivamente (ver /admin/liga) puede no tener
+   *  hora real por evento — a posteriori nadie recuerda el minuto exacto de cada jugada. */
+  at?: string;
   /** Soft delete: un evento eliminado se marca, nunca se saca de la bitácora.
    *  Todo lo derivado lo ignora. Ver isDeletedEvent en el lib del backend. */
   deleted?: boolean;
@@ -196,6 +198,13 @@ export function isClockGatedSequenceValid(events: MatchEvent[]): boolean {
 // a diferencia de un simple "ahora - inicio del tiempo", esto no cuenta el rato en
 // pausa/entretiempo como minutos jugados. `now` se pasa aparte (no Date.now() interno)
 // para que el componente que llama controle el refresco.
+// Epoch ms de `at` — NaN si falta (un evento cargado retroactivamente en /admin/liga
+// puede no tener hora real; ver EventBase.at). Centralizado para no repetir el guard en
+// cada punto que hace aritmética de tiempo sobre un evento.
+function parseAt(at: string | undefined): number {
+  return at ? new Date(at).getTime() : NaN;
+}
+
 export function computeLiveElapsedMs(events: MatchEvent[], now: number): { elapsedMs: number; running: boolean; half: number } {
   let elapsedMs = 0;
   let segmentStart: number | null = null;
@@ -205,15 +214,15 @@ export function computeLiveElapsedMs(events: MatchEvent[], now: number): { elaps
     if (ev.type === 'half_start') {
       half = ev.half;
       elapsedMs = 0; // cada tiempo es su propio cronómetro, no uno continuo
-      segmentStart = new Date(ev.at).getTime();
+      segmentStart = parseAt(ev.at);
     } else if (ev.type === 'half_end') {
-      if (segmentStart !== null) elapsedMs += new Date(ev.at).getTime() - segmentStart;
+      if (segmentStart !== null) elapsedMs += parseAt(ev.at) - segmentStart;
       segmentStart = null;
     } else if (ev.type === 'pause') {
-      if (segmentStart !== null) elapsedMs += new Date(ev.at).getTime() - segmentStart;
+      if (segmentStart !== null) elapsedMs += parseAt(ev.at) - segmentStart;
       segmentStart = null;
     } else if (ev.type === 'resume') {
-      segmentStart = new Date(ev.at).getTime();
+      segmentStart = parseAt(ev.at);
     }
   }
 
@@ -277,7 +286,7 @@ export function annotateEventsWithHalfTime(events: MatchEvent[]): AnnotatedEvent
     // arbitraje para marcar un evento como borrado, así que no puede ser el de una
     // lista ya filtrada.
     if (isDeletedEvent(ev)) return;
-    const t = new Date(ev.at).getTime();
+    const t = parseAt(ev.at);
 
     if (ev.type === 'half_start') {
       half = ev.half;

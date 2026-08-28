@@ -975,7 +975,10 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
           {annotatedEvents.map(({ event: ev, index: idx, relativeMs }) => {
             if (ev.type === 'lineup') return null;
 
-            const clockTime = formatClockTime(ev.at);
+            // Un evento cargado retroactivamente (ver /admin/liga) puede no tener `at`
+            // real — nunca pasa con el reloj en vivo, pero sí al enmendar un partido
+            // así después. Sin hora real no hay nada que mostrar acá.
+            const clockTime = ev.at ? formatClockTime(ev.at) : null;
 
             if (ev.type === 'half_start' || ev.type === 'half_end' || ev.type === 'pause' || ev.type === 'resume') {
               const label =
@@ -988,7 +991,7 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
                   <Text style={styles.eventMarkerText}>{label}</Text>
                   <View style={styles.eventTimeCol}>
                     {relativeLabel && <Text style={styles.eventMarkerRelative}>{relativeLabel}</Text>}
-                    <Text style={styles.eventClockTime}>{clockTime}</Text>
+                    {clockTime && <Text style={styles.eventClockTime}>{clockTime}</Text>}
                   </View>
                   {/* Los eventos de tiempo (inicio/fin/pausa/reanudación) no se pueden
                       eliminar — no tiene sentido borrar un límite del que dependen los
@@ -1017,7 +1020,7 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
                 <View style={styles.eventFeedRight}>
                   <View style={styles.eventTimeCol}>
                     {relativeMs !== null && <Text style={styles.eventFeedMinute}>{Math.floor(relativeMs / 60000)}'</Text>}
-                    <Text style={styles.eventClockTime}>{clockTime}</Text>
+                    {clockTime && <Text style={styles.eventClockTime}>{clockTime}</Text>}
                   </View>
                   <TouchableOpacity onPress={() => deleteEventAt(idx)} style={styles.eventDeleteBtn}>
                     <Feather name="x" size={13} color={theme.colors.danger} />
