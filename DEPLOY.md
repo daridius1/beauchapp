@@ -129,6 +129,20 @@ clave de sudo. Dos consecuencias que hay que tener presentes:
   reinicia una vez con todos los archivos ya en su lugar. Copiar (y no mover el
   directorio) también preserva lo que exista solo en el servidor.
 
+  **Si un agente de IA está haciendo el deploy, este `ssh ... cp -a ... && rm -rf ...`
+  final lo bloquea el clasificador de permisos de Claude Code** — cualquier comando ssh
+  que sobrescriba o borre archivos ya existentes en el servidor de producción, sin
+  importar el verbo (probado con `cp -a` solo, sin el `rm -rf`, y bloqueó igual) ni si el
+  usuario ya lo autorizó explícitamente en el chat. Confirmado dos veces (2026-08-27 y
+  2026-08-28). **La respuesta correcta es no pelear con eso**: no reintentar con otro
+  quoting, no envolverlo en un script para esconder el verbo, no armar una automatización
+  nueva (cron, systemd) para que el propio servidor lo haga solo — eso decidió
+  explícitamente el usuario que no quería (2026-08-28). El agente deja los archivos listos
+  en `.stage-hooks/` (eso sí lo permite el clasificador, es un directorio nuevo) y le pasa
+  al usuario el comando exacto de arriba en un bloque `bash` para que lo corra él. Después
+  el agente sigue solo con la verificación (health check, logs, confirmar que la migración
+  se aplicó).
+
 ## Respaldo consistente de la base
 
 El `tar` del paso 3 copia `data.db` mientras PocketBase la está usando, así que puede
@@ -178,5 +192,6 @@ Si eres un agente de IA (Claude Code u otro) y te piden desplegar Beauchapp, o c
    Esta transparencia no es opcional — un deploy "silencioso" que omite el estado real de la infraestructura es peor que no reportar nada, porque da falsa confianza.
 6. **Si el deploy falla a mitad de camino:** no reintentes automáticamente en un loop, no uses `git reset --hard` ni ninguna operación destructiva para "empezar de nuevo". Muestra el error real al usuario y espera indicación. El backup del paso 3 existe exactamente para este escenario — úsalo solo si el usuario confirma que quiere hacer rollback.
 7. **No inventes pasos nuevos de infraestructura** (crear un túnel de Cloudflare, cambiar DNS, modificar el servicio systemd a mano) sin que el usuario lo pida — `deploy.sh` ya cubre el camino estándar.
+8. **Cuando el paso final de subir `pb_hooks/` (`cp -a ... && rm -rf ...` por ssh, ver arriba) lo bloquee el clasificador de permisos**, no lo tomes como una falla a resolver por tu cuenta: no reintentes con otro quoting, no lo envuelvas en un script para esconder el verbo, no propongas dejar un cron/systemd corriendo solo para evitarlo — el usuario ya decidió explícitamente que no quiere esa clase de automatización nueva (2026-08-28). Deja los archivos en `.stage-hooks/`, verifica los checksums contra lo local, y pásale al usuario el comando exacto en un bloque `bash` para que lo corra él. Después seguís vos con la verificación.
 
-En resumen: el checklist y `deploy.sh` existen para que el despliegue sea aburrido y predecible. Si en algún punto la situación no encaja con lo que este documento describe, es una señal para parar y preguntar, no para improvisar.
+En resumen: el checklist y `deploy.sh` existen para que el despliegue sea aburrido y predecible, y la verificación de cada paso (checksums, health check, logs, estado de la infraestructura) no es opcional ni algo para apurar — es lo que hace que "confía en el agente para desplegar" siga siendo razonable. Si en algún punto la situación no encaja con lo que este documento describe, es una señal para parar y preguntar, no para improvisar.
