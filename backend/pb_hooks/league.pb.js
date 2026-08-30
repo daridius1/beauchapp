@@ -1643,13 +1643,14 @@ ${API_CALL_FN}
             // El resumen explica QUÉ optimizó el algoritmo, no solo los números.
             const summary = document.createElement("p");
             summary.className = "hint";
+            // Se informa lo que quedó DE VERDAD y no lo que se buscó: liberar un bloque
+            // disputado puede obligar a un partido a quedar por debajo del piso.
+            const peor = res.worst !== null && res.worst !== undefined ? res.worst : res.floor;
             summary.textContent =
                 "Todavía no están agendadas: acepta las que te sirvan. Se buscó el horario que" +
-                " deje más contentos a los dos equipos; en el peor caso quedó una diferencia de " +
-                // maxGap y no threshold: el umbral es lo que se BUSCÓ, y liberar un
-                // bloque disputado puede obligar a un partido a quedar por encima.
-                (res.maxGap !== null && res.maxGap !== undefined ? res.maxGap : res.threshold).toFixed(2) +
-                " entre ellos." +
+                " deje más contentos a los dos equipos, protegiendo primero al que queda peor:" +
+                " en toda la tanda, al equipo peor parado le tocó un horario de " +
+                Math.round(peor * 100) + " sobre 100 dentro de su propia escala." +
                 (res.byeTeamId ? " Queda libre esta fecha: " + (res.byeTeamName || res.byeTeamId) + "." : "");
             wrap.appendChild(summary);
 
@@ -1677,13 +1678,13 @@ ${API_CALL_FN}
                 // Los dos límites conocidos del algoritmo, dichos en vez de escondidos:
                 // este partido tuvo que ceder justicia (o directamente la hora) porque
                 // otro par del mismo lote se quedó con el bloque que le tocaba.
-                if (m.overThreshold || m.collision) {
+                if (m.belowFloor || m.collision) {
                     const aviso = document.createElement("p");
                     aviso.className = "hint";
                     aviso.style.margin = "4px 0 0";
                     aviso.textContent = m.collision
                         ? "Ojo: no quedaba ningún otro horario en común, así que coincide con otra sugerencia de esta misma tanda. Agenda solo una de las dos."
-                        : "Ojo: para no chocar con otra sugerencia de esta tanda, este partido quedó con más diferencia que el resto.";
+                        : "Ojo: para no chocar con otra sugerencia de esta tanda, este partido quedó peor que el resto para alguno de los dos equipos.";
                     card.appendChild(aviso);
                 }
 
@@ -3960,10 +3961,12 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
 
         return e.json(200, {
             infeasible: false,
-            threshold: result.threshold,
-            // La peor diferencia que quedó DE VERDAD. No siempre es el umbral: resolver
-            // un choque de bloques puede obligar a ceder (ver resolveBlockCollisions), y
-            // el panel anunciaba el umbral como si fuera el peor caso.
+            // `floor` es la felicidad garantizada que se buscó para el equipo peor
+            // parado; `worst` es la que quedó DE VERDAD (resolver un choque de bloques
+            // puede obligar a ceder, ver resolveBlockCollisions). El panel muestra la
+            // segunda: antes anunciaba lo que se buscó como si fuera lo que pasó.
+            floor: result.floor,
+            worst: result.worst,
             maxGap: result.maxGap,
             totalScore: result.totalScore,
             matches,

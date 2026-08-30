@@ -159,76 +159,92 @@ function fillDefaultHappiness(happiness, allowedBlocks, defaultLevel) {
     return result;
 }
 
-// Un equipo cuenta como "sin preferencia real" cuando TODOS los bloques candidatos le
-// dan exactamente lo mismo: ahí su "gap" contra el rival no mide ninguna preferencia.
-// Se mira el mapa ya rellenado con el default, no solo lo que contestó explícitamente,
-// y eso alcanza justamente porque el default es el mínimo de la escala (ver
-// DEFAULT_HAPPINESS_LEVEL): un equipo que marcó 3 horas "Excelente" y no tocó el resto
-// queda con 3 unos y 192 ceros — variación real, preferencia real. Una versión anterior
-// intentaba distinguir "explícito" de "default" y terminaba tratando como indiferente a
-// cualquier equipo cuyas respuestas explícitas fueran todas iguales, que es exactamente
-// el patrón de quien marca solo sus horas buenas y deja el resto sin tocar.
+// { worst, gap, score } de un bloque para un par ya normalizado.
 //
-// Los dos casos reales que motivaron todo esto siguen saliendo bien con esta regla:
-// - Copa CDI Femenina: un equipo con toda la semana en "Muy mala" (más 2 horas nunca
-//   tocadas, que ahora también son "Muy mala") queda plano de verdad → no arrastra al
-//   rival a un bloque mediocre.
-// - Copa CDI Mixta: 184 bloques en "Muy mala" y 11 buenos SÍ varía → preferencia real.
-function isFlat(norm, blocks) {
-    if (blocks.length === 0) return true;
-    const first = norm[blocks[0]];
-    return blocks.every((b) => Math.abs(norm[b] - first) <= EPS);
+// `worst` es la felicidad del que queda PEOR de los dos: es el eje de justicia. `gap` ya
+// no decide nada; se sigue calculando porque se guarda en league_matches.gap y el panel
+// lo muestra como "Diferencia".
+function blockMetrics(normA, normB, block) {
+    const a = normA[block];
+    const b = normB[block];
+    return { worst: Math.min(a, b), gap: Math.abs(a - b), score: a + b };
 }
 
-// Qué tan "plano" es cada lado de un par, calculado UNA vez sobre el conjunto completo
-// de bloques candidatos. Se calcula aparte y se pasa hecho porque después hay que
-// evaluar subconjuntos (ver resolveBlockCollisions) y la planitud tiene que seguir
-// siendo la del par, no la del subconjunto que quedó libre: si no, ceder un bloque
-// podría convertir a un equipo en "indiferente" de la nada.
-function pairFlatness(normA, normB, blocks) {
-    return { flatA: isFlat(normA, blocks), flatB: isFlat(normB, blocks) };
-}
+// Cuánta felicidad del equipo peor parado se está dispuesto a resignar a cambio de que
+// el horario sea claramente mejor para los DOS. En la escala normalizada [0,1], 0.25 es
+// una nota entera de la escala 1-5 para un equipo que la usó completa (de "Buena" a
+// "Regular", por ejemplo) — y es también el mínimo que sirve de algo: con notas enteras
+// las diferencias entre bloques son múltiplos de esa nota, así que una tolerancia más
+// chica casi nunca admitiría ninguna opción que la regla estricta no eligiera ya.
+const FAIRNESS_TOLERANCE = 0.25;
 
-// { gap, score } de un bloque para un par ya normalizado. Si alguno de los dos no tiene
-// preferencia real (ver isFlat), su "gap" contra el otro no mide nada — sin este caso
-// especial, minimizar esa diferencia empuja al equipo que SÍ diferenció hacia el bloque
-// cuyo valor quede más cerca de 0.5 (uno mediocre), en vez de aprovechar que al otro,
-// por indiferencia, le da lo mismo cualquiera. Por eso ahí el gap se trata como 0 en
-// todos los bloques, y ese equipo aporta un 0.5 FIJO a la suma que desempata.
-function blockMetrics(normA, normB, block, flat) {
-    const a = flat.flatA ? 0.5 : normA[block];
-    const b = flat.flatB ? 0.5 : normB[block];
-    return { gap: flat.flatA || flat.flatB ? 0 : Math.abs(a - b), score: a + b };
-}
-
-// Mejor bloque entre dos equipos ya normalizados, restringido a `blocks`: primero
-// minimiza la diferencia de felicidad (justicia), y entre empates maximiza la suma
-// (felicidad total).
+// Mejor bloque entre dos equipos ya normalizados, restringido a `blocks`.
 //
-// `flat` (opcional) es el resultado de pairFlatness sobre el conjunto COMPLETO de
-// candidatos del par; omitido, se calcula sobre `blocks`.
+// La regla tiene dos escalones y el orden importa:
 //
-// `tieBreak` (opcional, una función que devuelve [0,1)) decide los empates EXACTOS —
-// mismo gap y mismo score — eligiendo uniformemente entre todos los empatados en vez de
-// quedarse siempre con el primero. Importa porque el primero es siempre el más temprano
-// del arreglo: sin esto, todo par sin preferencias marcadas terminaba invariablemente el
-// lunes a las 08:00, y dos corridas seguidas de "Sugerir partidos" daban el mismo
-// horario aunque hubiera decenas de bloques igual de buenos. Sin `tieBreak` la elección
-// es determinista (el más temprano), que es lo que corresponde en los tests.
-function chooseBestBlock(normA, normB, blocks, tieBreak, flat) {
+//   1. JUSTICIA CON BANDA. Se calcula el mejor "peor parado" alcanzable y se descartan
+//      los bloques que queden más de FAIRNESS_TOLERANCE por debajo. Esto es lo que
+//      impide el resultado que nadie quiere —dejar a un equipo con un horario pésimo
+//      para que el otro tenga uno excelente— sin convertir la justicia en un absoluto.
+//   2. FELICIDAD. Dentro de la banda gana la suma más alta, es decir el horario que
+//      mejor les viene a los dos. Los empates de suma se rompen por mejor peor parado.
+//
+// El criterio de justicia era antes "minimizar la DIFERENCIA entre los dos", y esa
+// versión leía un bloque que ambos calificaron "Muy mala" como justicia PERFECTA
+// (diferencia 0) y lo prefería sobre cualquier horario bueno para los dos, que casi
+// siempre tiene alguna diferencia. Caso real que lo destapó: LOS LABUBU vs Vo Sai Po,
+// con 142 bloques "Muy mala/Muy mala" y un único 2026-09-02-14 donde los dos habían
+// marcado "Buena" — se agendaba en uno de los 142. Le pasaba a 60 de los 630 pares
+// posibles de la Copa CDI Masculina.
+//
+// Mirar al peor parado en vez de a la diferencia dice lo mismo donde el criterio viejo
+// tenía razón (5/1 deja al peor en 0 y pierde contra un 3/3) sin premiar la miseria
+// compartida. Y la banda evita el defecto que tendría el peor-parado a secas, que es
+// exactamente el mismo de antes en otro eje: sin ella, 0.01 más de justicia justificaba
+// resignar cualquier cantidad de felicidad total.
+//
+// Como efecto colateral desaparece el caso especial que había para los equipos sin
+// preferencia real: normalizeTeamHappiness ya los deja planos en 0.5, y un valor
+// constante ordena los bloques igual sea cual sea, así que el equipo indiferente
+// simplemente no interviene y gana el mejor bloque del otro.
+//
+// `tieBreak` (opcional, una función que devuelve [0,1)) decide los empates EXACTOS
+// eligiendo uniformemente entre todos los empatados en vez de quedarse siempre con el
+// primero. Importa porque el primero es siempre el más temprano del arreglo: sin esto,
+// todo par sin preferencias marcadas terminaba invariablemente el lunes a las 08:00, y
+// dos corridas seguidas de "Sugerir partidos" daban el mismo horario aunque hubiera
+// decenas de bloques igual de buenos. Sin `tieBreak` la elección es determinista (el más
+// temprano), que es lo que corresponde en los tests.
+function chooseBestBlock(normA, normB, blocks, tieBreak) {
     if (blocks.length === 0) return null;
-    const f = flat || pairFlatness(normA, normB, blocks);
+
+    let bestWorst = -Infinity;
+    for (const block of blocks) {
+        const w = Math.min(normA[block], normB[block]);
+        if (w > bestWorst) bestWorst = w;
+    }
+    const limit = bestWorst - FAIRNESS_TOLERANCE;
 
     let best = null;
     let tied = 0;
     for (const block of blocks) {
-        const { gap, score } = blockMetrics(normA, normB, block, f);
-        if (best === null || gap < best.gap - EPS || (Math.abs(gap - best.gap) <= EPS && score > best.score + EPS)) {
-            best = { block, gap, score };
+        const m = blockMetrics(normA, normB, block);
+        if (m.worst < limit - EPS) continue;
+        const candidate = { block: block, worst: m.worst, gap: m.gap, score: m.score };
+        if (
+            best === null ||
+            m.score > best.score + EPS ||
+            (Math.abs(m.score - best.score) <= EPS && m.worst > best.worst + EPS)
+        ) {
+            best = candidate;
             tied = 1;
-        } else if (tieBreak && Math.abs(gap - best.gap) <= EPS && Math.abs(score - best.score) <= EPS) {
+        } else if (
+            tieBreak &&
+            Math.abs(m.score - best.score) <= EPS &&
+            Math.abs(m.worst - best.worst) <= EPS
+        ) {
             tied++;
-            if (tieBreak() * tied < 1) best = { block, gap, score };
+            if (tieBreak() * tied < 1) best = candidate;
         }
     }
     return best;
@@ -356,9 +372,9 @@ function edgeBetween(edges, i, j) {
 }
 
 // ¿Existe un emparejamiento perfecto (todos los equipos cubiertos) usando solo pares
-// con gap ≤ threshold? DP con bitmask sobre subconjuntos de equipos — cómodo hasta
-// ~16-18 equipos (2^n estados).
-function perfectMatchingExists(n, edges, threshold) {
+// cuyo equipo peor parado llegue al menos a `floor`? DP con bitmask sobre subconjuntos
+// de equipos — cómodo hasta ~16-18 equipos (2^n estados).
+function perfectMatchingExists(n, edges, floor) {
     const full = (1 << n) - 1;
     const memo = new Map();
 
@@ -373,7 +389,7 @@ function perfectMatchingExists(n, edges, threshold) {
         for (let j = i + 1; j < n; j++) {
             if (mask & (1 << j)) continue;
             const edge = edgeBetween(edges, i, j);
-            if (edge && edge.gap <= threshold + EPS) {
+            if (edge && edge.worst >= floor - EPS) {
                 if (dp(mask | (1 << i) | (1 << j))) {
                     result = true;
                     break;
@@ -387,27 +403,32 @@ function perfectMatchingExists(n, edges, threshold) {
     return dp(0);
 }
 
-// Umbral de justicia más ajustado posible: el menor gap tal que todavía exista un
-// emparejamiento perfecto para el conjunto de equipos elegido. null si ningún umbral
-// alcanza (ej. algún equipo quedaría sin ningún par posible).
-function findTightestThreshold(n, edges) {
-    const gaps = new Set();
+// Piso de justicia más alto posible: la mayor felicidad garantizada para el equipo peor
+// parado de TODA la tanda tal que todavía exista un emparejamiento perfecto. null si no
+// hay ninguno (ej. algún equipo quedaría sin ningún par posible).
+//
+// Es el mismo maximin de chooseBestBlock pero a nivel de tanda: primero se protege al
+// que peor queda, y recién después maxWeightMatching optimiza el total. Se recorren los
+// valores de mayor a menor porque la propiedad es monótona — si existe emparejamiento
+// con piso F, existe con cualquier piso más bajo — así que el primero que da es el máximo.
+function findBestFloor(n, edges) {
+    const worsts = new Set();
     for (let i = 0; i < n; i++) {
         for (let j = i + 1; j < n; j++) {
-            if (edges[i][j]) gaps.add(edges[i][j].gap);
+            if (edges[i][j]) worsts.add(edges[i][j].worst);
         }
     }
-    const sortedGaps = Array.from(gaps).sort((a, b) => a - b);
-    for (const t of sortedGaps) {
-        if (perfectMatchingExists(n, edges, t)) return t;
+    const sorted = Array.from(worsts).sort((a, b) => b - a);
+    for (const f of sorted) {
+        if (perfectMatchingExists(n, edges, f)) return f;
     }
     return null;
 }
 
-// Entre los emparejamientos perfectos que respetan el umbral, el que maximiza la
+// Entre los emparejamientos perfectos que respetan el piso, el que maximiza la
 // felicidad total (suma de scores). Devuelve { totalScore, pairs } con pairs como
-// pares de ÍNDICES (no ids), o null si no hay ningún emparejamiento válido bajo threshold.
-function maxWeightMatching(n, edges, threshold) {
+// pares de ÍNDICES (no ids), o null si no hay ningún emparejamiento válido sobre el piso.
+function maxWeightMatching(n, edges, floor) {
     const full = (1 << n) - 1;
     const memo = new Map();
 
@@ -422,7 +443,7 @@ function maxWeightMatching(n, edges, threshold) {
         for (let j = i + 1; j < n; j++) {
             if (mask & (1 << j)) continue;
             const edge = edgeBetween(edges, i, j);
-            if (edge && edge.gap <= threshold + EPS) {
+            if (edge && edge.worst >= floor - EPS) {
                 const candidate = edge.score + dp(mask | (1 << i) | (1 << j));
                 if (candidate > best) best = candidate;
             }
@@ -445,7 +466,7 @@ function maxWeightMatching(n, edges, threshold) {
         for (let j = i + 1; j < n; j++) {
             if (mask & (1 << j)) continue;
             const edge = edgeBetween(edges, i, j);
-            if (!edge || edge.gap > threshold + EPS) continue;
+            if (!edge || edge.worst < floor - EPS) continue;
             const nextMask = mask | (1 << i) | (1 << j);
             const candidate = edge.score + dp(nextMask);
             if (Math.abs(candidate - memo.get(mask)) <= EPS) {
@@ -513,31 +534,28 @@ function suggestByeTeam(teams, happinessByTeam, candidateBlocks, matchesCountByT
 //
 // Dos cosas que esta pasada tiene que respetar y antes no respetaba:
 //
-// 1. EL UMBRAL DE JUSTICIA. findTightestThreshold busca el menor gap con el que todavía
-//    existe un emparejamiento perfecto, y todo el emparejamiento se elige bajo esa
-//    restricción — pero después esta pasada reasignaba bloques sin volver a mirarlo. Se
-//    llegaba a mostrar "en el peor caso quedó una diferencia de 0.08" y agendar un
-//    partido con gap 1.00, el máximo posible. Ahora las alternativas se filtran por el
-//    umbral; solo si NINGUNA lo respeta se cede (antes que dejar dos partidos a la misma
-//    hora, que es físicamente imposible: hay una sola cancha) y el partido queda marcado
-//    con `overThreshold` para que el panel lo diga.
+// 1. EL PISO DE JUSTICIA. findBestFloor busca la mayor felicidad garantizada al equipo
+//    peor parado con la que todavía existe un emparejamiento perfecto, y todo el
+//    emparejamiento se elige bajo esa restricción — pero después esta pasada reasignaba
+//    bloques sin volver a mirarla. Se llegaba a anunciar un peor caso y agendar un
+//    partido mucho peor que ése. Ahora las alternativas se filtran por el piso; solo si
+//    NINGUNA lo respeta se cede (antes que dejar dos partidos a la misma hora, que es
+//    físicamente imposible: hay una sola cancha) y el partido queda marcado con
+//    `belowFloor` para que el panel lo diga.
 //
-// 2. QUIÉN TIENE PRIORIDAD. Ordenar por gap ascendente parecía razonable, pero el gap se
-//    fuerza a 0 cuando alguno de los dos equipos no tiene preferencia real: los pares a
-//    los que les da exactamente lo mismo cualquier horario ordenaban PRIMERO y se
-//    quedaban con el bloque disputado. Ahora se ordena por arrepentimiento — cuánto
-//    score pierde el par si tiene que ceder su mejor bloque — así que cede quien menos
-//    pierde, y un par indiferente (arrepentimiento 0) cede siempre.
-function resolveBlockCollisions(pairEdges, normalized, candidateBlocks, threshold, tieBreak) {
+// 2. QUIÉN TIENE PRIORIDAD. Ordenar por gap ascendente parecía razonable, pero el gap
+//    valía 0 tanto para un acuerdo real como para dos equipos a los que les da lo mismo
+//    todo: los pares indiferentes ordenaban PRIMERO y se quedaban con el bloque
+//    disputado. Ahora se ordena por arrepentimiento — cuánto score pierde el par si
+//    tiene que ceder su mejor bloque — así que cede quien menos pierde, y un par
+//    indiferente (arrepentimiento 0) cede siempre.
+function resolveBlockCollisions(pairEdges, normalized, candidateBlocks, floor, tieBreak) {
     const prepared = pairEdges.map((p) => {
         const normA = normalized[p.i];
         const normB = normalized[p.j];
         const blocks = candidateBlocks.filter((b) => b in normA && b in normB);
-        // La planitud es del PAR, sobre todos sus candidatos: recalcularla sobre el
-        // subconjunto que quedó libre podría volver "indiferente" a un equipo que no lo es.
-        const flat = pairFlatness(normA, normB, blocks);
-        const fair = blocks.filter((b) => blockMetrics(normA, normB, b, flat).gap <= threshold + EPS);
-        const alternative = chooseBestBlock(normA, normB, fair.filter((b) => b !== p.edge.block), null, flat);
+        const fair = blocks.filter((b) => blockMetrics(normA, normB, b).worst >= floor - EPS);
+        const alternative = chooseBestBlock(normA, normB, fair.filter((b) => b !== p.edge.block), null);
         // Sin restar el bonus, el arrepentimiento se comparaba contra un score que lo
         // incluye y otro que no: un par con mucho ajuste de dificultad se ganaba una
         // prioridad que no le corresponde. El bonus es del PAR, igual en todos sus
@@ -548,7 +566,6 @@ function resolveBlockCollisions(pairEdges, normalized, candidateBlocks, threshol
             normA,
             normB,
             blocks,
-            flat,
             fair,
             regret: alternative ? baseScore - alternative.score : Infinity,
         };
@@ -563,10 +580,10 @@ function resolveBlockCollisions(pairEdges, normalized, candidateBlocks, threshol
         }
 
         const bonus = it.p.edge.bonus || 0;
-        let next = chooseBestBlock(it.normA, it.normB, it.fair.filter((b) => !used.has(b)), tieBreak, it.flat);
+        let next = chooseBestBlock(it.normA, it.normB, it.fair.filter((b) => !used.has(b)), tieBreak);
         if (!next) {
-            next = chooseBestBlock(it.normA, it.normB, it.blocks.filter((b) => !used.has(b)), tieBreak, it.flat);
-            if (next) next.overThreshold = true;
+            next = chooseBestBlock(it.normA, it.normB, it.blocks.filter((b) => !used.has(b)), tieBreak);
+            if (next) next.belowFloor = true;
         }
         if (!next) {
             // Ni un solo bloque libre en común: el choque queda como último recurso,
@@ -614,7 +631,7 @@ function isPairingFeasible(teams, happinessByTeam, excludedPairs, candidateBlock
     if (teams.length % 2 !== 0) return false;
     const blocks = resolveCandidateBlocks(teams, happinessByTeam, candidateBlocks);
     const edges = buildEdges(teams, happinessByTeam, excludedPairs, null, blocks);
-    return findTightestThreshold(teams.length, edges) !== null;
+    return findBestFloor(teams.length, edges) !== null;
 }
 
 // Orquestación completa: recibe una cantidad PAR de equipos (el caller resuelve el
@@ -622,15 +639,24 @@ function isPairingFeasible(teams, happinessByTeam, excludedPairs, candidateBlock
 // `excludedPairs` (Set de pairKey, opcional) evita que el batch proponga un partido
 // entre dos equipos que ya se enfrentaron (según el criterio que decida el caller).
 //
-// Devuelve `threshold` (el umbral de justicia que se buscó) y también `maxGap` (la peor
-// diferencia que quedó DE VERDAD): no siempre coinciden, porque resolver un choque de
-// bloques puede obligar a ceder — ver resolveBlockCollisions.
+// Devuelve `floor` (el mejor "peor parado" alcanzable para la tanda) y `worst` (el que
+// quedó DE VERDAD, que es el número honesto: la banda de tolerancia y los choques de
+// bloque pueden dejarlo por debajo). `maxGap` es la mayor diferencia entre los dos
+// equipos de un mismo partido; ya no es un criterio, se informa porque el panel la
+// muestra y se guarda en league_matches.gap.
+//
+// La banda de FAIRNESS_TOLERANCE se aplica en los DOS lugares donde hay una elección —
+// qué horario le toca a un par (chooseBestBlock) y qué pares forman la tanda (acá) —
+// porque en los dos la regla estricta resignaba mucha felicidad total por diferencias
+// mínimas de justicia. Ejemplo del segundo caso: un emparejamiento donde el peor parado
+// queda en 0.49 pero todos los demás juegan felices perdía contra uno donde el peor
+// queda en 0.50 y el resto juega mal.
 function proposeMatches(teams, happinessByTeam, excludedPairs, difficultyContext, candidateBlocks) {
     if (teams.length % 2 !== 0) {
         throw new Error("proposeMatches requiere una cantidad par de equipos.");
     }
     if (teams.length === 0) {
-        return { threshold: null, maxGap: null, totalScore: 0, matches: [], infeasible: false };
+        return { floor: null, worst: null, maxGap: null, totalScore: 0, matches: [], infeasible: false };
     }
     // Un id repetido no es un caso raro sino un dato corrupto con consecuencias: el par
     // (X,X) tiene gap 0 y el score máximo posible, así que el optimizador lo PREFIERE y
@@ -644,17 +670,18 @@ function proposeMatches(teams, happinessByTeam, excludedPairs, difficultyContext
 
     const blocks = resolveCandidateBlocks(teams, happinessByTeam, candidateBlocks);
     const edges = buildEdges(teams, happinessByTeam, excludedPairs, difficultyContext, blocks);
-    const threshold = findTightestThreshold(teams.length, edges);
-    if (threshold === null) {
-        return { threshold: null, maxGap: null, totalScore: null, matches: null, infeasible: true };
+    const floor = findBestFloor(teams.length, edges);
+    if (floor === null) {
+        return { floor: null, worst: null, maxGap: null, totalScore: null, matches: null, infeasible: true };
     }
+    const tolerantFloor = floor - FAIRNESS_TOLERANCE;
 
-    const result = maxWeightMatching(teams.length, edges, threshold);
+    const result = maxWeightMatching(teams.length, edges, tolerantFloor);
 
     const normalized = teams.map((t) => normalizeTeamHappiness((happinessByTeam || {})[t] || {}));
     const pairEdges = result.pairs.map(([i, j]) => ({ i, j, edge: edgeBetween(edges, i, j) }));
     const tieBreak = difficultyContext && difficultyContext.temperature ? Math.random : null;
-    resolveBlockCollisions(pairEdges, normalized, blocks, threshold, tieBreak);
+    resolveBlockCollisions(pairEdges, normalized, blocks, tolerantFloor, tieBreak);
 
     const totalScore = pairEdges.reduce((sum, p) => sum + p.edge.score, 0);
     const matches = pairEdges.map(({ i, j, edge }) => {
@@ -667,13 +694,15 @@ function proposeMatches(teams, happinessByTeam, excludedPairs, difficultyContext
             gap: edge.gap,
             happinessA: (happinessByTeam[teamA] || {})[edge.block],
             happinessB: (happinessByTeam[teamB] || {})[edge.block],
-            overThreshold: !!edge.overThreshold,
+            worst: edge.worst,
+            belowFloor: !!edge.belowFloor,
             collision: !!edge.collision,
         };
     });
-    const maxGap = matches.reduce((worst, m) => Math.max(worst, m.gap), 0);
+    const maxGap = matches.reduce((peor, m) => Math.max(peor, m.gap), 0);
+    const worst = matches.reduce((peor, m) => Math.min(peor, m.worst), Infinity);
 
-    return { threshold, maxGap, totalScore, matches, infeasible: false };
+    return { floor, worst, maxGap, totalScore, matches, infeasible: false };
 }
 
 module.exports = {
@@ -695,12 +724,13 @@ module.exports = {
     computeValidBlocks,
     fillDefaultHappiness,
     computePairEdge,
+    FAIRNESS_TOLERANCE,
     pairKey,
     DIFFICULTY_WEIGHT,
     DEFAULT_TEMPERATURE,
     difficultyBalanceGain,
     buildEdges,
-    findTightestThreshold,
+    findBestFloor,
     maxWeightMatching,
     suggestByeTeam,
     rankByeCandidates,

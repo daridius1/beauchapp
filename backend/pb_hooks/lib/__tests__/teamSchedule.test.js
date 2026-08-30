@@ -12,7 +12,7 @@ const {
     computePairEdge,
     pairKey,
     buildEdges,
-    findTightestThreshold,
+    findBestFloor,
     maxWeightMatching,
     suggestByeTeam,
     proposeMatches,
@@ -125,9 +125,9 @@ test("suggestByeTeam elige al equipo con menos bloques bien calificados (Buena/E
 });
 
 // Ejemplo de 4 equipos calculado a mano (ver el plan/diseño): T1 es el menos flexible
-// (su tercer bloque es "muy mala", nota 1). El único emparejamiento perfecto con
-// gap=0 es (T1,T2)+(T3,T4), con score total 4.0 — cualquier otro resultado indica un
-// bug en el umbral o en el DP de matching.
+// (su tercer bloque es "muy mala", nota 1). El único emparejamiento perfecto donde
+// NADIE queda por debajo de su tope (piso 1.0) es (T1,T2)+(T3,T4), con score total
+// 4.0 — cualquier otro resultado indica un bug en el piso o en el DP de matching.
 const FOUR_TEAM_HAPPINESS = {
     T1: { "2026-08-17-09": 4, "2026-08-17-10": 2, "2026-08-17-11": 1 },
     T2: { "2026-08-17-09": 3, "2026-08-17-10": 3, "2026-08-17-11": 1 },
@@ -136,12 +136,12 @@ const FOUR_TEAM_HAPPINESS = {
 };
 const FOUR_TEAMS = ["T1", "T2", "T3", "T4"];
 
-test("findTightestThreshold + maxWeightMatching: ejemplo de 4 equipos calculado a mano", () => {
+test("findBestFloor + maxWeightMatching: ejemplo de 4 equipos calculado a mano", () => {
     const edges = buildEdges(FOUR_TEAMS, FOUR_TEAM_HAPPINESS);
-    const threshold = findTightestThreshold(FOUR_TEAMS.length, edges);
-    assert.equal(threshold, 0);
+    const floor = findBestFloor(FOUR_TEAMS.length, edges);
+    assert.equal(floor, 1);
 
-    const result = maxWeightMatching(FOUR_TEAMS.length, edges, threshold);
+    const result = maxWeightMatching(FOUR_TEAMS.length, edges, floor);
     assert.equal(result.totalScore, 4);
 
     const pairsAsNames = result.pairs
@@ -153,7 +153,8 @@ test("findTightestThreshold + maxWeightMatching: ejemplo de 4 equipos calculado 
 test("proposeMatches: mismo ejemplo de 4 equipos, ids y bloques correctos", () => {
     const result = proposeMatches(FOUR_TEAMS, FOUR_TEAM_HAPPINESS);
     assert.equal(result.infeasible, false);
-    assert.equal(result.threshold, 0);
+    assert.equal(result.floor, 1);
+    assert.equal(result.worst, 1);
     assert.equal(result.totalScore, 4);
     assert.equal(result.matches.length, 2);
 
@@ -178,7 +179,7 @@ test("proposeMatches: cantidad impar de equipos lanza error explícito", () => {
 
 test("proposeMatches: cero equipos devuelve resultado vacío sin error", () => {
     const result = proposeMatches([], {});
-    assert.deepEqual(result, { threshold: null, maxGap: null, totalScore: 0, matches: [], infeasible: false });
+    assert.deepEqual(result, { floor: null, worst: null, maxGap: null, totalScore: 0, matches: [], infeasible: false });
 });
 
 test("proposeMatches: par sin ningún solapamiento es infactible", () => {
@@ -257,15 +258,15 @@ test("proposeMatches: si excludedPairs deja a un equipo sin ningún rival posibl
 test("proposeMatches: equipo que marca todo igual no se beneficia frente a uno que sí diferencia", () => {
     // C marca "3" parejo en ambos bloques (plano, sin señal). D distingue: prefiere
     // fuertemente el segundo bloque. El emparejamiento debe usar el bloque donde D es
-    // feliz, porque para C (plano) da lo mismo cuál elegir — su "gap" contra D no mide
-    // una preferencia real, así que no cuenta como diferencia de justicia (gap 0).
+    // feliz: para C, plano, los dos bloques valen 0.5, así que quien decide es D.
     const result = proposeMatches(["C", "D"], {
         C: { "2026-08-17-09": 3, "2026-08-17-10": 3 },
         D: { "2026-08-17-09": 1, "2026-08-17-10": 4 },
     });
     assert.equal(result.infeasible, false);
     assert.equal(result.matches[0].block, "2026-08-17-10");
-    assert.equal(result.matches[0].gap, 0);
+    // El peor parado del par es C con su 0.5 constante; en el otro bloque sería D con 0.
+    assert.equal(result.matches[0].worst, 0.5);
 });
 
 test("proposeMatches: con más de 2 bloques en común, un equipo plano no debe arrastrar al otro a un bloque mediocre", () => {
@@ -449,7 +450,7 @@ test("buildEdges/proposeMatches: sin difficultyContext (u omitido/undefined), el
     assert.deepEqual(edgesSinContexto, edgesConUndefined);
 
     const result = proposeMatches(FOUR_TEAMS, FOUR_TEAM_HAPPINESS, null, undefined);
-    assert.equal(result.threshold, 0);
+    assert.equal(result.floor, 1);
     assert.equal(result.totalScore, 4);
     const pairsAsNames = result.matches
         .map((m) => [m.teamA, m.teamB].sort())
@@ -507,6 +508,7 @@ test("proposeMatches: con difficultyContext, el criterio de dificultad puede cam
 const {
     rankByeCandidates,
     isPairingFeasible,
+    FAIRNESS_TOLERANCE,
     MAX_TEAMS,
     DIFFICULTY_WEIGHT,
     DEFAULT_TEMPERATURE,
@@ -536,10 +538,11 @@ test("proposeMatches: un único bloque marcado, con todo el resto igual, no inve
     assert.ok(Object.values(norm).every((v) => v === 0.5));
 });
 
-test("proposeMatches: resolver un choque de bloques NO puede saltarse el umbral de justicia", () => {
-    // Caso encontrado por búsqueda aleatoria: A/D y B/C querían los dos el bloque b0.
-    // La pasada anti-choque reasignaba sin volver a mirar el umbral y dejaba a B/C con
-    // gap 1.00 (el máximo posible) mientras el panel anunciaba un peor caso de 0.08.
+test("proposeMatches: resolver un choque de bloques NO puede saltarse el piso de justicia en silencio", () => {
+    // Caso encontrado por búsqueda aleatoria: A/D y B/C querían los dos el mismo bloque.
+    // La pasada anti-choque reasignaba sin volver a mirar la justicia y dejaba un partido
+    // mucho peor que el anunciado, sin decirlo. Con solo 3 bloques para 2 partidos, ceder
+    // es inevitable — lo que no puede pasar es que se ceda CALLADO.
     const happiness = {
         A: { b0: 2, b1: 1, b2: 5 },
         B: { b0: 5, b1: 1, b2: 4 },
@@ -549,11 +552,34 @@ test("proposeMatches: resolver un choque de bloques NO puede saltarse el umbral 
     const result = proposeMatches(["A", "B", "C", "D"], happiness);
     assert.equal(result.infeasible, false);
     for (const m of result.matches) {
-        assert.ok(m.gap <= result.threshold + 1e-9, `gap ${m.gap} sobre el umbral ${result.threshold}`);
-        assert.equal(m.overThreshold, false);
+        assert.ok(
+            m.worst >= result.floor - FAIRNESS_TOLERANCE - 1e-9 || m.belowFloor,
+            `el peor parado quedó en ${m.worst} sin marcarse`
+        );
     }
-    // Y el peor gap informado tiene que ser el real, no el umbral que se buscó.
+    // Y lo informado es lo que pasó DE VERDAD, no lo que se buscó.
+    assert.equal(result.worst, Math.min(...result.matches.map((m) => m.worst)));
     assert.equal(result.maxGap, Math.max(...result.matches.map((m) => m.gap)));
+});
+
+test("proposeMatches: con bloques de sobra, nadie tiene que ceder el piso por un choque", () => {
+    // Mismo patrón pero con horarios suficientes: acá sí se exige que NINGÚN partido
+    // quede por debajo del piso, y que ninguno tenga que marcarse.
+    const happiness = {
+        A: { b0: 2, b1: 1, b2: 5, b3: 5, b4: 1 },
+        B: { b0: 5, b1: 1, b2: 4, b3: 5, b4: 1 },
+        C: { b0: 2, b1: 5, b2: 4, b3: 1, b4: 5 },
+        D: { b0: 2, b1: 5, b2: 5, b3: 1, b4: 5 },
+    };
+    const result = proposeMatches(["A", "B", "C", "D"], happiness);
+    assert.equal(result.infeasible, false);
+    const bloques = result.matches.map((m) => m.block);
+    assert.equal(new Set(bloques).size, bloques.length, "dos partidos en el mismo bloque");
+    for (const m of result.matches) {
+        assert.equal(m.belowFloor, false);
+        assert.equal(m.collision, false);
+        assert.ok(m.worst >= result.floor - FAIRNESS_TOLERANCE - 1e-9);
+    }
 });
 
 test("proposeMatches: ante un choque cede el par al que le da lo mismo, no el que sí tiene preferencia", () => {
@@ -669,4 +695,78 @@ test("isPairingFeasible: detecta el conjunto sin emparejamiento posible sin calc
     // A ya jugó contra todos: no queda ningún emparejamiento perfecto.
     const excluded = new Set([pairKey("A", "B"), pairKey("A", "C"), pairKey("A", "D")]);
     assert.equal(isPairingFeasible(["A", "B", "C", "D"], happiness, excluded), false);
+});
+
+// ---------------------------------------------------------------------------------
+// El criterio de justicia: peor parado con banda de tolerancia (2026-08-30). Antes era
+// "minimizar la diferencia entre los dos", que leía un bloque pésimo para ambos como
+// justicia perfecta.
+// ---------------------------------------------------------------------------------
+
+test("proposeMatches: un horario bueno para los dos gana sobre uno malo para los dos, aunque el malo sea 'más parejo'", () => {
+    // Caso real: LOS LABUBU vs Vo Sai Po FC (Copa CDI Masculina). Comparten 142 bloques
+    // donde ambos marcaron "Muy mala" —diferencia 0, justicia aparentemente perfecta— y
+    // uno solo donde los dos marcaron "Buena". Vo Sai Po nunca usó el 5, así que su 4
+    // normaliza a 1.0 y el de LABUBU a 0.75: esa diferencia de 0.25 bastaba para que el
+    // criterio viejo prefiriera cualquiera de los 142 bloques horribles.
+    const bloques = [];
+    for (let i = 0; i < 20; i++) bloques.push("2026-09-01-" + String(i).padStart(2, "0"));
+    const elBueno = "2026-09-01-14";
+    const labubu = {};
+    const voSaiPo = {};
+    bloques.forEach((b) => {
+        labubu[b] = 1;
+        voSaiPo[b] = 1;
+    });
+    labubu[elBueno] = 4;
+    voSaiPo[elBueno] = 4;
+    labubu["2026-09-01-18"] = 5; // LABUBU sí usa el 5 en otro horario; Vo Sai Po nunca
+
+    const result = proposeMatches(["LOS LABUBU", "Vo Sai Po FC"], { "LOS LABUBU": labubu, "Vo Sai Po FC": voSaiPo });
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches[0].block, elBueno);
+    assert.equal(result.matches[0].happinessA, 4);
+    assert.equal(result.matches[0].happinessB, 4);
+});
+
+test("proposeMatches: la banda no llega a dejar a un equipo en su peor horario para que el otro tenga el mejor", () => {
+    // X es perfecto para A y pésimo para B; Z al revés; Y es "Regular" para los dos.
+    // Con la tolerancia de una nota, los extremos quedan fuera de la banda y gana Y:
+    // la justicia sigue siendo lo primero, solo dejó de ser un absoluto.
+    const result = proposeMatches(["A", "B"], {
+        A: { X: 5, Y: 3, Z: 1 },
+        B: { X: 1, Y: 3, Z: 5 },
+    });
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches[0].block, "Y");
+    assert.equal(result.matches[0].happinessA, 3);
+    assert.equal(result.matches[0].happinessB, 3);
+});
+
+test("proposeMatches: dentro de la banda gana el horario que mejor les viene a los dos, no el más parejo", () => {
+    // P deja al peor parado en 0.5 y suma 1.167; Q lo deja en 0.333 (dentro de la
+    // tolerancia de 0.25) pero suma 1.333, porque para B es su mejor horario y para A
+    // sigue siendo aceptable. Esto es exactamente "un poco de injusticia a cambio de una
+    // opción claramente mejor": sin banda ganaba P y B se quedaba sin su mejor bloque.
+    const result = proposeMatches(["A", "B"], {
+        A: { P: 3, Q: 2, R: 1, S: 4 },
+        B: { P: 3, Q: 5, R: 1, S: 1 },
+    });
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches[0].block, "Q");
+    assert.equal(result.matches[0].happinessB, 5);
+});
+
+test("proposeMatches: la felicidad garantizada que se informa es la que quedó, no la que se buscó", () => {
+    const result = proposeMatches(["A", "B", "C", "D"], {
+        A: { b0: 5, b1: 1, b2: 1 },
+        B: { b0: 5, b1: 1, b2: 1 },
+        C: { b0: 5, b1: 1, b2: 1 },
+        D: { b0: 5, b1: 1, b2: 1 },
+    });
+    assert.equal(result.infeasible, false);
+    assert.equal(result.worst, Math.min(...result.matches.map((m) => m.worst)));
+    // Los dos pares querían b0; uno tuvo que ceder y eso se dice.
+    assert.ok(result.worst < result.floor, "ceder tiene que reflejarse en lo informado");
+    assert.ok(result.matches.some((m) => m.belowFloor || m.collision));
 });
