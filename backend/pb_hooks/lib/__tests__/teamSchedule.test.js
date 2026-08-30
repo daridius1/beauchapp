@@ -3,10 +3,12 @@ const assert = require("node:assert/strict");
 const {
     startOfWeek,
     windowBlockCodes,
+    pastBlockCodes,
     normalizeTeamHappiness,
     filterToBlocks,
     computeValidBlocks,
     fillDefaultHappiness,
+    DEFAULT_HAPPINESS_LEVEL,
     computePairEdge,
     pairKey,
     buildEdges,
@@ -283,20 +285,19 @@ test("proposeMatches: con más de 2 bloques en común, un equipo plano no debe a
     assert.equal(result.matches[0].block, "2026-08-31-11");
 });
 
-test("proposeMatches: caso real (Malvvekas/Temerarias, Copa CDI Femenina) — mayoría aplastante en 'Muy mala' con un puñado de defaults no debe tapar la disponibilidad real del rival", () => {
-    // Reproduce el patrón real: Malvvekas calificó CASI toda la semana "Muy mala" (1),
-    // salvo 2 horas que nunca tocó y quedaron en el default "Regular" (2) — no es
-    // max===min exacto, pero tampoco hay ninguna preferencia real detrás de ese 2. Con
-    // el bug, ese único valor distinto ya bastaba para que minimizar el gap arrastrara
-    // a Temerarias (que sí diferenció, y tiene un bloque excelente) a un bloque mediocre
-    // en vez de a su mejor horario.
+test("proposeMatches: caso real (Malvvekas/Temerarias, Copa CDI Femenina) — 2 bloques nunca contestados (default) no deben tapar la disponibilidad real del rival", () => {
+    // Reproduce el patrón real: Malvvekas calificó EXPLÍCITAMENTE toda la semana "Muy
+    // mala" (1) salvo 2 horas que nunca tocó (quedaron en el default "Regular"=2 al
+    // pasar por fillDefaultHappiness, tal como hace league.pb.js antes de llamar acá).
+    // Sin distinguir explícito de default, ese único valor distinto ya bastaba para que
+    // minimizar el gap arrastrara a Temerarias (que sí diferenció, y tiene un bloque
+    // excelente) a un bloque mediocre en vez de a su mejor horario.
     const week = ["09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19"];
-    const malvvekas = {};
-    week.forEach((h) => (malvvekas[`2026-08-31-${h}`] = 1));
-    malvvekas["2026-08-31-08"] = 2; // nunca calificado, default
-    malvvekas["2026-08-31-20"] = 2; // ídem
+    const malvvekasExplicito = {};
+    week.forEach((h) => (malvvekasExplicito[`2026-08-31-${h}`] = 1));
+    // "08" y "20" NO están acá — nunca los contestó, quedan en el default más abajo.
 
-    const temerarias = {
+    const temerariasExplicito = {
         "2026-08-31-08": 2,
         "2026-08-31-09": 2,
         "2026-08-31-10": 1,
@@ -312,9 +313,49 @@ test("proposeMatches: caso real (Malvvekas/Temerarias, Copa CDI Femenina) — ma
         "2026-08-31-20": 2,
     };
 
-    const result = proposeMatches(["Malvvekas", "Temerarias"], { Malvvekas: malvvekas, Temerarias: temerarias });
+    const allBlocks = [...week.map((h) => `2026-08-31-${h}`), "2026-08-31-08", "2026-08-31-20"];
+    const happinessByTeam = {
+        Malvvekas: fillDefaultHappiness(malvvekasExplicito, allBlocks, DEFAULT_HAPPINESS_LEVEL),
+        Temerarias: fillDefaultHappiness(temerariasExplicito, allBlocks, DEFAULT_HAPPINESS_LEVEL),
+    };
+    const explicitBlocksByTeam = {
+        Malvvekas: new Set(Object.keys(malvvekasExplicito)),
+        Temerarias: new Set(Object.keys(temerariasExplicito)),
+    };
+
+    const result = proposeMatches(["Malvvekas", "Temerarias"], happinessByTeam, null, null, explicitBlocksByTeam);
     assert.equal(result.infeasible, false);
     assert.equal(result.matches[0].block, "2026-08-31-18");
+});
+
+test("proposeMatches: caso real (La CIB/Amigues, Copa CDI Mixta) — 184 de 195 bloques en 'Muy mala' SÍ es preferencia real y no debe tratarse como plana", () => {
+    // La CIB contestó las 195 horas de la ventana: 184 "Muy mala" (1) y 11 genuinamente
+    // buenas (4 o 5) — differentiación real y deliberada, no ruido. Amigues nunca marcó
+    // nada (0 respuestas, todo default). Con la heurística vieja ("¿qué nota domina?"),
+    // el 94% de La CIB en "Muy mala" la hacía ver "plana" igual que Amigues, y ambos
+    // equipos quedaban con a=b=0.5 en TODOS los bloques — el desempate por suma ya no
+    // distinguía nada, y ganaba el primer bloque de la ventana (arbitrario, y en la
+    // práctica uno de los peores para La CIB). La corrección: solo Amigues (0 respuestas
+    // explícitas) debe tratarse como sin preferencia; La CIB conserva su voto real.
+    const blocks = [];
+    for (let i = 0; i < 195; i++) blocks.push(`2026-09-0${(i % 9) + 1}-b${i}`); // códigos ficticios, alcanza con ser únicos
+    const cibExplicito = {};
+    blocks.forEach((b, i) => (cibExplicito[b] = i < 184 ? 1 : i < 189 ? 5 : 4));
+    const mejorBloqueCIB = blocks[184]; // el primero de los 11 buenos (nota 5)
+
+    const happinessByTeam = {
+        LaCIB: fillDefaultHappiness(cibExplicito, blocks, DEFAULT_HAPPINESS_LEVEL),
+        Amigues: fillDefaultHappiness({}, blocks, DEFAULT_HAPPINESS_LEVEL),
+    };
+    const explicitBlocksByTeam = {
+        LaCIB: new Set(Object.keys(cibExplicito)),
+        Amigues: new Set(), // nunca contestó nada
+    };
+
+    const result = proposeMatches(["LaCIB", "Amigues"], happinessByTeam, null, null, explicitBlocksByTeam);
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches[0].block, mejorBloqueCIB);
+    assert.equal(result.matches[0].happinessA, 5);
 });
 
 // ---------------------------------------------------------------------------------
@@ -348,6 +389,42 @@ test("windowBlockRange: un bloque anterior o posterior a la ventana queda fuera 
     const { from, to } = windowBlockRange(ref);
     assert.ok(!("2020-01-01-12" >= from && "2020-01-01-12" <= to));
     assert.ok(!("2099-01-01-12" >= from && "2099-01-01-12" <= to));
+});
+
+// ---------------------------------------------------------------------------------
+// pastBlockCodes — caso real: un admin generó "Sugerir partidos" un domingo y la
+// ventana móvil (que arranca en el lunes de la semana ACTUAL) incluyó bloques de esa
+// misma semana que ya habían pasado, dejando agendar un partido en el pasado.
+// ---------------------------------------------------------------------------------
+
+test("pastBlockCodes: si `now` es domingo, toda la semana actual (lunes a viernes) ya pasó", () => {
+    // 2026-08-30 es domingo -> la semana actual es 2026-08-24 (lun) a 2026-08-28 (vie),
+    // entera en el pasado.
+    const now = new Date("2026-08-30T15:00:00");
+    const codes = windowBlockCodes(now);
+    const past = pastBlockCodes(codes, now);
+    const week0 = codes.filter((c) => c.startsWith("2026-08-24") || c.startsWith("2026-08-25") || c.startsWith("2026-08-26") || c.startsWith("2026-08-27") || c.startsWith("2026-08-28"));
+    assert.deepEqual(new Set(past), new Set(week0));
+});
+
+test("pastBlockCodes: a mitad de semana, excluye días y horas anteriores a `now` pero deja el resto", () => {
+    // 2026-08-26 12:00 es miércoles -> lunes y martes de esa semana ya pasaron, y hoy
+    // (miércoles) las horas hasta las 12 inclusive también, pero de las 13 en adelante no.
+    const now = new Date("2026-08-26T12:00:00");
+    const codes = windowBlockCodes(now);
+    const past = new Set(pastBlockCodes(codes, now));
+    assert.ok(past.has("2026-08-24-10")); // lunes, ya pasó entero
+    assert.ok(past.has("2026-08-25-19")); // martes, ya pasó entero
+    assert.ok(past.has("2026-08-26-12")); // hoy a las 12, ya empezó
+    assert.ok(!past.has("2026-08-26-13")); // hoy a las 13, todavía no
+    assert.ok(!past.has("2026-08-27-09")); // jueves, todavía no
+});
+
+test("pastBlockCodes: sin nada en el pasado (ventana generada el mismo lunes a primera hora), no excluye nada", () => {
+    const now = new Date("2026-08-24T07:00:00"); // lunes, antes del primer bloque (08:00)
+    const codes = windowBlockCodes(now);
+    const past = pastBlockCodes(codes, now);
+    assert.deepEqual(past, []);
 });
 
 // --- Balance de dificultad (difficultyBalanceGain / buildEdges / proposeMatches) ---

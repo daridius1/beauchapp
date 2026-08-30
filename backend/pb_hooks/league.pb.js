@@ -3052,6 +3052,7 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
         const {
             windowBlockCodes,
             windowBlockRange,
+            pastBlockCodes,
             computeValidBlocks,
             fillDefaultHappiness,
             DEFAULT_HAPPINESS_LEVEL,
@@ -3134,11 +3135,22 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
                         )
                         .map((r) => r.getString("blockCode"))
                 );
-            return computeValidBlocks(allWindowBlocks, [blockedCodes, occupiedCodes]);
+            // La ventana móvil arranca en el lunes de la semana ACTUAL: un fin de
+            // semana (o cualquier día pasado el lunes), esa misma semana ya incluye
+            // días/horas que ya pasaron. Sin excluirlos, "Sugerir partidos" podía
+            // terminar apuntando a un bloque que ya ocurrió.
+            const pastCodes = pastBlockCodes(allWindowBlocks);
+            return computeValidBlocks(allWindowBlocks, [blockedCodes, occupiedCodes, pastCodes]);
         }
 
+        // Devuelve tanto la disponibilidad ya rellenada con el default (lo que usa el
+        // algoritmo para calcular felicidad) como, por separado, qué bloques contestó
+        // CADA equipo de verdad (`explicitBlocksByTeam`) — necesario para que
+        // proposeMatches distinga "sin preferencia real" de "preferencia real pero
+        // muy restrictiva" (ver comentario de isFlat en teamSchedule.js).
         function loadMatchInputs(ids, validBlocks) {
             const happinessByTeam = {};
+            const explicitBlocksByTeam = {};
             for (const teamId of ids) {
                 let happiness = {};
                 try {
@@ -3148,8 +3160,9 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
                     happiness = {};
                 }
                 happinessByTeam[teamId] = fillDefaultHappiness(happiness, validBlocks, DEFAULT_HAPPINESS_LEVEL);
+                explicitBlocksByTeam[teamId] = new Set(Object.keys(happiness));
             }
-            return happinessByTeam;
+            return { happinessByTeam, explicitBlocksByTeam };
         }
 
         // Los bloques candidatos son los libres de la ventana, restringidos a los que
@@ -3165,7 +3178,7 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
                 );
             }
         }
-        const happinessByTeam = loadMatchInputs(teamIds, validBlocks);
+        const { happinessByTeam, explicitBlocksByTeam } = loadMatchInputs(teamIds, validBlocks);
 
         if (teamIds.length % 2 !== 0) {
             if (!byeTeamId) {
@@ -3229,7 +3242,7 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
             : 0;
         const difficultyContext = { difficultyByTeam, facedByTeam, targetAvg, temperature: DEFAULT_TEMPERATURE };
 
-        const result = proposeMatches(teamIds, happinessByTeam, excludedPairs, difficultyContext);
+        const result = proposeMatches(teamIds, happinessByTeam, excludedPairs, difficultyContext, explicitBlocksByTeam);
         if (result.infeasible) {
             return e.json(200, { infeasible: true, byeTeamId: byeTeamId || null });
         }
@@ -3259,7 +3272,7 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
         if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
             throw new BadRequestError("Esta cuenta no es una liga.");
         }
-        const { windowBlockCodes, windowBlockRange, computeValidBlocks } = require(`${__hooks}/lib/teamSchedule.js`);
+        const { windowBlockCodes, windowBlockRange, pastBlockCodes, computeValidBlocks } = require(`${__hooks}/lib/teamSchedule.js`);
         const { CODE_ALPHABET, CODE_LENGTH } = require(`${__hooks}/lib/matchEvents.js`);
         const { bettingCloseTimeFromBlock } = require(`${__hooks}/lib/polla.js`);
 
@@ -3329,9 +3342,12 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
                     )
                     .map((r) => r.getString("blockCode"))
             );
-        const validBlocks = new Set(computeValidBlocks(allWindowBlocks, [blockedCodes, occupiedCodes]));
+        // También rechaza un bloque que ya pasó — la sugerencia pudo generarse antes
+        // (ej. quedó abierta en otra pestaña) y ese horario ya no tiene sentido.
+        const pastCodes = pastBlockCodes(allWindowBlocks);
+        const validBlocks = new Set(computeValidBlocks(allWindowBlocks, [blockedCodes, occupiedCodes, pastCodes]));
         if (!validBlocks.has(block)) {
-            throw new BadRequestError("Ese bloque ya no está disponible (se bloqueó o se ocupó con otro partido). Vuelve a generar la sugerencia.");
+            throw new BadRequestError("Ese bloque ya no está disponible (se bloqueó, se ocupó con otro partido, o ya pasó). Vuelve a generar la sugerencia.");
         }
 
         const coll = $app.findCollectionByNameOrId("league_matches");
