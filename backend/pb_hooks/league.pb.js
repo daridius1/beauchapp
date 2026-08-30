@@ -70,6 +70,7 @@ routerAdd("GET", "/admin/liga", (e) => {
         .btn-icon { padding: 4px 8px; line-height: 1; }
         .btn-accept { background: var(--success-color); color: #05230f; }
         .btn-reject { background: rgba(255,255,255,0.05); color: var(--text-color); border: 1px solid var(--border-color); }
+        .btn-danger { background: var(--danger-color); color: #fff; }
         .alert { padding: 12px 16px; border-radius: 12px; font-size: 14px; margin-bottom: 16px; text-align: left; display: none; }
         .alert-danger { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
         #logoutBar { text-align: right; margin-bottom: 16px; }
@@ -477,6 +478,42 @@ ${CALENDAR_CSS}
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary btn-sm" id="cancelRetroBtn">Cancelar</button>
                     <button type="submit" class="btn btn-sm" id="submitRetroBtn">Guardar partido</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de edición de partido: solo para partidos que todavía no se jugaron
+         (confirmed/suspended) — corrige equipos u horario de un partido ya agendado,
+         sin tener que borrarlo y volver a crearlo. -->
+    <div class="modal-backdrop" id="editMatchModal">
+        <div class="modal-box">
+            <h2 style="margin-top:0;">Editar partido</h2>
+            <div class="alert alert-danger" id="editMatchError"></div>
+            <form id="editMatchForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editTeamA">Equipo A</label>
+                        <select id="editTeamA"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editTeamB">Equipo B</label>
+                        <select id="editTeamB"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editDate">Fecha</label>
+                        <input type="date" id="editDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editHour">Hora</label>
+                        <select id="editHour"></select>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" id="cancelEditMatchBtn">Cancelar</button>
+                    <button type="submit" class="btn btn-sm" id="submitEditMatchBtn">Guardar cambios</button>
                 </div>
             </form>
         </div>
@@ -1806,6 +1843,27 @@ ${API_CALL_FN}
                         } catch (err) { showError(currentError(), err.message); btn.disabled = false; }
                     });
                     actions.appendChild(btn);
+
+                    const editBtn = document.createElement("button");
+                    editBtn.className = "btn btn-sm btn-secondary";
+                    editBtn.textContent = "Editar";
+                    editBtn.addEventListener("click", () => openEditMatchModal(m));
+                    actions.appendChild(editBtn);
+
+                    const deleteBtn = document.createElement("button");
+                    deleteBtn.className = "btn btn-sm btn-danger";
+                    deleteBtn.textContent = "Eliminar";
+                    deleteBtn.addEventListener("click", async () => {
+                        if (!confirm("¿Eliminar este partido? " + m.teamAName + " vs " + m.teamBName + ", " + formatBlockLabel(m.blockCode) + ". No se puede deshacer.")) return;
+                        deleteBtn.disabled = true;
+                        try {
+                            await apiCall("/api/liga/matches/delete", "POST", { matchId: m.id });
+                            loadStageMatches();
+                            loadCalendar();
+                        } catch (err) { showError(currentError(), err.message); deleteBtn.disabled = false; }
+                    });
+                    actions.appendChild(deleteBtn);
+
                     card.appendChild(actions);
                 }
 
@@ -2143,6 +2201,78 @@ ${API_CALL_FN}
                 loadCalendar();
             } catch (err) {
                 showError(retroactiveError, err.message);
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // --- Editar partido (solo confirmed/suspended) ---
+        //
+        // Mismo endpoint de validación que agendar (equipos del roster, participantes
+        // de la etapa, bloque libre), pero contra /api/liga/matches/update, que además
+        // excluye este mismo partido de la revisión de bloque ocupado.
+        const editMatchModal = document.getElementById("editMatchModal");
+        const editMatchForm = document.getElementById("editMatchForm");
+        const editMatchError = document.getElementById("editMatchError");
+        let editingMatchId = null;
+
+        function openEditMatchModal(m) {
+            editingMatchId = m.id;
+            hideError(editMatchError);
+
+            const selectA = document.getElementById("editTeamA");
+            const selectB = document.getElementById("editTeamB");
+            selectA.innerHTML = "";
+            selectB.innerHTML = "";
+            stageParticipants().forEach((t) => {
+                const optA = document.createElement("option");
+                optA.value = t.id;
+                optA.textContent = teamLabel(t);
+                selectA.appendChild(optA);
+                selectB.appendChild(optA.cloneNode(true));
+            });
+            selectA.value = m.teamA;
+            selectB.value = m.teamB;
+
+            const hour = m.blockCode.slice(-2);
+            const date = m.blockCode.slice(0, -3);
+            document.getElementById("editDate").value = date;
+            populateHourSelect(document.getElementById("editHour"), Number(hour));
+
+            editMatchModal.classList.add("open");
+        }
+        function closeEditMatchModal() { editMatchModal.classList.remove("open"); editingMatchId = null; }
+
+        document.getElementById("cancelEditMatchBtn").addEventListener("click", closeEditMatchModal);
+        editMatchModal.addEventListener("click", (e) => { if (e.target === editMatchModal) closeEditMatchModal(); });
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && editMatchModal.classList.contains("open")) closeEditMatchModal();
+        });
+
+        editMatchForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            hideError(editMatchError);
+            if (!editingMatchId) return;
+
+            const teamA = document.getElementById("editTeamA").value;
+            const teamB = document.getElementById("editTeamB").value;
+            const date = document.getElementById("editDate").value;
+            const hour = Number(document.getElementById("editHour").value);
+            if (!teamA || !teamB) { showError(editMatchError, "Elige los dos equipos."); return; }
+            if (teamA === teamB) { showError(editMatchError, "Los dos equipos no pueden ser el mismo."); return; }
+            if (!date) { showError(editMatchError, "Elige una fecha."); return; }
+
+            const btn = document.getElementById("submitEditMatchBtn");
+            btn.disabled = true;
+            try {
+                await apiCall("/api/liga/matches/update", "POST", {
+                    matchId: editingMatchId, teamA, teamB, block: date + "-" + pad2(hour),
+                });
+                closeEditMatchModal();
+                loadStageMatches();
+                loadCalendar();
+            } catch (err) {
+                showError(editMatchError, err.message);
             } finally {
                 btn.disabled = false;
             }
@@ -2902,6 +3032,209 @@ routerAdd("POST", "/api/liga/matches/reactivate", (e) => {
     } catch (err) {
         console.error("[league.pb.js] Error en POST /api/liga/matches/reactivate:", err);
         return e.json(400, { error: (err && err.message) || "No se pudo reactivar el partido." });
+    }
+}, $apis.requireAuth("users"));
+
+// Editar un partido ya agendado — corrige equipos u horario sin borrar y volver a
+// crear. Restringido a 'confirmed'/'suspended': un partido 'played' ya tiene su
+// corrección propia (enmendar el marcador vía /api/league-matches/events, ver
+// matchWriteDecision en lib/matchEvents.js), y no tiene sentido reescribir quién jugó
+// o cuándo algo que ya ocurrió.
+routerAdd("POST", "/api/liga/matches/update", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        const { windowBlockCodes, windowBlockRange, pastBlockCodes, computeValidBlocks } = require(`${__hooks}/lib/teamSchedule.js`);
+        const { bettingCloseTimeFromBlock } = require(`${__hooks}/lib/polla.js`);
+
+        const body = e.requestInfo().body || {};
+        const matchId = String(body.matchId || "");
+        const teamA = String(body.teamA || "");
+        const teamB = String(body.teamB || "");
+        const block = String(body.block || "");
+        if (!matchId || !teamA || !teamB || !block) throw new BadRequestError("Faltan datos del partido.");
+
+        let match;
+        try {
+            match = $app.findRecordById("league_matches", matchId);
+        } catch (err) {
+            throw new BadRequestError("El partido indicado no existe.");
+        }
+        if (match.getString("league") !== e.auth.id) {
+            throw new BadRequestError("Ese partido no pertenece a tu liga.");
+        }
+        if (match.getString("status") !== "confirmed" && match.getString("status") !== "suspended") {
+            throw new BadRequestError("Solo se pueden editar partidos que todavía no se jugaron.");
+        }
+
+        let stage;
+        try {
+            stage = $app.findRecordById("league_stages", match.getString("stage"));
+        } catch (err) {
+            throw new BadRequestError("La etapa de este partido ya no existe.");
+        }
+
+        // Misma validación que /accept: equipos del roster de la liga y participantes
+        // marcados de la etapa.
+        const rosterRows = $app.findRecordsByFilter(
+            "league_teams", "league = {:league} && deleted = false", "", 0, 0, { league: e.auth.id }
+        );
+        const rosterSet = new Set(rosterRows.map((r) => r.getString("team")));
+        if (teamA === teamB) {
+            throw new BadRequestError("Un equipo no puede jugar contra sí mismo.");
+        }
+        if (!rosterSet.has(teamA) || !rosterSet.has(teamB)) {
+            throw new BadRequestError("Ambos equipos deben pertenecer a tu liga.");
+        }
+        const stageTeams = (stage.get("teams") || []).map(String);
+        const stageSet = new Set(stageTeams);
+        if (!(stageSet.has(teamA) && stageSet.has(teamB))) {
+            throw new BadRequestError("Ambos equipos deben participar de esta etapa.");
+        }
+
+        // Solo revalida el bloque si de verdad cambió — si no, un partido 'confirmed'
+        // siempre "chocaría" contra su propio bloque actual al mirarse a sí mismo, y un
+        // partido cuyo bloque quedó fuera de la ventana móvil de 3 semanas (agendado
+        // hace tiempo) se rechazaría sin necesidad si no toca ese campo.
+        if (block !== match.getString("blockCode")) {
+            const allWindowBlocks = windowBlockCodes();
+            const range = windowBlockRange();
+            const maxRows = allWindowBlocks.length;
+            const blockedCodes = $app
+                .findRecordsByFilter("horario_blocked_slots", "blockCode >= {:from} && blockCode <= {:to}", "", maxRows, 0, range)
+                .map((r) => r.getString("blockCode"));
+            const occupiedCodes = $app
+                .findRecordsByFilter("horario_matches", "status = 'confirmed' && blockCode >= {:from} && blockCode <= {:to}", "", maxRows, 0, range)
+                .map((r) => r.getString("blockCode"))
+                .concat(
+                    $app
+                        .findRecordsByFilter(
+                            "league_matches",
+                            "(status = 'confirmed' || status = 'played') && deleted = false && id != {:matchId} && blockCode >= {:from} && blockCode <= {:to}",
+                            "", maxRows, 0, { from: range.from, to: range.to, matchId }
+                        )
+                        .map((r) => r.getString("blockCode"))
+                );
+            const pastCodes = pastBlockCodes(allWindowBlocks);
+            const validBlocks = new Set(computeValidBlocks(allWindowBlocks, [blockedCodes, occupiedCodes, pastCodes]));
+            if (!validBlocks.has(block)) {
+                throw new BadRequestError("Ese bloque ya no está disponible (se bloqueó, se ocupó con otro partido, o ya pasó).");
+            }
+        }
+
+        match.set("teamA", teamA);
+        match.set("teamB", teamB);
+        match.set("blockCode", block);
+        const closesAt = bettingCloseTimeFromBlock(block);
+        if (closesAt) match.set("bettingClosesAt", closesAt);
+
+        // Si tiene mercado automático de Beaumarket todavía abierto, se actualiza para
+        // que refleje el horario y los equipos nuevos — uno cerrado (partido suspendido)
+        // se deja tal cual, mismo criterio que /suspend: no se reabre solo.
+        const marketId = match.getString("beaumarketMarket");
+        if (marketId) {
+            try {
+                const market = $app.findRecordById("beaumarkets", marketId);
+                if (market.getString("status") === "open") {
+                    const nameOf = (id) => {
+                        try {
+                            const t = $app.findRecordById("users", id);
+                            return t.getString("name") || t.getString("username") || id;
+                        } catch (err) { return id; }
+                    };
+                    const teamAName = nameOf(teamA);
+                    const teamBName = nameOf(teamB);
+                    market.set("title", teamAName + " vs " + teamBName);
+                    market.set("outcomes", JSON.stringify(["Gana " + teamAName, "Empate", "Gana " + teamBName]));
+                    if (closesAt) market.set("closesAt", closesAt);
+                    $app.save(market);
+                }
+            } catch (err) {
+                // El mercado pudo haberse borrado a mano — no bloquea la edición.
+            }
+        }
+
+        $app.save(match);
+
+        return e.json(200, { success: true });
+    } catch (err) {
+        console.error("[league.pb.js] Error en POST /api/liga/matches/update:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo editar el partido." });
+    }
+}, $apis.requireAuth("users"));
+
+// Eliminar un partido — borrado suave (deleted=true) pero pensado para sentirse
+// completo: desaparece de todas las listas (todas filtran deleted=false, ver
+// GET /api/liga/matches, público en public_league.pb.js) y status pasa a 'cancelled',
+// que es justo lo que ya excluyen los chequeos existentes de la polla
+// (validatePollaBet en polla.pb.js) y de matchWriteDecision (nadie puede seguir
+// arbitrándolo). Restringido a partidos que no se jugaron: uno 'played' ya puede tener
+// pagos reales de Beaumarket resueltos y puntos de Beaupolla contados, y deshacer eso
+// es un problema distinto (revertir pagos, no solo ocultar un registro).
+routerAdd("POST", "/api/liga/matches/delete", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        const body = e.requestInfo().body || {};
+        const matchId = String(body.matchId || "");
+        if (!matchId) throw new BadRequestError("Falta matchId.");
+
+        let match;
+        try {
+            match = $app.findRecordById("league_matches", matchId);
+        } catch (err) {
+            throw new BadRequestError("El partido indicado no existe.");
+        }
+        if (match.getString("league") !== e.auth.id) {
+            throw new BadRequestError("Ese partido no pertenece a tu liga.");
+        }
+        if (match.getString("status") !== "confirmed" && match.getString("status") !== "suspended") {
+            throw new BadRequestError("Solo se pueden eliminar partidos que todavía no se jugaron.");
+        }
+
+        $app.runInTransaction((txApp) => {
+            const txMatch = txApp.findRecordById("league_matches", matchId);
+
+            // Mismo reembolso 1:1 que POST /api/admin/beaumarket/cancel (beaumarket.pb.js),
+            // pero inline: ese endpoint exige superusuario y acá quien elimina es la
+            // cuenta de la liga.
+            const marketId = txMatch.getString("beaumarketMarket");
+            if (marketId) {
+                try {
+                    const market = txApp.findRecordById("beaumarkets", marketId);
+                    const marketStatus = market.getString("status");
+                    if (marketStatus === "open" || marketStatus === "closed") {
+                        const positions = txApp.findRecordsByFilter(
+                            "beaumarket_positions", "market = {:m}", "", 0, 0, { m: marketId }
+                        );
+                        positions.forEach((pos) => {
+                            const amount = pos.getInt("amount");
+                            if (amount > 0) {
+                                txApp.db()
+                                    .newQuery("UPDATE users SET beautokens = COALESCE(beautokens, 0) + {:amt} WHERE id = {:id}")
+                                    .bind({ amt: amount, id: pos.getString("user") })
+                                    .execute();
+                            }
+                        });
+                        market.set("status", "cancelled");
+                        txApp.save(market);
+                    }
+                } catch (err) {
+                    // El mercado pudo haberse borrado a mano — no bloquea la eliminación.
+                }
+            }
+
+            txMatch.set("status", "cancelled");
+            txMatch.set("deleted", true);
+            txApp.save(txMatch);
+        });
+
+        return e.json(200, { success: true });
+    } catch (err) {
+        console.error("[league.pb.js] Error en POST /api/liga/matches/delete:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo eliminar el partido." });
     }
 }, $apis.requireAuth("users"));
 
