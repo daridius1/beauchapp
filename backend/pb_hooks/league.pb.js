@@ -1575,7 +1575,10 @@ ${API_CALL_FN}
             summary.textContent =
                 "Todavía no están agendadas: acepta las que te sirvan. Se buscó el horario que" +
                 " deje más contentos a los dos equipos; en el peor caso quedó una diferencia de " +
-                res.threshold.toFixed(2) + " entre ellos." +
+                // maxGap y no threshold: el umbral es lo que se BUSCÓ, y liberar un
+                // bloque disputado puede obligar a un partido a quedar por encima.
+                (res.maxGap !== null && res.maxGap !== undefined ? res.maxGap : res.threshold).toFixed(2) +
+                " entre ellos." +
                 (res.byeTeamId ? " Queda libre esta fecha: " + (res.byeTeamName || res.byeTeamId) + "." : "");
             wrap.appendChild(summary);
 
@@ -1599,6 +1602,19 @@ ${API_CALL_FN}
                 facts.appendChild(factChip("Para " + m.teamBName + ":", happinessLabel(m.happinessB)));
                 facts.appendChild(factChip("Diferencia:", m.gap.toFixed(2)));
                 card.appendChild(facts);
+
+                // Los dos límites conocidos del algoritmo, dichos en vez de escondidos:
+                // este partido tuvo que ceder justicia (o directamente la hora) porque
+                // otro par del mismo lote se quedó con el bloque que le tocaba.
+                if (m.overThreshold || m.collision) {
+                    const aviso = document.createElement("p");
+                    aviso.className = "hint";
+                    aviso.style.margin = "4px 0 0";
+                    aviso.textContent = m.collision
+                        ? "Ojo: no quedaba ningún otro horario en común, así que coincide con otra sugerencia de esta misma tanda. Agenda solo una de las dos."
+                        : "Ojo: para no chocar con otra sugerencia de esta tanda, este partido quedó con más diferencia que el resto.";
+                    card.appendChild(aviso);
+                }
 
                 const actions = document.createElement("div");
                 actions.className = "match-actions";
@@ -2999,10 +3015,14 @@ routerAdd("GET", "/api/liga/difficulty-summary", (e) => {
         const stageTeams = (stage.get("teams") || []).map(String);
         const participantIds = stageTeams;
 
-        // status != 'cancelled': un partido cancelado nunca ocurrió, no debe pesar en
-        // el balance ni en el conteo — confirmado explícitamente con el usuario.
+        // Un partido cancelado nunca ocurrió, no debe pesar en el balance ni en el
+        // conteo — confirmado explícitamente con el usuario. Un suspendido tampoco: se
+        // puede volver a agendar libremente (así lo trata "evitar revanchas"), y contarlo
+        // acá lo sumaría de nuevo cuando se rejuegue. Tiene que ser EXACTAMENTE el mismo
+        // filtro que usa POST /api/liga/matches/propose, porque esta pantalla existe
+        // justamente para explicar por qué el algoritmo prioriza como prioriza.
         const stageMatches = $app.findRecordsByFilter(
-            "league_matches", "stage = {:stage} && deleted = false && status != 'cancelled'",
+            "league_matches", "stage = {:stage} && deleted = false && (status = 'confirmed' || status = 'played')",
             "", 0, 0, { stage: stageId }
         );
         const summary = {};
@@ -3057,14 +3077,20 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
             fillDefaultHappiness,
             DEFAULT_HAPPINESS_LEVEL,
             DEFAULT_TEMPERATURE,
-            suggestByeTeam,
+            MAX_TEAMS,
+            rankByeCandidates,
+            isPairingFeasible,
             proposeMatches,
             pairKey,
         } = require(`${__hooks}/lib/teamSchedule.js`);
 
         const body = e.requestInfo().body || {};
         const stageId = String(body.stageId || "");
-        let teamIds = Array.isArray(body.teamIds) ? body.teamIds.map(String) : [];
+        // Sin deduplicar, un id repetido produce el par (X,X): gap 0 y el score máximo
+        // posible, así que el optimizador lo PREFIERE y la propuesta sale con "X vs X".
+        let teamIds = Array.isArray(body.teamIds)
+            ? body.teamIds.map(String).filter((id, i, arr) => arr.indexOf(id) === i)
+            : [];
         const byeTeamId = body.byeTeamId ? String(body.byeTeamId) : null;
         const avoidRematches = !!body.avoidRematches;
         // Horarios en los que la liga permite agendar esta tanda. Vacío = sin
@@ -3073,6 +3099,9 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
 
         if (!stageId) throw new BadRequestError("Falta stageId.");
         if (teamIds.length < 2) throw new BadRequestError("Elige al menos 2 equipos.");
+        if (teamIds.length > MAX_TEAMS) {
+            throw new BadRequestError(`El emparejamiento óptimo admite hasta ${MAX_TEAMS} equipos por tanda; elige menos.`);
+        }
 
         let stage;
         try {
@@ -3140,17 +3169,19 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
             // días/horas que ya pasaron. Sin excluirlos, "Sugerir partidos" podía
             // terminar apuntando a un bloque que ya ocurrió.
             const pastCodes = pastBlockCodes(allWindowBlocks);
-            return computeValidBlocks(allWindowBlocks, [blockedCodes, occupiedCodes, pastCodes]);
+            return {
+                allWindowBlocks,
+                validBlocks: computeValidBlocks(allWindowBlocks, [blockedCodes, occupiedCodes, pastCodes]),
+            };
         }
 
-        // Devuelve tanto la disponibilidad ya rellenada con el default (lo que usa el
-        // algoritmo para calcular felicidad) como, por separado, qué bloques contestó
-        // CADA equipo de verdad (`explicitBlocksByTeam`) — necesario para que
-        // proposeMatches distinga "sin preferencia real" de "preferencia real pero
-        // muy restrictiva" (ver comentario de isFlat en teamSchedule.js).
-        function loadMatchInputs(ids, validBlocks) {
+        // La disponibilidad de cada equipo se arma sobre la ventana COMPLETA, no sobre
+        // los bloques donde hoy se puede agendar: la escala de un equipo es su opinión
+        // sobre toda la ventana marcable, y recortarla antes de normalizar inflaba
+        // diferencias triviales (ver computePairEdge en lib/teamSchedule.js). Dónde se
+        // puede agendar es un dato aparte, `candidateBlocks`.
+        function loadMatchInputs(ids, scaleBlocks) {
             const happinessByTeam = {};
-            const explicitBlocksByTeam = {};
             for (const teamId of ids) {
                 let happiness = {};
                 try {
@@ -3159,41 +3190,31 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
                 } catch (err) {
                     happiness = {};
                 }
-                happinessByTeam[teamId] = fillDefaultHappiness(happiness, validBlocks, DEFAULT_HAPPINESS_LEVEL);
-                explicitBlocksByTeam[teamId] = new Set(Object.keys(happiness));
+                happinessByTeam[teamId] = fillDefaultHappiness(happiness, scaleBlocks, DEFAULT_HAPPINESS_LEVEL);
             }
-            return { happinessByTeam, explicitBlocksByTeam };
+            return happinessByTeam;
         }
 
         // Los bloques candidatos son los libres de la ventana, restringidos a los que
         // la liga eligió. Se intersecta y no se reemplaza: un horario elegido que esté
         // bloqueado u ocupado sigue sin poder usarse.
-        let validBlocks = loadValidBlocks();
+        const { allWindowBlocks, validBlocks } = loadValidBlocks();
+        let candidateBlocks = validBlocks;
         if (allowedBlocks.length > 0) {
             const permitidos = new Set(allowedBlocks);
-            validBlocks = validBlocks.filter((b) => permitidos.has(b));
-            if (validBlocks.length === 0) {
+            candidateBlocks = candidateBlocks.filter((b) => permitidos.has(b));
+            if (candidateBlocks.length === 0) {
                 throw new BadRequestError(
                     "Ninguno de los horarios elegidos está disponible (pueden estar bloqueados o ya ocupados)."
                 );
             }
         }
-        const { happinessByTeam, explicitBlocksByTeam } = loadMatchInputs(teamIds, validBlocks);
-
-        if (teamIds.length % 2 !== 0) {
-            if (!byeTeamId) {
-                const suggested = suggestByeTeam(teamIds, happinessByTeam);
-                return e.json(200, {
-                    needsBye: true,
-                    suggestedByeTeamId: suggested,
-                    candidates: teamIds.map((id) => ({ id, name: teamDisplay(id) })),
-                });
-            }
-            teamIds = teamIds.filter((id) => id !== byeTeamId);
-        }
+        const happinessByTeam = loadMatchInputs(teamIds, allWindowBlocks);
 
         // "Ya se enfrentaron" cuenta agendados (confirmed) y ya jugados (played) —
-        // los suspendidos NO cuentan, se pueden volver a agendar libremente.
+        // los suspendidos NO cuentan, se pueden volver a agendar libremente. Se calcula
+        // antes del bye porque elegir a quién dejar libre depende de si el resto queda
+        // con algún emparejamiento posible.
         let excludedPairs = null;
         if (avoidRematches) {
             const alreadyPlayed = $app.findRecordsByFilter(
@@ -3209,20 +3230,62 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
             );
         }
 
+        // Partidos de la etapa que efectivamente cuentan. Mismo criterio que
+        // excludedPairs a propósito: un partido suspendido se puede volver a agendar,
+        // así que tampoco puede pesar como si ya se hubiera jugado. Con el filtro
+        // anterior (`status != 'cancelled'`) el mismo partido contaba como no-jugado
+        // para las revanchas y como jugado para el balance de dificultad, y al
+        // reagendarlo la dificultad del rival se sumaba dos veces.
+        const stageMatches = $app.findRecordsByFilter(
+            "league_matches", "stage = {:stage} && deleted = false && (status = 'confirmed' || status = 'played')",
+            "", 0, 0, { stage: stageId }
+        );
+        const matchesCountByTeam = {};
+        stageMatches.forEach((m) => {
+            [m.getString("teamA"), m.getString("teamB")].forEach((id) => {
+                matchesCountByTeam[id] = (matchesCountByTeam[id] || 0) + 1;
+            });
+        });
+
+        if (teamIds.length % 2 !== 0) {
+            if (byeTeamId && teamIds.indexOf(byeTeamId) === -1) {
+                throw new BadRequestError("El equipo que queda libre tiene que ser uno de los elegidos.");
+            }
+            if (!byeTeamId) {
+                const ranked = rankByeCandidates(teamIds, happinessByTeam, candidateBlocks, matchesCountByTeam);
+                let suggested = ranked.length ? ranked[0] : null;
+                // Con "evitar revanchas", el mejor candidato a bye puede dejar al resto
+                // sin ningún emparejamiento posible; ahí se cae al siguiente en vez de
+                // sugerir algo que el admin va a tener que descartar a mano. Sin
+                // revanchas excluidas nunca hay infactibilidad, y no vale la pena pagar
+                // la búsqueda.
+                if (excludedPairs) {
+                    for (const candidate of ranked) {
+                        const rest = teamIds.filter((id) => id !== candidate);
+                        if (isPairingFeasible(rest, happinessByTeam, excludedPairs, candidateBlocks)) {
+                            suggested = candidate;
+                            break;
+                        }
+                    }
+                }
+                return e.json(200, {
+                    needsBye: true,
+                    suggestedByeTeamId: suggested,
+                    candidates: teamIds.map((id) => ({ id, name: teamDisplay(id) })),
+                });
+            }
+            teamIds = teamIds.filter((id) => id !== byeTeamId);
+        }
+
         // Balance de dificultad: cuánta dificultad de rival ha enfrentado cada equipo
         // hasta ahora, EN ESTA ETAPA (cada etapa arranca el balance desde cero — así lo
         // pidió el usuario explícitamente). Un equipo sin nota de dificultad no
-        // participa del criterio (ver difficultyBalanceGain). status != 'cancelled':
-        // un partido cancelado nunca ocurrió, no pesa en el balance.
+        // participa del criterio (ver difficultyBalanceGain).
         const difficultyByTeam = {};
         rosterRows.forEach((r) => {
             const d = r.get("difficulty");
             if (d !== null && d !== undefined && d !== "") difficultyByTeam[r.getString("team")] = Number(d);
         });
-        const stageMatchesForDifficulty = $app.findRecordsByFilter(
-            "league_matches", "stage = {:stage} && deleted = false && status != 'cancelled'",
-            "", 0, 0, { stage: stageId }
-        );
         const facedByTeam = {};
         function addFaced(teamId, opponentDifficulty) {
             if (opponentDifficulty === undefined) return;
@@ -3230,19 +3293,26 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
             facedByTeam[teamId].totalFaced += opponentDifficulty;
             facedByTeam[teamId].matchesCount += 1;
         }
-        stageMatchesForDifficulty.forEach((m) => {
+        stageMatches.forEach((m) => {
             const a = m.getString("teamA");
             const b = m.getString("teamB");
             if (difficultyByTeam[b] !== undefined) addFaced(a, difficultyByTeam[b]);
             if (difficultyByTeam[a] !== undefined) addFaced(b, difficultyByTeam[a]);
         });
-        const batchDifficulties = teamIds.map((id) => difficultyByTeam[id]).filter((d) => d !== undefined);
-        const targetAvg = batchDifficulties.length
-            ? batchDifficulties.reduce((s, d) => s + d, 0) / batchDifficulties.length
+        // La referencia es el promedio de dificultad de LA ETAPA, no el de los equipos
+        // elegidos en esta tanda: `facedByTeam` se acumula a lo largo de toda la etapa,
+        // así que medirlo contra un promedio que cambia en cada tanda re-juzgaba el
+        // historial con otra vara. Una fecha entre puros equipos fuertes subía el
+        // promedio y de golpe todos parecían tener déficit de rivales difíciles.
+        const stageDifficulties = stageTeams
+            .map((id) => difficultyByTeam[id])
+            .filter((d) => d !== undefined);
+        const targetAvg = stageDifficulties.length
+            ? stageDifficulties.reduce((s, d) => s + d, 0) / stageDifficulties.length
             : 0;
         const difficultyContext = { difficultyByTeam, facedByTeam, targetAvg, temperature: DEFAULT_TEMPERATURE };
 
-        const result = proposeMatches(teamIds, happinessByTeam, excludedPairs, difficultyContext, explicitBlocksByTeam);
+        const result = proposeMatches(teamIds, happinessByTeam, excludedPairs, difficultyContext, candidateBlocks);
         if (result.infeasible) {
             return e.json(200, { infeasible: true, byeTeamId: byeTeamId || null });
         }
@@ -3256,6 +3326,10 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
         return e.json(200, {
             infeasible: false,
             threshold: result.threshold,
+            // La peor diferencia que quedó DE VERDAD. No siempre es el umbral: resolver
+            // un choque de bloques puede obligar a ceder (ver resolveBlockCollisions), y
+            // el panel anunciaba el umbral como si fuera el peor caso.
+            maxGap: result.maxGap,
             totalScore: result.totalScore,
             matches,
             byeTeamId: byeTeamId || null,
@@ -3309,6 +3383,9 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
             { league: e.auth.id }
         );
         const rosterSet = new Set(rosterRows.map((r) => r.getString("team")));
+        if (teamA === teamB) {
+            throw new BadRequestError("Un equipo no puede jugar contra sí mismo.");
+        }
         if (!rosterSet.has(teamA) || !rosterSet.has(teamB)) {
             throw new BadRequestError("Ambos equipos deben pertenecer a tu liga.");
         }
@@ -3474,6 +3551,9 @@ routerAdd("POST", "/api/liga/matches/retroactive", (e) => {
             { league: e.auth.id }
         );
         const rosterSet = new Set(rosterRows.map((r) => r.getString("team")));
+        if (teamA === teamB) {
+            throw new BadRequestError("Un equipo no puede jugar contra sí mismo.");
+        }
         if (!rosterSet.has(teamA) || !rosterSet.has(teamB)) {
             throw new BadRequestError("Ambos equipos deben pertenecer a tu liga.");
         }

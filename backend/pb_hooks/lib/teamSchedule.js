@@ -8,7 +8,14 @@ const END_HOUR = 20; // último bloque: 20:00-21:00
 const DAYS_PER_WEEK = 7; // largo real de una semana calendario, para el offset entre semanas
 const WEEKDAYS_PER_WEEK = 5; // lunes a viernes — sábado/domingo quedan fuera de horarios
 const WEEKS_WINDOW = 3; // semana actual + 2 más
-const DEFAULT_HAPPINESS_LEVEL = 2; // "Regular" — el default para todo equipo que no calificó un bloque
+// Nota con la que se lee un bloque que un equipo no calificó. Es el MISMO valor con el
+// que la grilla del frontend (AvailabilityGrid/TeamScheduleScreen, defaultLevel =
+// MIN_LEVEL) llega precargada: si acá fuera más alto, un bloque que el equipo nunca vio
+// —porque la ventana móvil corrió, o porque estaba ocupado cuando marcó y después se
+// liberó— quedaría por ENCIMA de todos los que sí marcó "Muy mala", y la normalización
+// lo convertiría en su bloque favorito sin que nadie lo haya pedido nunca. Los dos
+// valores tienen que moverse juntos.
+const DEFAULT_HAPPINESS_LEVEL = 1; // "Muy mala", igual que MIN_LEVEL en el frontend
 
 const EPS = 1e-9;
 
@@ -139,7 +146,7 @@ function computeValidBlocks(windowBlocks, excludedBlockLists) {
 }
 
 // No existe tal cosa como "disponibilidad enviada": todo equipo tiene, por defecto,
-// disponibilidad "Regular" en cada bloque hasta que la cambie explícitamente. Esto
+// DEFAULT_HAPPINESS_LEVEL en cada bloque hasta que lo cambie explícitamente. Esto
 // arma el input completo del algoritmo para UN equipo combinando lo que sí guardó con
 // el default para todo lo demás — así un equipo que nunca abrió la pantalla compite en
 // el emparejamiento exactamente igual que uno que sí la abrió y no tocó nada.
@@ -152,70 +159,97 @@ function fillDefaultHappiness(happiness, allowedBlocks, defaultLevel) {
     return result;
 }
 
-// Un equipo cuenta como "sin preferencia real" para este par cuando, entre lo que
-// EXPLÍCITAMENTE contestó (no lo que quedó relleno con el default), no hay ninguna
-// variación — o directamente no contestó nada de lo que se está considerando. Importa
-// mirar solo lo explícito y no el mapa ya rellenado: un equipo puede calificar "Muy
-// mala" el 95% de una ventana enorme y aun así esa mayoría ser una preferencia real y
-// deliberada (caso real: Copa CDI Mixta, un equipo con 195 respuestas explícitas —
-// 184 "Muy mala", 11 genuinamente buenas — casi quedó tratado como indiferente por una
-// versión anterior de esto que solo miraba qué tan dominante era la nota más común, sin
-// distinguir explícito de default). Lo único que de verdad no es preferencia es el
-// bloque que el equipo nunca tocó y quedó en el default (`explicitBlocks` ausente para
-// ese bloque). Sin `explicitBlocks` (compatibilidad hacia atrás, ej. tests que arman el
-// mapa a mano sin distinguir explícito/default), se trata TODO lo recibido como
-// explícito — el comportamiento original de "plano solo si es 100% idéntico".
-function isFlat(norm, blocks, explicitBlocks) {
-    const explicit = explicitBlocks ? blocks.filter((b) => explicitBlocks.has(b)) : blocks;
-    if (explicit.length === 0) return true;
-    const first = norm[explicit[0]];
-    return explicit.every((b) => Math.abs(norm[b] - first) <= EPS);
+// Un equipo cuenta como "sin preferencia real" cuando TODOS los bloques candidatos le
+// dan exactamente lo mismo: ahí su "gap" contra el rival no mide ninguna preferencia.
+// Se mira el mapa ya rellenado con el default, no solo lo que contestó explícitamente,
+// y eso alcanza justamente porque el default es el mínimo de la escala (ver
+// DEFAULT_HAPPINESS_LEVEL): un equipo que marcó 3 horas "Excelente" y no tocó el resto
+// queda con 3 unos y 192 ceros — variación real, preferencia real. Una versión anterior
+// intentaba distinguir "explícito" de "default" y terminaba tratando como indiferente a
+// cualquier equipo cuyas respuestas explícitas fueran todas iguales, que es exactamente
+// el patrón de quien marca solo sus horas buenas y deja el resto sin tocar.
+//
+// Los dos casos reales que motivaron todo esto siguen saliendo bien con esta regla:
+// - Copa CDI Femenina: un equipo con toda la semana en "Muy mala" (más 2 horas nunca
+//   tocadas, que ahora también son "Muy mala") queda plano de verdad → no arrastra al
+//   rival a un bloque mediocre.
+// - Copa CDI Mixta: 184 bloques en "Muy mala" y 11 buenos SÍ varía → preferencia real.
+function isFlat(norm, blocks) {
+    if (blocks.length === 0) return true;
+    const first = norm[blocks[0]];
+    return blocks.every((b) => Math.abs(norm[b] - first) <= EPS);
+}
+
+// Qué tan "plano" es cada lado de un par, calculado UNA vez sobre el conjunto completo
+// de bloques candidatos. Se calcula aparte y se pasa hecho porque después hay que
+// evaluar subconjuntos (ver resolveBlockCollisions) y la planitud tiene que seguir
+// siendo la del par, no la del subconjunto que quedó libre: si no, ceder un bloque
+// podría convertir a un equipo en "indiferente" de la nada.
+function pairFlatness(normA, normB, blocks) {
+    return { flatA: isFlat(normA, blocks), flatB: isFlat(normB, blocks) };
+}
+
+// { gap, score } de un bloque para un par ya normalizado. Si alguno de los dos no tiene
+// preferencia real (ver isFlat), su "gap" contra el otro no mide nada — sin este caso
+// especial, minimizar esa diferencia empuja al equipo que SÍ diferenció hacia el bloque
+// cuyo valor quede más cerca de 0.5 (uno mediocre), en vez de aprovechar que al otro,
+// por indiferencia, le da lo mismo cualquiera. Por eso ahí el gap se trata como 0 en
+// todos los bloques, y ese equipo aporta un 0.5 FIJO a la suma que desempata.
+function blockMetrics(normA, normB, block, flat) {
+    const a = flat.flatA ? 0.5 : normA[block];
+    const b = flat.flatB ? 0.5 : normB[block];
+    return { gap: flat.flatA || flat.flatB ? 0 : Math.abs(a - b), score: a + b };
 }
 
 // Mejor bloque entre dos equipos ya normalizados, restringido a `blocks`: primero
 // minimiza la diferencia de felicidad (justicia), y entre empates maximiza la suma
-// (felicidad total). Si alguno de los dos no tiene preferencia real (ver isFlat), su
-// "gap" contra el otro no mide nada real — sin este caso especial, minimizar esa
-// diferencia empuja al equipo que SÍ diferenció hacia el bloque cuyo valor quede más
-// cerca de 0.5 (uno mediocre), en vez de aprovechar que al otro equipo, por
-// indiferencia, le da lo mismo cualquiera. Por eso ahí el gap se trata como 0 en todos
-// los bloques.
+// (felicidad total).
 //
-// Y en la suma que desempata, ese mismo equipo "sin preferencia real" aporta un 0.5
-// FIJO, no su valor puntual en cada bloque: si su respuesta real es uniforme y baja
-// (ej. "Muy mala" siempre) y solo un bloque nunca calificado quedó en el default (más
-// alto que esa respuesta real, ver DEFAULT_HAPPINESS_LEVEL), ese default parece
-// —falsamente— su bloque favorito. Con el valor puntual real, la suma terminaría
-// premiando ese artefacto en vez del mejor bloque genuino del equipo que sí opinó.
-function chooseBestBlock(normA, normB, blocks, explicitA, explicitB) {
+// `flat` (opcional) es el resultado de pairFlatness sobre el conjunto COMPLETO de
+// candidatos del par; omitido, se calcula sobre `blocks`.
+//
+// `tieBreak` (opcional, una función que devuelve [0,1)) decide los empates EXACTOS —
+// mismo gap y mismo score — eligiendo uniformemente entre todos los empatados en vez de
+// quedarse siempre con el primero. Importa porque el primero es siempre el más temprano
+// del arreglo: sin esto, todo par sin preferencias marcadas terminaba invariablemente el
+// lunes a las 08:00, y dos corridas seguidas de "Sugerir partidos" daban el mismo
+// horario aunque hubiera decenas de bloques igual de buenos. Sin `tieBreak` la elección
+// es determinista (el más temprano), que es lo que corresponde en los tests.
+function chooseBestBlock(normA, normB, blocks, tieBreak, flat) {
     if (blocks.length === 0) return null;
-    const flatA = isFlat(normA, blocks, explicitA);
-    const flatB = isFlat(normB, blocks, explicitB);
-    const ignoreGap = flatA || flatB;
+    const f = flat || pairFlatness(normA, normB, blocks);
 
     let best = null;
+    let tied = 0;
     for (const block of blocks) {
-        const a = flatA ? 0.5 : normA[block];
-        const b = flatB ? 0.5 : normB[block];
-        const gap = ignoreGap ? 0 : Math.abs(a - b);
-        const score = a + b;
-        if (
-            best === null ||
-            gap < best.gap - EPS ||
-            (Math.abs(gap - best.gap) <= EPS && score > best.score)
-        ) {
+        const { gap, score } = blockMetrics(normA, normB, block, f);
+        if (best === null || gap < best.gap - EPS || (Math.abs(gap - best.gap) <= EPS && score > best.score + EPS)) {
             best = { block, gap, score };
+            tied = 1;
+        } else if (tieBreak && Math.abs(gap - best.gap) <= EPS && Math.abs(score - best.score) <= EPS) {
+            tied++;
+            if (tieBreak() * tied < 1) best = { block, gap, score };
         }
     }
     return best;
 }
 
 // Mejor bloque en común entre dos equipos ya normalizados. null si no comparten ningún
-// bloque con disponibilidad real (par infactible). `explicitA`/`explicitB` (opcionales,
-// Set<blockCode>) son los bloques que cada equipo contestó de verdad — ver isFlat.
-function computePairEdge(normA, normB, explicitA, explicitB) {
-    const commonBlocks = Object.keys(normA).filter((b) => b in normB);
-    return chooseBestBlock(normA, normB, commonBlocks, explicitA, explicitB);
+// bloque candidato (par infactible).
+//
+// `candidateBlocks` (opcional) restringe DÓNDE se puede agendar sin tocar la escala con
+// la que se normalizó cada equipo. Son dos cosas distintas a propósito: la escala de un
+// equipo es su opinión sobre toda la ventana marcable, mientras que los candidatos son
+// los bloques que hoy se pueden usar (ni bloqueados, ni ocupados, ni pasados, y dentro
+// de los horarios que la liga eligió para esta tanda). Normalizar sobre el conjunto ya
+// recortado inflaba diferencias triviales: con 3 horarios permitidos, un equipo cuya
+// única variación entre ellos era "Muy mala" vs "Mala" quedaba con un 1.0 que competía
+// de igual a igual contra el "Excelente" real del rival.
+function computePairEdge(normA, normB, candidateBlocks, tieBreak) {
+    const commonBlocks = candidateBlocks
+        ? candidateBlocks.filter((b) => b in normA && b in normB)
+        : Object.keys(normA).filter((b) => b in normB);
+    return chooseBestBlock(normA, normB, commonBlocks, tieBreak);
 }
 
 // Clave estable para un par de equipos, sin importar el orden en que se pasen — usada
@@ -225,14 +259,23 @@ function pairKey(teamIdA, teamIdB) {
     return teamIdA < teamIdB ? `${teamIdA}|${teamIdB}` : `${teamIdB}|${teamIdA}`;
 }
 
-// score de felicidad normalizada ∈ [0,2] (computePairEdge: a+b con a,b∈[0,1]). Con este
-// peso, un gain típico de difficultyBalanceGain (unas pocas unidades) pesa parecido a
+// score de felicidad normalizada ∈ [0,2] (computePairEdge: a+b con a,b∈[0,1]). El
+// aporte de dificultad se acota a ±DIFFICULTY_WEIGHT sobre esa escala: pesa parecido a
 // la diferencia entre un horario bueno y uno regular, sin poder tapar por sí solo una
 // diferencia grande de felicidad — la justicia de horario sigue siendo la prioridad.
 const DIFFICULTY_WEIGHT = 0.25;
+// difficultyBalanceGain devuelve PUNTOS DE DIFICULTAD (la nota del admin es 1-10), una
+// escala que no tiene nada que ver con la del score. Sin dividir por el gain máximo
+// posible —4,5 por equipo, 9 entre los dos— un solo emparejamiento bien balanceado
+// sumaba hasta 2,25 al score, más que el rango COMPLETO de la felicidad: la dificultad
+// dejaba de ser un desempate y pasaba a decidir sola.
+const MAX_DIFFICULTY_GAIN = 9;
 // Math.random()-0.5 ∈ [-0.5,0.5]; con este factor el aporte de temperatura queda en
 // ±0.15 — variedad perceptible entre corridas sucesivas de "Sugerir partidos" sin
-// dominar sobre felicidad ni dificultad.
+// dominar sobre felicidad ni dificultad. Además, cualquier temperatura > 0 activa el
+// desempate aleatorio ENTRE BLOQUES (ver chooseBestBlock): la temperatura sola es un
+// número por PAR, igual para todos sus bloques, así que variaba a quién le tocaba con
+// quién pero jamás el horario elegido.
 const DEFAULT_TEMPERATURE = 0.3;
 
 // Cuánto por ENCIMA (+) o por DEBAJO (-) del promedio esperado quedó la dificultad
@@ -269,11 +312,11 @@ function difficultyBalanceGain(difficultyA, facedA, difficultyB, facedB, targetA
 // justicia de horario): nadie debe quedar con un horario injustamente malo solo por
 // mejorar el balance de dificultad.
 //
-// `explicitBlocksByTeam` (opcional) — { [teamId]: Set<blockCode> } — son los bloques
-// que cada equipo contestó de verdad, no los que quedaron en el default. Sin esto, se
-// asume que todo lo recibido en `happinessByTeam` es explícito (ver isFlat).
-function buildEdges(teams, happinessByTeam, excludedPairs, difficultyContext, explicitBlocksByTeam) {
+// `candidateBlocks` (opcional) — dónde se puede agendar, sin afectar la escala con la
+// que se normalizó cada equipo (ver computePairEdge).
+function buildEdges(teams, happinessByTeam, excludedPairs, difficultyContext, candidateBlocks) {
     const normalized = teams.map((t) => normalizeTeamHappiness((happinessByTeam || {})[t] || {}));
+    const tieBreak = difficultyContext && difficultyContext.temperature ? Math.random : null;
     const n = teams.length;
     const edges = {};
     for (let i = 0; i < n; i++) {
@@ -283,12 +326,7 @@ function buildEdges(teams, happinessByTeam, excludedPairs, difficultyContext, ex
                 edges[i][j] = null;
                 continue;
             }
-            const edge = computePairEdge(
-                normalized[i],
-                normalized[j],
-                explicitBlocksByTeam && explicitBlocksByTeam[teams[i]],
-                explicitBlocksByTeam && explicitBlocksByTeam[teams[j]]
-            );
+            const edge = computePairEdge(normalized[i], normalized[j], candidateBlocks, tieBreak);
             if (edge && difficultyContext) {
                 const dc = difficultyContext;
                 const dByTeam = dc.difficultyByTeam || {};
@@ -300,7 +338,12 @@ function buildEdges(teams, happinessByTeam, excludedPairs, difficultyContext, ex
                     fByTeam[teams[j]],
                     dc.targetAvg || 0
                 );
-                edge.score += DIFFICULTY_WEIGHT * gain + (dc.temperature || 0) * (Math.random() - 0.5);
+                const normalizedGain = Math.max(-1, Math.min(1, gain / MAX_DIFFICULTY_GAIN));
+                // El ajuste se guarda aparte porque si el par tiene que ceder su bloque
+                // (resolveBlockCollisions) el edge se recalcula desde cero, y sin esto
+                // el partido reasignado quedaba en otra escala que el resto del batch.
+                edge.bonus = DIFFICULTY_WEIGHT * normalizedGain + (dc.temperature || 0) * (Math.random() - 0.5);
+                edge.score += edge.bonus;
             }
             edges[i][j] = edge;
         }
@@ -420,85 +463,198 @@ function maxWeightMatching(n, edges, threshold) {
     return { totalScore, pairs };
 }
 
-// Con cantidad impar de equipos, sugiere dejar libre al que tiene menos bloques bien
-// calificados (Buena o Excelente) — el que de todas formas sería más difícil de
-// emparejar con una felicidad alta para ambos lados.
+// Con cantidad impar de equipos hay que dejar a uno libre. El candidato natural es el
+// más difícil de emparejar con una felicidad alta para ambos lados: el que tiene menos
+// bloques bien calificados (Buena o Excelente) entre los candidatos de esta tanda.
+//
+// Con dos salvedades que la versión anterior no tenía:
+//
+// 1. Un equipo SIN preferencia real (todo igual, típicamente porque nunca abrió la
+//    pantalla) es el MÁS fácil de emparejar, no el más difícil — le sirve cualquier
+//    horario. Contando bloques >= 4 quedaba siempre en 0 y salía sugerido para el bye
+//    todas las fechas, que es exactamente al revés. Va al final de la lista.
+// 2. A igualdad de flexibilidad, se banca a quien MÁS partidos lleva jugados. Sin este
+//    desempate el orden lo decidía el arreglo de entrada, siempre igual, y el mismo
+//    equipo se quedaba sin jugar fecha tras fecha.
 const FLEXIBLE_THRESHOLD = 4; // Buena=4, Excelente=5
 
-function suggestByeTeam(teams, happinessByTeam) {
-    let leastFlexible = null;
-    let minCount = Infinity;
-    for (const t of teams) {
-        const happiness = (happinessByTeam || {})[t] || {};
-        const count = Object.values(happiness).filter((v) => v >= FLEXIBLE_THRESHOLD).length;
-        if (count < minCount) {
-            minCount = count;
-            leastFlexible = t;
-        }
-    }
-    return leastFlexible;
+// Todos los equipos ordenados de "mejor candidato a quedar libre" a peor. El caller la
+// usa para caer al siguiente si el bye elegido deja un conjunto infactible.
+function rankByeCandidates(teams, happinessByTeam, candidateBlocks, matchesCountByTeam) {
+    return teams
+        .map((t) => {
+            const happiness = (happinessByTeam || {})[t] || {};
+            const keys = candidateBlocks ? candidateBlocks.filter((b) => b in happiness) : Object.keys(happiness);
+            const values = keys.map((b) => happiness[b]);
+            return {
+                team: t,
+                indifferent: values.length === 0 || values.every((v) => v === values[0]),
+                flexible: values.filter((v) => v >= FLEXIBLE_THRESHOLD).length,
+                played: (matchesCountByTeam || {})[t] || 0,
+            };
+        })
+        .sort((a, b) => {
+            if (a.indifferent !== b.indifferent) return a.indifferent ? 1 : -1;
+            if (a.flexible !== b.flexible) return a.flexible - b.flexible;
+            return b.played - a.played;
+        })
+        .map((x) => x.team);
+}
+
+function suggestByeTeam(teams, happinessByTeam, candidateBlocks, matchesCountByTeam) {
+    const ranked = rankByeCandidates(teams, happinessByTeam, candidateBlocks, matchesCountByTeam);
+    return ranked.length ? ranked[0] : null;
 }
 
 // buildEdges elige el mejor bloque de cada PAR de forma independiente — dos pares
-// distintos del mismo batch pueden terminar apuntando al mismo "mejor" bloque si
-// ambos lo calificaron alto (ej. todos prefieren el mismo horario popular). Esta
-// pasada evita que dos partidos del mismo batch queden agendados a la misma hora:
-// procesa los pares de menor a mayor gap (los más ajustados tienen prioridad sobre
-// su mejor bloque) y, si el bloque ya está tomado, busca el siguiente mejor bloque en
-// común que siga libre. Si un par no tiene NINGÚN bloque en común alternativo, el
-// choque queda como último recurso — límite conocido, documentado en vez de reventar.
-function resolveBlockCollisions(pairEdges, normalized, teams, explicitBlocksByTeam) {
-    const used = new Set();
-    const order = [...pairEdges].sort((a, b) => a.edge.gap - b.edge.gap);
-
-    for (const p of order) {
-        if (!used.has(p.edge.block)) {
-            used.add(p.edge.block);
-            continue;
-        }
-
+// distintos del mismo batch pueden terminar apuntando al mismo "mejor" bloque si ambos
+// lo calificaron alto (ej. todos prefieren el mismo horario popular). Esta pasada evita
+// que dos partidos del mismo batch queden agendados a la misma hora.
+//
+// Dos cosas que esta pasada tiene que respetar y antes no respetaba:
+//
+// 1. EL UMBRAL DE JUSTICIA. findTightestThreshold busca el menor gap con el que todavía
+//    existe un emparejamiento perfecto, y todo el emparejamiento se elige bajo esa
+//    restricción — pero después esta pasada reasignaba bloques sin volver a mirarlo. Se
+//    llegaba a mostrar "en el peor caso quedó una diferencia de 0.08" y agendar un
+//    partido con gap 1.00, el máximo posible. Ahora las alternativas se filtran por el
+//    umbral; solo si NINGUNA lo respeta se cede (antes que dejar dos partidos a la misma
+//    hora, que es físicamente imposible: hay una sola cancha) y el partido queda marcado
+//    con `overThreshold` para que el panel lo diga.
+//
+// 2. QUIÉN TIENE PRIORIDAD. Ordenar por gap ascendente parecía razonable, pero el gap se
+//    fuerza a 0 cuando alguno de los dos equipos no tiene preferencia real: los pares a
+//    los que les da exactamente lo mismo cualquier horario ordenaban PRIMERO y se
+//    quedaban con el bloque disputado. Ahora se ordena por arrepentimiento — cuánto
+//    score pierde el par si tiene que ceder su mejor bloque — así que cede quien menos
+//    pierde, y un par indiferente (arrepentimiento 0) cede siempre.
+function resolveBlockCollisions(pairEdges, normalized, candidateBlocks, threshold, tieBreak) {
+    const prepared = pairEdges.map((p) => {
         const normA = normalized[p.i];
         const normB = normalized[p.j];
-        const alternatives = Object.keys(normA).filter((b) => b in normB && !used.has(b));
-        if (alternatives.length === 0) {
-            used.add(p.edge.block);
+        const blocks = candidateBlocks.filter((b) => b in normA && b in normB);
+        // La planitud es del PAR, sobre todos sus candidatos: recalcularla sobre el
+        // subconjunto que quedó libre podría volver "indiferente" a un equipo que no lo es.
+        const flat = pairFlatness(normA, normB, blocks);
+        const fair = blocks.filter((b) => blockMetrics(normA, normB, b, flat).gap <= threshold + EPS);
+        const alternative = chooseBestBlock(normA, normB, fair.filter((b) => b !== p.edge.block), null, flat);
+        // Sin restar el bonus, el arrepentimiento se comparaba contra un score que lo
+        // incluye y otro que no: un par con mucho ajuste de dificultad se ganaba una
+        // prioridad que no le corresponde. El bonus es del PAR, igual en todos sus
+        // bloques, así que en una diferencia entre bloques tiene que cancelarse.
+        const baseScore = p.edge.score - (p.edge.bonus || 0);
+        return {
+            p,
+            normA,
+            normB,
+            blocks,
+            flat,
+            fair,
+            regret: alternative ? baseScore - alternative.score : Infinity,
+        };
+    });
+    prepared.sort((a, b) => b.regret - a.regret);
+
+    const used = new Set();
+    for (const it of prepared) {
+        if (!used.has(it.p.edge.block)) {
+            used.add(it.p.edge.block);
             continue;
         }
 
-        p.edge = chooseBestBlock(
-            normA,
-            normB,
-            alternatives,
-            explicitBlocksByTeam && teams && explicitBlocksByTeam[teams[p.i]],
-            explicitBlocksByTeam && teams && explicitBlocksByTeam[teams[p.j]]
-        );
-        used.add(p.edge.block);
+        const bonus = it.p.edge.bonus || 0;
+        let next = chooseBestBlock(it.normA, it.normB, it.fair.filter((b) => !used.has(b)), tieBreak, it.flat);
+        if (!next) {
+            next = chooseBestBlock(it.normA, it.normB, it.blocks.filter((b) => !used.has(b)), tieBreak, it.flat);
+            if (next) next.overThreshold = true;
+        }
+        if (!next) {
+            // Ni un solo bloque libre en común: el choque queda como último recurso,
+            // marcado para que el panel no lo agende a ciegas.
+            it.p.edge.collision = true;
+            used.add(it.p.edge.block);
+            continue;
+        }
+        next.bonus = bonus;
+        next.score += bonus;
+        it.p.edge = next;
+        used.add(next.block);
     }
+}
+
+// El emparejamiento óptimo es un DP con máscara de bits: 2^n estados y un `1 << n` que
+// deja de funcionar en 31. Ninguna tanda real se acerca ni de lejos, pero sin tope el
+// panel podía mandar cualquier cantidad y colgar el proceso (o peor, calcular mal en
+// silencio) en un servidor de 2 GB.
+const MAX_TEAMS = 24;
+
+// El conjunto de bloques donde se puede agendar. Sin `candidateBlocks` explícito, son
+// todos los que aparezcan en la disponibilidad de algún equipo (comportamiento de
+// siempre; cada par se queda igual con los que tenga en común).
+function resolveCandidateBlocks(teams, happinessByTeam, candidateBlocks) {
+    if (candidateBlocks) return candidateBlocks;
+    const all = [];
+    const seen = new Set();
+    for (const t of teams) {
+        for (const b of Object.keys((happinessByTeam || {})[t] || {})) {
+            if (!seen.has(b)) {
+                seen.add(b);
+                all.push(b);
+            }
+        }
+    }
+    return all;
+}
+
+// ¿Existe algún emparejamiento perfecto para este conjunto de equipos? Es la mitad
+// barata de proposeMatches (solo la fase de justicia), para que el caller pueda probar
+// candidatos a bye sin calcular la propuesta completa de cada uno.
+function isPairingFeasible(teams, happinessByTeam, excludedPairs, candidateBlocks) {
+    if (teams.length === 0) return true;
+    if (teams.length % 2 !== 0) return false;
+    const blocks = resolveCandidateBlocks(teams, happinessByTeam, candidateBlocks);
+    const edges = buildEdges(teams, happinessByTeam, excludedPairs, null, blocks);
+    return findTightestThreshold(teams.length, edges) !== null;
 }
 
 // Orquestación completa: recibe una cantidad PAR de equipos (el caller resuelve el
 // bye antes de llamar) y devuelve la propuesta de emparejamiento con ids reales.
 // `excludedPairs` (Set de pairKey, opcional) evita que el batch proponga un partido
 // entre dos equipos que ya se enfrentaron (según el criterio que decida el caller).
-function proposeMatches(teams, happinessByTeam, excludedPairs, difficultyContext, explicitBlocksByTeam) {
+//
+// Devuelve `threshold` (el umbral de justicia que se buscó) y también `maxGap` (la peor
+// diferencia que quedó DE VERDAD): no siempre coinciden, porque resolver un choque de
+// bloques puede obligar a ceder — ver resolveBlockCollisions.
+function proposeMatches(teams, happinessByTeam, excludedPairs, difficultyContext, candidateBlocks) {
     if (teams.length % 2 !== 0) {
         throw new Error("proposeMatches requiere una cantidad par de equipos.");
     }
     if (teams.length === 0) {
-        return { threshold: null, totalScore: 0, matches: [], infeasible: false };
+        return { threshold: null, maxGap: null, totalScore: 0, matches: [], infeasible: false };
+    }
+    // Un id repetido no es un caso raro sino un dato corrupto con consecuencias: el par
+    // (X,X) tiene gap 0 y el score máximo posible, así que el optimizador lo PREFIERE y
+    // la propuesta termina con "X vs X".
+    if (new Set(teams).size !== teams.length) {
+        throw new Error("proposeMatches recibió el mismo equipo más de una vez.");
+    }
+    if (teams.length > MAX_TEAMS) {
+        throw new Error(`El emparejamiento óptimo admite hasta ${MAX_TEAMS} equipos por tanda; elige menos.`);
     }
 
-    const edges = buildEdges(teams, happinessByTeam, excludedPairs, difficultyContext, explicitBlocksByTeam);
+    const blocks = resolveCandidateBlocks(teams, happinessByTeam, candidateBlocks);
+    const edges = buildEdges(teams, happinessByTeam, excludedPairs, difficultyContext, blocks);
     const threshold = findTightestThreshold(teams.length, edges);
     if (threshold === null) {
-        return { threshold: null, totalScore: null, matches: null, infeasible: true };
+        return { threshold: null, maxGap: null, totalScore: null, matches: null, infeasible: true };
     }
 
     const result = maxWeightMatching(teams.length, edges, threshold);
 
     const normalized = teams.map((t) => normalizeTeamHappiness((happinessByTeam || {})[t] || {}));
     const pairEdges = result.pairs.map(([i, j]) => ({ i, j, edge: edgeBetween(edges, i, j) }));
-    resolveBlockCollisions(pairEdges, normalized, teams, explicitBlocksByTeam);
+    const tieBreak = difficultyContext && difficultyContext.temperature ? Math.random : null;
+    resolveBlockCollisions(pairEdges, normalized, blocks, threshold, tieBreak);
 
     const totalScore = pairEdges.reduce((sum, p) => sum + p.edge.score, 0);
     const matches = pairEdges.map(({ i, j, edge }) => {
@@ -511,10 +667,13 @@ function proposeMatches(teams, happinessByTeam, excludedPairs, difficultyContext
             gap: edge.gap,
             happinessA: (happinessByTeam[teamA] || {})[edge.block],
             happinessB: (happinessByTeam[teamB] || {})[edge.block],
+            overThreshold: !!edge.overThreshold,
+            collision: !!edge.collision,
         };
     });
+    const maxGap = matches.reduce((worst, m) => Math.max(worst, m.gap), 0);
 
-    return { threshold, totalScore, matches, infeasible: false };
+    return { threshold, maxGap, totalScore, matches, infeasible: false };
 }
 
 module.exports = {
@@ -544,5 +703,8 @@ module.exports = {
     findTightestThreshold,
     maxWeightMatching,
     suggestByeTeam,
+    rankByeCandidates,
+    isPairingFeasible,
     proposeMatches,
+    MAX_TEAMS,
 };

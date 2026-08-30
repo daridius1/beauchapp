@@ -107,8 +107,12 @@ export interface MatchReport {
   };
 }
 
-/** Escala 1-5 por bloque horario. Un equipo que nunca respondió cuenta como "Regular"
- *  (2) en todos los bloques — no existe "disponibilidad no enviada". */
+/** Escala 1-5 por bloque horario (1 = "Muy mala", 5 = "Excelente"). No existe
+ *  "disponibilidad no enviada": un bloque sin calificar cuenta como 1, el mismo valor
+ *  con el que la grilla llega precargada (AvailabilityGrid.MIN_LEVEL) y el mismo que usa
+ *  el backend al leerla (DEFAULT_HAPPINESS_LEVEL en lib/teamSchedule.js). Los tres tienen
+ *  que moverse juntos: si el backend asumiera un valor más alto, un bloque que el equipo
+ *  nunca vio quedaría por encima de todos los que sí marcó "Muy mala". */
 export type HappinessMap = Record<string, number>;
 
 export interface HorarioAvailability {
