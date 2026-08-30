@@ -77,6 +77,7 @@ function clientSessionGateFn() {
             if (!stored || !stored.token) { onLogin(false); return; }
             try {
                 const res = await fetch("/api/collections/" + collection + "/auth-refresh", {
+                    method: "POST",
                     headers: { "Authorization": "Bearer " + stored.token }
                 });
                 const data = await res.json();

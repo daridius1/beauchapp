@@ -140,6 +140,8 @@ routerAdd("GET", "/admin/liga", (e) => {
         .dynamic-row input[type="number"] { width: 90px; background: rgba(15,23,42,0.6); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 10px; color: var(--text-color); font-size: 13px; }
         .dynamic-row label { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 400; color: var(--text-color); margin-bottom: 0; white-space: nowrap; }
         .remove-row-btn { background: none; border: none; color: var(--danger-color); font-size: 20px; line-height: 1; cursor: pointer; padding: 0 4px; margin-left: auto; }
+        .dynamic-row.marked-deleted { opacity: 0.45; }
+        .dynamic-row.marked-deleted select, .dynamic-row.marked-deleted input { pointer-events: none; }
         .player-checkbox-list { max-height: 160px; overflow-y: auto; margin-top: 4px; }
         .summary-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .summary-table th, .summary-table td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border-color); }
@@ -514,6 +516,38 @@ ${CALENDAR_CSS}
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary btn-sm" id="cancelEditMatchBtn">Cancelar</button>
                     <button type="submit" class="btn btn-sm" id="submitEditMatchBtn">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de corrección de eventos: solo para partidos 'played' — corrige goles,
+         tarjetas y penales de un informe ya oficial (error de arbitraje), sin tener que
+         salir del panel a la vista de arbitraje en vivo. Reutiliza el mismo endpoint
+         de siempre (POST /api/league-matches/events); matchWriteDecision ya deja entrar
+         a la propia liga sin código, y ese endpoint ya revierte/repaga el mercado de
+         Beaumarket si la corrección cambia quién ganó. -->
+    <div class="modal-backdrop" id="editEventsModal">
+        <div class="modal-box modal-box-lg">
+            <h2 style="margin-top:0;">Corregir eventos del partido</h2>
+            <p class="hint" id="editEventsSubtitle" style="margin-top:0;"></p>
+            <div class="alert alert-danger" id="editEventsError"></div>
+            <form id="editEventsForm">
+                <h2 style="font-size:14px; margin:18px 0 6px;">Goles</h2>
+                <div id="editGoalsList"></div>
+                <button type="button" class="btn btn-secondary btn-sm" id="addEditGoalBtn">+ Agregar gol</button>
+
+                <h2 style="font-size:14px; margin:18px 0 6px;">Tarjetas</h2>
+                <div id="editCardsList"></div>
+                <button type="button" class="btn btn-secondary btn-sm" id="addEditCardBtn">+ Agregar tarjeta</button>
+
+                <h2 style="font-size:14px; margin:18px 0 6px;">Penales</h2>
+                <div id="editPenaltiesList"></div>
+                <button type="button" class="btn btn-secondary btn-sm" id="addEditPenaltyBtn">+ Agregar penal</button>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" id="cancelEditEventsBtn">Cancelar</button>
+                    <button type="submit" class="btn btn-sm" id="submitEditEventsBtn">Guardar cambios</button>
                 </div>
             </form>
         </div>
@@ -1491,10 +1525,10 @@ ${API_CALL_FN}
 
         // Mismo patrón que codeChip, para un link que ya trae el código incluido —
         // quien lo recibe entra directo a arbitrar sin tipear nada.
-        function linkChip(url) {
+        function linkChip(url, label) {
             const el = document.createElement("span");
             el.className = "fact";
-            el.appendChild(document.createTextNode("Link para arbitrar"));
+            el.appendChild(document.createTextNode(label || "Link para arbitrar"));
 
             const btn = document.createElement("button");
             btn.type = "button";
@@ -1802,6 +1836,14 @@ ${API_CALL_FN}
                 facts.className = "match-card-facts";
                 if (m.status === "played") {
                     facts.appendChild(factChip("Resultado:", (m.scoreA || 0) + " - " + (m.scoreB || 0)));
+                    // Mismo flujo de arbitraje, en modo "enmienda": matchWriteDecision (ver
+                    // lib/matchEvents.js) deja entrar sin código a la propia liga cuando el
+                    // partido ya está 'played', así que este link reabre el informe oficial
+                    // para corregir un error de arbitraje. Si hay Beaumarket de por medio, la
+                    // reversión/repago del mercado ya la hace el propio endpoint de eventos al
+                    // detectar que cambió el ganador (ver match_arbitration.pb.js) — no hace
+                    // falta nada especial acá.
+                    if (m.arbitrateUrl) facts.appendChild(linkChip(m.arbitrateUrl, "Corregir informe (error de arbitraje)"));
                 } else if (m.status === "confirmed") {
                     // El código es lo que habilita a arbitrar: es el dato que el admin
                     // viene a buscar a esta lista. El link ya lo trae incluido, para
@@ -1820,6 +1862,17 @@ ${API_CALL_FN}
 
                 if (m.status !== "cancelled") {
                     card.appendChild(renderRefereeAssignment(m, data.refereeCounts || {}));
+                }
+
+                if (m.status === "played") {
+                    const playedActions = document.createElement("div");
+                    playedActions.className = "match-actions";
+                    const editEventsBtn = document.createElement("button");
+                    editEventsBtn.className = "btn btn-sm btn-secondary";
+                    editEventsBtn.textContent = "Editar eventos";
+                    editEventsBtn.addEventListener("click", () => openEditEventsModal(m));
+                    playedActions.appendChild(editEventsBtn);
+                    card.appendChild(playedActions);
                 }
 
                 if (m.status === "confirmed" || m.status === "suspended") {
@@ -2273,6 +2326,250 @@ ${API_CALL_FN}
                 loadCalendar();
             } catch (err) {
                 showError(editMatchError, err.message);
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // --- Corregir eventos de un partido jugado ---
+        //
+        // A diferencia de "Cargar partido jugado" (retroactivo, crea un partido nuevo),
+        // esto EDITA la bitácora de uno que ya existe. Reutiliza el mismo endpoint que
+        // usa la vista de arbitraje en vivo (POST /api/league-matches/events, ver
+        // match_arbitration.pb.js) — matchWriteDecision ya deja entrar sin código a la
+        // propia liga cuando el partido está 'played', y ese endpoint ya revierte/repaga
+        // el mercado de Beaumarket si la corrección cambia quién ganó. La Beaupolla no
+        // necesita nada aparte: sus puntos se derivan en vivo del marcador guardado.
+        //
+        // Borrar un evento existente NO lo saca de la bitácora (ver isDeletedEvent en
+        // lib/matchEvents.js): se manda de vuelta con deleted:true, la fila solo se
+        // atenúa visualmente. Un evento nuevo que se agrega y se quita en la misma
+        // edición sí se saca del DOM sin más, porque nunca llegó a existir en el
+        // servidor. No hace falta mandar baseKeys: como esta vista siempre reenvía
+        // TODOS los goles/tarjetas/penales tal como quedaron (tocados o no), la fusión
+        // por unión ya alcanza — lo que no se reenvía (convocatoria, reloj) simplemente
+        // no se toca, mismo criterio que ya usa /retroactive con los eventos de reloj.
+        const editEventsModal = document.getElementById("editEventsModal");
+        const editEventsForm = document.getElementById("editEventsForm");
+        const editEventsError = document.getElementById("editEventsError");
+        let editingEventsMatch = null;
+        let editRosterA = [];
+        let editRosterB = [];
+
+        function editRosterFor(letter) { return letter === "A" ? editRosterA : editRosterB; }
+
+        // Valor centinela para "el jugador de este evento ya no está en el plantel
+        // actual" — nunca coincide con un id real de team_players. _getEvent() lo
+        // reconoce y preserva playerId/player del evento original tal cual, en vez de
+        // interpretar la ausencia de selección como "sin jugador" y borrar la
+        // atribución sin que nadie lo haya pedido.
+        const LEGACY_PLAYER_VALUE = "__legacy_player__";
+
+        function populateEditPlayerSelect(select, letter, selected) {
+            select.innerHTML = '<option value="">Sin jugador</option>';
+            editRosterFor(letter).forEach((p) => {
+                const opt = document.createElement("option");
+                opt.value = p.id;
+                opt.textContent = p.name;
+                select.appendChild(opt);
+            });
+            if (!selected || (!selected.playerId && !selected.player)) return;
+
+            if (selected.playerId) {
+                const found = Array.from(select.options).some((o) => o.value === selected.playerId);
+                if (found) { select.value = selected.playerId; return; }
+            } else {
+                const found = Array.from(select.options).find((o) => o.textContent === selected.player);
+                if (found) { select.value = found.value; return; }
+            }
+
+            // El jugador del evento ya no aparece en el plantel actual (salió del
+            // equipo, o el evento nunca tuvo playerId y el nombre no calza con nadie).
+            const legacyOpt = document.createElement("option");
+            legacyOpt.value = LEGACY_PLAYER_VALUE;
+            legacyOpt.textContent = (selected.player || "Jugador") + " (fuera del plantel actual)";
+            select.insertBefore(legacyOpt, select.options[1] || null);
+            select.value = LEGACY_PLAYER_VALUE;
+        }
+
+        // "existing": el evento persistido a editar, o null para una fila nueva en blanco.
+        function addEditEventRow(listId, kind, existing) {
+            const list = document.getElementById(listId);
+            const row = document.createElement("div");
+            row.className = "dynamic-row";
+
+            const teamSelect = document.createElement("select");
+            ["A", "B"].forEach((letter) => {
+                const opt = document.createElement("option");
+                opt.value = letter;
+                opt.textContent = letter === "A" ? editingEventsMatch.teamAName : editingEventsMatch.teamBName;
+                teamSelect.appendChild(opt);
+            });
+            teamSelect.value = (existing && existing.team) || "A";
+            row.appendChild(teamSelect);
+
+            const playerSelect = document.createElement("select");
+            row.appendChild(playerSelect);
+            populateEditPlayerSelect(playerSelect, teamSelect.value, existing);
+            teamSelect.addEventListener("change", () => populateEditPlayerSelect(playerSelect, teamSelect.value, null));
+
+            let extraControl;
+            if (kind === "goal") {
+                const label = document.createElement("label");
+                extraControl = document.createElement("input");
+                extraControl.type = "checkbox";
+                extraControl.checked = !!(existing && existing.ownGoal);
+                label.appendChild(extraControl);
+                label.appendChild(document.createTextNode(" Autogol"));
+                row.appendChild(label);
+            } else if (kind === "card") {
+                extraControl = document.createElement("select");
+                extraControl.style.minWidth = "90px";
+                [["yellow_card", "Amarilla"], ["red_card", "Roja"]].forEach((pair) => {
+                    const opt = document.createElement("option");
+                    opt.value = pair[0];
+                    opt.textContent = pair[1];
+                    extraControl.appendChild(opt);
+                });
+                if (existing) extraControl.value = existing.type;
+                row.appendChild(extraControl);
+            } else {
+                const label = document.createElement("label");
+                extraControl = document.createElement("input");
+                extraControl.type = "checkbox";
+                extraControl.checked = existing ? !!existing.scored : true;
+                label.appendChild(extraControl);
+                label.appendChild(document.createTextNode(" Convertido"));
+                row.appendChild(label);
+            }
+
+            const minuteInput = document.createElement("input");
+            minuteInput.type = "number";
+            minuteInput.min = "0";
+            minuteInput.max = "200";
+            minuteInput.placeholder = "Minuto";
+            if (existing && Number.isFinite(existing.minute)) minuteInput.value = String(existing.minute);
+            row.appendChild(minuteInput);
+
+            // Un evento nuevo (nunca guardado) se saca del DOM sin más al "quitarlo". Uno
+            // existente se manda de vuelta con deleted:true — nunca se saca del arreglo,
+            // ver isDeletedEvent en lib/matchEvents.js.
+            let deletedState = false;
+            const removeBtn = document.createElement("button");
+            removeBtn.type = "button";
+            removeBtn.className = "remove-row-btn";
+            if (existing) {
+                removeBtn.title = "Marcar como borrado";
+                removeBtn.textContent = "×";
+                removeBtn.addEventListener("click", () => {
+                    deletedState = !deletedState;
+                    row.classList.toggle("marked-deleted", deletedState);
+                    removeBtn.title = deletedState ? "Deshacer" : "Marcar como borrado";
+                    removeBtn.textContent = deletedState ? "↺" : "×";
+                });
+            } else {
+                removeBtn.title = "Quitar fila";
+                removeBtn.textContent = "×";
+                removeBtn.addEventListener("click", () => row.remove());
+            }
+            row.appendChild(removeBtn);
+
+            row._getEvent = function () {
+                const letter = teamSelect.value;
+                const playerOpt = playerSelect.selectedOptions[0];
+                // Parte de una copia del evento existente (no de un objeto en blanco) para
+                // no perder campos que este formulario no expone, como el instante real
+                // (campo "at") en que se registró en vivo, que ordena la bitácora fusionada.
+                const base = existing ? Object.assign({}, existing) : { id: newClientEventId() };
+                base.type = kind === "goal" ? "goal" : kind === "card" ? extraControl.value : "penalty";
+                base.team = letter;
+                if (playerOpt && playerOpt.value === LEGACY_PLAYER_VALUE) {
+                    if (existing && existing.playerId) base.playerId = existing.playerId; else delete base.playerId;
+                    if (existing && existing.player) base.player = existing.player; else delete base.player;
+                } else if (playerOpt && playerOpt.value) {
+                    base.playerId = playerOpt.value;
+                    base.player = playerOpt.textContent;
+                } else {
+                    delete base.playerId;
+                    delete base.player;
+                }
+                if (minuteInput.value !== "") base.minute = Number(minuteInput.value);
+                else delete base.minute;
+                if (kind === "goal") base.ownGoal = extraControl.checked;
+                if (kind === "penalty") base.scored = extraControl.checked;
+                base.deleted = deletedState;
+                return base;
+            };
+
+            list.appendChild(row);
+        }
+
+        document.getElementById("addEditGoalBtn").addEventListener("click", () => addEditEventRow("editGoalsList", "goal", null));
+        document.getElementById("addEditCardBtn").addEventListener("click", () => addEditEventRow("editCardsList", "card", null));
+        document.getElementById("addEditPenaltyBtn").addEventListener("click", () => addEditEventRow("editPenaltiesList", "penalty", null));
+
+        async function openEditEventsModal(m) {
+            hideError(currentError());
+            let data;
+            try {
+                data = await apiCall("/api/public/match?id=" + m.id, "GET");
+            } catch (err) {
+                showError(currentError(), err.message);
+                return;
+            }
+
+            editingEventsMatch = m;
+            editRosterA = data.rosterA || [];
+            editRosterB = data.rosterB || [];
+
+            document.getElementById("editEventsSubtitle").textContent =
+                m.teamAName + " vs " + m.teamBName + " — " + formatBlockLabel(m.blockCode);
+            hideError(editEventsError);
+            ["editGoalsList", "editCardsList", "editPenaltiesList"].forEach((id) => {
+                document.getElementById(id).innerHTML = "";
+            });
+
+            const events = (data.report && data.report.events) || [];
+            events.forEach((ev) => {
+                if (!ev || ev.deleted) return;
+                if (ev.type === "goal") addEditEventRow("editGoalsList", "goal", ev);
+                else if (ev.type === "yellow_card" || ev.type === "red_card") addEditEventRow("editCardsList", "card", ev);
+                else if (ev.type === "penalty") addEditEventRow("editPenaltiesList", "penalty", ev);
+            });
+
+            editEventsModal.classList.add("open");
+        }
+        function closeEditEventsModal() { editEventsModal.classList.remove("open"); editingEventsMatch = null; }
+
+        document.getElementById("cancelEditEventsBtn").addEventListener("click", closeEditEventsModal);
+        editEventsModal.addEventListener("click", (e) => { if (e.target === editEventsModal) closeEditEventsModal(); });
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && editEventsModal.classList.contains("open")) closeEditEventsModal();
+        });
+
+        editEventsForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            hideError(editEventsError);
+            if (!editingEventsMatch) return;
+
+            const events = [];
+            ["editGoalsList", "editCardsList", "editPenaltiesList"].forEach((listId) => {
+                document.getElementById(listId).querySelectorAll(".dynamic-row").forEach((row) => {
+                    if (row._getEvent) events.push(row._getEvent());
+                });
+            });
+
+            const btn = document.getElementById("submitEditEventsBtn");
+            btn.disabled = true;
+            try {
+                await apiCall("/api/league-matches/events", "POST", {
+                    matchId: editingEventsMatch.id, code: editingEventsMatch.code, events,
+                });
+                closeEditEventsModal();
+                loadStageMatches();
+                loadCalendar();
+            } catch (err) {
+                showError(editEventsError, err.message);
             } finally {
                 btn.disabled = false;
             }
@@ -2936,7 +3233,12 @@ routerAdd("GET", "/api/liga/matches", (e) => {
                     scoreA: m.getInt("scoreA"),
                     scoreB: m.getInt("scoreB"),
                     code: m.getString("code"),
-                    arbitrateUrl: m.getString("status") === "confirmed"
+                    // También para 'played': matchWriteDecision (lib/matchEvents.js) deja
+                    // entrar sin código a la propia liga sobre un partido ya jugado, para
+                    // corregir el informe oficial (enmienda) — ver LeagueMatchArbitratorScreen
+                    // (isAmend) en el frontend. El código va igual en la URL por si alguien
+                    // más sin sesión de liga necesita abrirla.
+                    arbitrateUrl: (m.getString("status") === "confirmed" || m.getString("status") === "played")
                         ? `${baseUrl}/partidos/${m.id}/arbitrar?code=${m.getString("code")}`
                         : null,
                     refereeTeams,
