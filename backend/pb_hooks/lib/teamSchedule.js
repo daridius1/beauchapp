@@ -135,18 +135,54 @@ function fillDefaultHappiness(happiness, allowedBlocks, defaultLevel) {
     return result;
 }
 
-// Mejor bloque en común entre dos equipos ya normalizados: primero minimiza la
-// diferencia de felicidad (justicia), y entre empates maximiza la suma (felicidad
-// total). null si no comparten ningún bloque con disponibilidad real (par infactible).
-function computePairEdge(normA, normB) {
-    const commonBlocks = Object.keys(normA).filter((b) => b in normB);
-    if (commonBlocks.length === 0) return null;
+// Un equipo cuenta como "sin preferencia real" para este par cuando una misma nota
+// concentra la gran mayoría de sus bloques candidatos — no hace falta que sean TODOS
+// idénticos (max===min de normalizeTeamHappiness es demasiado estricto: un solo bloque
+// que el equipo nunca calificó y quedó en el default ya rompe la igualdad exacta, aunque
+// en la práctica ese equipo sigue sin haber opinado de verdad sobre el resto). Caso real
+// que motivó esto: un equipo calificó "Muy mala" el 85% de una semana entera y solo
+// difirió en las horas que nunca tocó (rellenadas con el default) — matemáticamente no
+// quedaba "parejo", pero tampoco había ninguna preferencia real detrás de esa mayoría.
+const FLAT_MAJORITY_SHARE = 0.75;
+
+function isFlat(norm, blocks) {
+    if (blocks.length === 0) return true;
+    const counts = new Map();
+    for (const b of blocks) {
+        const key = norm[b].toFixed(9);
+        counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    let modeCount = 0;
+    for (const count of counts.values()) modeCount = Math.max(modeCount, count);
+    return modeCount / blocks.length >= FLAT_MAJORITY_SHARE;
+}
+
+// Mejor bloque entre dos equipos ya normalizados, restringido a `blocks`: primero
+// minimiza la diferencia de felicidad (justicia), y entre empates maximiza la suma
+// (felicidad total). Si alguno de los dos no diferenció ningún bloque, su "gap" contra
+// el otro no mide nada real — sin este caso especial, minimizar esa diferencia empuja
+// al equipo que SÍ diferenció hacia el bloque cuyo valor quede más cerca de 0.5 (uno
+// mediocre), en vez de aprovechar que al otro equipo, por indiferencia, le da lo mismo
+// cualquiera. Por eso ahí el gap se trata como 0 en todos los bloques.
+//
+// Y en la suma que desempata, ese mismo equipo "sin preferencia real" aporta un 0.5
+// FIJO, no su valor puntual en cada bloque: si su mayoría aplastante es la nota más baja
+// (ej. "Muy mala" en casi toda la semana) y solo un par de bloques nunca calificados
+// quedaron en el default (más alto que esa mayoría, ver DEFAULT_HAPPINESS_LEVEL), ese
+// default parece —falsamente— su bloque favorito. Con el valor puntual real, la suma
+// terminaría premiando ese artefacto en vez del mejor bloque genuino del equipo que sí
+// opinó.
+function chooseBestBlock(normA, normB, blocks) {
+    if (blocks.length === 0) return null;
+    const flatA = isFlat(normA, blocks);
+    const flatB = isFlat(normB, blocks);
+    const ignoreGap = flatA || flatB;
 
     let best = null;
-    for (const block of commonBlocks) {
-        const a = normA[block];
-        const b = normB[block];
-        const gap = Math.abs(a - b);
+    for (const block of blocks) {
+        const a = flatA ? 0.5 : normA[block];
+        const b = flatB ? 0.5 : normB[block];
+        const gap = ignoreGap ? 0 : Math.abs(a - b);
         const score = a + b;
         if (
             best === null ||
@@ -157,6 +193,13 @@ function computePairEdge(normA, normB) {
         }
     }
     return best;
+}
+
+// Mejor bloque en común entre dos equipos ya normalizados. null si no comparten ningún
+// bloque con disponibilidad real (par infactible).
+function computePairEdge(normA, normB) {
+    const commonBlocks = Object.keys(normA).filter((b) => b in normB);
+    return chooseBestBlock(normA, normB, commonBlocks);
 }
 
 // Clave estable para un par de equipos, sin importar el orden en que se pasen — usada
@@ -397,22 +440,8 @@ function resolveBlockCollisions(pairEdges, normalized) {
             continue;
         }
 
-        let best = null;
-        for (const block of alternatives) {
-            const a = normA[block];
-            const b = normB[block];
-            const gap = Math.abs(a - b);
-            const score = a + b;
-            if (
-                best === null ||
-                gap < best.gap - EPS ||
-                (Math.abs(gap - best.gap) <= EPS && score > best.score)
-            ) {
-                best = { block, gap, score };
-            }
-        }
-        p.edge = best;
-        used.add(best.block);
+        p.edge = chooseBestBlock(normA, normB, alternatives);
+        used.add(p.edge.block);
     }
 }
 

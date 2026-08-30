@@ -254,15 +254,67 @@ test("proposeMatches: si excludedPairs deja a un equipo sin ningún rival posibl
 
 test("proposeMatches: equipo que marca todo igual no se beneficia frente a uno que sí diferencia", () => {
     // C marca "3" parejo en ambos bloques (plano, sin señal). D distingue: prefiere
-    // fuertemente el segundo bloque. El emparejamiento debe poder usar igual el bloque
-    // donde D es feliz, porque para C (normalizado a 0.5 parejo) da lo mismo cuál elegir.
+    // fuertemente el segundo bloque. El emparejamiento debe usar el bloque donde D es
+    // feliz, porque para C (plano) da lo mismo cuál elegir — su "gap" contra D no mide
+    // una preferencia real, así que no cuenta como diferencia de justicia (gap 0).
     const result = proposeMatches(["C", "D"], {
         C: { "2026-08-17-09": 3, "2026-08-17-10": 3 },
         D: { "2026-08-17-09": 1, "2026-08-17-10": 4 },
     });
     assert.equal(result.infeasible, false);
     assert.equal(result.matches[0].block, "2026-08-17-10");
-    assert.equal(result.matches[0].gap, 0.5); // |0.5 - 1.0|
+    assert.equal(result.matches[0].gap, 0);
+});
+
+test("proposeMatches: con más de 2 bloques en común, un equipo plano no debe arrastrar al otro a un bloque mediocre", () => {
+    // Malwekas no diferenció nada (todo "Regular"): les da lo mismo cualquier bloque.
+    // Temerarias sí diferenció: "09" es mediocre (Buena=3), "10" es pésimo (1),
+    // "11" es excelente (5). Con solo 2 bloques posibles (test anterior) el criterio de
+    // "menor gap" coincidía por casualidad con el mejor bloque de quien diferencia;
+    // con 3+ bloques deja de ser así: minimizar el gap contra el 0.5 plano de Malwekas
+    // elige el bloque cuyo valor normalizado quede más CERCA de 0.5 — el mediocre "09"
+    // (que normaliza justo a 0.5), no el excelente "11" — porque a Malwekas, al no
+    // haber diferenciado nada, "0.5" no representa ninguna preferencia real.
+    const result = proposeMatches(["Malwekas", "Temerarias"], {
+        Malwekas: { "2026-08-31-09": 2, "2026-08-31-10": 2, "2026-08-31-11": 2 },
+        Temerarias: { "2026-08-31-09": 3, "2026-08-31-10": 1, "2026-08-31-11": 5 },
+    });
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches[0].block, "2026-08-31-11");
+});
+
+test("proposeMatches: caso real (Malvvekas/Temerarias, Copa CDI Femenina) — mayoría aplastante en 'Muy mala' con un puñado de defaults no debe tapar la disponibilidad real del rival", () => {
+    // Reproduce el patrón real: Malvvekas calificó CASI toda la semana "Muy mala" (1),
+    // salvo 2 horas que nunca tocó y quedaron en el default "Regular" (2) — no es
+    // max===min exacto, pero tampoco hay ninguna preferencia real detrás de ese 2. Con
+    // el bug, ese único valor distinto ya bastaba para que minimizar el gap arrastrara
+    // a Temerarias (que sí diferenció, y tiene un bloque excelente) a un bloque mediocre
+    // en vez de a su mejor horario.
+    const week = ["09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19"];
+    const malvvekas = {};
+    week.forEach((h) => (malvvekas[`2026-08-31-${h}`] = 1));
+    malvvekas["2026-08-31-08"] = 2; // nunca calificado, default
+    malvvekas["2026-08-31-20"] = 2; // ídem
+
+    const temerarias = {
+        "2026-08-31-08": 2,
+        "2026-08-31-09": 2,
+        "2026-08-31-10": 1,
+        "2026-08-31-11": 1,
+        "2026-08-31-12": 2,
+        "2026-08-31-13": 2,
+        "2026-08-31-14": 2,
+        "2026-08-31-15": 3,
+        "2026-08-31-16": 4,
+        "2026-08-31-17": 4,
+        "2026-08-31-18": 5, // su mejor bloque real
+        "2026-08-31-19": 4,
+        "2026-08-31-20": 2,
+    };
+
+    const result = proposeMatches(["Malvvekas", "Temerarias"], { Malvvekas: malvvekas, Temerarias: temerarias });
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches[0].block, "2026-08-31-18");
 });
 
 // ---------------------------------------------------------------------------------
