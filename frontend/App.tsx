@@ -41,6 +41,11 @@ import { ActivitiesScreen } from './src/screens/ActivitiesScreen';
 import { ActivityDetailScreen } from './src/screens/ActivityDetailScreen';
 import { ActivityEditorScreen } from './src/screens/ActivityEditorScreen';
 import { ComunidadScreen } from './src/screens/ComunidadScreen';
+import { ConoceBeauchefScreen } from './src/screens/ConoceBeauchefScreen';
+import { MascotasScreen } from './src/screens/MascotasScreen';
+import { PetDetailScreen } from './src/screens/PetDetailScreen';
+import { MusicaScreen } from './src/screens/MusicaScreen';
+import { SongDetailScreen } from './src/screens/SongDetailScreen';
 import { AcademicoScreen } from './src/screens/AcademicoScreen';
 import { DeportesScreen } from './src/screens/DeportesScreen';
 import { JuegosScreen } from './src/screens/JuegosScreen';
@@ -302,6 +307,11 @@ function AppContent() {
       case 'EditTeam': return 'Editar Equipo';
       case 'BlockedUsers': return 'Usuarios Bloqueados';
       case 'Directory': return 'Perfiles';
+      case 'ConoceBeauchef': return 'Conoce Beauchef';
+      case 'Mascotas': return 'Mascotas';
+      case 'PetDetail': return 'Mascota';
+      case 'Musica': return 'Música';
+      case 'SongDetail': return 'Canción';
       case 'Students': return 'Personas';
       case 'FollowList': {
         const type = params?.type;
@@ -394,12 +404,20 @@ function AppContent() {
       navigationRef.navigate('Deportes' as never);
     } else if (['LaddersList', 'Beaudle', 'Beaumarket', 'PollasList'].includes(currentRouteName)) {
       navigationRef.navigate('Juegos' as never);
-    } else if (['Marketplace', 'Tinder', 'Directory', 'Activities'].includes(currentRouteName)) {
+    } else if (['Marketplace', 'Tinder', 'Directory', 'Activities', 'ConoceBeauchef'].includes(currentRouteName)) {
       navigationRef.navigate('Comunidad' as never);
     } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'FollowList'].includes(currentRouteName)) {
       navigationRef.navigate('Directory' as never);
     } else if (['ActivityDetail', 'ActivityEditor'].includes(currentRouteName)) {
       navigationRef.navigate('Activities' as never);
+    } else if (currentRouteName === 'Mascotas') {
+      navigationRef.navigate('ConoceBeauchef' as never);
+    } else if (currentRouteName === 'PetDetail') {
+      navigationRef.navigate('Mascotas' as never);
+    } else if (currentRouteName === 'Musica') {
+      navigationRef.navigate('ConoceBeauchef' as never);
+    } else if (currentRouteName === 'SongDetail') {
+      navigationRef.navigate('Musica' as never);
     } else if (['CourseDetail', 'ProfessorDetail'].includes(currentRouteName)) {
       navigationRef.navigate('Reviews' as never);
     } else if (['EditProfile', 'EditTeam', 'BlockedUsers'].includes(currentRouteName)) {
@@ -434,6 +452,11 @@ function AppContent() {
                 Teams: 'teams',
                 Bands: 'bands',
                 Directory: 'directory',
+                ConoceBeauchef: 'comunidad/conoce-beauchef',
+                Mascotas: 'comunidad/conoce-beauchef/mascotas',
+                PetDetail: 'comunidad/conoce-beauchef/mascotas/:petId',
+                Musica: 'comunidad/conoce-beauchef/musica',
+                SongDetail: 'comunidad/conoce-beauchef/musica/:songId',
                 Comunidad: 'comunidad',
                 Academico: 'academico',
                 Deportes: 'deportes',
@@ -542,6 +565,11 @@ function AppContent() {
                       <Stack.Screen name="Home" component={HomeScreen} />
                       <Stack.Screen name="Profile" component={ProfileScreen} />
                       <Stack.Screen name="Directory" component={DirectoryScreen} />
+                      <Stack.Screen name="ConoceBeauchef" component={ConoceBeauchefScreen} />
+                      <Stack.Screen name="Mascotas" component={MascotasScreen} />
+                      <Stack.Screen name="PetDetail" component={PetDetailScreen} />
+                      <Stack.Screen name="Musica" component={MusicaScreen} />
+                      <Stack.Screen name="SongDetail" component={SongDetailScreen} />
                       <Stack.Screen name="Comunidad" component={ComunidadScreen} />
                       <Stack.Screen name="Academico" component={AcademicoScreen} />
                       <Stack.Screen name="Deportes" component={DeportesScreen} />

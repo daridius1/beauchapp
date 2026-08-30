@@ -17,6 +17,11 @@ export type RootStackParamList = {
   EditTeam: undefined;
   BlockedUsers: undefined;
   Directory: undefined;
+  ConoceBeauchef: undefined;
+  Mascotas: { initialTab?: 'explorar' | 'mi-mascota' } | undefined;
+  PetDetail: { petId: string };
+  Musica: { initialTab?: 'explorar' | 'mi-cancion' } | undefined;
+  SongDetail: { songId: string };
   Comunidad: undefined;
   Academico: undefined;
   Deportes: undefined;

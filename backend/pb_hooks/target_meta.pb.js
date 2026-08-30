@@ -112,6 +112,54 @@ onRecordCreateRequest((e) => {
             } catch (err) {
                 console.error("[Target Meta] Target course not found:", err);
             }
+        } else if (targetType === "pet") {
+            try {
+                const targetRecord = $app.findRecordById("pets", targetId);
+                let ownerName = "Usuario";
+                let ownerUsername = "";
+                const ownerId = targetRecord.getString("user");
+                if (ownerId) {
+                    try {
+                        const ownerRecord = $app.findRecordById("users", ownerId);
+                        ownerName = ownerRecord.getString("name");
+                        ownerUsername = ownerRecord.getString("username");
+                    } catch (err) {}
+                }
+                const photos = targetRecord.getStringSlice("photos");
+                meta = {
+                    name: targetRecord.getString("name"),
+                    description: targetRecord.getString("description"),
+                    photo: photos && photos.length > 0 ? photos[0] : "",
+                    ownerName: ownerName,
+                    ownerUsername: ownerUsername,
+                };
+            } catch (err) {
+                console.error("[Target Meta] Target pet not found:", err);
+            }
+        } else if (targetType === "song") {
+            try {
+                const targetRecord = $app.findRecordById("songs", targetId);
+                let ownerName = "Usuario";
+                let ownerUsername = "";
+                const ownerId = targetRecord.getString("user");
+                if (ownerId) {
+                    try {
+                        const ownerRecord = $app.findRecordById("users", ownerId);
+                        ownerName = ownerRecord.getString("name");
+                        ownerUsername = ownerRecord.getString("username");
+                    } catch (err) {}
+                }
+                meta = {
+                    title: targetRecord.getString("title"),
+                    author: targetRecord.getString("author"),
+                    year: targetRecord.getInt("year"),
+                    description: targetRecord.getString("description"),
+                    ownerName: ownerName,
+                    ownerUsername: ownerUsername,
+                };
+            } catch (err) {
+                console.error("[Target Meta] Target song not found:", err);
+            }
         } else if (targetType === "activity") {
             try {
                 const targetRecord = $app.findRecordById("activities", targetId);

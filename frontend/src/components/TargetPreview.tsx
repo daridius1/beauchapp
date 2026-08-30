@@ -67,6 +67,12 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
         } else if (targetType === 'beaumarket') {
           const record = await pb.collection('beaumarkets').getOne(targetId);
           if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'pet') {
+          const record = await pb.collection('pets').getOne(targetId, { expand: 'user' });
+          if (isMounted) setFetchedTarget(record);
+        } else if (targetType === 'song') {
+          const record = await pb.collection('songs').getOne(targetId, { expand: 'user' });
+          if (isMounted) setFetchedTarget(record);
         }
       } catch (err) {
         if (isMounted) setFetchError(true);
@@ -527,6 +533,71 @@ export const TargetPreview: React.FC<TargetPreviewProps> = ({
           <Text style={styles.problemTitle} numberOfLines={1}>
             {won ? `Resuelto en ${solvedAtGuess}/${maxGuesses} intentos` : 'No lo logró'}
           </Text>
+        </View>
+        <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
+      </Wrapper>
+    );
+  }
+
+  // 10. RENDERIZADO DE MASCOTA CITADA
+  if (targetType === 'pet') {
+    if (isDeleted) {
+      return (
+        <View style={styles.fallbackBox}>
+          <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.fallbackText}>Esta mascota ya no está disponible.</Text>
+        </View>
+      );
+    }
+
+    const petName = resolved?.name || targetMeta?.name || 'Mascota';
+    const ownerName = resolved?.expand?.user?.name || targetMeta?.ownerName || 'Usuario';
+    const photoName = resolved?.photos?.[0] || targetMeta?.photo;
+    const photoUrl = photoName ? getFileUrl(resolved || { id: targetId, collectionId: 'pets' }, photoName) : null;
+
+    return (
+      <Wrapper {...wrapperProps} style={styles.previewCardProblem}>
+        {photoUrl ? (
+          <Image source={{ uri: photoUrl }} style={{ width: 34, height: 34, borderRadius: 6 }} resizeMode="cover" />
+        ) : (
+          <View style={styles.iconBox}>
+            <Text style={{ fontSize: 18 }}>🐾</Text>
+          </View>
+        )}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.problemSubtitle}>Mascota · {ownerName}</Text>
+          <Text style={styles.problemTitle} numberOfLines={1}>{petName}</Text>
+        </View>
+        <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
+      </Wrapper>
+    );
+  }
+
+  // 11. RENDERIZADO DE CANCIÓN CITADA
+  if (targetType === 'song') {
+    if (isDeleted) {
+      return (
+        <View style={styles.fallbackBox}>
+          <Feather name="alert-circle" size={14} color={theme.colors.textMuted} style={{ marginRight: 6 }} />
+          <Text style={styles.fallbackText}>Esta canción ya no está disponible.</Text>
+        </View>
+      );
+    }
+
+    const songTitle = resolved?.title || targetMeta?.title || 'Canción';
+    const songAuthor = resolved?.author || targetMeta?.author;
+    const songYear = resolved?.year || targetMeta?.year;
+
+    return (
+      <Wrapper {...wrapperProps} style={styles.previewCardProblem}>
+        <View style={styles.iconBox}>
+          <Feather name="music" size={18} color={theme.colors.textMuted} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.problemSubtitle}>
+            Canción{songAuthor ? ` · ${songAuthor}` : ''}{songYear ? ` (${songYear})` : ''}
+          </Text>
+          <Text style={styles.problemTitle} numberOfLines={1}>{songTitle}</Text>
         </View>
         <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
       </Wrapper>

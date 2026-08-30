@@ -41,6 +41,10 @@ onRecordEnrich((e) => {
             collectionName = "activities";
         } else if (targetType === "course") {
             collectionName = "courses";
+        } else if (targetType === "pet") {
+            collectionName = "pets";
+        } else if (targetType === "song") {
+            collectionName = "songs";
         }
 
         if (!collectionName) {
@@ -207,6 +211,57 @@ onRecordEnrich((e) => {
                     nombre: targetRecord.getString("nombre"),
                     area: targetRecord.getString("area"),
                     deleted: false,
+                };
+            } else if (targetType === "pet") {
+                let ownerData = null;
+                const ownerId = targetRecord.getString("user");
+                if (ownerId) {
+                    try {
+                        const ownerRecord = $app.findRecordById("users", ownerId);
+                        ownerData = {
+                            id: ownerRecord.id,
+                            name: ownerRecord.getString("name"),
+                            username: ownerRecord.getString("username"),
+                            avatar: ownerRecord.getString("avatar"),
+                            collectionId: ownerRecord.collection().id,
+                        };
+                    } catch (err) {}
+                }
+
+                enriched = {
+                    id: targetRecord.id,
+                    collectionId: targetRecord.collection().id,
+                    name: targetRecord.getString("name"),
+                    description: targetRecord.getString("description"),
+                    photos: targetRecord.getStringSlice("photos"),
+                    deleted: targetRecord.getBool("deleted"),
+                    expand: ownerData ? { user: ownerData } : {},
+                };
+            } else if (targetType === "song") {
+                let ownerData = null;
+                const ownerId = targetRecord.getString("user");
+                if (ownerId) {
+                    try {
+                        const ownerRecord = $app.findRecordById("users", ownerId);
+                        ownerData = {
+                            id: ownerRecord.id,
+                            name: ownerRecord.getString("name"),
+                            username: ownerRecord.getString("username"),
+                            avatar: ownerRecord.getString("avatar"),
+                            collectionId: ownerRecord.collection().id,
+                        };
+                    } catch (err) {}
+                }
+
+                enriched = {
+                    id: targetRecord.id,
+                    collectionId: targetRecord.collection().id,
+                    title: targetRecord.getString("title"),
+                    author: targetRecord.getString("author"),
+                    year: targetRecord.getInt("year"),
+                    description: targetRecord.getString("description"),
+                    deleted: targetRecord.getBool("deleted"),
+                    expand: ownerData ? { user: ownerData } : {},
                 };
             } else if (targetType === "activity") {
                 let orgData = null;

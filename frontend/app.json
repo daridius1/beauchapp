@@ -34,7 +34,8 @@
       "shortName": "Beauchapp"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-audio"
     ]
   }
 }

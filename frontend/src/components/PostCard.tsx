@@ -118,6 +118,10 @@ export const PostCard: React.FC<PostCardProps> = ({
       navigation.push('CourseDetail', { courseId: post.targetId });
     } else if (post.targetType === 'beaumarket') {
       navigation.push('BeaumarketDetail', { marketId: post.targetId });
+    } else if (post.targetType === 'pet') {
+      navigation.push('PetDetail', { petId: post.targetId });
+    } else if (post.targetType === 'song') {
+      navigation.push('SongDetail', { songId: post.targetId });
     } else if (post.targetType === 'beaudle') {
       if (post.targetMeta?.day) {
         navigation.push('BeaudleDay', { day: post.targetMeta.day });
@@ -316,6 +320,8 @@ export const PostCard: React.FC<PostCardProps> = ({
                 post.targetType === 'activity' ? 'Actividad: ' :
                 post.targetType === 'course' ? 'Ramo: ' :
                 post.targetType === 'beaumarket' ? 'Mercado: ' :
+                post.targetType === 'pet' ? 'Mascota: ' :
+                post.targetType === 'song' ? 'Canción: ' :
                 post.targetType === 'beaudle' ? 'Beaudle: ' : ''
               }
               <Text style={{ fontWeight: '700', textDecorationLine: 'underline' }}>
@@ -334,6 +340,8 @@ export const PostCard: React.FC<PostCardProps> = ({
                   post.targetType === 'activity' ? 'Ver actividad' :
                   post.targetType === 'course' ? 'Ver ramo' :
                   post.targetType === 'beaumarket' ? 'Ver mercado' :
+                  post.targetType === 'pet' ? 'Ver mascota' :
+                  post.targetType === 'song' ? 'Ver canción' :
                   post.targetType === 'beaudle' ? 'Ver Beaudle' : 'Ver detalle'
                 )}
               </Text>

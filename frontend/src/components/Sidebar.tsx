@@ -59,7 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
   // usuario está adentro de una de ellas — hay que mantenerla sincronizada a mano
   // con la lista `apps` de cada pantalla-grilla y con el mapeo de `handleBack` en App.tsx.
   const categoryScreens: Record<string, string[]> = {
-    Comunidad: ['Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'SellerProfileEditor', 'MarketplaceItemEditor', 'Tinder', 'Directory', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'UserProfile', 'FollowList', 'Activities', 'ActivityDetail', 'ActivityEditor'],
+    Comunidad: ['Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'SellerProfileEditor', 'MarketplaceItemEditor', 'Tinder', 'Directory', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'UserProfile', 'FollowList', 'Activities', 'ActivityDetail', 'ActivityEditor', 'ConoceBeauchef', 'Mascotas', 'PetDetail', 'Musica', 'SongDetail'],
     Academico: ['ProblemsList', 'ProblemDetail', 'ProblemEditor', 'Reviews', 'CourseDetail', 'ProfessorDetail'],
     Deportes: ['LeaguesList', 'LeagueDetail', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'Polla', 'PollaMatch', 'PollaUserBets', 'TeamSchedule'],
     Juegos: ['LaddersList', 'LadderDetail', 'LadderMatchArbitrator', 'LadderMatchDetail', 'LadderPlayerProfile', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'PollasList'],

@@ -4,54 +4,32 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Comunidad'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'ConoceBeauchef'>;
 
-export const ComunidadScreen: React.FC<Props> = ({ navigation }) => {
-  const { user } = useAuth();
-
-  const apps = [
+// Categorías de "Conoce Beauchef": cada una es un espacio donde la comunidad comparte
+// cosas propias (fotos, historias). Empieza solo con Mascotas; agregar una nueva
+// categoría es agregar un ítem acá.
+export const ConoceBeauchefScreen: React.FC<Props> = ({ navigation }) => {
+  const categorias = [
     {
-      id: 'Activities',
-      title: 'Actividades',
-      icon: 'compass',
-      screen: 'Activities',
+      id: 'Mascotas',
+      title: 'Mascotas',
+      icon: 'heart',
+      screen: 'Mascotas',
     },
     {
-      id: 'Marketplace',
-      title: 'Marketplace',
-      icon: 'shopping-bag',
-      screen: 'Marketplace',
-    },
-    ...(user && user.type !== 'organization'
-      ? [
-          {
-            id: 'Tinder',
-            title: 'Tinder Beauchef',
-            icon: 'heart',
-            screen: 'Tinder',
-          },
-        ]
-      : []),
-    {
-      id: 'Directory',
-      title: 'Perfiles',
-      icon: 'users',
-      screen: 'Directory',
-    },
-    {
-      id: 'ConoceBeauchef',
-      title: 'Conoce Beauchef',
-      icon: 'globe',
-      screen: 'ConoceBeauchef',
+      id: 'Musica',
+      title: 'Música',
+      icon: 'music',
+      screen: 'Musica',
     },
   ];
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {apps.map((item) => (
+        {categorias.map((item) => (
           <TouchableOpacity
             key={item.id}
             style={styles.itemRow}
