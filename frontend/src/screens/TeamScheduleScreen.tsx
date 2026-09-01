@@ -209,6 +209,17 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <ScheduleLegend binary={!isTeamAccount} />
 
+      {/* El algoritmo de emparejamiento premia al que ofrece más: cuando no alcanzan
+          los horarios buenos para todos, el que queda en el peor horario es el que
+          menos disponibilidad puso. Decirlo acá es lo que hace que el incentivo
+          exista — un criterio que nadie conoce no cambia el comportamiento de nadie. */}
+      {isTeamAccount && (
+        <Text style={styles.incentiveHint}>
+          Mientras más horarios buenos ofrezcas, mejor te va a tocar: si no alcanzan
+          para todos los equipos, el mal horario le toca a quien menos ofreció.
+        </Text>
+      )}
+
       <View style={styles.gridWrap}>
         <AvailabilityGrid
           values={values}
@@ -385,6 +396,13 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 14,
     textAlign: 'center',
+  },
+  incentiveHint: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: theme.spacing.sm,
   },
   gridWrap: {
     marginTop: 4,

@@ -1388,8 +1388,9 @@ ${API_CALL_FN}
         // --- Disponibilidad de un equipo ---
         //
         // Los mismos bloques de siempre, pintados con la escala 1-5 que marcó el equipo.
-        // Un bloque sin marcar no es "no puede": el algoritmo lo trata como Regular (ver
-        // lib/teamSchedule.js), y la leyenda lo dice para que no se lea como un rechazo.
+        // Un bloque sin marcar cuenta como "Muy mala" (DEFAULT_HAPPINESS_LEVEL en
+        // lib/teamSchedule.js, el mismo valor con el que la grilla del equipo llega
+        // precargada), y la leyenda lo dice para que nadie lea la grilla al revés.
         const availError = document.getElementById("availError");
 
         document.getElementById("backFromAvailBtn").addEventListener("click", () => {
@@ -1420,7 +1421,7 @@ ${API_CALL_FN}
 
             document.getElementById("availSubtitle").textContent = data.submitted
                 ? "Disponibilidad que marcó para las próximas 3 semanas"
-                : "Este equipo todavía no marcó su disponibilidad — cuenta como Regular en todos los bloques.";
+                : "Este equipo todavía no marcó su disponibilidad — cuenta como Muy mala en todos los bloques.";
 
             const happiness = data.happiness || {};
             renderGrid(wrap, (cell, block) => {
@@ -1640,19 +1641,40 @@ ${API_CALL_FN}
             heading.textContent = "Sugerencias (" + res.matches.length + ")";
             wrap.appendChild(heading);
 
-            // El resumen explica QUÉ optimizó el algoritmo, no solo los números.
+            // El resumen explica QUÉ optimizó el algoritmo, no solo los números, y lo
+            // hace con las mismas etiquetas que vieron los equipos al marcar: "Buena",
+            // "Mala"… Antes mostraba un porcentaje de una escala interna normalizada por
+            // equipo, donde un horario que el equipo había marcado "Mala" podía salir
+            // anunciado como 100 sobre 100.
             const summary = document.createElement("p");
             summary.className = "hint";
-            // Se informa lo que quedó DE VERDAD y no lo que se buscó: liberar un bloque
-            // disputado puede obligar a un partido a quedar por debajo del piso.
-            const peor = res.worst !== null && res.worst !== undefined ? res.worst : res.floor;
+            const sacrificados = res.sacrificed || [];
             summary.textContent =
-                "Todavía no están agendadas: acepta las que te sirvan. Se buscó el horario que" +
-                " deje más contentos a los dos equipos, protegiendo primero al que queda peor:" +
-                " en toda la tanda, al equipo peor parado le tocó un horario de " +
-                Math.round(peor * 100) + " sobre 100 dentro de su propia escala." +
+                "Todavía no están agendadas: acepta las que te sirvan. Se repartieron los horarios" +
+                " buscando la mayor disponibilidad total y dejando a la menor cantidad posible de" +
+                " equipos en un horario malo. Promedio de la tanda: " +
+                (res.avgHappiness != null ? res.avgHappiness.toFixed(1) : "?") + " de 5. Lo peor que le" +
+                " tocó a alguien: " + happinessLabel(res.worst) + "." +
                 (res.byeTeamId ? " Queda libre esta fecha: " + (res.byeTeamName || res.byeTeamId) + "." : "");
             wrap.appendChild(summary);
+
+            // Quién quedó con un horario malo y por qué le tocó a ese: cuando no alcanzan
+            // los horarios buenos para todos, el sacrificio recae en quien menos
+            // disponibilidad ofreció para esta tanda. Decirlo es lo que hace que la
+            // decisión se pueda defender frente al equipo que reclama.
+            if (sacrificados.length > 0) {
+                const aviso = document.createElement("p");
+                aviso.className = "hint";
+                aviso.style.color = "var(--danger-color)";
+                aviso.textContent =
+                    "Con horario malo (" + sacrificados.length + "): " +
+                    sacrificados
+                        .map((s) => (s.name || s.team) + " — " + happinessLabel(s.level) +
+                            ", ofreció " + Math.round((s.offer || 0) * 100) + "% de disponibilidad")
+                        .join("; ") +
+                    ". No alcanzaban los horarios buenos para todos: el sacrificio recae en quien menos ofreció.";
+                wrap.appendChild(aviso);
+            }
 
             res.matches.forEach((m, i) => {
                 const label = "S" + (i + 1);
@@ -1672,19 +1694,21 @@ ${API_CALL_FN}
                 facts.className = "match-card-facts";
                 facts.appendChild(factChip("Para " + m.teamAName + ":", happinessLabel(m.happinessA)));
                 facts.appendChild(factChip("Para " + m.teamBName + ":", happinessLabel(m.happinessB)));
-                facts.appendChild(factChip("Diferencia:", m.gap.toFixed(2)));
+                // La diferencia va en notas de la escala 1-5, no en decimales de una
+                // escala interna: "2" se lee como "dos notas de diferencia".
+                facts.appendChild(factChip("Diferencia:", String(m.gap) + (m.gap === 1 ? " nota" : " notas")));
                 card.appendChild(facts);
 
-                // Los dos límites conocidos del algoritmo, dichos en vez de escondidos:
-                // este partido tuvo que ceder justicia (o directamente la hora) porque
-                // otro par del mismo lote se quedó con el bloque que le tocaba.
-                if (m.belowFloor || m.collision) {
+                // El único límite duro que puede quedar, dicho en vez de escondido: no
+                // había horarios usables suficientes para todos los partidos de la tanda
+                // y este comparte hora con otro. Hay una sola cancha.
+                if (m.collision) {
                     const aviso = document.createElement("p");
                     aviso.className = "hint";
                     aviso.style.margin = "4px 0 0";
-                    aviso.textContent = m.collision
-                        ? "Ojo: no quedaba ningún otro horario en común, así que coincide con otra sugerencia de esta misma tanda. Agenda solo una de las dos."
-                        : "Ojo: para no chocar con otra sugerencia de esta tanda, este partido quedó peor que el resto para alguno de los dos equipos.";
+                    aviso.textContent =
+                        "Ojo: no alcanzaban los horarios usables para todos los partidos de esta tanda," +
+                        " así que este coincide con otra sugerencia. Agenda solo una de las dos.";
                     card.appendChild(aviso);
                 }
 
@@ -2926,8 +2950,8 @@ routerAdd("GET", "/api/liga/team-availability", (e) => {
         }
 
         // Sin fila de disponibilidad, el equipo no marcó nada: el algoritmo lo trata
-        // como "Regular" en todos los bloques (ver lib/teamSchedule.js), así que acá se
-        // devuelve vacío y la vista lo dice explícitamente.
+        // como "Muy mala" en todos los bloques (DEFAULT_HAPPINESS_LEVEL en
+        // lib/teamSchedule.js), así que acá se devuelve vacío y la vista lo dice.
         let happiness = {};
         try {
             const row = $app.findFirstRecordByFilter("horario_availability", "team = {:t}", { t: teamId });
@@ -3736,7 +3760,7 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
         if (!stageId) throw new BadRequestError("Falta stageId.");
         if (teamIds.length < 2) throw new BadRequestError("Elige al menos 2 equipos.");
         if (teamIds.length > MAX_TEAMS) {
-            throw new BadRequestError(`El emparejamiento óptimo admite hasta ${MAX_TEAMS} equipos por tanda; elige menos.`);
+            throw new BadRequestError(`El emparejamiento admite hasta ${MAX_TEAMS} equipos por tanda; elige menos.`);
         }
 
         let stage;
@@ -3811,11 +3835,10 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
             };
         }
 
-        // La disponibilidad de cada equipo se arma sobre la ventana COMPLETA, no sobre
-        // los bloques donde hoy se puede agendar: la escala de un equipo es su opinión
-        // sobre toda la ventana marcable, y recortarla antes de normalizar inflaba
-        // diferencias triviales (ver computePairEdge en lib/teamSchedule.js). Dónde se
-        // puede agendar es un dato aparte, `candidateBlocks`.
+        // La disponibilidad de cada equipo se arma sobre la ventana COMPLETA y no solo
+        // sobre los bloques donde hoy se puede agendar: son dos cosas distintas y el
+        // algoritmo las usa distinto. Las notas de la ventana entera son la opinión del
+        // equipo; `candidateBlocks` es dónde se puede agendar esta tanda.
         function loadMatchInputs(ids, scaleBlocks) {
             const happinessByTeam = {};
             for (const teamId of ids) {
@@ -3961,14 +3984,17 @@ routerAdd("POST", "/api/liga/matches/propose", (e) => {
 
         return e.json(200, {
             infeasible: false,
-            // `floor` es la felicidad garantizada que se buscó para el equipo peor
-            // parado; `worst` es la que quedó DE VERDAD (resolver un choque de bloques
-            // puede obligar a ceder, ver resolveBlockCollisions). El panel muestra la
-            // segunda: antes anunciaba lo que se buscó como si fuera lo que pasó.
-            floor: result.floor,
+            // Todo lo que se informa está en la escala real de notas (1 a 5), la misma
+            // que vio el equipo al marcar: `worst` es la peor nota que le tocó a alguien
+            // de la tanda y `sacrificed` son los equipos que quedaron en "Muy mala" o
+            // "Mala", con cuánta disponibilidad había ofrecido cada uno (que es la razón
+            // por la que les tocó a ellos). Antes se informaba una escala interna,
+            // normalizada por equipo, en la que un "Mala" podía salir como 100/100.
             worst: result.worst,
+            avgHappiness: result.avgHappiness,
             maxGap: result.maxGap,
             totalScore: result.totalScore,
+            sacrificed: (result.sacrificed || []).map((s) => ({ ...s, name: teamDisplay(s.team) })),
             matches,
             byeTeamId: byeTeamId || null,
             byeTeamName: byeTeamId ? teamDisplay(byeTeamId) : null,

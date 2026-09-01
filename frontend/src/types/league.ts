@@ -64,8 +64,13 @@ export interface LeagueMatch {
   /** Código de arbitraje de 6 caracteres. Solo sirve mientras el partido está
    *  'confirmed'; una vez 'played' únicamente la liga dueña puede corregir el informe. */
   code?: string;
+  /** La nota (1-5) que ese equipo le había puesto al bloque en el que quedó agendado
+   *  el partido. Es la escala real que vio al marcar, no una escala interna. */
   happinessA?: number;
   happinessB?: number;
+  /** Diferencia de notas entre los dos equipos, 0 a 4. Los partidos agendados antes
+   *  del 2026-09-01 la guardaron en una escala interna normalizada (0 a 1), así que un
+   *  valor decimal es un dato viejo, no un partido más parejo. */
   gap?: number;
   /** Instante en que se cierran las apuestas de la Beaupolla para este partido:
    *  10 minutos antes del bloque agendado, o el momento en que el partido arranca

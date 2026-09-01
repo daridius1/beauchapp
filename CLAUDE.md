@@ -104,7 +104,7 @@ cd backend && ./pocketbase serve
 cd frontend && npm run web
 
 # Antes de cualquier commit que toque el backend
-npm run test:backend        # node --test sobre pb_hooks/lib/__tests__ (223 tests)
+npm run test:backend        # node --test sobre pb_hooks/lib/__tests__ (257 tests)
 
 # Antes de cualquier commit que toque el frontend
 cd frontend && npx tsc --noEmit
@@ -178,6 +178,19 @@ servicio, no por `pb.collection` suelto en la pantalla), componentes compartidos
   mostrar el nombre de un equipo expondría las 447 cuentas.
 - **El servidor es un Atom con 2 GB y 10 Mbps de subida.** Cualquier cosa que multiplique
   peticiones o bytes por usuario importa. Ver `PRINCIPLES.md` §1.
+- **El emparejamiento de horarios se optimiza en la escala REAL de notas (1-5)**, no en
+  una normalizada por equipo. La normalización parecía anti-trampa pero convertía "lo
+  menos malo que me queda" en un diez perfecto, y por eso las tandas salían "justas" y
+  pésimas a la vez. El criterio hoy es: máxima felicidad total, minimizando cuántos
+  equipos quedan en "Muy mala"/"Mala", y repartiendo esos sacrificios según cuánta
+  disponibilidad ofreció cada uno para esa tanda ("karma", local a la propuesta, sin
+  relación con el karma del perfil). Todo el razonamiento está en `lib/teamSchedule.js`.
+- **Una tanda admite hasta 40 equipos** (20 partidos), suficiente para agendar de una vez
+  la fecha completa de la liga más grande. El tope viejo de 24 lo imponía un DP de 2^n
+  que ya no existe: quién juega contra quién sale de un arranque codicioso más búsqueda
+  local (que llega al mismo resultado que el DP, medido), y la factibilidad —¿queda
+  alguien sin rival posible al evitar revanchas?— del algoritmo de flores de Edmonds,
+  que es exacto y polinomial.
 - **`withMinimumDelay(fn, 400)`** para que los spinners se vean, en vez de parpadear.
 
 ---

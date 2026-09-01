@@ -3,21 +3,40 @@ const assert = require("node:assert/strict");
 const {
     startOfWeek,
     windowBlockCodes,
+    windowBlockRange,
     pastBlockCodes,
-    normalizeTeamHappiness,
     filterToBlocks,
     computeValidBlocks,
     fillDefaultHappiness,
     DEFAULT_HAPPINESS_LEVEL,
-    computePairEdge,
+    happinessUtility,
+    levelValue,
+    isBadLevel,
+    BAD_LEVEL,
+    SACRIFICE_PENALTY,
+    KARMA_SPREAD,
+    teamOffer,
+    karmaWeights,
     pairKey,
-    buildEdges,
-    findBestFloor,
-    maxWeightMatching,
+    hungarian,
+    maximumMatching,
+    greedyMatch,
+    buildPairing,
+    buildTeamValues,
+    buildPairWeights,
     suggestByeTeam,
+    rankByeCandidates,
+    isPairingFeasible,
     proposeMatches,
     difficultyBalanceGain,
+    MAX_TEAMS,
+    DIFFICULTY_WEIGHT,
+    DEFAULT_TEMPERATURE,
 } = require("../teamSchedule.js");
+
+// ---------------------------------------------------------------------------------
+// La ventana móvil y sus utilidades de fecha
+// ---------------------------------------------------------------------------------
 
 test("startOfWeek: devuelve el lunes de la semana, sin importar qué día de la semana se pase", () => {
     // 2026-08-19 es un miércoles; el lunes de esa semana es 2026-08-17.
@@ -44,28 +63,60 @@ test("windowBlockCodes: 3 semanas x 5 días (lun-vie) x 13 horas (8 a 20) = 195 
     assert.ok(!codes.some((c) => c.startsWith("2026-08-23")));
 });
 
-test("normalizeTeamHappiness: min-max estándar sobre todos los bloques (sin ningún valor excluido)", () => {
-    const norm = normalizeTeamHappiness({ "2026-08-17-09": 4, "2026-08-17-10": 2, "2026-08-17-11": 1 });
-    assert.equal(norm["2026-08-17-09"], 1);
-    assert.equal(norm["2026-08-17-10"], 1 / 3);
-    assert.equal(norm["2026-08-17-11"], 0); // "muy mala" es solo el extremo inferior, no queda excluido
+test("windowBlockRange: cubre exactamente el primer y último bloque de la ventana", () => {
+    const ref = new Date("2026-08-19T12:00:00");
+    const codes = windowBlockCodes(ref);
+    const range = windowBlockRange(ref);
+    assert.equal(range.from, codes[0]);
+    assert.equal(range.to, codes[codes.length - 1]);
 });
 
-test("normalizeTeamHappiness: todo igual (anti-trampa) queda plano en 0.5", () => {
-    const norm = normalizeTeamHappiness({ "2026-08-17-09": 4, "2026-08-17-10": 4, "2026-08-17-11": 4 });
-    assert.equal(norm["2026-08-17-09"], 0.5);
-    assert.equal(norm["2026-08-17-10"], 0.5);
-    assert.equal(norm["2026-08-17-11"], 0.5);
+test("windowBlockRange: todo bloque de la ventana cae dentro del rango por orden lexicográfico", () => {
+    // Esta es la propiedad de la que depende el filtro `blockCode >= from && <= to`:
+    // el formato YYYY-MM-DD-HH hace que comparar strings equivalga a comparar fechas.
+    const ref = new Date("2026-08-19T12:00:00");
+    const codes = windowBlockCodes(ref);
+    const { from, to } = windowBlockRange(ref);
+    for (const code of codes) {
+        assert.ok(code >= from && code <= to, `${code} fuera de [${from}, ${to}]`);
+    }
 });
 
-test("normalizeTeamHappiness: un solo bloque también queda en 0.5", () => {
-    const norm = normalizeTeamHappiness({ "2026-08-17-09": 3 });
-    assert.equal(norm["2026-08-17-09"], 0.5);
+test("windowBlockRange: un bloque anterior o posterior a la ventana queda fuera del rango", () => {
+    const ref = new Date("2026-08-19T12:00:00");
+    const { from, to } = windowBlockRange(ref);
+    assert.ok(!("2020-01-01-12" >= from && "2020-01-01-12" <= to));
+    assert.ok(!("2099-01-01-12" >= from && "2099-01-01-12" <= to));
 });
 
-test("normalizeTeamHappiness: objeto vacío devuelve objeto vacío", () => {
-    const norm = normalizeTeamHappiness({});
-    assert.deepEqual(norm, {});
+test("pastBlockCodes: si `now` es domingo, toda la semana actual (lunes a viernes) ya pasó", () => {
+    // 2026-08-30 es domingo -> la semana actual es 2026-08-24 (lun) a 2026-08-28 (vie),
+    // entera en el pasado.
+    const now = new Date("2026-08-30T15:00:00");
+    const codes = windowBlockCodes(now);
+    const past = pastBlockCodes(codes, now);
+    const week0 = codes.filter((c) => c.startsWith("2026-08-24") || c.startsWith("2026-08-25") || c.startsWith("2026-08-26") || c.startsWith("2026-08-27") || c.startsWith("2026-08-28"));
+    assert.deepEqual(new Set(past), new Set(week0));
+});
+
+test("pastBlockCodes: a mitad de semana, excluye días y horas anteriores a `now` pero deja el resto", () => {
+    // 2026-08-26 12:00 es miércoles -> lunes y martes de esa semana ya pasaron, y hoy
+    // (miércoles) las horas hasta las 12 inclusive también, pero de las 13 en adelante no.
+    const now = new Date("2026-08-26T12:00:00");
+    const codes = windowBlockCodes(now);
+    const past = new Set(pastBlockCodes(codes, now));
+    assert.ok(past.has("2026-08-24-10")); // lunes, ya pasó entero
+    assert.ok(past.has("2026-08-25-19")); // martes, ya pasó entero
+    assert.ok(past.has("2026-08-26-12")); // hoy a las 12, ya empezó
+    assert.ok(!past.has("2026-08-26-13")); // hoy a las 13, todavía no
+    assert.ok(!past.has("2026-08-27-09")); // jueves, todavía no
+});
+
+test("pastBlockCodes: sin nada en el pasado (ventana generada el mismo lunes a primera hora), no excluye nada", () => {
+    const now = new Date("2026-08-24T07:00:00"); // lunes, antes del primer bloque (08:00)
+    const codes = windowBlockCodes(now);
+    const past = pastBlockCodes(codes, now);
+    assert.deepEqual(past, []);
 });
 
 test("filterToBlocks: descarta claves que no están en la lista permitida", () => {
@@ -98,36 +149,237 @@ test("fillDefaultHappiness: un equipo que nunca calificó nada queda todo en el 
     assert.deepEqual(filled, { a: 2, b: 2, c: 2 });
 });
 
-test("computePairEdge: sin bloques en común es infactible (null)", () => {
-    const edge = computePairEdge({ "2026-08-17-09": 1 }, { "2026-08-17-10": 1 });
-    assert.equal(edge, null);
+// ---------------------------------------------------------------------------------
+// La escala de felicidad compartida
+// ---------------------------------------------------------------------------------
+
+test("happinessUtility: la escala es la real (1-5), creciente y levemente cóncava", () => {
+    assert.equal(happinessUtility(1), 0);
+    assert.equal(happinessUtility(5), 1);
+    for (let l = 1; l < 5; l++) {
+        assert.ok(happinessUtility(l + 1) > happinessUtility(l), `${l} -> ${l + 1} debe subir`);
+    }
+    // Cóncava: subir de Mala a Regular vale MÁS que subir de Buena a Excelente. Es lo
+    // que hace que, a igual suma de notas, gane el reparto parejo.
+    const bajo = happinessUtility(3) - happinessUtility(2);
+    const alto = happinessUtility(5) - happinessUtility(4);
+    assert.ok(bajo > alto, `el tramo bajo (${bajo}) tiene que valer más que el alto (${alto})`);
 });
 
-test("computePairEdge: elige el bloque de menor diferencia, empate resuelto por mayor suma", () => {
-    // Bloque A: gap 0.5, score 1.0 | Bloque B: gap 0.5, score 1.5 -> debe elegir B por score
-    const edge = computePairEdge(
-        { "2026-08-17-09": 0.75, "2026-08-17-10": 1.0 },
-        { "2026-08-17-09": 0.25, "2026-08-17-10": 0.5 }
-    );
-    assert.equal(edge.block, "2026-08-17-10");
-    assert.equal(edge.gap, 0.5);
-    assert.equal(edge.score, 1.5);
+test("happinessUtility: una nota fuera de la escala se acota en vez de dar NaN", () => {
+    assert.equal(happinessUtility(0), 0);
+    assert.equal(happinessUtility(9), 1);
+    assert.equal(happinessUtility(undefined), 0);
 });
 
-test("suggestByeTeam elige al equipo con menos bloques bien calificados (Buena/Excelente)", () => {
-    const teams = ["A", "B", "C"];
-    const happinessByTeam = {
-        A: { "2026-08-17-09": 1, "2026-08-17-10": 2 }, // 0 bloques >= 4
-        B: { "2026-08-17-09": 1, "2026-08-17-10": 2, "2026-08-17-11": 4 }, // 1 bloque >= 4
-        C: { "2026-08-17-09": 1, "2026-08-17-10": 2, "2026-08-17-11": 4, "2026-08-17-12": 5 }, // 2 bloques >= 4
+test("isBadLevel/levelValue: 'Muy mala' y 'Mala' son sacrificio; de 'Regular' para arriba no", () => {
+    assert.equal(isBadLevel(1), true);
+    assert.equal(isBadLevel(BAD_LEVEL), true);
+    assert.equal(isBadLevel(BAD_LEVEL + 1), false);
+    assert.equal(isBadLevel(5), false);
+    // El salto de la zona mala a la aceptable es de lejos el más grande de la escala:
+    // es el que implementa "minimizar cuántos equipos quedan con mala disponibilidad".
+    const salto = levelValue(3) - levelValue(2);
+    assert.ok(salto > SACRIFICE_PENALTY, `el salto 2->3 (${salto}) tiene que superar la penalización`);
+    assert.ok(levelValue(3) - levelValue(2) > levelValue(5) - levelValue(3));
+});
+
+// ---------------------------------------------------------------------------------
+// Karma local: cuánto puso de su parte cada equipo en esta tanda
+// ---------------------------------------------------------------------------------
+
+test("teamOffer: mide el promedio de la utilidad ofrecida sobre los bloques candidatos", () => {
+    assert.equal(teamOffer({ a: 5, b: 5 }, ["a", "b"]), 1);
+    assert.equal(teamOffer({ a: 1, b: 1 }, ["a", "b"]), 0);
+    // Un bloque que el equipo no calificó no lo ofreció: cuenta 0.
+    assert.equal(teamOffer({ a: 5 }, ["a", "b"]), 0.5);
+    assert.equal(teamOffer({}, []), 0);
+});
+
+test("karmaWeights: si todos ofrecieron lo mismo, el karma es neutro para todos", () => {
+    const teams = ["A", "B", "C", "D"];
+    const happiness = {};
+    teams.forEach((t) => (happiness[t] = { a: 3, b: 3 }));
+    const weights = karmaWeights(teams, happiness, ["a", "b"]);
+    weights.forEach((w) => assert.equal(w, 1));
+});
+
+test("karmaWeights: el más generoso pesa más que el más tacaño, dentro de la banda declarada", () => {
+    const teams = ["Tacaño", "Medio", "Generoso"];
+    const happiness = {
+        "Tacaño": { a: 1, b: 1 },
+        Medio: { a: 3, b: 1 },
+        Generoso: { a: 5, b: 5 },
     };
-    assert.equal(suggestByeTeam(teams, happinessByTeam), "A");
+    const [tacaño, medio, generoso] = karmaWeights(teams, happiness, ["a", "b"]);
+    assert.ok(tacaño < medio && medio < generoso);
+    assert.ok(Math.abs(tacaño - (1 - KARMA_SPREAD)) < 1e-9);
+    assert.ok(Math.abs(generoso - (1 + KARMA_SPREAD)) < 1e-9);
 });
 
-// Ejemplo de 4 equipos calculado a mano (ver el plan/diseño): T1 es el menos flexible
-// (su tercer bloque es "muy mala", nota 1). El único emparejamiento perfecto donde
-// NADIE queda por debajo de su tope (piso 1.0) es (T1,T2)+(T3,T4), con score total
-// 4.0 — cualquier otro resultado indica un bug en el piso o en el DP de matching.
+// ---------------------------------------------------------------------------------
+// El núcleo numérico: reparto óptimo de bloques
+// ---------------------------------------------------------------------------------
+
+test("hungarian: encuentra el reparto de costo mínimo global, no el codicioso fila a fila", () => {
+    // El codicioso miraría la columna más barata de cada fila: las dos quieren la 0
+    // (1 y 2), y al desempatar por orden la fila 1 se va a la columna 1 -> 1 + 20 = 21.
+    // El óptimo es la fila 0 a la columna 1 y la fila 1 a la columna 0: 3 + 2 = 5.
+    const cost = [
+        [1, 3],
+        [2, 20],
+    ];
+    assert.deepEqual(hungarian(cost, 2, 2), [1, 0]);
+});
+
+test("hungarian: con más columnas que filas usa las mejores columnas disponibles", () => {
+    const cost = [
+        [5, 1, 8],
+        [5, 2, 9],
+    ];
+    const assignment = hungarian(cost, 2, 3);
+    assert.equal(new Set(assignment).size, 2, "dos filas no pueden compartir columna");
+    const total = assignment.reduce((s, c, r) => s + cost[r][c], 0);
+    assert.equal(total, 6); // fila 0 -> col 1 (1) y fila 1 -> col 0 (5)
+});
+
+// ---------------------------------------------------------------------------------
+// Quién juega contra quién: emparejamiento de cardinalidad máxima (Edmonds)
+//
+// Reemplazó a un DP con máscara de bits (2^n) que topaba la tanda en 24 equipos. Es la
+// pieza que decide si una tanda es factible, así que tiene que ser exacta — y como no
+// es código que se pueda leer de corrido, se valida contra fuerza bruta.
+// ---------------------------------------------------------------------------------
+
+// Cardinalidad del emparejamiento máximo, por fuerza bruta. Solo para los tests.
+function maxMatchingBruteForce(n, adj) {
+    const used = new Array(n).fill(false);
+    let best = 0;
+    (function rec(count) {
+        let i = 0;
+        while (i < n && used[i]) i++;
+        if (i === n) {
+            if (count > best) best = count;
+            return;
+        }
+        used[i] = true;
+        rec(count); // dejar i sin emparejar
+        for (let j = i + 1; j < n; j++) {
+            if (used[j] || !adj[i][j]) continue;
+            used[j] = true;
+            rec(count + 1);
+            used[j] = false;
+        }
+        used[i] = false;
+    })(0);
+    return best;
+}
+
+// Generador reproducible, para que un test que falla se pueda volver a correr igual.
+function makeSeededRandom(seed) {
+    let state = seed;
+    return () => {
+        state = (1664525 * state + 1013904223) % 4294967296;
+        return state / 4294967296;
+    };
+}
+
+test("maximumMatching: coincide con la fuerza bruta en 1500 grafos aleatorios", () => {
+    const rnd = makeSeededRandom(20260901);
+    for (let iter = 0; iter < 1500; iter++) {
+        const n = 2 + Math.floor(rnd() * 9); // 2..10
+        const density = rnd();
+        const adj = Array.from({ length: n }, () => new Array(n).fill(false));
+        for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+                const linked = rnd() < density;
+                adj[i][j] = linked;
+                adj[j][i] = linked;
+            }
+        }
+        const match = maximumMatching(n, (a, b) => adj[a][b], null);
+        // Estructura: simétrico, sin auto-emparejarse, y solo sobre aristas que existen.
+        for (let i = 0; i < n; i++) {
+            if (match[i] === -1) continue;
+            assert.notEqual(match[i], i);
+            assert.equal(match[match[i]], i);
+            assert.ok(adj[i][match[i]], `emparejó ${i}-${match[i]} sin arista`);
+        }
+        const size = match.filter((x) => x !== -1).length / 2;
+        assert.equal(size, maxMatchingBruteForce(n, adj), `grafo n=${n} iter=${iter}`);
+    }
+});
+
+test("maximumMatching: arrancar desde el emparejamiento codicioso da la misma cardinalidad", () => {
+    // El codicioso puede acorralarse (deja dos equipos sueltos que no pueden entre sí);
+    // Edmonds tiene que poder reacomodarlo, no quedarse con lo que le pasaron.
+    const rnd = makeSeededRandom(777);
+    for (let iter = 0; iter < 400; iter++) {
+        const n = 2 + 2 * Math.floor(rnd() * 5); // par, 2..10
+        const density = 0.25 + rnd() * 0.75;
+        const adj = Array.from({ length: n }, () => new Array(n).fill(false));
+        for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+                const linked = rnd() < density;
+                adj[i][j] = linked;
+                adj[j][i] = linked;
+            }
+        }
+        const weight = {};
+        for (let i = 0; i < n; i++) {
+            weight[i] = {};
+            for (let j = i + 1; j < n; j++) weight[i][j] = adj[i][j] ? 1 : null;
+        }
+        const desdeCero = maximumMatching(n, (a, b) => adj[a][b], null);
+        const desdeCodicioso = maximumMatching(n, (a, b) => adj[a][b], greedyMatch(n, weight));
+        assert.equal(
+            desdeCodicioso.filter((x) => x !== -1).length,
+            desdeCero.filter((x) => x !== -1).length
+        );
+        assert.equal(desdeCero.filter((x) => x !== -1).length / 2, maxMatchingBruteForce(n, adj));
+    }
+});
+
+test("maximumMatching: encuentra el emparejamiento perfecto que el codicioso se pierde", () => {
+    // Ciclo de 4: 0-1, 1-2, 2-3, 3-0. El codicioso toma 0-1 (el primero) y después 2-3,
+    // así que acá acierta; el caso que importa es el que lo acorrala:
+    //   0-1, 0-2, 0-3, 1-2  →  si el codicioso toma 0-3 primero, quedan 1 y 2, que sí
+    //   pueden entre sí. Se fuerza el callejón dejando a 3 solo con 0.
+    const n = 4;
+    const adj = [
+        [false, true, true, true],
+        [true, false, false, false],
+        [true, false, false, true],
+        [true, false, true, false],
+    ];
+    // 1 solo puede con 0. 3 puede con 0 y con 2. El único perfecto es 0-1 + 2-3.
+    const match = maximumMatching(n, (a, b) => adj[a][b], null);
+    assert.equal(match.filter((x) => x !== -1).length, 4);
+    assert.equal(match[1], 0);
+    assert.equal(match[0], 1);
+    assert.equal(match[3], 2);
+});
+
+test("buildPairing: devuelve pares con i<j que cubren a todos, o null si es imposible", () => {
+    const weight = { 0: { 1: 5, 2: 1, 3: 1 }, 1: { 2: 1, 3: 1 }, 2: { 3: 4 } };
+    const pairs = buildPairing(4, weight);
+    assert.equal(pairs.length, 2);
+    pairs.forEach(([i, j]) => assert.ok(i < j));
+    assert.deepEqual(new Set(pairs.flat()), new Set([0, 1, 2, 3]));
+    // El codicioso agarra primero el par de mayor peso (0-1) y después el que queda.
+    assert.deepEqual(pairs.sort((a, b) => a[0] - b[0]), [[0, 1], [2, 3]]);
+
+    // 0 no puede con nadie: no hay emparejamiento perfecto.
+    const imposible = { 0: { 1: null, 2: null, 3: null }, 1: { 2: 1, 3: 1 }, 2: { 3: 1 } };
+    assert.equal(buildPairing(4, imposible), null);
+});
+
+// ---------------------------------------------------------------------------------
+// Emparejamiento: el criterio nuevo (felicidad real + menos sacrificados + karma)
+// ---------------------------------------------------------------------------------
+
+// Ejemplo de 4 equipos calculado a mano. T1/T2 se entienden en el bloque 09 y T3/T4 en
+// el 11; cualquier otro emparejamiento deja a alguien en "Muy mala".
 const FOUR_TEAM_HAPPINESS = {
     T1: { "2026-08-17-09": 4, "2026-08-17-10": 2, "2026-08-17-11": 1 },
     T2: { "2026-08-17-09": 3, "2026-08-17-10": 3, "2026-08-17-11": 1 },
@@ -136,579 +388,56 @@ const FOUR_TEAM_HAPPINESS = {
 };
 const FOUR_TEAMS = ["T1", "T2", "T3", "T4"];
 
-test("findBestFloor + maxWeightMatching: ejemplo de 4 equipos calculado a mano", () => {
-    const edges = buildEdges(FOUR_TEAMS, FOUR_TEAM_HAPPINESS);
-    const floor = findBestFloor(FOUR_TEAMS.length, edges);
-    assert.equal(floor, 1);
-
-    const result = maxWeightMatching(FOUR_TEAMS.length, edges, floor);
-    assert.equal(result.totalScore, 4);
-
-    const pairsAsNames = result.pairs
-        .map(([i, j]) => [FOUR_TEAMS[i], FOUR_TEAMS[j]].sort())
-        .sort((a, b) => a[0].localeCompare(b[0]));
-    assert.deepEqual(pairsAsNames, [["T1", "T2"], ["T3", "T4"]]);
-});
-
-test("proposeMatches: mismo ejemplo de 4 equipos, ids y bloques correctos", () => {
+test("proposeMatches: ejemplo de 4 equipos — nadie queda en la zona mala y se informa en notas reales", () => {
     const result = proposeMatches(FOUR_TEAMS, FOUR_TEAM_HAPPINESS);
     assert.equal(result.infeasible, false);
-    assert.equal(result.floor, 1);
-    assert.equal(result.worst, 1);
-    assert.equal(result.totalScore, 4);
     assert.equal(result.matches.length, 2);
 
-    const t1t2 = result.matches.find(
-        (m) => (m.teamA === "T1" && m.teamB === "T2") || (m.teamA === "T2" && m.teamB === "T1")
-    );
-    assert.ok(t1t2, "debe existir el partido T1-T2");
-    assert.equal(t1t2.block, "2026-08-17-09");
-    assert.equal(t1t2.gap, 0);
-
-    const t3t4 = result.matches.find(
-        (m) => (m.teamA === "T3" && m.teamB === "T4") || (m.teamA === "T4" && m.teamB === "T3")
-    );
-    assert.ok(t3t4, "debe existir el partido T3-T4");
-    assert.equal(t3t4.block, "2026-08-17-11");
-    assert.equal(t3t4.gap, 0);
-});
-
-test("proposeMatches: cantidad impar de equipos lanza error explícito", () => {
-    assert.throws(() => proposeMatches(["A", "B", "C"], {}), /par de equipos/);
-});
-
-test("proposeMatches: cero equipos devuelve resultado vacío sin error", () => {
-    const result = proposeMatches([], {});
-    assert.deepEqual(result, { floor: null, worst: null, maxGap: null, totalScore: 0, matches: [], infeasible: false });
-});
-
-test("proposeMatches: par sin ningún solapamiento es infactible", () => {
-    const result = proposeMatches(["A", "B"], {
-        A: { "2026-08-17-09": 3 },
-        B: { "2026-08-17-10": 3 },
-    });
-    assert.equal(result.infeasible, true);
-    assert.equal(result.matches, null);
-});
-
-test("proposeMatches: dos partidos del mismo batch no pueden quedar en el mismo bloque horario", () => {
-    // Los 4 equipos tienen exactamente el mismo perfil (aman el bloque "09", son
-    // indiferentes al "10") — sin la corrección, T1-T2 y T3-T4 elegirían de forma
-    // independiente el mismo "mejor" bloque ("09"), agendando dos partidos a la vez.
-    const happiness = {
-        T1: { "2026-08-17-09": 4, "2026-08-17-10": 1 },
-        T2: { "2026-08-17-09": 4, "2026-08-17-10": 1 },
-        T3: { "2026-08-17-09": 4, "2026-08-17-10": 1 },
-        T4: { "2026-08-17-09": 4, "2026-08-17-10": 1 },
-    };
-    const result = proposeMatches(["T1", "T2", "T3", "T4"], happiness);
-    assert.equal(result.infeasible, false);
-    assert.equal(result.matches.length, 2);
-
-    const blocks = result.matches.map((m) => m.block);
-    assert.notEqual(blocks[0], blocks[1]);
-    assert.deepEqual(new Set(blocks), new Set(["2026-08-17-09", "2026-08-17-10"]));
-});
-
-test("proposeMatches: si no hay ningún bloque alternativo en común, el choque queda como límite conocido (no revienta)", () => {
-    const happiness = {
-        T1: { "2026-08-17-09": 3 },
-        T2: { "2026-08-17-09": 3 },
-        T3: { "2026-08-17-09": 3 },
-        T4: { "2026-08-17-09": 3 },
-    };
-    const result = proposeMatches(["T1", "T2", "T3", "T4"], happiness);
-    assert.equal(result.infeasible, false);
-    assert.equal(result.matches.length, 2);
-    assert.equal(result.matches[0].block, "2026-08-17-09");
-    assert.equal(result.matches[1].block, "2026-08-17-09");
-});
-
-test("pairKey: es simétrico sin importar el orden de los ids", () => {
-    assert.equal(pairKey("x", "y"), pairKey("y", "x"));
-});
-
-test("proposeMatches: excludedPairs evita agendar un partido entre 2 equipos que ya se enfrentaron", () => {
-    const happiness = {
-        A: { "2026-08-17-09": 3 },
-        B: { "2026-08-17-09": 3 },
-        C: { "2026-08-17-09": 3 },
-        D: { "2026-08-17-09": 3 },
-    };
-    const excluded = new Set([pairKey("A", "B")]);
-    const result = proposeMatches(["A", "B", "C", "D"], happiness, excluded);
-    assert.equal(result.infeasible, false);
-    assert.equal(result.matches.length, 2);
-    const hasABTogether = result.matches.some(
-        (m) => (m.teamA === "A" && m.teamB === "B") || (m.teamA === "B" && m.teamB === "A")
-    );
-    assert.equal(hasABTogether, false);
-});
-
-test("proposeMatches: si excludedPairs deja a un equipo sin ningún rival posible, el resultado es infactible", () => {
-    const happiness = {
-        A: { "2026-08-17-09": 3 },
-        B: { "2026-08-17-09": 3 },
-    };
-    const excluded = new Set([pairKey("A", "B")]);
-    const result = proposeMatches(["A", "B"], happiness, excluded);
-    assert.equal(result.infeasible, true);
-});
-
-test("proposeMatches: equipo que marca todo igual no se beneficia frente a uno que sí diferencia", () => {
-    // C marca "3" parejo en ambos bloques (plano, sin señal). D distingue: prefiere
-    // fuertemente el segundo bloque. El emparejamiento debe usar el bloque donde D es
-    // feliz: para C, plano, los dos bloques valen 0.5, así que quien decide es D.
-    const result = proposeMatches(["C", "D"], {
-        C: { "2026-08-17-09": 3, "2026-08-17-10": 3 },
-        D: { "2026-08-17-09": 1, "2026-08-17-10": 4 },
-    });
-    assert.equal(result.infeasible, false);
-    assert.equal(result.matches[0].block, "2026-08-17-10");
-    // El peor parado del par es C con su 0.5 constante; en el otro bloque sería D con 0.
-    assert.equal(result.matches[0].worst, 0.5);
-});
-
-test("proposeMatches: con más de 2 bloques en común, un equipo plano no debe arrastrar al otro a un bloque mediocre", () => {
-    // Malwekas no diferenció nada (todo "Regular"): les da lo mismo cualquier bloque.
-    // Temerarias sí diferenció: "09" es mediocre (Buena=3), "10" es pésimo (1),
-    // "11" es excelente (5). Con solo 2 bloques posibles (test anterior) el criterio de
-    // "menor gap" coincidía por casualidad con el mejor bloque de quien diferencia;
-    // con 3+ bloques deja de ser así: minimizar el gap contra el 0.5 plano de Malwekas
-    // elige el bloque cuyo valor normalizado quede más CERCA de 0.5 — el mediocre "09"
-    // (que normaliza justo a 0.5), no el excelente "11" — porque a Malwekas, al no
-    // haber diferenciado nada, "0.5" no representa ninguna preferencia real.
-    const result = proposeMatches(["Malwekas", "Temerarias"], {
-        Malwekas: { "2026-08-31-09": 2, "2026-08-31-10": 2, "2026-08-31-11": 2 },
-        Temerarias: { "2026-08-31-09": 3, "2026-08-31-10": 1, "2026-08-31-11": 5 },
-    });
-    assert.equal(result.infeasible, false);
-    assert.equal(result.matches[0].block, "2026-08-31-11");
-});
-
-test("proposeMatches: caso real (Malvvekas/Temerarias, Copa CDI Femenina) — 2 bloques nunca contestados (default) no deben tapar la disponibilidad real del rival", () => {
-    // Reproduce el patrón real: Malvvekas calificó EXPLÍCITAMENTE toda la semana "Muy
-    // mala" (1) salvo 2 horas que nunca tocó. Con un default por encima del mínimo de la
-    // escala, esas 2 horas quedaban como el único valor distinto de todo su mapa y
-    // bastaban para que minimizar el gap arrastrara a Temerarias (que sí diferenció, y
-    // tiene un bloque excelente) a un bloque mediocre en vez de a su mejor horario.
-    // Ahora el default es el mismo mínimo con el que llega precargada la grilla, así que
-    // Malvvekas queda plano de verdad y no arrastra a nadie.
-    const week = ["09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19"];
-    const malvvekasExplicito = {};
-    week.forEach((h) => (malvvekasExplicito[`2026-08-31-${h}`] = 1));
-    // "08" y "20" NO están acá — nunca los contestó, quedan en el default más abajo.
-
-    const temerariasExplicito = {
-        "2026-08-31-08": 2,
-        "2026-08-31-09": 2,
-        "2026-08-31-10": 1,
-        "2026-08-31-11": 1,
-        "2026-08-31-12": 2,
-        "2026-08-31-13": 2,
-        "2026-08-31-14": 2,
-        "2026-08-31-15": 3,
-        "2026-08-31-16": 4,
-        "2026-08-31-17": 4,
-        "2026-08-31-18": 5, // su mejor bloque real
-        "2026-08-31-19": 4,
-        "2026-08-31-20": 2,
-    };
-
-    const allBlocks = [...week.map((h) => `2026-08-31-${h}`), "2026-08-31-08", "2026-08-31-20"];
-    const happinessByTeam = {
-        Malvvekas: fillDefaultHappiness(malvvekasExplicito, allBlocks, DEFAULT_HAPPINESS_LEVEL),
-        Temerarias: fillDefaultHappiness(temerariasExplicito, allBlocks, DEFAULT_HAPPINESS_LEVEL),
-    };
-    const result = proposeMatches(["Malvvekas", "Temerarias"], happinessByTeam);
-    assert.equal(result.infeasible, false);
-    assert.equal(result.matches[0].block, "2026-08-31-18");
-});
-
-test("proposeMatches: caso real (La CIB/Amigues, Copa CDI Mixta) — 184 de 195 bloques en 'Muy mala' SÍ es preferencia real y no debe tratarse como plana", () => {
-    // La CIB contestó las 195 horas de la ventana: 184 "Muy mala" (1) y 11 genuinamente
-    // buenas (4 o 5) — diferenciación real y deliberada, no ruido. Amigues nunca marcó
-    // nada (0 respuestas, todo default). Con la heurística vieja ("¿qué nota domina?"),
-    // el 94% de La CIB en "Muy mala" la hacía ver "plana" igual que Amigues, y ambos
-    // equipos quedaban con a=b=0.5 en TODOS los bloques — el desempate por suma ya no
-    // distinguía nada, y ganaba el primer bloque de la ventana (arbitrario, y en la
-    // práctica uno de los peores para La CIB). Solo Amigues, cuyo mapa entero vale lo
-    // mismo, debe tratarse como sin preferencia; La CIB conserva su voto real.
-    const blocks = [];
-    for (let i = 0; i < 195; i++) blocks.push(`2026-09-0${(i % 9) + 1}-b${i}`); // códigos ficticios, alcanza con ser únicos
-    const cibExplicito = {};
-    blocks.forEach((b, i) => (cibExplicito[b] = i < 184 ? 1 : i < 189 ? 5 : 4));
-    const mejorBloqueCIB = blocks[184]; // el primero de los 11 buenos (nota 5)
-
-    const happinessByTeam = {
-        LaCIB: fillDefaultHappiness(cibExplicito, blocks, DEFAULT_HAPPINESS_LEVEL),
-        Amigues: fillDefaultHappiness({}, blocks, DEFAULT_HAPPINESS_LEVEL),
-    };
-    const result = proposeMatches(["LaCIB", "Amigues"], happinessByTeam);
-    assert.equal(result.infeasible, false);
-    assert.equal(result.matches[0].block, mejorBloqueCIB);
-    assert.equal(result.matches[0].happinessA, 5);
-});
-
-// ---------------------------------------------------------------------------------
-// windowBlockRange — el rango que permite acotar las consultas a la ventana móvil en
-// vez de recorrer todo el historial de partidos. Ver auditoria-2026-08-19.md §4.3.
-// ---------------------------------------------------------------------------------
-
-const { windowBlockRange } = require("../teamSchedule.js");
-
-test("windowBlockRange: cubre exactamente el primer y último bloque de la ventana", () => {
-    const ref = new Date("2026-08-19T12:00:00");
-    const codes = windowBlockCodes(ref);
-    const range = windowBlockRange(ref);
-    assert.equal(range.from, codes[0]);
-    assert.equal(range.to, codes[codes.length - 1]);
-});
-
-test("windowBlockRange: todo bloque de la ventana cae dentro del rango por orden lexicográfico", () => {
-    // Esta es la propiedad de la que depende el filtro `blockCode >= from && <= to`:
-    // el formato YYYY-MM-DD-HH hace que comparar strings equivalga a comparar fechas.
-    const ref = new Date("2026-08-19T12:00:00");
-    const codes = windowBlockCodes(ref);
-    const { from, to } = windowBlockRange(ref);
-    for (const code of codes) {
-        assert.ok(code >= from && code <= to, `${code} fuera de [${from}, ${to}]`);
-    }
-});
-
-test("windowBlockRange: un bloque anterior o posterior a la ventana queda fuera del rango", () => {
-    const ref = new Date("2026-08-19T12:00:00");
-    const { from, to } = windowBlockRange(ref);
-    assert.ok(!("2020-01-01-12" >= from && "2020-01-01-12" <= to));
-    assert.ok(!("2099-01-01-12" >= from && "2099-01-01-12" <= to));
-});
-
-// ---------------------------------------------------------------------------------
-// pastBlockCodes — caso real: un admin generó "Sugerir partidos" un domingo y la
-// ventana móvil (que arranca en el lunes de la semana ACTUAL) incluyó bloques de esa
-// misma semana que ya habían pasado, dejando agendar un partido en el pasado.
-// ---------------------------------------------------------------------------------
-
-test("pastBlockCodes: si `now` es domingo, toda la semana actual (lunes a viernes) ya pasó", () => {
-    // 2026-08-30 es domingo -> la semana actual es 2026-08-24 (lun) a 2026-08-28 (vie),
-    // entera en el pasado.
-    const now = new Date("2026-08-30T15:00:00");
-    const codes = windowBlockCodes(now);
-    const past = pastBlockCodes(codes, now);
-    const week0 = codes.filter((c) => c.startsWith("2026-08-24") || c.startsWith("2026-08-25") || c.startsWith("2026-08-26") || c.startsWith("2026-08-27") || c.startsWith("2026-08-28"));
-    assert.deepEqual(new Set(past), new Set(week0));
-});
-
-test("pastBlockCodes: a mitad de semana, excluye días y horas anteriores a `now` pero deja el resto", () => {
-    // 2026-08-26 12:00 es miércoles -> lunes y martes de esa semana ya pasaron, y hoy
-    // (miércoles) las horas hasta las 12 inclusive también, pero de las 13 en adelante no.
-    const now = new Date("2026-08-26T12:00:00");
-    const codes = windowBlockCodes(now);
-    const past = new Set(pastBlockCodes(codes, now));
-    assert.ok(past.has("2026-08-24-10")); // lunes, ya pasó entero
-    assert.ok(past.has("2026-08-25-19")); // martes, ya pasó entero
-    assert.ok(past.has("2026-08-26-12")); // hoy a las 12, ya empezó
-    assert.ok(!past.has("2026-08-26-13")); // hoy a las 13, todavía no
-    assert.ok(!past.has("2026-08-27-09")); // jueves, todavía no
-});
-
-test("pastBlockCodes: sin nada en el pasado (ventana generada el mismo lunes a primera hora), no excluye nada", () => {
-    const now = new Date("2026-08-24T07:00:00"); // lunes, antes del primer bloque (08:00)
-    const codes = windowBlockCodes(now);
-    const past = pastBlockCodes(codes, now);
-    assert.deepEqual(past, []);
-});
-
-// --- Balance de dificultad (difficultyBalanceGain / buildEdges / proposeMatches) ---
-
-test("difficultyBalanceGain: sin nota de dificultad para alguno de los dos, da 0 (neutro)", () => {
-    assert.equal(difficultyBalanceGain(null, { totalFaced: 0, matchesCount: 0 }, 8, { totalFaced: 0, matchesCount: 0 }, 5), 0);
-    assert.equal(difficultyBalanceGain(8, { totalFaced: 0, matchesCount: 0 }, undefined, { totalFaced: 0, matchesCount: 0 }, 5), 0);
-});
-
-test("difficultyBalanceGain: mejora el balance cuando el rival nuevo acerca a ambos a su promedio esperado", () => {
-    // A ya enfrentó rivales fáciles (imbalance -5, "necesita" un rival difícil ahora).
-    // B tiene nota 9 (difícil) — emparejarlos acerca a A hacia 0.
-    const facedA = { totalFaced: 0, matchesCount: 1 }; // imbalance = 0 - 1*5 = -5
-    const facedB = { totalFaced: 0, matchesCount: 0 }; // sin historial, imbalance 0
-    const gain = difficultyBalanceGain(3, facedA, 9, facedB, 5);
-    assert.ok(gain > 0, `se esperaba gain positivo, dio ${gain}`);
-});
-
-test("difficultyBalanceGain: empeora el balance cuando el rival nuevo aleja a ambos de su promedio esperado", () => {
-    // A ya enfrentó rivales difíciles (imbalance +5, "necesita" un rival fácil ahora),
-    // pero B también tiene nota alta (9) — el emparejamiento lo aleja más de 0.
-    const facedA = { totalFaced: 10, matchesCount: 1 }; // imbalance = 10 - 1*5 = +5
-    const facedB = { totalFaced: 0, matchesCount: 0 };
-    const gain = difficultyBalanceGain(3, facedA, 9, facedB, 5);
-    assert.ok(gain < 0, `se esperaba gain negativo, dio ${gain}`);
-});
-
-test("buildEdges/proposeMatches: sin difficultyContext (u omitido/undefined), el resultado es IDÉNTICO al de siempre", () => {
-    const edgesSinContexto = buildEdges(FOUR_TEAMS, FOUR_TEAM_HAPPINESS);
-    const edgesConUndefined = buildEdges(FOUR_TEAMS, FOUR_TEAM_HAPPINESS, null, undefined);
-    assert.deepEqual(edgesSinContexto, edgesConUndefined);
-
-    const result = proposeMatches(FOUR_TEAMS, FOUR_TEAM_HAPPINESS, null, undefined);
-    assert.equal(result.floor, 1);
-    assert.equal(result.totalScore, 4);
     const pairsAsNames = result.matches
         .map((m) => [m.teamA, m.teamB].sort())
         .sort((a, b) => a[0].localeCompare(b[0]));
     assert.deepEqual(pairsAsNames, [["T1", "T2"], ["T3", "T4"]]);
+
+    const t1t2 = result.matches.find((m) => [m.teamA, m.teamB].sort().join("") === "T1T2");
+    assert.equal(t1t2.block, "2026-08-17-09");
+    const t3t4 = result.matches.find((m) => [m.teamA, m.teamB].sort().join("") === "T3T4");
+    assert.equal(t3t4.block, "2026-08-17-11");
+
+    // Lo informado está en la escala real, no en ninguna escala interna.
+    assert.equal(result.worst, 3);
+    assert.equal(result.maxGap, 1);
+    assert.equal(result.avgHappiness, 3.5);
+    assert.deepEqual(result.sacrificed, []);
 });
 
-test("proposeMatches: con difficultyContext, el criterio de dificultad puede cambiar el emparejamiento elegido", () => {
-    // Los 4 equipos comparten un único bloque con la MISMA nota — así la felicidad da
-    // exactamente el mismo score (1.0) para CUALQUIER par posible, y el único criterio
-    // que puede desempatar es la dificultad. Temperatura en 0 para que el test sea
-    // determinista (sin aleatoriedad).
-    const teams = ["T1", "T2", "T3", "T4"];
-    const flatHappiness = {
-        T1: { "2026-08-17-09": 3 },
-        T2: { "2026-08-17-09": 3 },
-        T3: { "2026-08-17-09": 3 },
-        T4: { "2026-08-17-09": 3 },
-    };
-
-    // Sin dificultad: el DP resuelve el empate por orden natural, T1-T2 + T3-T4.
-    const baseline = proposeMatches(teams, flatHappiness);
-    const baselinePairs = baseline.matches
-        .map((m) => [m.teamA, m.teamB].sort())
-        .sort((a, b) => a[0].localeCompare(b[0]));
-    assert.deepEqual(baselinePairs, [["T1", "T2"], ["T3", "T4"]]);
-
-    // T1 y T3 ya enfrentaron rivales flojos (imbalance -5, "necesitan" un rival duro);
-    // T2 y T4 ya enfrentaron rivales duros (imbalance +5, "necesitan" uno flojo). T1 y
-    // T3 tienen nota 9 (duros); T2 y T4 tienen nota 1 (fáciles) — emparejar T1-T3 y
-    // T2-T4 mejora el balance de los 4 a la vez; T1-T2 y T3-T4 lo empeora de los 4.
-    const difficultyContext = {
-        difficultyByTeam: { T1: 9, T2: 1, T3: 9, T4: 1 },
-        facedByTeam: {
-            T1: { totalFaced: 0, matchesCount: 1 },
-            T2: { totalFaced: 10, matchesCount: 1 },
-            T3: { totalFaced: 0, matchesCount: 1 },
-            T4: { totalFaced: 10, matchesCount: 1 },
-        },
-        targetAvg: 5,
-        temperature: 0,
-    };
-    const withDifficulty = proposeMatches(teams, flatHappiness, null, difficultyContext);
-    const withDifficultyPairs = withDifficulty.matches
-        .map((m) => [m.teamA, m.teamB].sort())
-        .sort((a, b) => a[0].localeCompare(b[0]));
-    assert.deepEqual(withDifficultyPairs, [["T1", "T3"], ["T2", "T4"]]);
-});
-
-// ---------------------------------------------------------------------------------
-// Regresiones de la revisión del algoritmo de emparejamiento (2026-08-30). Cada uno de
-// estos tests falla con la versión anterior.
-// ---------------------------------------------------------------------------------
-
-const {
-    rankByeCandidates,
-    isPairingFeasible,
-    FAIRNESS_TOLERANCE,
-    MAX_TEAMS,
-    DIFFICULTY_WEIGHT,
-    DEFAULT_TEMPERATURE,
-} = require("../teamSchedule.js");
-
-// Bloques ficticios en orden cronológico, como los reales.
-const BLOQUES = ["2026-09-01-08", "2026-09-01-09", "2026-09-01-10", "2026-09-02-08", "2026-09-02-09", "2026-09-02-10"];
-const conDefault = (explicito) => fillDefaultHappiness(explicito, BLOQUES, DEFAULT_HAPPINESS_LEVEL);
-
-test("proposeMatches: marcar SOLO las horas buenas y dejar el resto sin tocar sigue siendo una preferencia real", () => {
-    // El patrón más común de todos: un equipo entra, sube a "Excelente" las 2 horas que
-    // le sirven y guarda. Todas sus respuestas distintas del default valen lo mismo
-    // entre sí, y una versión anterior lo leía como "sin preferencia": el partido
-    // terminaba en el primer bloque de la ventana, uno que nunca pidió.
-    const bueno = conDefault({ "2026-09-02-09": 5, "2026-09-02-10": 5 });
-    const indiferente = conDefault({});
-    const result = proposeMatches(["Bueno", "Indiferente"], { Bueno: bueno, Indiferente: indiferente });
-    assert.equal(result.infeasible, false);
-    assert.equal(result.matches[0].happinessA, 5);
-    assert.ok(["2026-09-02-09", "2026-09-02-10"].includes(result.matches[0].block));
-});
-
-test("proposeMatches: un único bloque marcado, con todo el resto igual, no inventa una preferencia", () => {
-    // Simétrico del anterior: si el equipo marca "Muy mala" un bloque y el resto también
-    // vale "Muy mala" (el default), no dijo nada — su mapa entero vale lo mismo.
-    const norm = normalizeTeamHappiness(conDefault({ "2026-09-01-08": 1 }));
-    assert.ok(Object.values(norm).every((v) => v === 0.5));
-});
-
-test("proposeMatches: resolver un choque de bloques NO puede saltarse el piso de justicia en silencio", () => {
-    // Caso encontrado por búsqueda aleatoria: A/D y B/C querían los dos el mismo bloque.
-    // La pasada anti-choque reasignaba sin volver a mirar la justicia y dejaba un partido
-    // mucho peor que el anunciado, sin decirlo. Con solo 3 bloques para 2 partidos, ceder
-    // es inevitable — lo que no puede pasar es que se ceda CALLADO.
-    const happiness = {
-        A: { b0: 2, b1: 1, b2: 5 },
-        B: { b0: 5, b1: 1, b2: 4 },
-        C: { b0: 2, b1: 5, b2: 4 },
-        D: { b0: 2, b1: 1, b2: 5 },
-    };
-    const result = proposeMatches(["A", "B", "C", "D"], happiness);
-    assert.equal(result.infeasible, false);
-    for (const m of result.matches) {
-        assert.ok(
-            m.worst >= result.floor - FAIRNESS_TOLERANCE - 1e-9 || m.belowFloor,
-            `el peor parado quedó en ${m.worst} sin marcarse`
-        );
-    }
-    // Y lo informado es lo que pasó DE VERDAD, no lo que se buscó.
-    assert.equal(result.worst, Math.min(...result.matches.map((m) => m.worst)));
-    assert.equal(result.maxGap, Math.max(...result.matches.map((m) => m.gap)));
-});
-
-test("proposeMatches: con bloques de sobra, nadie tiene que ceder el piso por un choque", () => {
-    // Mismo patrón pero con horarios suficientes: acá sí se exige que NINGÚN partido
-    // quede por debajo del piso, y que ninguno tenga que marcarse.
-    const happiness = {
-        A: { b0: 2, b1: 1, b2: 5, b3: 5, b4: 1 },
-        B: { b0: 5, b1: 1, b2: 4, b3: 5, b4: 1 },
-        C: { b0: 2, b1: 5, b2: 4, b3: 1, b4: 5 },
-        D: { b0: 2, b1: 5, b2: 5, b3: 1, b4: 5 },
-    };
-    const result = proposeMatches(["A", "B", "C", "D"], happiness);
-    assert.equal(result.infeasible, false);
-    const bloques = result.matches.map((m) => m.block);
-    assert.equal(new Set(bloques).size, bloques.length, "dos partidos en el mismo bloque");
-    for (const m of result.matches) {
-        assert.equal(m.belowFloor, false);
-        assert.equal(m.collision, false);
-        assert.ok(m.worst >= result.floor - FAIRNESS_TOLERANCE - 1e-9);
-    }
-});
-
-test("proposeMatches: ante un choque cede el par al que le da lo mismo, no el que sí tiene preferencia", () => {
-    // A y B solo pueden jugar en un bloque; C y D nunca marcaron nada. Los dos pares
-    // apuntan al mismo bloque. Ordenar por gap le daba prioridad a C/D (su gap es 0 por
-    // indiferencia, no por acuerdo), y el resultado además cambiaba según el orden en
-    // que el panel mandara los equipos.
-    const happiness = {
-        A: conDefault({ "2026-09-01-09": 5 }),
-        B: conDefault({ "2026-09-01-09": 5 }),
-        C: conDefault({}),
-        D: conDefault({}),
-    };
-    for (const orden of [["A", "B", "C", "D"], ["C", "D", "A", "B"]]) {
-        const result = proposeMatches(orden, happiness);
-        const ab = result.matches.find((m) => [m.teamA, m.teamB].sort().join("") === "AB");
-        assert.equal(ab.block, "2026-09-01-09", `con el orden ${orden.join(",")}`);
-    }
-});
-
-test("proposeMatches: equipos repetidos son un error explícito, no un partido contra sí mismo", () => {
-    // El par (X,X) tiene gap 0 y el score máximo posible: el optimizador lo prefería.
-    const happiness = { A: conDefault({}), B: conDefault({}) };
-    assert.throws(() => proposeMatches(["A", "A", "B", "B"], happiness), /más de una vez/);
-});
-
-test("proposeMatches: por encima de MAX_TEAMS avisa en vez de colgar el DP de 2^n", () => {
-    const teams = Array.from({ length: MAX_TEAMS + 2 }, (_, i) => "T" + i);
-    const happiness = {};
-    teams.forEach((t) => (happiness[t] = conDefault({})));
-    assert.throws(() => proposeMatches(teams, happiness), new RegExp(String(MAX_TEAMS)));
-});
-
-test("suggestByeTeam: un equipo sin ninguna preferencia real es el más fácil de emparejar, no el bye", () => {
-    // Contaba bloques >= 4 sobre el mapa ya rellenado: quien nunca abrió la pantalla
-    // quedaba en 0 y salía sugerido para el bye todas las fechas.
-    const happiness = {
-        Indiferente: conDefault({}),
-        Restringido: conDefault({ "2026-09-01-08": 4 }),
-        Flexible: conDefault({ "2026-09-01-08": 4, "2026-09-01-09": 5, "2026-09-01-10": 4 }),
-    };
-    const teams = ["Indiferente", "Restringido", "Flexible"];
-    assert.equal(suggestByeTeam(teams, happiness), "Restringido");
-    assert.equal(rankByeCandidates(teams, happiness).at(-1), "Indiferente");
-});
-
-test("suggestByeTeam: a igual flexibilidad, banca a quien más partidos lleva (rota el bye)", () => {
-    const happiness = {
-        A: conDefault({ "2026-09-01-08": 4 }),
-        B: conDefault({ "2026-09-01-08": 4 }),
-    };
-    assert.equal(suggestByeTeam(["A", "B"], happiness, null, { A: 1, B: 3 }), "B");
-    assert.equal(suggestByeTeam(["A", "B"], happiness, null, { A: 4, B: 2 }), "A");
-});
-
-test("proposeMatches: restringir los horarios de la tanda no re-escala las preferencias de cada equipo", () => {
-    // La liga permite solo 2 horarios de toda la ventana. La escala de un equipo es su
-    // opinión sobre la ventana COMPLETA; normalizando sobre el conjunto ya recortado, la
-    // única variación de A entre los permitidos ("Muy mala" vs "Mala") se estiraba a la
-    // escala entera y pasaba a pesar tanto como el "Excelente" real de B: los dos bloques
-    // quedaban empatados en gap y en suma, y ganaba el más temprano — justo el que a A le
-    // da "Muy mala". Con la escala completa, la diferencia real se ve y gana el otro.
-    const permitidos = ["2026-09-01-08", "2026-09-01-09"];
-    const happiness = {
-        A: conDefault({ "2026-09-01-08": 1, "2026-09-01-09": 2, "2026-09-02-10": 5 }),
-        B: conDefault({ "2026-09-01-08": 5, "2026-09-01-09": 4 }),
-    };
-    const result = proposeMatches(["A", "B"], happiness, null, null, permitidos);
-    assert.equal(result.infeasible, false);
-    assert.equal(result.matches[0].block, "2026-09-01-09");
-    assert.equal(result.matches[0].happinessA, 2);
-    assert.equal(result.matches[0].happinessB, 4);
-});
-
-test("buildEdges: el ajuste por dificultad no puede superar su propio peso", () => {
-    // La nota de dificultad es 1-10 y el gain viene en esos puntos, no en la escala del
-    // score ([0,2]): sin acotarlo, un solo emparejamiento bien balanceado sumaba hasta
-    // 2.25 y la dificultad decidía sola.
-    const teams = ["T1", "T2"];
-    const happiness = { T1: conDefault({ "2026-09-01-08": 5 }), T2: conDefault({ "2026-09-01-08": 5 }) };
-    const sinDificultad = buildEdges(teams, happiness);
-    const conDificultad = buildEdges(teams, happiness, null, {
-        difficultyByTeam: { T1: 10, T2: 1 },
-        facedByTeam: { T1: { totalFaced: 50, matchesCount: 5 }, T2: { totalFaced: 5, matchesCount: 5 } },
-        targetAvg: 5.5,
-        temperature: 0, // sin ruido, para medir solo el aporte de dificultad
+test("proposeMatches: un horario Regular para los dos le gana a uno Excelente para uno y Muy mala para el otro", () => {
+    // El corazón del cambio. Con la normalización por equipo, el "Excelente" de A y el
+    // "Muy mala" de B se comparaban en escalas distintas y el bloque X ganaba seguido.
+    const result = proposeMatches(["A", "B"], {
+        A: { X: 5, Y: 3 },
+        B: { X: 1, Y: 3 },
     });
-    const delta = Math.abs(conDificultad[0][1].score - sinDificultad[0][1].score);
-    assert.ok(delta <= DIFFICULTY_WEIGHT + 1e-9, `el ajuste fue ${delta}, por encima de ${DIFFICULTY_WEIGHT}`);
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches[0].block, "Y");
+    assert.equal(result.worst, 3);
+    assert.deepEqual(result.sacrificed, []);
 });
 
-test("proposeMatches: con temperatura, dos bloques igual de buenos no salen siempre en el mismo orden", () => {
-    // La temperatura era un número por PAR, idéntico en todos sus bloques: variaba a
-    // quién le tocaba con quién, pero el horario elegido entre empates era siempre el
-    // primero de la ventana (lunes 08:00 para todo par sin preferencias marcadas).
-    const happiness = { A: conDefault({}), B: conDefault({}) };
-    const vistos = new Set();
-    for (let i = 0; i < 60; i++) {
-        const result = proposeMatches(["A", "B"], happiness, null, {
-            difficultyByTeam: {},
-            facedByTeam: {},
-            targetAvg: 0,
-            temperature: DEFAULT_TEMPERATURE,
-        });
-        vistos.add(result.matches[0].block);
-    }
-    assert.ok(vistos.size > 1, "siempre eligió el mismo bloque entre empates exactos");
+test("proposeMatches: no se sacrifica a nadie para subirle la nota a otro", () => {
+    // En X la suma de notas es mayor (5+1=6 contra 4+4=8... y aún si empatara), pero X
+    // deja a B en la zona mala. Sin nadie sacrificado, Y gana siempre.
+    const result = proposeMatches(["A", "B"], {
+        A: { X: 5, Y: 4 },
+        B: { X: 1, Y: 4 },
+    });
+    assert.equal(result.matches[0].block, "Y");
+    assert.equal(result.sacrificed.length, 0);
 });
 
-test("isPairingFeasible: detecta el conjunto sin emparejamiento posible sin calcular la propuesta", () => {
-    const happiness = { A: conDefault({}), B: conDefault({}), C: conDefault({}), D: conDefault({}) };
-    assert.equal(isPairingFeasible(["A", "B", "C", "D"], happiness), true);
-    // A ya jugó contra todos: no queda ningún emparejamiento perfecto.
-    const excluded = new Set([pairKey("A", "B"), pairKey("A", "C"), pairKey("A", "D")]);
-    assert.equal(isPairingFeasible(["A", "B", "C", "D"], happiness, excluded), false);
-});
-
-// ---------------------------------------------------------------------------------
-// El criterio de justicia: peor parado con banda de tolerancia (2026-08-30). Antes era
-// "minimizar la diferencia entre los dos", que leía un bloque pésimo para ambos como
-// justicia perfecta.
-// ---------------------------------------------------------------------------------
-
-test("proposeMatches: un horario bueno para los dos gana sobre uno malo para los dos, aunque el malo sea 'más parejo'", () => {
-    // Caso real: LOS LABUBU vs Vo Sai Po FC (Copa CDI Masculina). Comparten 142 bloques
-    // donde ambos marcaron "Muy mala" —diferencia 0, justicia aparentemente perfecta— y
-    // uno solo donde los dos marcaron "Buena". Vo Sai Po nunca usó el 5, así que su 4
-    // normaliza a 1.0 y el de LABUBU a 0.75: esa diferencia de 0.25 bastaba para que el
-    // criterio viejo prefiriera cualquiera de los 142 bloques horribles.
+test("proposeMatches: caso real (LOS LABUBU vs Vo Sai Po, Copa CDI Masculina) — 142 bloques 'Muy mala' compartidos no son un buen horario", () => {
+    // Los dos equipos comparten decenas de bloques donde ambos marcaron "Muy mala" y uno
+    // solo donde los dos marcaron "Buena". Un criterio de "menor diferencia" leía los
+    // pésimos como justicia perfecta (diferencia 0) y agendaba ahí.
     const bloques = [];
     for (let i = 0; i < 20; i++) bloques.push("2026-09-01-" + String(i).padStart(2, "0"));
     const elBueno = "2026-09-01-14";
@@ -723,50 +452,472 @@ test("proposeMatches: un horario bueno para los dos gana sobre uno malo para los
     labubu["2026-09-01-18"] = 5; // LABUBU sí usa el 5 en otro horario; Vo Sai Po nunca
 
     const result = proposeMatches(["LOS LABUBU", "Vo Sai Po FC"], { "LOS LABUBU": labubu, "Vo Sai Po FC": voSaiPo });
-    assert.equal(result.infeasible, false);
     assert.equal(result.matches[0].block, elBueno);
     assert.equal(result.matches[0].happinessA, 4);
     assert.equal(result.matches[0].happinessB, 4);
 });
 
-test("proposeMatches: la banda no llega a dejar a un equipo en su peor horario para que el otro tenga el mejor", () => {
-    // X es perfecto para A y pésimo para B; Z al revés; Y es "Regular" para los dos.
-    // Con la tolerancia de una nota, los extremos quedan fuera de la banda y gana Y:
-    // la justicia sigue siendo lo primero, solo dejó de ser un absoluto.
-    const result = proposeMatches(["A", "B"], {
-        A: { X: 5, Y: 3, Z: 1 },
-        B: { X: 1, Y: 3, Z: 5 },
-    });
-    assert.equal(result.infeasible, false);
-    assert.equal(result.matches[0].block, "Y");
-    assert.equal(result.matches[0].happinessA, 3);
-    assert.equal(result.matches[0].happinessB, 3);
+test("proposeMatches: marcar SOLO las horas buenas y dejar el resto sin tocar sigue siendo una preferencia real", () => {
+    // El patrón más común de todos: un equipo entra, sube a "Excelente" las 2 horas que
+    // le sirven y guarda. El partido tiene que caer en una de esas dos.
+    const bloques = ["2026-09-01-08", "2026-09-01-09", "2026-09-01-10", "2026-09-02-08", "2026-09-02-09", "2026-09-02-10"];
+    const bueno = fillDefaultHappiness({ "2026-09-02-09": 5, "2026-09-02-10": 5 }, bloques, DEFAULT_HAPPINESS_LEVEL);
+    const indiferente = fillDefaultHappiness({}, bloques, DEFAULT_HAPPINESS_LEVEL);
+    const result = proposeMatches(["Bueno", "Indiferente"], { Bueno: bueno, Indiferente: indiferente });
+    assert.equal(result.matches[0].happinessA, 5);
+    assert.ok(["2026-09-02-09", "2026-09-02-10"].includes(result.matches[0].block));
 });
 
-test("proposeMatches: dentro de la banda gana el horario que mejor les viene a los dos, no el más parejo", () => {
-    // P deja al peor parado en 0.5 y suma 1.167; Q lo deja en 0.333 (dentro de la
-    // tolerancia de 0.25) pero suma 1.333, porque para B es su mejor horario y para A
-    // sigue siendo aceptable. Esto es exactamente "un poco de injusticia a cambio de una
-    // opción claramente mejor": sin banda ganaba P y B se quedaba sin su mejor bloque.
-    const result = proposeMatches(["A", "B"], {
-        A: { P: 3, Q: 2, R: 1, S: 4 },
-        B: { P: 3, Q: 5, R: 1, S: 1 },
+test("proposeMatches: un equipo plano no arrastra al rival a un bloque mediocre — decide el que sí diferenció", () => {
+    const result = proposeMatches(["Malwekas", "Temerarias"], {
+        Malwekas: { "2026-08-31-09": 2, "2026-08-31-10": 2, "2026-08-31-11": 2 },
+        Temerarias: { "2026-08-31-09": 3, "2026-08-31-10": 1, "2026-08-31-11": 5 },
     });
-    assert.equal(result.infeasible, false);
-    assert.equal(result.matches[0].block, "Q");
-    assert.equal(result.matches[0].happinessB, 5);
+    assert.equal(result.matches[0].block, "2026-08-31-11");
 });
 
-test("proposeMatches: la felicidad garantizada que se informa es la que quedó, no la que se buscó", () => {
-    const result = proposeMatches(["A", "B", "C", "D"], {
+test("proposeMatches: inflar o desinflar TODAS las notas no cambia nada (anti-trampa)", () => {
+    // En un emparejamiento perfecto cada equipo juega exactamente un partido, así que
+    // correr todas sus notas parejo suma una constante al total y no puede cambiar
+    // ninguna decisión. Quien decide sigue siendo el que diferenció de verdad.
+    const rival = { b0: 1, b1: 5, b2: 2 };
+    const planoBajo = proposeMatches(["Plano", "Rival"], { Plano: { b0: 3, b1: 3, b2: 3 }, Rival: rival });
+    const planoAlto = proposeMatches(["Plano", "Rival"], { Plano: { b0: 5, b1: 5, b2: 5 }, Rival: rival });
+    assert.equal(planoBajo.matches[0].block, "b1");
+    assert.equal(planoAlto.matches[0].block, "b1");
+});
+
+test("proposeMatches: cuando hay que sacrificar a alguien, le toca a quien menos disponibilidad ofreció", () => {
+    // Cuatro equipos, dos partidos. b0 le sirve a los cuatro; b1 solo a A; b2 solo a C.
+    // Un partido va a b0 (los dos contentos) y el otro no tiene cómo dejar contentos a
+    // los dos: alguien sale sacrificado sí o sí. A y C ofrecieron dos horas buenas cada
+    // uno; D y E solo una. El sacrificado tiene que salir de D/E.
+    const happiness = {
+        A: { b0: 5, b1: 5, b2: 1 },
+        C: { b0: 5, b1: 1, b2: 5 },
+        D: { b0: 5, b1: 1, b2: 1 },
+        E: { b0: 5, b1: 1, b2: 1 },
+    };
+    const result = proposeMatches(["A", "C", "D", "E"], happiness);
+    assert.equal(result.infeasible, false);
+    assert.equal(result.sacrificed.length, 1, "exactamente un equipo tiene que quedar en la zona mala");
+    assert.ok(["D", "E"].includes(result.sacrificed[0].team), `salió sacrificado ${result.sacrificed[0].team}`);
+    // Y se informa POR QUÉ le tocó a ese: cuánto había ofrecido.
+    assert.ok(result.sacrificed[0].offer < teamOffer(happiness.A, ["b0", "b1", "b2"]));
+});
+
+test("proposeMatches: entre horarios igual de buenos, el mejor se lo lleva quien más ofreció", () => {
+    // Los cuatro tienen el mismo perfil sobre b0 (Excelente) y b1 (Regular); solo P
+    // ofreció además b2. Un partido va a b0 y otro a b1: el de b0 tiene que incluir a P.
+    const happiness = {
+        P: { b0: 5, b1: 3, b2: 5 },
+        Q: { b0: 5, b1: 3, b2: 1 },
+        R: { b0: 5, b1: 3, b2: 1 },
+        S: { b0: 5, b1: 3, b2: 1 },
+    };
+    const result = proposeMatches(["P", "Q", "R", "S"], happiness);
+    const deP = result.matches.find((m) => m.teamA === "P" || m.teamB === "P");
+    assert.equal(deP.block, "b0");
+    assert.equal(result.sacrificed.length, 0);
+});
+
+test("proposeMatches: dos partidos del mismo batch no pueden quedar en el mismo bloque horario", () => {
+    const happiness = {
+        T1: { "2026-08-17-09": 4, "2026-08-17-10": 1 },
+        T2: { "2026-08-17-09": 4, "2026-08-17-10": 1 },
+        T3: { "2026-08-17-09": 4, "2026-08-17-10": 1 },
+        T4: { "2026-08-17-09": 4, "2026-08-17-10": 1 },
+    };
+    const result = proposeMatches(["T1", "T2", "T3", "T4"], happiness);
+    const blocks = result.matches.map((m) => m.block);
+    assert.equal(new Set(blocks).size, 2);
+    result.matches.forEach((m) => assert.equal(m.collision, false));
+});
+
+test("proposeMatches: si no alcanzan los bloques para todos los partidos, el choque se marca en vez de esconderse", () => {
+    // Hay una sola cancha: dos partidos a la misma hora es físicamente imposible, y el
+    // panel tiene que decirlo en vez de agendarlos a ciegas.
+    const happiness = {
+        T1: { "2026-08-17-09": 3 },
+        T2: { "2026-08-17-09": 3 },
+        T3: { "2026-08-17-09": 3 },
+        T4: { "2026-08-17-09": 3 },
+    };
+    const result = proposeMatches(["T1", "T2", "T3", "T4"], happiness);
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches.length, 2);
+    assert.equal(result.matches[0].block, "2026-08-17-09");
+    assert.equal(result.matches[1].block, "2026-08-17-09");
+    result.matches.forEach((m) => assert.equal(m.collision, true));
+});
+
+test("proposeMatches: si faltan horarios, usa TODOS los que hay antes de repetir alguno", () => {
+    // 8 partidos para 5 horas: repetir es inevitable, pero repetir de más no. Cada hora
+    // compartida es un partido que el admin va a tener que descartar, así que el mínimo
+    // de choques posible (3 horas dobladas, 6 partidos marcados) es parte del objetivo
+    // y no un empate cualquiera: sin penalizar los choques, el reparto dejaba horas sin
+    // usar y marcaba muchos más partidos de los necesarios.
+    const bloques = ["b0", "b1", "b2", "b3", "b4"];
+    const teams = Array.from({ length: 16 }, (_, i) => "T" + i);
+    const happiness = {};
+    teams.forEach((t) => {
+        const h = {};
+        bloques.forEach((b) => (h[b] = 4));
+        happiness[t] = h;
+    });
+    const result = proposeMatches(teams, happiness, null, null, bloques);
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches.length, 8);
+    assert.equal(new Set(result.matches.map((m) => m.block)).size, bloques.length, "quedaron horas sin usar");
+    assert.equal(result.matches.filter((m) => m.collision).length, 6);
+});
+
+test("proposeMatches: restringir los horarios de la tanda no cambia la escala con la que se leen las notas", () => {
+    // La liga permite solo 2 horarios de toda la ventana. Las notas siguen valiendo lo
+    // que dicen: entre "Muy mala" y "Mala" para A, gana "Mala" — sin que ese "Mala" se
+    // convierta en un diez por ser lo mejor que le quedaba.
+    const bloques = ["2026-09-01-08", "2026-09-01-09", "2026-09-02-10"];
+    const permitidos = ["2026-09-01-08", "2026-09-01-09"];
+    const happiness = {
+        A: fillDefaultHappiness({ "2026-09-01-08": 1, "2026-09-01-09": 2, "2026-09-02-10": 5 }, bloques, DEFAULT_HAPPINESS_LEVEL),
+        B: fillDefaultHappiness({ "2026-09-01-08": 5, "2026-09-01-09": 4 }, bloques, DEFAULT_HAPPINESS_LEVEL),
+    };
+    const result = proposeMatches(["A", "B"], happiness, null, null, permitidos);
+    assert.equal(result.matches[0].block, "2026-09-01-09");
+    assert.equal(result.matches[0].happinessA, 2);
+    assert.equal(result.matches[0].happinessB, 4);
+    // A quedó en la zona mala y se dice, con nota real.
+    assert.equal(result.worst, 2);
+    assert.equal(result.sacrificed.length, 1);
+    assert.equal(result.sacrificed[0].team, "A");
+    assert.equal(result.sacrificed[0].level, 2);
+});
+
+test("proposeMatches: el orden en que el panel manda los equipos no cambia el resultado", () => {
+    const happiness = {
         A: { b0: 5, b1: 1, b2: 1 },
         B: { b0: 5, b1: 1, b2: 1 },
-        C: { b0: 5, b1: 1, b2: 1 },
-        D: { b0: 5, b1: 1, b2: 1 },
-    });
+        C: { b0: 1, b1: 5, b2: 3 },
+        D: { b0: 1, b1: 5, b2: 3 },
+    };
+    const esperado = proposeMatches(["A", "B", "C", "D"], happiness).matches
+        .map((m) => [m.teamA, m.teamB].sort().join("") + "@" + m.block)
+        .sort();
+    for (const orden of [["D", "C", "B", "A"], ["C", "A", "D", "B"], ["B", "D", "A", "C"]]) {
+        const got = proposeMatches(orden, happiness).matches
+            .map((m) => [m.teamA, m.teamB].sort().join("") + "@" + m.block)
+            .sort();
+        assert.deepEqual(got, esperado, `con el orden ${orden.join(",")}`);
+    }
+});
+
+// ---------------------------------------------------------------------------------
+// Casos límite y errores explícitos
+// ---------------------------------------------------------------------------------
+
+test("proposeMatches: cantidad impar de equipos lanza error explícito", () => {
+    assert.throws(() => proposeMatches(["A", "B", "C"], {}), /par de equipos/);
+});
+
+test("proposeMatches: cero equipos devuelve resultado vacío sin error", () => {
+    const result = proposeMatches([], {});
     assert.equal(result.infeasible, false);
-    assert.equal(result.worst, Math.min(...result.matches.map((m) => m.worst)));
-    // Los dos pares querían b0; uno tuvo que ceder y eso se dice.
-    assert.ok(result.worst < result.floor, "ceder tiene que reflejarse en lo informado");
-    assert.ok(result.matches.some((m) => m.belowFloor || m.collision));
+    assert.deepEqual(result.matches, []);
+    assert.equal(result.totalScore, 0);
+    assert.equal(result.worst, null);
+});
+
+test("proposeMatches: par sin ningún solapamiento es infactible", () => {
+    const result = proposeMatches(["A", "B"], {
+        A: { "2026-08-17-09": 3 },
+        B: { "2026-08-17-10": 3 },
+    });
+    assert.equal(result.infeasible, true);
+    assert.equal(result.matches, null);
+});
+
+test("proposeMatches: equipos repetidos son un error explícito, no un partido contra sí mismo", () => {
+    const happiness = { A: { b0: 3 }, B: { b0: 3 } };
+    assert.throws(() => proposeMatches(["A", "A", "B", "B"], happiness), /más de una vez/);
+});
+
+test("proposeMatches: por encima de MAX_TEAMS avisa en vez de comerse el servidor", () => {
+    const teams = Array.from({ length: MAX_TEAMS + 2 }, (_, i) => "T" + i);
+    const happiness = {};
+    teams.forEach((t) => (happiness[t] = { b0: 3, b1: 3 }));
+    assert.throws(() => proposeMatches(teams, happiness), new RegExp(String(MAX_TEAMS)));
+});
+
+test("proposeMatches: una tanda del tamaño máximo se resuelve entera y bien formada", () => {
+    // 40 equipos = 20 partidos, que es una fecha completa de la liga más grande de una
+    // sola vez. Antes el tope eran 24 y había que partir la fecha a mano en dos tandas.
+    const bloques = [];
+    for (let d = 1; d <= 5; d++) {
+        for (let h = 8; h <= 20; h++) bloques.push(`2026-09-0${d}-` + String(h).padStart(2, "0"));
+    }
+    const rnd = makeSeededRandom(4242);
+    const teams = Array.from({ length: MAX_TEAMS }, (_, i) => "T" + i);
+    const happiness = {};
+    teams.forEach((t) => {
+        const h = {};
+        // El patrón real: casi todo "Muy mala" y un puñado de horas buenas.
+        bloques.forEach((b) => (h[b] = 1));
+        for (let k = 0; k < 6; k++) h[bloques[Math.floor(rnd() * bloques.length)]] = rnd() < 0.5 ? 4 : 5;
+        happiness[t] = h;
+    });
+
+    const result = proposeMatches(teams, happiness, null, null, bloques);
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches.length, MAX_TEAMS / 2);
+
+    // Cada equipo juega exactamente una vez, y no hay dos partidos a la misma hora.
+    const jugaron = result.matches.flatMap((m) => [m.teamA, m.teamB]);
+    assert.equal(new Set(jugaron).size, MAX_TEAMS);
+    const bloquesUsados = result.matches.map((m) => m.block);
+    assert.equal(new Set(bloquesUsados).size, bloquesUsados.length);
+    result.matches.forEach((m) => assert.equal(m.collision, false));
+
+    // Y con horarios de sobra el reparto tiene que ser bueno de verdad, no solo válido.
+    assert.ok(result.avgHappiness >= 4, `promedio ${result.avgHappiness}`);
+});
+
+test("proposeMatches: con una tanda grande y revanchas excluidas, nadie repite rival", () => {
+    const bloques = [];
+    for (let d = 1; d <= 5; d++) {
+        for (let h = 8; h <= 20; h++) bloques.push(`2026-09-0${d}-` + String(h).padStart(2, "0"));
+    }
+    const rnd = makeSeededRandom(99);
+    const teams = Array.from({ length: 30 }, (_, i) => "T" + i);
+    const happiness = {};
+    teams.forEach((t) => {
+        const h = {};
+        bloques.forEach((b) => (h[b] = rnd() < 0.15 ? 5 : 1));
+        happiness[t] = h;
+    });
+    // Cada equipo ya jugó contra los dos siguientes de la lista.
+    const excluded = new Set();
+    for (let i = 0; i < teams.length; i++) {
+        excluded.add(pairKey(teams[i], teams[(i + 1) % teams.length]));
+        excluded.add(pairKey(teams[i], teams[(i + 2) % teams.length]));
+    }
+    const result = proposeMatches(teams, happiness, excluded, null, bloques);
+    assert.equal(result.infeasible, false);
+    assert.equal(result.matches.length, 15);
+    result.matches.forEach((m) => {
+        assert.ok(!excluded.has(pairKey(m.teamA, m.teamB)), `repitió ${m.teamA} vs ${m.teamB}`);
+    });
+});
+
+test("isPairingFeasible: un equipo que ya jugó contra todos hace infactible la tanda grande", () => {
+    // El caso que obliga a que la factibilidad sea EXACTA y no "al codicioso no se le
+    // ocurrió": con 20 equipos, uno excluido contra los otros 19 no tiene rival posible.
+    const teams = Array.from({ length: 20 }, (_, i) => "T" + i);
+    const happiness = {};
+    teams.forEach((t) => (happiness[t] = { b0: 4, b1: 4, b2: 4 }));
+    assert.equal(isPairingFeasible(teams, happiness), true);
+    const excluded = new Set();
+    for (let i = 1; i < teams.length; i++) excluded.add(pairKey(teams[0], teams[i]));
+    assert.equal(isPairingFeasible(teams, happiness, excluded), false);
+    assert.equal(proposeMatches(teams, happiness, excluded).infeasible, true);
+});
+
+test("pairKey: es simétrico sin importar el orden de los ids", () => {
+    assert.equal(pairKey("x", "y"), pairKey("y", "x"));
+});
+
+test("proposeMatches: excludedPairs evita agendar un partido entre 2 equipos que ya se enfrentaron", () => {
+    const happiness = {
+        A: { "2026-08-17-09": 3, "2026-08-17-10": 3 },
+        B: { "2026-08-17-09": 3, "2026-08-17-10": 3 },
+        C: { "2026-08-17-09": 3, "2026-08-17-10": 3 },
+        D: { "2026-08-17-09": 3, "2026-08-17-10": 3 },
+    };
+    const excluded = new Set([pairKey("A", "B")]);
+    const result = proposeMatches(["A", "B", "C", "D"], happiness, excluded);
+    assert.equal(result.infeasible, false);
+    const juntos = result.matches.some((m) => [m.teamA, m.teamB].sort().join("") === "AB");
+    assert.equal(juntos, false);
+});
+
+test("proposeMatches: si excludedPairs deja a un equipo sin ningún rival posible, el resultado es infactible", () => {
+    const happiness = { A: { "2026-08-17-09": 3 }, B: { "2026-08-17-09": 3 } };
+    const excluded = new Set([pairKey("A", "B")]);
+    assert.equal(proposeMatches(["A", "B"], happiness, excluded).infeasible, true);
+});
+
+test("proposeMatches: los intercambios de mejora no pueden reintroducir un par excluido", () => {
+    // El emparejamiento inicial es válido, pero recombinar A/B y C/D bajaría a A-B —
+    // que ya se enfrentaron. La búsqueda tiene que descartar esa opción aunque mejore.
+    const happiness = {
+        A: { b0: 5, b1: 1 },
+        B: { b0: 5, b1: 1 },
+        C: { b0: 1, b1: 5 },
+        D: { b0: 1, b1: 5 },
+    };
+    const excluded = new Set([pairKey("A", "B"), pairKey("C", "D")]);
+    const result = proposeMatches(["A", "B", "C", "D"], happiness, excluded);
+    assert.equal(result.infeasible, false);
+    const claves = result.matches.map((m) => [m.teamA, m.teamB].sort().join(""));
+    assert.ok(!claves.includes("AB"));
+    assert.ok(!claves.includes("CD"));
+});
+
+test("isPairingFeasible: detecta el conjunto sin emparejamiento posible sin calcular la propuesta", () => {
+    const happiness = { A: { b0: 3 }, B: { b0: 3 }, C: { b0: 3 }, D: { b0: 3 } };
+    assert.equal(isPairingFeasible(["A", "B", "C", "D"], happiness), true);
+    const excluded = new Set([pairKey("A", "B"), pairKey("A", "C"), pairKey("A", "D")]);
+    assert.equal(isPairingFeasible(["A", "B", "C", "D"], happiness, excluded), false);
+});
+
+// ---------------------------------------------------------------------------------
+// Bye (cantidad impar de equipos)
+// ---------------------------------------------------------------------------------
+
+test("suggestByeTeam elige al equipo con menos bloques bien calificados (Buena/Excelente)", () => {
+    const teams = ["A", "B", "C"];
+    const happinessByTeam = {
+        A: { "2026-08-17-09": 1, "2026-08-17-10": 2 }, // 0 bloques >= 4
+        B: { "2026-08-17-09": 1, "2026-08-17-10": 2, "2026-08-17-11": 4 }, // 1 bloque >= 4
+        C: { "2026-08-17-09": 1, "2026-08-17-10": 2, "2026-08-17-11": 4, "2026-08-17-12": 5 }, // 2
+    };
+    assert.equal(suggestByeTeam(teams, happinessByTeam), "A");
+});
+
+test("suggestByeTeam: un equipo sin ninguna preferencia real es el más fácil de emparejar, no el bye", () => {
+    const bloques = ["2026-09-01-08", "2026-09-01-09", "2026-09-01-10"];
+    const conDefault = (e) => fillDefaultHappiness(e, bloques, DEFAULT_HAPPINESS_LEVEL);
+    const happiness = {
+        Indiferente: conDefault({}),
+        Restringido: conDefault({ "2026-09-01-08": 4 }),
+        Flexible: conDefault({ "2026-09-01-08": 4, "2026-09-01-09": 5, "2026-09-01-10": 4 }),
+    };
+    const teams = ["Indiferente", "Restringido", "Flexible"];
+    assert.equal(suggestByeTeam(teams, happiness), "Restringido");
+    assert.equal(rankByeCandidates(teams, happiness).at(-1), "Indiferente");
+});
+
+test("suggestByeTeam: a igual flexibilidad, banca a quien más partidos lleva (rota el bye)", () => {
+    const happiness = { A: { b0: 4, b1: 1 }, B: { b0: 4, b1: 1 } };
+    assert.equal(suggestByeTeam(["A", "B"], happiness, null, { A: 1, B: 3 }), "B");
+    assert.equal(suggestByeTeam(["A", "B"], happiness, null, { A: 4, B: 2 }), "A");
+});
+
+// ---------------------------------------------------------------------------------
+// Balance de dificultad y temperatura
+// ---------------------------------------------------------------------------------
+
+test("difficultyBalanceGain: sin nota de dificultad para alguno de los dos, da 0 (neutro)", () => {
+    assert.equal(difficultyBalanceGain(null, { totalFaced: 0, matchesCount: 0 }, 8, { totalFaced: 0, matchesCount: 0 }, 5), 0);
+    assert.equal(difficultyBalanceGain(8, { totalFaced: 0, matchesCount: 0 }, undefined, { totalFaced: 0, matchesCount: 0 }, 5), 0);
+});
+
+test("difficultyBalanceGain: mejora el balance cuando el rival nuevo acerca a ambos a su promedio esperado", () => {
+    const facedA = { totalFaced: 0, matchesCount: 1 }; // imbalance = 0 - 1*5 = -5
+    const facedB = { totalFaced: 0, matchesCount: 0 };
+    assert.ok(difficultyBalanceGain(3, facedA, 9, facedB, 5) > 0);
+});
+
+test("difficultyBalanceGain: empeora el balance cuando el rival nuevo aleja a ambos de su promedio esperado", () => {
+    const facedA = { totalFaced: 10, matchesCount: 1 }; // imbalance = +5
+    const facedB = { totalFaced: 0, matchesCount: 0 };
+    assert.ok(difficultyBalanceGain(3, facedA, 9, facedB, 5) < 0);
+});
+
+test("proposeMatches: sin difficultyContext el resultado es determinista y reproducible", () => {
+    const primero = proposeMatches(FOUR_TEAMS, FOUR_TEAM_HAPPINESS);
+    for (let i = 0; i < 5; i++) {
+        const otro = proposeMatches(FOUR_TEAMS, FOUR_TEAM_HAPPINESS, null, undefined);
+        assert.deepEqual(otro.matches, primero.matches);
+        assert.equal(otro.totalScore, primero.totalScore);
+    }
+});
+
+test("proposeMatches: con difficultyContext, el criterio de dificultad puede cambiar el emparejamiento elegido", () => {
+    // Los 4 equipos comparten dos bloques con la MISMA nota — la felicidad da lo mismo
+    // para cualquier par, así que el único criterio que puede desempatar es la
+    // dificultad. Temperatura en 0 para que el test sea determinista.
+    const teams = ["T1", "T2", "T3", "T4"];
+    const flatHappiness = {
+        T1: { b0: 3, b1: 3 },
+        T2: { b0: 3, b1: 3 },
+        T3: { b0: 3, b1: 3 },
+        T4: { b0: 3, b1: 3 },
+    };
+    const baseline = proposeMatches(teams, flatHappiness).matches
+        .map((m) => [m.teamA, m.teamB].sort())
+        .sort((a, b) => a[0].localeCompare(b[0]));
+    assert.deepEqual(baseline, [["T1", "T2"], ["T3", "T4"]]);
+
+    const difficultyContext = {
+        difficultyByTeam: { T1: 9, T2: 1, T3: 9, T4: 1 },
+        facedByTeam: {
+            T1: { totalFaced: 0, matchesCount: 1 },
+            T2: { totalFaced: 10, matchesCount: 1 },
+            T3: { totalFaced: 0, matchesCount: 1 },
+            T4: { totalFaced: 10, matchesCount: 1 },
+        },
+        targetAvg: 5,
+        temperature: 0,
+    };
+    const conDificultad = proposeMatches(teams, flatHappiness, null, difficultyContext).matches
+        .map((m) => [m.teamA, m.teamB].sort())
+        .sort((a, b) => a[0].localeCompare(b[0]));
+    assert.deepEqual(conDificultad, [["T1", "T3"], ["T2", "T4"]]);
+});
+
+test("proposeMatches: el ajuste por dificultad no puede dar vuelta un sacrificio", () => {
+    // La nota de dificultad es 1-10 y el gain viene en esos puntos, no en la escala del
+    // score: sin acotarlo, un solo emparejamiento bien balanceado pesaba más que el
+    // rango completo de la felicidad y la dificultad decidía sola.
+    const happiness = {
+        A: { b0: 5, b1: 5 },
+        B: { b0: 5, b1: 1 },
+        C: { b0: 5, b1: 1 },
+        D: { b0: 5, b1: 5 },
+    };
+    // Emparejar B con C (los dos solo pueden en b0) es lo único que evita un sacrificio.
+    const difficultyContext = {
+        difficultyByTeam: { A: 10, B: 10, C: 1, D: 1 },
+        facedByTeam: {
+            A: { totalFaced: 50, matchesCount: 5 },
+            B: { totalFaced: 5, matchesCount: 5 },
+            C: { totalFaced: 50, matchesCount: 5 },
+            D: { totalFaced: 5, matchesCount: 5 },
+        },
+        targetAvg: 5.5,
+        temperature: 0,
+    };
+    const result = proposeMatches(["A", "B", "C", "D"], happiness, null, difficultyContext);
+    assert.equal(result.sacrificed.length, 0, "la dificultad no puede justificar sacrificar a nadie");
+    assert.ok(DIFFICULTY_WEIGHT < SACRIFICE_PENALTY);
+});
+
+test("proposeMatches: con temperatura, dos bloques igual de buenos no salen siempre en el mismo", () => {
+    // La temperatura sola es un número por PAR, idéntico en todos sus bloques: variaba a
+    // quién le tocaba con quién pero jamás el horario elegido entre empates exactos.
+    const happiness = { A: { b0: 3, b1: 3, b2: 3 }, B: { b0: 3, b1: 3, b2: 3 } };
+    const vistos = new Set();
+    for (let i = 0; i < 60; i++) {
+        const result = proposeMatches(["A", "B"], happiness, null, {
+            difficultyByTeam: {},
+            facedByTeam: {},
+            targetAvg: 0,
+            temperature: DEFAULT_TEMPERATURE,
+        });
+        vistos.add(result.matches[0].block);
+    }
+    assert.ok(vistos.size > 1, "siempre eligió el mismo bloque entre empates exactos");
+});
+
+test("proposeMatches: la temperatura no alcanza para mover un partido a un horario peor", () => {
+    const happiness = { A: { b0: 5, b1: 3, b2: 1 }, B: { b0: 5, b1: 3, b2: 1 } };
+    for (let i = 0; i < 40; i++) {
+        const result = proposeMatches(["A", "B"], happiness, null, {
+            difficultyByTeam: {},
+            facedByTeam: {},
+            targetAvg: 0,
+            temperature: DEFAULT_TEMPERATURE,
+        });
+        assert.equal(result.matches[0].block, "b0");
+    }
 });
