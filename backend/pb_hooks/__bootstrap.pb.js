@@ -120,7 +120,7 @@ onBootstrap((e) => {
     // no pisan las rutas de los archivos, así que reutiliza las mismas credenciales.
     if (r2Endpoint) {
         settings.backups.cron = "0 4 * * *"; // diario 4am hora de Chile, tráfico mínimo
-        settings.backups.cronMaxKeep = 7;
+        settings.backups.cronMaxKeep = 3; // R2 solo guarda los últimos 3; más respaldo local vive aparte (ver deploy.sh)
         settings.backups.s3.enabled = true;
         settings.backups.s3.endpoint = r2Endpoint;
         settings.backups.s3.bucket = $os.getenv("R2_BUCKET_NAME");
