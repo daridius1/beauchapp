@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-nati
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
-import { Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConoceBeauchef'>;
@@ -29,7 +29,8 @@ export const ConoceBeauchefScreen: React.FC<Props> = ({ navigation }) => {
     {
       id: 'Mascotas',
       title: 'Mascotas',
-      icon: 'heart',
+      icon: 'paw',
+      iconSet: 'font-awesome' as const,
       screen: 'Mascotas',
     },
     {
@@ -47,7 +48,8 @@ export const ConoceBeauchefScreen: React.FC<Props> = ({ navigation }) => {
     {
       id: 'Videojuegos',
       title: 'Videojuegos',
-      icon: 'cpu',
+      icon: 'gamepad',
+      iconSet: 'font-awesome' as const,
       screen: 'Videojuegos',
     },
     {
@@ -69,7 +71,11 @@ export const ConoceBeauchefScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => navigation.push(item.screen as any)}
           >
             <View style={styles.iconWrapper}>
-              <Feather name={item.icon as any} size={20} color={theme.colors.text} />
+              {item.iconSet === 'font-awesome' ? (
+                <FontAwesome name={item.icon as any} size={20} color={theme.colors.text} />
+              ) : (
+                <Feather name={item.icon as any} size={20} color={theme.colors.text} />
+              )}
             </View>
             <Text style={styles.itemTitle}>{item.title}</Text>
             <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
