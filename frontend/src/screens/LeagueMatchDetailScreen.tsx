@@ -8,6 +8,8 @@ import {
   StyleSheet,
   RefreshControl,
   DeviceEventEmitter,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -30,6 +32,8 @@ import { matchDisplayName } from '../components/leagues/TeamCrest';
 import { beaumarketService, BeaumarketMarket } from '../services/beaumarketService';
 import { EntityCommentBox } from '../components/EntityCommentBox';
 import { PostCard } from '../components/PostCard';
+import { leagueService } from '../services/leagueService';
+import { MatchStatement } from '../types/league';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueMatchDetail'>;
 
@@ -58,6 +62,11 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
   const [comments, setComments] = useState<any[]>([]);
   const [beaumarketMarket, setBeaumarketMarket] = useState<BeaumarketMarket | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [myStatement, setMyStatement] = useState<MatchStatement | null>(null);
+  const [showDeclareModal, setShowDeclareModal] = useState(false);
+  const [statementDraft, setStatementDraft] = useState('');
+  const [wantsMention, setWantsMention] = useState(false);
+  const [savingStatement, setSavingStatement] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -67,7 +76,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
         if (!hideLoading) setLoading(true);
 
         await withMinimumDelay(async () => {
-          const [matchRes, commentsRes] = await Promise.allSettled([
+          const [matchRes, commentsRes, statementRes] = await Promise.allSettled([
             pb.collection('league_matches').getOne(matchId, {
               expand: 'teamA,teamB,stage,league',
             }),
@@ -76,7 +85,10 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
               sort: '+created',
               expand: 'author',
             }),
+            user ? leagueService.getMyStatement(matchId, user.id) : Promise.resolve(null),
           ]);
+
+          setMyStatement(statementRes.status === 'fulfilled' ? statementRes.value : null);
 
           let matchRecord: any = null;
           if (matchRes.status === 'fulfilled') {
@@ -266,6 +278,28 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
     }
   };
 
+  const openDeclareModal = () => {
+    setStatementDraft(myStatement?.content || '');
+    setWantsMention(myStatement?.wantsMention || false);
+    setShowDeclareModal(true);
+  };
+
+  const handleSubmitStatement = async () => {
+    if (!user || !statementDraft.trim() || savingStatement) return;
+    setSavingStatement(true);
+    try {
+      const saved = await leagueService.submitStatement(matchId, user.id, statementDraft.trim(), wantsMention);
+      setMyStatement(saved);
+      setShowDeclareModal(false);
+      Toast.show({ type: 'success', text1: myStatement ? 'Declaración actualizada' : 'Declaración enviada' });
+    } catch (err) {
+      console.error('Error enviando declaración:', err);
+      Toast.show({ type: 'error', text1: 'Error al enviar la declaración' });
+    } finally {
+      setSavingStatement(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -374,6 +408,15 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
         </View>
       )}
 
+      {/* Declarar — privado, nunca se publica: solo lo usa el medio para escribir
+          noticias (ver /admin/noticias). Solo tiene sentido una vez jugado el partido. */}
+      {isPlayed && user && (
+        <TouchableOpacity style={styles.declareBtn} activeOpacity={0.8} onPress={openDeclareModal}>
+          <Feather name="mic" size={16} color={theme.colors.primary} />
+          <Text style={styles.declareBtnText}>{myStatement ? 'Editar tu declaración' : 'Declarar sobre este partido'}</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Sección de Comentarios al final */}
       <View style={styles.commentsSection}>
         <CommentsHeader count={comments.length} onQuote={handleShareMatchToFeed} />
@@ -410,6 +453,48 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
           ))
         )}
       </View>
+
+      <Modal visible={showDeclareModal} transparent animationType="fade" onRequestClose={() => setShowDeclareModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Declarar sobre este partido</Text>
+            <Text style={styles.modalHint}>
+              Es privado: solo la usa el medio de noticias para escribir sus artículos, no se publica tal cual.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              multiline
+              placeholder="¿Qué pasó en este partido?"
+              placeholderTextColor={theme.colors.textMuted}
+              value={statementDraft}
+              onChangeText={setStatementDraft}
+              maxLength={2000}
+            />
+            <TouchableOpacity style={styles.mentionRow} activeOpacity={0.75} onPress={() => setWantsMention((v) => !v)}>
+              <Feather name={wantsMention ? 'check-square' : 'square'} size={18} color={wantsMention ? theme.colors.primary : theme.colors.textMuted} />
+              <Text style={styles.mentionText}>
+                Quiero que, si se usa mi declaración, la noticia me pueda mencionar por mi nombre
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setShowDeclareModal(false)} disabled={savingStatement}>
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, (!statementDraft.trim() || savingStatement) && styles.modalSubmitBtnDisabled]}
+                onPress={handleSubmitStatement}
+                disabled={!statementDraft.trim() || savingStatement}
+              >
+                {savingStatement ? (
+                  <ActivityIndicator color="#000000" size="small" />
+                ) : (
+                  <Text style={styles.modalSubmitText}>{myStatement ? 'Actualizar' : 'Enviar'}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -486,5 +571,106 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'transparent',
     marginVertical: theme.spacing.sm,
+  },
+  declareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 6,
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  declareBtnText: {
+    color: theme.colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+  },
+  modalCard: {
+    backgroundColor: theme.colors.cardBg,
+    borderRadius: 8,
+    padding: 20,
+    width: '100%',
+    maxWidth: 480,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: theme.colors.text,
+    marginBottom: 6,
+  },
+  modalHint: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginBottom: 14,
+    lineHeight: 17,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 6,
+    padding: 12,
+    minHeight: 120,
+    color: theme.colors.text,
+    fontSize: 14,
+    textAlignVertical: 'top',
+  },
+  mentionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  mentionText: {
+    flex: 1,
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 14,
+  },
+  modalCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  modalCancelText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  modalSubmitBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    backgroundColor: theme.colors.primary,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSubmitBtnDisabled: {
+    opacity: 0.5,
+  },
+  modalSubmitText: {
+    color: '#000000',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

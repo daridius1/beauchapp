@@ -1,7 +1,7 @@
 import { pb } from './pocketbase';
 import { publicLeagueService } from './publicLeagueService';
 import { MatchEvent, MatchSummary, eventKey } from '../utils/matchEvents';
-import { LeagueMatch, LeagueStage, LeagueTeam, MatchReport } from '../types/league';
+import { LeagueMatch, LeagueStage, LeagueTeam, MatchReport, MatchStatement } from '../types/league';
 
 // Capa de acceso a las rutas y colecciones de ligas y arbitraje.
 //
@@ -95,6 +95,29 @@ export const leagueService = {
 
   async getReport(reportId: string): Promise<MatchReport> {
     return await pb.collection('match_reports').getOne<MatchReport>(reportId);
+  },
+
+  /** La declaración propia sobre un partido, o null si todavía no dejó ninguna.
+   *  Nunca es pública — solo la ve su autor y las cuentas medio (ver
+   *  create_match_statements.js). */
+  async getMyStatement(matchId: string, authorId: string): Promise<MatchStatement | null> {
+    try {
+      return await pb
+        .collection('match_statements')
+        .getFirstListItem<MatchStatement>(`match = "${matchId}" && author = "${authorId}"`);
+    } catch (err) {
+      return null;
+    }
+  },
+
+  /** Crea o actualiza (una por partido y por persona) la declaración propia.
+   *  `wantsMention`: si autoriza que la noticia la mencione por su nombre real. */
+  async submitStatement(matchId: string, authorId: string, content: string, wantsMention: boolean): Promise<MatchStatement> {
+    const existing = await this.getMyStatement(matchId, authorId);
+    if (existing) {
+      return await pb.collection('match_statements').update<MatchStatement>(existing.id, { content, wantsMention });
+    }
+    return await pb.collection('match_statements').create<MatchStatement>({ match: matchId, author: authorId, content, wantsMention });
   },
 
   /** Planteles de ambos equipos de un partido, funcione o no la sesión. */

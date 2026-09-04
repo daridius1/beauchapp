@@ -18,7 +18,7 @@ export interface OrgAccountRef {
   username?: string;
   avatar?: string;
   type?: 'student' | 'organization';
-  subtype?: 'center' | 'team' | 'community' | 'band' | 'organization' | 'league';
+  subtype?: 'center' | 'team' | 'community' | 'band' | 'organization' | 'league' | 'media';
   verified?: boolean;
 }
 
@@ -84,6 +84,27 @@ export interface LeagueMatch {
     teamB?: OrgAccountRef;
     stage?: LeagueStage;
     league?: OrgAccountRef;
+  };
+}
+
+/** Declaración privada de un jugador o espectador sobre un partido — nunca se
+ *  muestra públicamente, solo la usa el panel de /admin/noticias como materia prima
+ *  para escribir noticias (ver news.pb.js). Una por partido y por persona. */
+export interface MatchStatement {
+  id: string;
+  match: string;
+  author: string;
+  content: string;
+  /** Si autoriza que la noticia la mencione por su nombre real al citar o resumir esta
+   *  declaración puntual. No es "no anónimo": quien arma la noticia siempre puede ver
+   *  de quién es cada declaración (nunca es pública) — esto solo decide si esa persona
+   *  autoriza que su nombre aparezca en el texto publicado. */
+  wantsMention?: boolean;
+  deleted?: boolean;
+  created: string;
+  updated: string;
+  expand?: {
+    author?: OrgAccountRef;
   };
 }
 
