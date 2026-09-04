@@ -2,13 +2,15 @@
 
 // Hook para administración de árbol de posts (replyTo / root), citas polimórficas (quote), conteo de citas (quoteCount) y comentarios a objetos no-post (comment)
 
-// Distingue "el objetivo ya no existe" (se citó/comentó algo que después se borró) de un
-// error real: lo primero es esperable y no debe llenar el log de ruido en cada ocurrencia.
-function esTargetInexistente(err) {
-    return String(err).includes("no rows in result set");
-}
-
 onRecordCreateRequest((e) => {
+    // require() DENTRO del handler: esta VM no ve nada declarado a nivel de módulo de
+    // este archivo (ver la nota grande de mentions.pb.js sobre por qué). Este mismo
+    // require estaba faltando acá y usaba una función de módulo inalcanzable
+    // (`esTargetInexistente`) — cualquier comentario/cita sobre un target inexistente O
+    // sobre un targetType no mapeado (como "league_match", que caía al fallback "posts"
+    // y nunca encontraba el id) tiraba un ReferenceError real que abortaba la creación
+    // completa del post, no solo el conteo — no era un caso silencioso.
+    const { esTargetInexistente, targetCollectionOf } = require(`${__hooks}/lib/forum.js`);
     try {
         const actionType = e.record.getString("actionType");
         const replyTo = e.record.getString("replyTo");
@@ -39,7 +41,7 @@ onRecordCreateRequest((e) => {
             e.record.set("replyTo", "");
             e.record.set("root", "");
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : (targetType === "beaumarket" ? "beaumarkets" : (targetType === "beaudle" ? "beaudle_daily_stats" : (targetType === "pet" ? "pets" : (targetType === "song" ? "songs" : "posts")))))));
+                const collectionName = targetCollectionOf(targetType);
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const targetTags = targetRecord.get("tags") || [];
                 e.record.set("tags", targetTags);
@@ -56,7 +58,7 @@ onRecordCreateRequest((e) => {
         // Incrementar síncronamente antes de e.next() para evitar condiciones de carrera entre la respuesta API y las peticiones GET posteriores
         if (actionType === "quote" && targetId && targetType) {
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : (targetType === "beaumarket" ? "beaumarkets" : (targetType === "beaudle" ? "beaudle_daily_stats" : (targetType === "pet" ? "pets" : (targetType === "song" ? "songs" : "posts")))))));
+                const collectionName = targetCollectionOf(targetType);
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const currentQuotes = targetRecord.getInt("quoteCount") || 0;
                 targetRecord.set("quoteCount", currentQuotes + 1);
@@ -68,7 +70,7 @@ onRecordCreateRequest((e) => {
             }
         } else if (actionType === "comment" && targetId && targetType) {
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : (targetType === "beaumarket" ? "beaumarkets" : (targetType === "beaudle" ? "beaudle_daily_stats" : (targetType === "pet" ? "pets" : (targetType === "song" ? "songs" : "posts")))))));
+                const collectionName = targetCollectionOf(targetType);
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const currentCount = targetRecord.getInt("commentCount") || 0;
                 targetRecord.set("commentCount", currentCount + 1);
@@ -113,6 +115,7 @@ onRecordCreateRequest((e) => {
 
 // Decrementar commentCount y quoteCount al eliminar un registro síncronamente antes de borrar
 onRecordDeleteRequest((e) => {
+    const { esTargetInexistente, targetCollectionOf } = require(`${__hooks}/lib/forum.js`);
     try {
         const actionType = e.record.getString("actionType");
         const replyTo = e.record.getString("replyTo");
@@ -122,7 +125,7 @@ onRecordDeleteRequest((e) => {
         // Decrementar quoteCount si se elimina una cita
         if (actionType === "quote" && targetId && targetType) {
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : (targetType === "beaumarket" ? "beaumarkets" : (targetType === "beaudle" ? "beaudle_daily_stats" : (targetType === "pet" ? "pets" : (targetType === "song" ? "songs" : "posts")))))));
+                const collectionName = targetCollectionOf(targetType);
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const currentQuotes = targetRecord.getInt("quoteCount") || 0;
                 const newQuotes = Math.max(0, currentQuotes - 1);
@@ -135,7 +138,7 @@ onRecordDeleteRequest((e) => {
             }
         } else if (actionType === "comment" && targetId && targetType) {
             try {
-                const collectionName = targetType === "problem" ? "problems" : (targetType === "match" ? "ladder_matches" : (targetType === "activity" ? "activities" : (targetType === "course" ? "courses" : (targetType === "beaumarket" ? "beaumarkets" : (targetType === "beaudle" ? "beaudle_daily_stats" : (targetType === "pet" ? "pets" : (targetType === "song" ? "songs" : "posts")))))));
+                const collectionName = targetCollectionOf(targetType);
                 const targetRecord = $app.findRecordById(collectionName, targetId);
                 const currentCount = targetRecord.getInt("commentCount") || 0;
                 const newCount = Math.max(0, currentCount - 1);
