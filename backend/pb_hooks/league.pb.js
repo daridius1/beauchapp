@@ -1922,6 +1922,24 @@ ${API_CALL_FN}
                     });
                     actions.appendChild(btn);
 
+                    // Solo para partidos por jugar sin mercado todavía — uno agendado
+                    // antes de prender "Mercado automático" (o que nunca lo tuvo) no lo
+                    // recibe solo, así que esta es la única forma de sumárselo después.
+                    if (m.status === "confirmed" && !m.beaumarketMarket) {
+                        const marketBtn = document.createElement("button");
+                        marketBtn.className = "btn btn-sm btn-accept";
+                        marketBtn.textContent = "Activar mercado";
+                        marketBtn.addEventListener("click", async () => {
+                            if (!confirm("¿Activar el mercado de Beaumarket para " + m.teamAName + " vs " + m.teamBName + "?")) return;
+                            marketBtn.disabled = true;
+                            try {
+                                await apiCall("/api/liga/matches/enable-beaumarket", "POST", { matchId: m.id });
+                                loadStageMatches();
+                            } catch (err) { showError(currentError(), err.message); marketBtn.disabled = false; }
+                        });
+                        actions.appendChild(marketBtn);
+                    }
+
                     const editBtn = document.createElement("button");
                     editBtn.className = "btn btn-sm btn-secondary";
                     editBtn.textContent = "Editar";
@@ -3269,6 +3287,7 @@ routerAdd("GET", "/api/liga/matches", (e) => {
                     refereeTeams,
                     refereeTeamNames: refereeTeams.map(teamDisplay),
                     reportStatus: reportStatusFor(m.id),
+                    beaumarketMarket: m.getString("beaumarketMarket") || null,
                 };
             }),
         });
@@ -3359,6 +3378,76 @@ routerAdd("POST", "/api/liga/matches/reactivate", (e) => {
     } catch (err) {
         console.error("[league.pb.js] Error en POST /api/liga/matches/reactivate:", err);
         return e.json(400, { error: (err && err.message) || "No se pudo reactivar el partido." });
+    }
+}, $apis.requireAuth("users"));
+
+// Activar el mercado de Beaumarket a mano para UN partido puntual ya agendado — para
+// cuando la liga agendó ese partido con el interruptor automático (beaumarketAutoEnabled,
+// ver POST /api/liga/beaumarket-auto) apagado, o lo prendió recién y quiere que también
+// alcance a partidos que ya estaban en el calendario. Ese interruptor solo afecta
+// partidos que se agenden de ahí en adelante (ver POST /api/liga/matches/accept) — esta
+// ruta es la única forma de sumarle mercado a uno que ya existe, y es independiente del
+// interruptor: no lo lee ni lo toca.
+routerAdd("POST", "/api/liga/matches/enable-beaumarket", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        const { bettingCloseTimeFromBlock, isBettingClosed } = require(`${__hooks}/lib/polla.js`);
+
+        const body = e.requestInfo().body || {};
+        const matchId = String(body.matchId || "");
+        if (!matchId) throw new BadRequestError("Falta matchId.");
+
+        let match;
+        try {
+            match = $app.findRecordById("league_matches", matchId);
+        } catch (err) {
+            throw new BadRequestError("El partido indicado no existe.");
+        }
+        if (match.getString("league") !== e.auth.id) {
+            throw new BadRequestError("Ese partido no pertenece a tu liga.");
+        }
+        if (match.getString("status") !== "confirmed") {
+            throw new BadRequestError("Solo se puede activar el mercado de un partido agendado que todavía no se juega.");
+        }
+        if (match.getString("beaumarketMarket")) {
+            throw new BadRequestError("Este partido ya tiene un mercado de Beaumarket.");
+        }
+
+        // Mismo cierre que uno automático: 10 minutos antes del bloque. Si ya falta
+        // menos que eso (o el partido ya arrancó/pasó), no tiene sentido abrir un
+        // mercado que nace cerrado — se rechaza en vez de crear algo inútil.
+        const closesAt = bettingCloseTimeFromBlock(match.getString("blockCode"));
+        if (!closesAt || isBettingClosed(closesAt, Date.now())) {
+            throw new BadRequestError("Ya no queda tiempo suficiente antes del partido para abrir un mercado (cierra 10 minutos antes del horario agendado).");
+        }
+
+        const teamA = match.getString("teamA");
+        const teamB = match.getString("teamB");
+        const nameOf = (id) => {
+            try {
+                const t = $app.findRecordById("users", id);
+                return t.getString("name") || t.getString("username") || id;
+            } catch (err) { return id; }
+        };
+        const teamAName = nameOf(teamA);
+        const teamBName = nameOf(teamB);
+        const market = new Record($app.findCollectionByNameOrId("beaumarkets"));
+        market.set("title", teamAName + " vs " + teamBName);
+        market.set("outcomes", JSON.stringify(["Gana " + teamAName, "Empate", "Gana " + teamBName]));
+        market.set("status", "open");
+        market.set("closesAt", closesAt);
+        market.set("pool", JSON.stringify([0, 0, 0]));
+        $app.save(market);
+
+        match.set("beaumarketMarket", market.id);
+        $app.save(match);
+
+        return e.json(200, { success: true, marketId: market.id });
+    } catch (err) {
+        console.error("[league.pb.js] Error en POST /api/liga/matches/enable-beaumarket:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo activar el mercado." });
     }
 }, $apis.requireAuth("users"));
 
