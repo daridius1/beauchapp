@@ -55,6 +55,34 @@ onRecordCreateRequest((e) => {
         }
     }
 
+    // "Cuerpo técnico" admite cualquier cantidad de personas (role='coach'), pero
+    // DENTRO de eso solo una puede ser el DT — ídem "capitán" sobre jugadores. Un bool
+    // no puede expresar "único por equipo" solo, así que al marcar uno se desmarca a
+    // cualquier otro del mismo equipo que lo tuviera. Todo inline en el mismo handler
+    // (nunca factorizado en una función aparte) — ver la nota grande de arriba sobre
+    // por qué una función compartida que hace más de un $app.* revienta acá.
+    const role = e.record.getString("role");
+    if (e.record.getBool("isDT") && role !== "coach") {
+        throw new BadRequestError("Solo alguien del cuerpo técnico puede ser el DT.");
+    }
+    if (e.record.getBool("isCaptain") && role !== "player") {
+        throw new BadRequestError("Solo un jugador puede ser el capitán.");
+    }
+    if (e.record.getBool("isDT")) {
+        try {
+            $app.findRecordsByFilter(
+                "team_players", "team = {:team} && isDT = true && id != {:id} && deleted = false", "", 0, 0, { team: teamId, id: e.record.id }
+            ).forEach((other) => { other.set("isDT", false); $app.save(other); });
+        } catch (err) {}
+    }
+    if (e.record.getBool("isCaptain")) {
+        try {
+            $app.findRecordsByFilter(
+                "team_players", "team = {:team} && isCaptain = true && id != {:id} && deleted = false", "", 0, 0, { team: teamId, id: e.record.id }
+            ).forEach((other) => { other.set("isCaptain", false); $app.save(other); });
+        } catch (err) {}
+    }
+
     return e.next();
 }, "team_players");
 
@@ -90,6 +118,28 @@ onRecordUpdateRequest((e) => {
         if (!isActiveMember) {
             throw new BadRequestError("Solo se puede vincular a un integrante activo de la organización.");
         }
+    }
+
+    const role = e.record.getString("role");
+    if (e.record.getBool("isDT") && role !== "coach") {
+        throw new BadRequestError("Solo alguien del cuerpo técnico puede ser el DT.");
+    }
+    if (e.record.getBool("isCaptain") && role !== "player") {
+        throw new BadRequestError("Solo un jugador puede ser el capitán.");
+    }
+    if (e.record.getBool("isDT")) {
+        try {
+            $app.findRecordsByFilter(
+                "team_players", "team = {:team} && isDT = true && id != {:id} && deleted = false", "", 0, 0, { team: teamId, id: e.record.id }
+            ).forEach((other) => { other.set("isDT", false); $app.save(other); });
+        } catch (err) {}
+    }
+    if (e.record.getBool("isCaptain")) {
+        try {
+            $app.findRecordsByFilter(
+                "team_players", "team = {:team} && isCaptain = true && id != {:id} && deleted = false", "", 0, 0, { team: teamId, id: e.record.id }
+            ).forEach((other) => { other.set("isCaptain", false); $app.save(other); });
+        } catch (err) {}
     }
 
     return e.next();

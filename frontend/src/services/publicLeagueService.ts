@@ -29,7 +29,8 @@ export interface PublicLeagueData {
 export interface PublicTeamData {
   team: OrgAccountRef;
   bio?: string;
-  players: { id: string; collectionId: string; name: string; photo?: string }[];
+  players: { id: string; collectionId: string; name: string; photo?: string; goals: number; isCaptain: boolean }[];
+  coaches: { id: string; collectionId: string; name: string; photo?: string; isDT: boolean }[];
   matches: LeagueMatch[];
 }
 

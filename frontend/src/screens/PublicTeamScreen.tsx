@@ -68,8 +68,27 @@ export const PublicTeamScreen: React.FC<Props> = ({ route, navigation }) => {
               <View key={p.id} style={[styles.playerRow, idx === data.players.length - 1 && styles.playerRowLast]}>
                 <PlayerAvatar player={p} size={32} />
                 <Text style={styles.playerName}>{p.name}</Text>
+                {p.isCaptain && (
+                  <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>C</Text></View>
+                )}
+                {p.goals > 0 && <Text style={styles.playerGoals}>{p.goals} {p.goals === 1 ? 'gol' : 'goles'}</Text>}
               </View>
             ))
+          )}
+
+          {data.coaches.length > 0 && (
+            <>
+              <SectionHeading title="Cuerpo técnico" marginTop={18} />
+              {data.coaches.map((c, idx) => (
+                <View key={c.id} style={[styles.playerRow, idx === data.coaches.length - 1 && styles.playerRowLast]}>
+                  <PlayerAvatar player={c} size={32} />
+                  <Text style={styles.playerName}>{c.name}</Text>
+                  {c.isDT && (
+                    <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>DT</Text></View>
+                  )}
+                </View>
+              ))}
+            </>
           )}
 
           <SectionHeading title="Partidos" marginTop={18} />
@@ -93,6 +112,9 @@ const styles = StyleSheet.create({
   playerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: '#161616' },
   playerRowLast: { borderBottomWidth: 0 },
   playerName: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: '600', color: '#ffffff' },
+  playerGoals: { fontSize: 12, color: theme.colors.textMuted, fontWeight: '600' },
+  roleBadge: { backgroundColor: theme.colors.primary, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
+  roleBadgeText: { color: '#000000', fontSize: 10, fontWeight: '800' },
   empty: { padding: theme.spacing.lg, alignItems: 'center' },
   emptyText: { color: theme.colors.textMuted, fontSize: 13, textAlign: 'center' },
 });

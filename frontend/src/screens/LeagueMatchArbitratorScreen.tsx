@@ -246,12 +246,13 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
           setRosterA(publicRosters.rosterA as TeamPlayerRecord[]);
           setRosterB(publicRosters.rosterB as TeamPlayerRecord[]);
         } else {
+          // Solo jugadores son convocables — un DT no se marca gol/tarjeta/penal.
           const [rosterARes, rosterBRes] = await Promise.all([
             teamPlayersService.listTeamPlayers(record.teamA),
             teamPlayersService.listTeamPlayers(record.teamB),
           ]);
-          setRosterA(rosterARes);
-          setRosterB(rosterBRes);
+          setRosterA(rosterARes.filter((p) => p.role !== 'coach'));
+          setRosterB(rosterBRes.filter((p) => p.role !== 'coach'));
         }
 
         if (record.status !== 'confirmed' && record.status !== 'played') {

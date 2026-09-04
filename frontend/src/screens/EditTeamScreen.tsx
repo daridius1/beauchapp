@@ -19,7 +19,7 @@ import Toast from 'react-native-toast-message';
 import { theme } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { pb, getFileUrl } from '../services/pocketbase';
-import { teamPlayersService, TeamPlayerRecord } from '../services/teamPlayersService';
+import { teamPlayersService, TeamPlayerRecord, TeamPlayerRole } from '../services/teamPlayersService';
 import { TeamCrest, matchDisplayName } from '../components/leagues/TeamCrest';
 import { ImagePicker } from '../components/ImagePicker';
 import { ContentActionsMenu } from '../components/ContentActionsMenu';
@@ -55,15 +55,19 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
   // cuando lo único que hace falta para convocar a alguien es su nombre).
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createName, setCreateName] = useState('');
+  const [createRole, setCreateRole] = useState<TeamPlayerRole>('player');
   const [creatingPlayer, setCreatingPlayer] = useState(false);
 
-  // Editar jugador — acá sí se puede tocar todo (nombre, foto, cuenta vinculada).
+  // Editar jugador — acá sí se puede tocar todo (nombre, foto, rol, cuenta vinculada).
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<TeamPlayerRecord | null>(null);
   const [formName, setFormName] = useState('');
   const [formPhoto, setFormPhoto] = useState<File | null>(null);
   const [formPhotoPreview, setFormPhotoPreview] = useState<string | null>(null);
   const [formUserId, setFormUserId] = useState<string | null>(null);
+  const [formRole, setFormRole] = useState<TeamPlayerRole>('player');
+  const [formIsDT, setFormIsDT] = useState(false);
+  const [formIsCaptain, setFormIsCaptain] = useState(false);
   const [savingPlayer, setSavingPlayer] = useState(false);
   const [showMemberSelector, setShowMemberSelector] = useState(false);
 
@@ -123,8 +127,9 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
     setFormPhotoPreview(file ? URL.createObjectURL(file) : null);
   };
 
-  const openCreatePlayer = () => {
+  const openCreatePlayer = (role: TeamPlayerRole = 'player') => {
     setCreateName('');
+    setCreateRole(role);
     setShowCreateModal(true);
   };
   const closeCreateModal = () => {
@@ -134,12 +139,12 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
     if (!user || !createName.trim()) return;
     setCreatingPlayer(true);
     try {
-      await teamPlayersService.createTeamPlayer(user.id, { name: createName });
+      await teamPlayersService.createTeamPlayer(user.id, { name: createName, role: createRole });
       setShowCreateModal(false);
       await loadRoster();
-      Toast.show({ type: 'success', text1: 'Jugador agregado' });
+      Toast.show({ type: 'success', text1: createRole === 'coach' ? 'Agregado al cuerpo técnico' : 'Jugador agregado' });
     } catch (err: any) {
-      Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'No se pudo agregar al jugador.' });
+      Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'No se pudo agregar.' });
     } finally {
       setCreatingPlayer(false);
     }
@@ -151,6 +156,9 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
     setFormPhoto(null);
     setFormPhotoPreview(null);
     setFormUserId(p.user || null);
+    setFormRole(p.role || 'player');
+    setFormIsDT(!!p.isDT);
+    setFormIsCaptain(!!p.isCaptain);
     setShowEditModal(true);
   };
   const closeEditModal = () => {
@@ -166,12 +174,15 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
         name: formName,
         photo: formPhoto,
         userId: formUserId,
+        role: formRole,
+        isDT: formIsDT,
+        isCaptain: formIsCaptain,
       });
-      Toast.show({ type: 'success', text1: 'Jugador actualizado' });
+      Toast.show({ type: 'success', text1: 'Actualizado' });
       closeEditModal();
       await loadRoster();
     } catch (err: any) {
-      Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'No se pudo guardar el jugador.' });
+      Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'No se pudo guardar.' });
     } finally {
       setSavingPlayer(false);
     }
@@ -204,6 +215,8 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
       : linkableMembers;
   const selectedMember = memberOptions.find((m) => m.id === formUserId) || null;
   const hasAnyPhoto = !!(formPhotoPreview || editingPlayer?.photo);
+  const rosterPlayers = players.filter((p) => p.role !== 'coach');
+  const rosterCoaches = players.filter((p) => p.role === 'coach');
 
   if (!user) return null;
 
@@ -239,10 +252,12 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Roster */}
+      {/* Roster — jugadores y cuerpo técnico son la misma colección (team_players),
+          distinguidos por `role`; se agregan y se vinculan a una cuenta exactamente
+          igual, solo cambia el rol con el que se crean. */}
       <View style={styles.rosterHeaderRow}>
         <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Jugadores</Text>
-        <TouchableOpacity style={styles.addPlayerBtn} onPress={openCreatePlayer}>
+        <TouchableOpacity style={styles.addPlayerBtn} onPress={() => openCreatePlayer('player')}>
           <Feather name="plus" size={14} color="#000000" style={{ marginRight: 4 }} />
           <Text style={styles.addPlayerBtnText}>Agregar jugador</Text>
         </TouchableOpacity>
@@ -250,14 +265,21 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
 
       {loadingPlayers ? (
         <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 16 }} />
-      ) : players.length === 0 ? (
+      ) : rosterPlayers.length === 0 ? (
         <Text style={styles.emptyText}>Todavía no agregaste jugadores.</Text>
       ) : (
-        players.map((p) => (
+        rosterPlayers.map((p) => (
           <View key={p.id} style={styles.playerRow}>
             <PlayerAvatar player={{ id: p.id, collectionId: 'team_players', photo: p.photo }} size={36} />
             <View style={styles.playerInfo}>
-              <Text style={styles.playerName}>{p.name}</Text>
+              <View style={styles.playerNameRow}>
+                <Text style={styles.playerName}>{p.name}</Text>
+                {!!p.isCaptain && (
+                  <View style={styles.roleBadge}>
+                    <Text style={styles.roleBadgeText}>C</Text>
+                  </View>
+                )}
+              </View>
               {!!p.expand?.user && (
                 <Text style={styles.playerLinked}>Vinculado a @{p.expand.user.username}</Text>
               )}
@@ -269,6 +291,47 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
                 actions={[
                   { key: 'edit', icon: 'edit-2', label: 'Editar jugador', onPress: () => openEditPlayer(p) },
                   { key: 'delete', icon: 'trash-2', label: 'Eliminar jugador', destructive: true, onPress: () => setConfirmDeletePlayer(p) },
+                ]}
+              />
+            )}
+          </View>
+        ))
+      )}
+
+      <View style={styles.rosterHeaderRow}>
+        <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Cuerpo técnico</Text>
+        <TouchableOpacity style={styles.addPlayerBtn} onPress={() => openCreatePlayer('coach')}>
+          <Feather name="plus" size={14} color="#000000" style={{ marginRight: 4 }} />
+          <Text style={styles.addPlayerBtnText}>Agregar</Text>
+        </TouchableOpacity>
+      </View>
+
+      {loadingPlayers ? null : rosterCoaches.length === 0 ? (
+        <Text style={styles.emptyText}>Todavía no agregaste a nadie del cuerpo técnico.</Text>
+      ) : (
+        rosterCoaches.map((p) => (
+          <View key={p.id} style={styles.playerRow}>
+            <PlayerAvatar player={{ id: p.id, collectionId: 'team_players', photo: p.photo }} size={36} />
+            <View style={styles.playerInfo}>
+              <View style={styles.playerNameRow}>
+                <Text style={styles.playerName}>{p.name}</Text>
+                {!!p.isDT && (
+                  <View style={styles.roleBadge}>
+                    <Text style={styles.roleBadgeText}>DT</Text>
+                  </View>
+                )}
+              </View>
+              {!!p.expand?.user && (
+                <Text style={styles.playerLinked}>Vinculado a @{p.expand.user.username}</Text>
+              )}
+            </View>
+            {deletingId === p.id ? (
+              <ActivityIndicator size="small" color={theme.colors.danger} style={{ padding: 8 }} />
+            ) : (
+              <ContentActionsMenu
+                actions={[
+                  { key: 'edit', icon: 'edit-2', label: 'Editar', onPress: () => openEditPlayer(p) },
+                  { key: 'delete', icon: 'trash-2', label: 'Eliminar', destructive: true, onPress: () => setConfirmDeletePlayer(p) },
                 ]}
               />
             )}
@@ -328,14 +391,14 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
       <Modal visible={showCreateModal} transparent animationType="fade" onRequestClose={closeCreateModal}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Agregar jugador</Text>
+            <Text style={styles.modalTitle}>{createRole === 'coach' ? 'Agregar al cuerpo técnico' : 'Agregar jugador'}</Text>
 
             <Text style={[styles.inputLabel, { marginTop: theme.spacing.sm }]}>Nombre</Text>
             <TextInput
               style={styles.input}
               value={createName}
               onChangeText={setCreateName}
-              placeholder="Nombre del jugador..."
+              placeholder={createRole === 'coach' ? 'Nombre...' : 'Nombre del jugador...'}
               placeholderTextColor={theme.colors.textMuted}
               maxLength={60}
               autoFocus
@@ -365,17 +428,48 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
       <Modal visible={showEditModal} transparent animationType="fade" onRequestClose={closeEditModal}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Editar jugador</Text>
+            <Text style={styles.modalTitle}>{formRole === 'coach' ? 'Editar DT' : 'Editar jugador'}</Text>
 
             <Text style={[styles.inputLabel, { marginTop: theme.spacing.sm }]}>Nombre</Text>
             <TextInput
               style={styles.input}
               value={formName}
               onChangeText={setFormName}
-              placeholder="Nombre del jugador..."
+              placeholder="Nombre..."
               placeholderTextColor={theme.colors.textMuted}
               maxLength={60}
             />
+
+            <Text style={[styles.inputLabel, { marginTop: theme.spacing.sm }]}>Rol</Text>
+            <View style={styles.roleToggleRow}>
+              <TouchableOpacity
+                style={[styles.roleToggleBtn, formRole === 'player' && styles.roleToggleBtnActive]}
+                onPress={() => { setFormRole('player'); setFormIsDT(false); }}
+              >
+                <Text style={[styles.roleToggleText, formRole === 'player' && styles.roleToggleTextActive]}>Jugador</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.roleToggleBtn, formRole === 'coach' && styles.roleToggleBtnActive]}
+                onPress={() => { setFormRole('coach'); setFormIsCaptain(false); }}
+              >
+                <Text style={[styles.roleToggleText, formRole === 'coach' && styles.roleToggleTextActive]}>Cuerpo técnico</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Un solo capitán / un solo DT por equipo — marcar acá desmarca
+                automáticamente a quien lo tuviera antes (lo hace el servidor). */}
+            {formRole === 'player' && (
+              <TouchableOpacity style={styles.checkboxRow} onPress={() => setFormIsCaptain((v) => !v)}>
+                <Feather name={formIsCaptain ? 'check-square' : 'square'} size={18} color={formIsCaptain ? theme.colors.primary : theme.colors.textMuted} />
+                <Text style={styles.checkboxLabel}>Es el capitán del equipo</Text>
+              </TouchableOpacity>
+            )}
+            {formRole === 'coach' && (
+              <TouchableOpacity style={styles.checkboxRow} onPress={() => setFormIsDT((v) => !v)}>
+                <Feather name={formIsDT ? 'check-square' : 'square'} size={18} color={formIsDT ? theme.colors.primary : theme.colors.textMuted} />
+                <Text style={styles.checkboxLabel}>Es el DT del equipo</Text>
+              </TouchableOpacity>
+            )}
 
             <Text style={[styles.inputLabel, { marginTop: theme.spacing.sm }]}>Foto (opcional)</Text>
             <Text style={styles.photoStandardText}>
@@ -605,6 +699,58 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 11,
     marginTop: 1,
+  },
+  roleToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  roleToggleBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  roleToggleBtnActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  roleToggleText: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  roleToggleTextActive: {
+    color: '#000000',
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: theme.spacing.sm,
+  },
+  checkboxLabel: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  roleBadge: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  roleBadgeText: {
+    color: '#000000',
+    fontSize: 10,
+    fontWeight: '800',
   },
   btn: {
     paddingVertical: 10,

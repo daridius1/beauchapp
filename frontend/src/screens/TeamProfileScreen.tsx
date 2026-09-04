@@ -27,6 +27,7 @@ import { TeamCrest, matchDisplayName } from '../components/leagues/TeamCrest';
 import { LeagueMatchRowData } from '../components/leagues/LeagueMatchRow';
 import { PagedMatchList } from '../components/leagues/PagedMatchList';
 import { teamPlayersService, TeamPlayerRecord } from '../services/teamPlayersService';
+import { computeTopScorers } from '../utils/matchEvents';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TeamProfile'>;
 
@@ -38,6 +39,7 @@ export const TeamProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [teamUser, setTeamUser] = useState<any>(null);
   const [players, setPlayers] = useState<TeamPlayerRecord[]>([]);
+  const [goalsByPlayerId, setGoalsByPlayerId] = useState<Record<string, number>>({});
   const [matches, setMatches] = useState<LeagueMatchRowData[]>([]);
   const [comments, setComments] = useState<any[]>([]);
 
@@ -46,7 +48,7 @@ export const TeamProfileScreen: React.FC<Props> = ({ route, navigation }) => {
       try {
         if (!isPullRefresh) setLoading(true);
 
-        const [userRes, playersRes, matchesRes, commentsRes] = await Promise.all([
+        const [userRes, playersRes, matchesRes, commentsRes, reportsRes] = await Promise.all([
           pb.collection('users').getOne(teamId).catch(() => null),
           teamPlayersService.listTeamPlayers(teamId),
           pb.collection('league_matches').getList(1, 50, {
@@ -59,12 +61,28 @@ export const TeamProfileScreen: React.FC<Props> = ({ route, navigation }) => {
             sort: '+created',
             expand: 'author',
           }).catch(() => ({ items: [] })),
+          // Goles por jugador — nunca guardados, se derivan de los informes aprobados de
+          // los propios partidos del equipo (mismo cálculo que la tabla de goleadores de
+          // una liga, ver utils/matchEvents.ts), acotado a este equipo.
+          pb.collection('match_reports').getList(1, 200, {
+            filter: `(match.teamA = "${teamId}" || match.teamB = "${teamId}") && match.deleted = false && deleted = false && status = "approved"`,
+            expand: 'match',
+          }).catch(() => ({ items: [] })),
         ]);
 
         setTeamUser(userRes);
         setPlayers(playersRes);
         setMatches(matchesRes.items as LeagueMatchRowData[]);
         setComments(commentsRes.items);
+
+        const matchEntries = (reportsRes.items as any[]).map((r) => ({
+          events: r.events,
+          teamAId: r.expand?.match?.teamA,
+          teamBId: r.expand?.match?.teamB,
+        }));
+        const goals: Record<string, number> = {};
+        computeTopScorers(matchEntries).forEach((s) => { if (s.playerId) goals[s.playerId] = s.goals; });
+        setGoalsByPlayerId(goals);
       } catch (err) {
         console.error('Error cargando el perfil del equipo:', err);
       } finally {
@@ -99,6 +117,8 @@ export const TeamProfileScreen: React.FC<Props> = ({ route, navigation }) => {
   }, [fetchData]);
 
   const teamName = matchDisplayName(teamUser, 'Equipo');
+  const rosterPlayers = players.filter((p) => p.role !== 'coach');
+  const rosterCoaches = players.filter((p) => p.role === 'coach');
 
   // Citar equipo al feed
   const handleShareTeamToFeed = () => {
@@ -214,29 +234,61 @@ export const TeamProfileScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* Sección de Jugadores */}
       <View style={styles.section}>
         <SectionHeading title="Jugadores" />
-        {players.length === 0 ? (
+        {rosterPlayers.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Este equipo todavía no tiene jugadores en su plantel.</Text>
           </View>
         ) : (
-          players.map((player, idx) => {
+          rosterPlayers.map((player, idx) => {
             const linkedUserId = player.user;
+            const goals = goalsByPlayerId[player.id] || 0;
             return (
               <TouchableOpacity
                 key={player.id}
-                style={[styles.playerRow, idx === players.length - 1 && styles.playerRowLast]}
+                style={[styles.playerRow, idx === rosterPlayers.length - 1 && styles.playerRowLast]}
                 activeOpacity={linkedUserId ? 0.7 : 1}
                 disabled={!linkedUserId}
                 onPress={() => linkedUserId && navigation.push('UserProfile', { userId: linkedUserId })}
               >
                 <PlayerAvatar player={player} size={32} />
                 <Text style={styles.playerName}>{player.name}</Text>
+                {!!player.isCaptain && (
+                  <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>C</Text></View>
+                )}
+                {goals > 0 && <Text style={styles.playerGoals}>{goals} {goals === 1 ? 'gol' : 'goles'}</Text>}
                 {!!linkedUserId && <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />}
               </TouchableOpacity>
             );
           })
         )}
       </View>
+
+      {/* Sección de Cuerpo técnico — solo si el equipo cargó a alguien (admite cualquier
+          cantidad de personas; a lo más una puede tener la insignia "DT") */}
+      {rosterCoaches.length > 0 && (
+        <View style={styles.section}>
+          <SectionHeading title="Cuerpo técnico" />
+          {rosterCoaches.map((coach, idx) => {
+            const linkedUserId = coach.user;
+            return (
+              <TouchableOpacity
+                key={coach.id}
+                style={[styles.playerRow, idx === rosterCoaches.length - 1 && styles.playerRowLast]}
+                activeOpacity={linkedUserId ? 0.7 : 1}
+                disabled={!linkedUserId}
+                onPress={() => linkedUserId && navigation.push('UserProfile', { userId: linkedUserId })}
+              >
+                <PlayerAvatar player={coach} size={32} />
+                <Text style={styles.playerName}>{coach.name}</Text>
+                {!!coach.isDT && (
+                  <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>DT</Text></View>
+                )}
+                {!!linkedUserId && <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       {/* Sección de Partidos */}
       <View style={styles.section}>
@@ -361,6 +413,22 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  playerGoals: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  roleBadge: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  roleBadgeText: {
+    color: '#000000',
+    fontSize: 10,
+    fontWeight: '800',
   },
 
   // Sección de Comentarios

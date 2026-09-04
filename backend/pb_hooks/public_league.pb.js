@@ -173,10 +173,11 @@ routerAdd("GET", "/api/public/match", (e) => {
         // arma la URL de R2 con este campo, y el nombre de la colección no sirve para
         // eso (mismo bug que tenía publicAccount con "users" vs "_pb_users_auth_").
         const teamPlayersCollectionId = $app.findCollectionByNameOrId("team_players").id;
+        // Solo jugadores son convocables — un DT no se marca gol/tarjeta/penal.
         function rosterOf(teamId) {
             if (!teamId) return [];
             return $app
-                .findRecordsByFilter("team_players", "team = {:t} && deleted = false", "name", 100, 0, { t: teamId })
+                .findRecordsByFilter("team_players", "team = {:t} && deleted = false && role = 'player'", "name", 100, 0, { t: teamId })
                 .map((p) => ({ id: p.id, collectionId: teamPlayersCollectionId, name: p.getString("name"), photo: p.getString("photo") }));
         }
 
@@ -269,9 +270,11 @@ routerAdd("GET", "/api/public/team", (e) => {
             throw new BadRequestError("Esa cuenta no es un equipo.");
         }
 
-        const players = $app.findRecordsByFilter(
+        const teamPlayerRecords = $app.findRecordsByFilter(
             "team_players", "team = {:t} && deleted = false", "name", 200, 0, { t: teamId }
         );
+        const playerRecords = teamPlayerRecords.filter((p) => p.getString("role") !== "coach");
+        const coachRecords = teamPlayerRecords.filter((p) => p.getString("role") === "coach");
         const matches = $app.findRecordsByFilter(
             "league_matches",
             "(teamA = {:t} || teamB = {:t}) && deleted = false",
@@ -286,14 +289,48 @@ routerAdd("GET", "/api/public/team", (e) => {
         // en GET /api/public/match).
         const teamPlayersCollectionId = $app.findCollectionByNameOrId("team_players").id;
 
+        // Goles por jugador — nunca guardados, siempre derivados de las bitácoras de los
+        // informes aprobados de ESTE equipo (mismo criterio que la tabla de goleadores
+        // de una liga, ver news.pb.js/lib/matchEvents.js), acotado a sus propios partidos.
+        let goalsByPlayerId = {};
+        try {
+            const { computeTopScorers } = require(`${__hooks}/lib/matchEvents.js`);
+            const reports = $app.findRecordsByFilter(
+                "match_reports",
+                "(match.teamA = {:t} || match.teamB = {:t}) && match.deleted = false && deleted = false && status = 'approved'",
+                "", 0, 0, { t: teamId }
+            );
+            const matchEntries = reports.map((r) => {
+                let entryTeamA = "", entryTeamB = "";
+                try {
+                    const relatedMatch = $app.findRecordById("league_matches", r.getString("match"));
+                    entryTeamA = relatedMatch.getString("teamA");
+                    entryTeamB = relatedMatch.getString("teamB");
+                } catch (err) {}
+                return { events: JSON.parse(r.getString("events") || "[]"), teamAId: entryTeamA, teamBId: entryTeamB };
+            });
+            computeTopScorers(matchEntries).forEach((s) => { if (s.playerId) goalsByPlayerId[s.playerId] = s.goals; });
+        } catch (err) {
+            console.error("[public_league.pb.js] Error calculando goles del equipo:", err);
+        }
+
         return e.json(200, {
             team: publicAccount(team),
             bio: team.getString("bio"),
-            players: players.map((p) => ({
+            players: playerRecords.map((p) => ({
                 id: p.id,
                 collectionId: teamPlayersCollectionId,
                 name: p.getString("name"),
                 photo: p.getString("photo"),
+                goals: goalsByPlayerId[p.id] || 0,
+                isCaptain: p.getBool("isCaptain"),
+            })),
+            coaches: coachRecords.map((p) => ({
+                id: p.id,
+                collectionId: teamPlayersCollectionId,
+                name: p.getString("name"),
+                photo: p.getString("photo"),
+                isDT: p.getBool("isDT"),
             })),
             matches: matches.map((m) => publicMatch(m, teamById)),
         });
