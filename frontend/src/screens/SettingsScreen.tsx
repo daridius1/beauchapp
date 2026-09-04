@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { pb } from '../services/pocketbase';
 import { theme } from '../theme/theme';
@@ -8,6 +8,7 @@ import { Feather } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 
 import { organizationService, OrganizationMemberRecord } from '../services/organizationService';
+import { accountService } from '../services/accountService';
 import { User } from '../context/AuthContext';
 import { UserSelectorModal } from '../components/UserSelectorModal';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -16,7 +17,12 @@ import { RootStackParamList } from '../types/navigation';
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
 export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
-  const { user, developerMode, setDeveloperMode } = useAuth();
+  const { user, developerMode, setDeveloperMode, logout } = useAuth();
+
+  // Eliminar cuenta
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Gestión de Integrantes para Organizaciones
   const [isManagingMembers, setIsManagingMembers] = useState(false);
@@ -44,6 +50,30 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
       console.error('Error cargando integrantes:', err);
     } finally {
       setLoadingMembers(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) return;
+    setDeletingAccount(true);
+    try {
+      await accountService.deleteAccount(deletePassword);
+      setShowDeleteModal(false);
+      setDeletePassword('');
+      Toast.show({
+        type: 'success',
+        text1: 'Cuenta eliminada',
+        text2: 'Tu cuenta y tus datos personales fueron eliminados.',
+      });
+      logout();
+    } catch (err: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'No se pudo eliminar la cuenta',
+        text2: err?.data?.error || err?.message || 'Intenta de nuevo.',
+      });
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -373,6 +403,77 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
           />
         </TouchableOpacity>
       </View>
+
+      {/* Zona de Peligro */}
+      <Text style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>Zona de Peligro</Text>
+
+      <View style={styles.optionCard}>
+        <TouchableOpacity
+          style={styles.optionHeader}
+          onPress={() => setShowDeleteModal(true)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.optionTitleRow}>
+            <Feather name="trash-2" size={20} color={theme.colors.error} style={styles.optionIcon} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.optionTitle, { color: theme.colors.error }]}>Eliminar Cuenta</Text>
+            </View>
+          </View>
+          <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
+        </TouchableOpacity>
+      </View>
+
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>¿Eliminar tu cuenta?</Text>
+            <Text style={styles.modalText}>
+              Esta acción es permanente. Se borran tu nombre, correo, foto, redes sociales y
+              cualquier otro dato que te identifique. El contenido que hayas publicado (posts,
+              partidos, apuestas) queda, pero atribuido a "Cuenta eliminada". Si quieres volver a
+              registrarte con este correo, tendrás que esperar 7 días.
+            </Text>
+            <Text style={styles.modalLabel}>Ingresa tu contraseña para confirmar</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={deletePassword}
+              onChangeText={setDeletePassword}
+              placeholder="Contraseña"
+              placeholderTextColor={theme.colors.textMuted}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  setDeletePassword('');
+                }}
+                disabled={deletingAccount}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalDeleteBtn, (!deletePassword || deletingAccount) && styles.modalDeleteBtnDisabled]}
+                onPress={handleDeleteAccount}
+                disabled={!deletePassword || deletingAccount}
+              >
+                {deletingAccount ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.modalDeleteBtnText}>Eliminar cuenta</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -613,5 +714,81 @@ const styles = StyleSheet.create({
   },
   deptChipTextSelected: {
     color: '#ffffff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+  },
+  modalBox: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: theme.colors.background,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.lg,
+  },
+  modalTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: theme.spacing.sm,
+  },
+  modalText: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: theme.spacing.md,
+  },
+  modalLabel: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: theme.spacing.xs,
+  },
+  modalInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 10,
+    padding: theme.spacing.sm,
+    color: theme.colors.text,
+    fontSize: 15,
+    marginBottom: theme.spacing.md,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+  },
+  modalCancelBtnText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalDeleteBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: theme.colors.error,
+    alignItems: 'center',
+  },
+  modalDeleteBtnDisabled: {
+    opacity: 0.5,
+  },
+  modalDeleteBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

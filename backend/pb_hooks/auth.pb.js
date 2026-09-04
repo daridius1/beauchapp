@@ -63,6 +63,33 @@ onRecordCreateRequest((e) => {
         throw new BadRequestError("Acceso denegado. Solo se permiten correos con el dominio @ing.uchile.cl");
     }
 
+    // Cooldown de 7 días tras eliminar una cuenta: al eliminarse, el correo real se
+    // vacía de "email" (ver lib/accountDeletion.js), así que el índice único de
+    // PocketBase deja de bloquear el registro — este chequeo es la única barrera real.
+    // Compara contra un hash porque ninguna cuenta eliminada conserva el correo en
+    // texto plano en ningún lado. Solo aplica a estudiantes: las cuentas de
+    // organización nunca tienen "email" (se autentican por username/password).
+    const { cooldownDaysRemaining } = require(`${__hooks}/lib/accountDeletion.js`);
+    const emailHash = $security.sha256(email.trim().toLowerCase());
+    let deletedMatch = null;
+    try {
+        deletedMatch = $app.findFirstRecordByFilter(
+            "users",
+            "deletedEmailHash = {:hash} && deleted = true",
+            { hash: emailHash }
+        );
+    } catch (err) {
+        deletedMatch = null; // sin coincidencia — camino normal
+    }
+    if (deletedMatch) {
+        const daysLeft = cooldownDaysRemaining(deletedMatch.getString("deletedAt"), new Date());
+        if (daysLeft > 0) {
+            throw new BadRequestError(
+                `Esta cuenta fue eliminada recientemente. Podrás volver a registrarte con este correo en ${daysLeft} día(s).`
+            );
+        }
+    }
+
     // Derivar username del prefijo del correo institucional para estudiantes
     const emailPrefix = email.split("@")[0];
     e.record.set("username", emailPrefix);
@@ -88,6 +115,20 @@ onRecordUpdateRequest((e) => {
         if (!e.hasSuperuserAuth()) {
             e.record.set("verified", original.get("verified"));
         }
+    }
+    // Proteger deleted/deletedAt/deletedEmailHash: eliminar una cuenta SOLO puede pasar
+    // por /api/account/delete o el panel /admin/cuentas (account_deletion.pb.js), que
+    // guardan con $app.save() y por lo tanto no disparan este hook de request. Un PATCH
+    // crudo del cliente a estos campos se revierte siempre, sin excepción — ni siquiera
+    // para superusuarios, que ya tienen su propio camino vía el panel admin.
+    if (e.record.get("deleted") !== original.get("deleted")) {
+        e.record.set("deleted", original.get("deleted"));
+    }
+    if (e.record.get("deletedAt") !== original.get("deletedAt")) {
+        e.record.set("deletedAt", original.get("deletedAt"));
+    }
+    if (e.record.get("deletedEmailHash") !== original.get("deletedEmailHash")) {
+        e.record.set("deletedEmailHash", original.get("deletedEmailHash"));
     }
     return e.next();
 }, "users");
