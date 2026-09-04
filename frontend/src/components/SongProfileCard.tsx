@@ -9,7 +9,7 @@ import {
   RefreshControl,
   Dimensions,
 } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { pb, getFileUrl } from '../services/pocketbase';
@@ -19,8 +19,9 @@ import { CommentsHeader } from './CommentsHeader';
 import { EntityCommentBox } from './EntityCommentBox';
 import { PostCard } from './PostCard';
 import { SongPlayer } from './SongPlayer';
+import { SpotifyEmbed } from './SpotifyEmbed';
 import { withMinimumDelay } from '../utils/refresh';
-import { Feather, FontAwesome } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { SongRecord, songsService } from '../services/songsService';
 import Toast from 'react-native-toast-message';
 
@@ -43,40 +44,30 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export const SongProfileCard: React.FC<Props> = ({ songId, onPrevProfile, onNextProfile, positionLabel, onBeforeNavigate }) => {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
+  const isFocused = useIsFocused();
 
   const [song, setSong] = useState<SongRecord | null>(null);
   const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [liked, setLiked] = useState(false);
-  const [likeRecordId, setLikeRecordId] = useState<string | undefined>(undefined);
-  const [likeBusy, setLikeBusy] = useState(false);
-
   const fetchDetail = async (hideLoading = false) => {
     try {
       if (!hideLoading) setLoading(true);
 
-      const [songRes, commentsRes, likeRes] = await Promise.allSettled([
+      const [songRes, commentsRes] = await Promise.allSettled([
         songsService.getOne(songId),
         pb.collection('posts').getList(1, 50, {
           filter: `targetType = "song" && targetId = "${songId}" && actionType = "comment" && deleted = false`,
           sort: '+created',
           expand: 'author',
         }),
-        user
-          ? songsService.checkIsLiked(songId, user.id)
-          : Promise.resolve<{ liked: boolean; likeRecordId?: string }>({ liked: false }),
       ]);
 
       if (songRes.status !== 'fulfilled') throw songRes.reason;
       setSong(songRes.value);
 
       if (commentsRes.status === 'fulfilled') setComments((commentsRes.value as any).items);
-      if (likeRes.status === 'fulfilled') {
-        setLiked(likeRes.value.liked);
-        setLikeRecordId(likeRes.value.likeRecordId);
-      }
     } catch (err) {
       console.error('Error fetching song detail:', err);
     } finally {
@@ -100,35 +91,6 @@ export const SongProfileCard: React.FC<Props> = ({ songId, onPrevProfile, onNext
   const goTo = (fn: () => void) => {
     onBeforeNavigate?.();
     fn();
-  };
-
-  const handleToggleLike = async () => {
-    if (!user) {
-      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para dar like.' });
-      return;
-    }
-    if (likeBusy || !song) return;
-    setLikeBusy(true);
-    const wasLiked = liked;
-    const prevRecordId = likeRecordId;
-    setLiked(!wasLiked);
-    setSong((prev) => (prev ? { ...prev, like_count: (prev.like_count || 0) + (wasLiked ? -1 : 1) } : prev));
-    try {
-      const nowLiked = await songsService.toggleLike(song.id, user.id, prevRecordId);
-      if (nowLiked) {
-        const check = await songsService.checkIsLiked(song.id, user.id);
-        setLikeRecordId(check.likeRecordId);
-      } else {
-        setLikeRecordId(undefined);
-      }
-    } catch (err) {
-      console.error('Error dando like a la canción:', err);
-      setLiked(wasLiked);
-      setLikeRecordId(prevRecordId);
-      setSong((prev) => (prev ? { ...prev, like_count: (prev.like_count || 0) + (wasLiked ? 1 : -1) } : prev));
-    } finally {
-      setLikeBusy(false);
-    }
   };
 
   const handleSendComment = async (content: string, photoFile: File | null, pollOptions: string[] | null) => {
@@ -237,13 +199,7 @@ export const SongProfileCard: React.FC<Props> = ({ songId, onPrevProfile, onNext
       <View style={styles.cardWrapper}>
         <View style={styles.profileCard}>
           <View style={styles.cardDetails}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={styles.cardName}>{song.title}</Text>
-              <View style={styles.likeCountPill}>
-                <FontAwesome name="heart" size={12} color="#ef4444" />
-                <Text style={styles.likeCountPillText}>{song.like_count || 0}</Text>
-              </View>
-            </View>
+            <Text style={styles.cardName}>{song.title}</Text>
 
             <Text style={styles.cardSubtitle}>
               {song.author}
@@ -268,32 +224,30 @@ export const SongProfileCard: React.FC<Props> = ({ songId, onPrevProfile, onNext
             )}
 
             <View style={{ marginTop: theme.spacing.md }}>
-              <SongPlayer uri={song.audio ? getFileUrl(song, song.audio) : null} />
+              {isFocused && song.spotifyTrackId ? (
+                <SpotifyEmbed key={song.spotifyTrackId} trackId={song.spotifyTrackId} />
+              ) : isFocused ? (
+                <SongPlayer key={song.audio || 'none'} uri={song.audio ? getFileUrl(song, song.audio) : null} />
+              ) : null}
             </View>
           </View>
         </View>
 
-        <View style={styles.swipeButtonsRow}>
-          {onPrevProfile && (
-            <TouchableOpacity style={[styles.swipeBtn, styles.swipeBtnControl]} onPress={onPrevProfile}>
-              <Feather name="arrow-left" size={24} color="#a3a3a3" />
-            </TouchableOpacity>
-          )}
+        {(onPrevProfile || onNextProfile) && (
+          <View style={styles.swipeButtonsRow}>
+            {onPrevProfile && (
+              <TouchableOpacity style={[styles.swipeBtn, styles.swipeBtnControl]} onPress={onPrevProfile}>
+                <Feather name="arrow-left" size={24} color="#a3a3a3" />
+              </TouchableOpacity>
+            )}
 
-          <TouchableOpacity
-            style={[styles.swipeBtn, styles.swipeBtnLike, liked && { backgroundColor: '#10B981', borderColor: '#10B981' }]}
-            onPress={handleToggleLike}
-            disabled={likeBusy}
-          >
-            <FontAwesome name={liked ? 'heart' : 'heart-o'} size={26} color={liked ? '#ffffff' : '#10B981'} />
-          </TouchableOpacity>
-
-          {onNextProfile && (
-            <TouchableOpacity style={[styles.swipeBtn, styles.swipeBtnControl]} onPress={onNextProfile}>
-              <Feather name="arrow-right" size={24} color="#a3a3a3" />
-            </TouchableOpacity>
-          )}
-        </View>
+            {onNextProfile && (
+              <TouchableOpacity style={[styles.swipeBtn, styles.swipeBtnControl]} onPress={onNextProfile}>
+                <Feather name="arrow-right" size={24} color="#a3a3a3" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {!!positionLabel && <Text style={styles.positionLabel}>{positionLabel}</Text>}
       </View>

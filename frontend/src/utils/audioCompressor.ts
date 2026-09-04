@@ -10,7 +10,7 @@ import * as lame from '@breezystack/lamejs';
 // adicional. En native, la subida de canción se deja sin implementar por ahora.
 
 export const SONG_TARGET_KBPS = 96;
-export const SONG_CLIP_SECONDS = 30;
+export const SONG_CLIP_SECONDS = 20;
 
 function floatTo16BitPCM(input: Float32Array): Int16Array {
   const output = new Int16Array(input.length);
@@ -58,12 +58,13 @@ export async function decodeAudioFileWeb(file: File): Promise<AudioBuffer> {
 }
 
 /**
- * Recorta un AudioBuffer ya decodificado a SONG_CLIP_SECONDS desde startSec, y lo
- * comprime a MP3 mono @ SONG_TARGET_KBPS. startSec se ajusta para que el recorte nunca se
- * pase del final de la canción.
+ * Recorta un AudioBuffer ya decodificado a clipDurationSec (por defecto SONG_CLIP_SECONDS,
+ * el tope que también aplica el selector de "Mi canción") desde startSec, y lo comprime a
+ * MP3 mono @ SONG_TARGET_KBPS. startSec se ajusta para que el recorte nunca se pase del
+ * final de la canción.
  */
-export function compressAudioClip(buffer: AudioBuffer, startSec: number): Blob {
-  const clipDuration = Math.min(SONG_CLIP_SECONDS, buffer.duration);
+export function compressAudioClip(buffer: AudioBuffer, startSec: number, clipDurationSec: number = SONG_CLIP_SECONDS): Blob {
+  const clipDuration = Math.min(clipDurationSec, buffer.duration);
   const clampedStart = Math.max(0, Math.min(startSec, buffer.duration - clipDuration));
 
   const startSample = Math.floor(clampedStart * buffer.sampleRate);

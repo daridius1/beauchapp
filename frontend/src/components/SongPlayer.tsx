@@ -6,9 +6,6 @@ import { theme } from '../theme/theme';
 
 interface Props {
   uri: string | null;
-  /** Se llama en cada actualización de estado con la posición actual (segundos). Usado
-   * por el selector de recorte en "Mi canción" para saber dónde va el usuario. */
-  onProgress?: (currentTime: number) => void;
 }
 
 const formatTime = (seconds: number) => {
@@ -19,16 +16,23 @@ const formatTime = (seconds: number) => {
 };
 
 // Reproductor simple: play/pause + barra de progreso tocable para saltar de posición.
-export const SongPlayer: React.FC<Props> = ({ uri, onProgress }) => {
+export const SongPlayer: React.FC<Props> = ({ uri }) => {
   const player = useAudioPlayer(uri || undefined);
   const status = useAudioPlayerStatus(player);
 
   const [barWidth, setBarWidth] = React.useState(0);
 
+  // Al desmontar (ej. se cierra el formulario tras guardar) el audio debe pararse — expo-audio
+  // en web no siempre lo hace solo, y quedaba sonando de fondo después de guardar la canción.
   React.useEffect(() => {
-    if (onProgress) onProgress(status.currentTime);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status.currentTime]);
+    return () => {
+      try {
+        player.pause();
+      } catch {
+        // El player ya pudo haber sido liberado por el hook.
+      }
+    };
+  }, [player]);
 
   if (!uri) {
     return (

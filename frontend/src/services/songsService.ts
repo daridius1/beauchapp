@@ -8,11 +8,15 @@ export interface SongRecord {
   year: number;
   description: string;
   audio: string;
+  cover: string;
+  spotifyTrackId: string;
+  spotifyImageUrl: string;
   deleted: boolean;
   commentCount: number;
   quoteCount: number;
-  like_count: number;
   created: string;
+  collectionId?: string;
+  collectionName?: string;
   expand?: {
     user?: {
       id: string;
@@ -23,68 +27,126 @@ export interface SongRecord {
   };
 }
 
+export interface SongProfile {
+  id: string;
+  user: string;
+  description: string;
+}
+
+export interface DiscoverSongProfile {
+  user: string;
+  description: string;
+  items: SongRecord[];
+  isLiked: boolean;
+  likeId: string | null;
+  expand?: {
+    user?: {
+      id: string;
+      name: string;
+      username: string;
+      avatar: string;
+    };
+  };
+}
+
+// Calco de frontend/src/services/moviesService.ts, adaptado a que cada canción también
+// lleva audio (el mismo mecanismo de recorte de SongTrimmer, sin cambios) además de la
+// carátula.
 export const songsService = {
-  /**
-   * Perfil de canción del usuario (uno solo por persona). Null si aún no lo ha creado.
-   */
-  getMySong: async (userId: string): Promise<SongRecord | null> => {
+  getOne: async (songId: string): Promise<SongRecord> => {
+    const record = await pb.collection('songs').getOne(songId, { expand: 'user' });
+    return record as unknown as SongRecord;
+  },
+
+  getDiscoverFeed: async (): Promise<DiscoverSongProfile[]> => {
+    const res = await pb.send<{ profiles: DiscoverSongProfile[] }>('/api/songs/discover', { method: 'GET' });
+    return res.profiles || [];
+  },
+
+  getProfileByUserId: async (userId: string): Promise<SongProfile | null> => {
     try {
-      const res = await pb.collection('songs').getFirstListItem(`user = "${userId}"`);
-      return res as unknown as SongRecord;
+      const res = await pb.collection('song_profiles').getFirstListItem(`user = "${userId}"`);
+      return res as unknown as SongProfile;
     } catch (err: any) {
       if (err.status === 404) return null;
       throw err;
     }
   },
 
-  createSong: async (data: any): Promise<SongRecord> => {
-    const record = await pb.collection('songs').create(data);
-    return record as unknown as SongRecord;
+  createProfile: async (data: Partial<SongProfile>): Promise<SongProfile> => {
+    const record = await pb.collection('song_profiles').create(data);
+    return record as unknown as SongProfile;
   },
 
-  updateSong: async (songId: string, data: any): Promise<SongRecord> => {
-    const record = await pb.collection('songs').update(songId, data);
-    return record as unknown as SongRecord;
+  updateProfile: async (profileId: string, data: Partial<SongProfile>): Promise<SongProfile> => {
+    const record = await pb.collection('song_profiles').update(profileId, data);
+    return record as unknown as SongProfile;
   },
 
-  getOne: async (songId: string): Promise<SongRecord> => {
-    const record = await pb.collection('songs').getOne(songId, { expand: 'user' });
-    return record as unknown as SongRecord;
-  },
-
-  /**
-   * Todas las canciones para la pestaña Explorar: se navega una por una, como en Mascotas.
-   */
-  listAllSongs: async (): Promise<SongRecord[]> => {
+  listMyItems: async (userId: string): Promise<SongRecord[]> => {
     const res = await pb.collection('songs').getFullList({
-      filter: 'deleted = false',
-      sort: '-created',
-      expand: 'user',
+      filter: `user = "${userId}" && deleted = false`,
+      sort: '+created',
     });
     return res as unknown as SongRecord[];
   },
 
-  checkIsLiked: async (songId: string, userId: string): Promise<{ liked: boolean; likeRecordId?: string }> => {
-    if (!userId || !songId) return { liked: false };
+  createItem: async (data: Record<string, any>): Promise<SongRecord> => {
+    const record = await pb.collection('songs').create(data);
+    return record as unknown as SongRecord;
+  },
+
+  updateItem: async (songId: string, data: Record<string, any>): Promise<SongRecord> => {
+    const record = await pb.collection('songs').update(songId, data);
+    return record as unknown as SongRecord;
+  },
+
+  deleteItem: async (songId: string): Promise<void> => {
+    await pb.collection('songs').update(songId, { deleted: true });
+  },
+
+  getMatchesList: async (userId: string): Promise<any[]> => {
+    const res = await pb.collection('song_matches').getFullList({
+      filter: `userA = "${userId}" || userB = "${userId}"`,
+      expand: 'userA,userB',
+    });
+    return res;
+  },
+
+  getMatchBetweenUsers: async (idA: string, idB: string): Promise<any> => {
     try {
-      const res = await pb.collection('song_likes').getList(1, 1, {
-        filter: `song = "${songId}" && user = "${userId}"`,
-      });
-      if (res.items.length > 0) return { liked: true, likeRecordId: res.items[0].id };
-      return { liked: false };
-    } catch (err) {
-      console.error('No se pudo comprobar el like propio de la canción:', err);
-      return { liked: false };
+      const res = await pb.collection('song_matches').getFirstListItem(`userA = "${idA}" && userB = "${idB}"`);
+      return res;
+    } catch (err: any) {
+      if (err.status === 404) return null;
+      throw err;
     }
   },
 
-  toggleLike: async (songId: string, userId: string, currentLikeRecordId?: string): Promise<boolean> => {
-    if (!userId || !songId) return false;
-    if (currentLikeRecordId) {
-      await pb.collection('song_likes').delete(currentLikeRecordId);
-      return false;
+  createLike: async (fromUserId: string, toUserId: string, liked: boolean): Promise<any> => {
+    const record = await pb.collection('song_likes').create({ fromUser: fromUserId, toUser: toUserId, liked });
+    return record;
+  },
+
+  deleteLike: async (likeId: string): Promise<void> => {
+    await pb.collection('song_likes').delete(likeId);
+  },
+
+  getLikeBetweenUsers: async (fromUser: string, toUser: string): Promise<any> => {
+    try {
+      const res = await pb.collection('song_likes').getFirstListItem(`fromUser = "${fromUser}" && toUser = "${toUser}"`);
+      return res;
+    } catch (err: any) {
+      if (err.status === 404) return null;
+      throw err;
     }
-    await pb.collection('song_likes').create({ song: songId, user: userId });
-    return true;
+  },
+
+  unmatch: async (matchId: string, currentUserId: string): Promise<void> => {
+    try {
+      await pb.collection('song_matches').update(matchId, { status: 'unmatched', unmatchedBy: currentUserId });
+    } catch (err) {
+      await pb.collection('song_matches').delete(matchId);
+    }
   },
 };
