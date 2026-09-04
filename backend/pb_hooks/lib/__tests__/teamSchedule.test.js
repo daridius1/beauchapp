@@ -4,6 +4,7 @@ const {
     startOfWeek,
     windowBlockCodes,
     windowBlockRange,
+    previousWeekBlockCodes,
     pastBlockCodes,
     filterToBlocks,
     computeValidBlocks,
@@ -87,6 +88,88 @@ test("windowBlockRange: un bloque anterior o posterior a la ventana queda fuera 
     const { from, to } = windowBlockRange(ref);
     assert.ok(!("2020-01-01-12" >= from && "2020-01-01-12" <= to));
     assert.ok(!("2099-01-01-12" >= from && "2099-01-01-12" <= to));
+});
+
+test("previousWeekBlockCodes: es exactamente la semana de lunes a viernes anterior a la ventana", () => {
+    // 2026-08-19 es miércoles -> la ventana arranca el lunes 2026-08-17, así que la
+    // semana anterior es 2026-08-10 (lun) a 2026-08-14 (vie).
+    const codes = previousWeekBlockCodes(new Date(2026, 7, 19));
+    assert.equal(codes.length, 65); // 5 días x 13 horas
+    assert.equal(codes[0], "2026-08-10-08");
+    assert.equal(codes[codes.length - 1], "2026-08-14-20");
+    assert.ok(!codes.some((c) => c.startsWith("2026-08-15"))); // sábado
+    assert.ok(!codes.some((c) => c.startsWith("2026-08-16"))); // domingo
+});
+
+test("previousWeekBlockCodes: no se solapa con ningún bloque de la ventana móvil", () => {
+    const ref = new Date(2026, 7, 19);
+    const window = new Set(windowBlockCodes(ref));
+    for (const code of previousWeekBlockCodes(ref)) {
+        assert.ok(!window.has(code), `${code} no debería estar en la ventana`);
+    }
+});
+
+test("previousWeekBlockCodes: desde un domingo apunta a la semana anterior a la que empieza mañana", () => {
+    // startOfWeek redondea al lunes de la semana que contiene la fecha: el domingo
+    // 2026-08-30 pertenece a la semana del lunes 2026-08-24, así que la anterior es la
+    // del 2026-08-17. Es el caso donde restar 7 días a secas se equivocaría de semana.
+    const codes = previousWeekBlockCodes(new Date(2026, 7, 30));
+    assert.equal(codes[0], "2026-08-17-08");
+    assert.equal(codes[codes.length - 1], "2026-08-21-20");
+});
+
+// Cómo arma team_schedule.pb.js el archivo de happiness_previous_week: lo que ya estaba
+// archivado, más lo que manda el cliente, recortado a la semana anterior + la actual.
+// Replicado acá (y no importado) porque el hook necesita `$app` y esto no.
+function archivar(archivoPrevio, payloadDelCliente, ref) {
+    const bloques = previousWeekBlockCodes(ref).concat(windowBlockCodes(ref, 1));
+    return filterToBlocks(Object.assign({}, archivoPrevio, payloadDelCliente), bloques);
+}
+
+test("archivo: conserva la semana anterior y la actual, y descarta el resto", () => {
+    const ref = new Date(2026, 7, 19); // miércoles; ventana arranca el lun 2026-08-17
+    const archivo = archivar({}, {
+        "2026-08-10-09": 5, // semana anterior -> sí
+        "2026-08-17-09": 4, // semana actual -> sí
+        "2026-08-24-09": 3, // 2da semana de la ventana -> no
+        "2026-09-01-09": 2, // 3ra semana de la ventana -> no
+    }, ref);
+    assert.deepEqual(archivo, { "2026-08-10-09": 5, "2026-08-17-09": 4 });
+});
+
+test("archivo: al correr la ventana, la semana guardada pasa a ser la fuente de la primera visible", () => {
+    // Semana A (lun 2026-08-17): el cliente manda su ventana; se archiva la semana A.
+    const semanaA = new Date(2026, 7, 19);
+    const archivoA = archivar({}, { "2026-08-17-09": 5, "2026-08-24-09": 3 }, semanaA);
+    assert.deepEqual(archivoA, { "2026-08-17-09": 5 });
+
+    // Una semana después (lun 2026-08-24): el payload ya no trae nada de la semana A,
+    // pero el archivo previo sí — y la semana A es justo la anterior a la ventana nueva.
+    const semanaB = new Date(2026, 7, 26);
+    const archivoB = archivar(archivoA, { "2026-08-24-09": 4 }, semanaB);
+    assert.equal(archivoB["2026-08-17-09"], 5, "la semana A tiene que sobrevivir");
+
+    // Y es exactamente lo que el frontend va a leer para copiar sobre la primera semana.
+    const fuente = filterToBlocks(archivoB, previousWeekBlockCodes(semanaB));
+    assert.deepEqual(fuente, { "2026-08-17-09": 5 });
+});
+
+test("archivo: sobrevive a varios guardados dentro de la misma semana", () => {
+    const semanaB = new Date(2026, 7, 26);
+    let archivo = { "2026-08-17-09": 5 }; // semana anterior, ya archivada
+    for (let i = 0; i < 3; i++) {
+        archivo = archivar(archivo, { "2026-08-24-09": 4 }, semanaB);
+    }
+    assert.equal(archivo["2026-08-17-09"], 5, "no se puede perder al re-guardar");
+});
+
+test("archivo: se auto-poda — dos semanas después la vieja ya no está", () => {
+    const archivoB = { "2026-08-17-09": 5, "2026-08-24-09": 4 };
+    // Semana C (lun 2026-08-31): la anterior es la B, la A ya no le sirve a nadie.
+    const archivoC = archivar(archivoB, { "2026-08-31-09": 3 }, new Date(2026, 7, 31));
+    assert.equal(archivoC["2026-08-17-09"], undefined, "la semana A tiene que caerse");
+    assert.equal(archivoC["2026-08-24-09"], 4);
+    assert.equal(archivoC["2026-08-31-09"], 3);
 });
 
 test("pastBlockCodes: si `now` es domingo, toda la semana actual (lunes a viernes) ya pasó", () => {

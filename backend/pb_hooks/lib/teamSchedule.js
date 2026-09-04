@@ -86,6 +86,20 @@ function windowBlockRange(referenceDate, weeks) {
     return { from: codes[0], to: codes[codes.length - 1] };
 }
 
+// Los códigos de bloque de la semana inmediatamente ANTERIOR a la ventana móvil: la que
+// acaba de dejar de ser marcable, pero que sigue siendo la referencia natural de "lo
+// mismo que la semana pasada".
+//
+// Es la única semana fuera de la ventana que se conserva (en
+// horario_availability.happiness_previous_week), y alcanza: de las tres semanas
+// visibles, las dos últimas copian de su anterior sin tocar el servidor, porque su
+// fuente ya está dentro de la ventana. Solo la primera necesita mirar hacia atrás.
+function previousWeekBlockCodes(referenceDate) {
+    const previousMonday = startOfWeek(referenceDate || new Date());
+    previousMonday.setDate(previousMonday.getDate() - DAYS_PER_WEEK);
+    return windowBlockCodes(previousMonday, 1);
+}
+
 // Bloques de `windowBlocks` que ya empezaron (o ya pasaron) respecto a `now` — nunca
 // deberían ofrecerse como candidatos para un partido NUEVO, aunque sigan técnicamente
 // "libres" (nadie los ocupó). `startOfWeek` redondea al lunes de la semana ACTUAL, así
@@ -1274,6 +1288,7 @@ module.exports = {
     parseBlockCode,
     windowBlockCodes,
     windowBlockRange,
+    previousWeekBlockCodes,
     pastBlockCodes,
     filterToBlocks,
     computeValidBlocks,

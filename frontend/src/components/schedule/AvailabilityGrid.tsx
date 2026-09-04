@@ -145,6 +145,32 @@ export function scheduleWindowBlockCodes(referenceDate: Date = new Date(), weeks
   return codes;
 }
 
+// Los códigos de bloque de UNA semana, en orden día (lun-vie) x hora. Dos semanas
+// cualesquiera devuelven listas paralelas, y eso es lo que permite copiar una sobre otra
+// apareando por índice — sin aritmética de fechas, que es donde se cuelan los bugs de
+// cambio de mes y de horario de verano.
+export function weekBlockCodes(week: WeekInfo): string[] {
+  const codes: string[] = [];
+  week.days.forEach((day) => {
+    for (let hour = START_HOUR; hour <= END_HOUR; hour++) {
+      codes.push(blockCode(day.dateStr, hour));
+    }
+  });
+  return codes;
+}
+
+// La semana anterior a la ventana: la única que queda fuera y que igual hace falta, como
+// fuente para "repetir la semana anterior" sobre la primera semana visible. Espejo de
+// previousWeekBlockCodes() en backend/pb_hooks/lib/teamSchedule.js — duplicada a
+// propósito, igual que el resto de helpers de fecha (son runtimes distintos). Ojo que
+// pasa por startOfWeek: restarle 7 días a "hoy" a secas se equivoca de semana cuando hoy
+// es sábado o domingo.
+export function previousScheduleWeek(referenceDate: Date = new Date()): WeekInfo {
+  const previousMonday = startOfWeek(referenceDate);
+  previousMonday.setDate(previousMonday.getDate() - 7);
+  return getScheduleWindow(previousMonday, 1)[0];
+}
+
 // "Puede" (level >= punto medio) vs "No puede" — usado para el modo binario de
 // jugadores individuales, donde no tiene sentido la escala fina de 4 niveles que sí
 // usan los equipos (esa alimenta el algoritmo de emparejamiento, esto no).
@@ -206,6 +232,12 @@ interface AvailabilityGridProps {
   // los 4 niveles de "qué tan feliz estaría" — esa escala fina es para el emparejamiento
   // entre equipos, no tiene sentido para "puedo o no puedo jugar a esa hora".
   binary?: boolean;
+  // "Repetir la semana anterior". El botón se dibuja acá, y no en la pantalla, porque
+  // qué semana está seleccionada es estado de este componente (los tabs viven acá): la
+  // pantalla no tiene cómo saber sobre cuál se estaría copiando. Recibe el índice y
+  // resuelve de dónde sale la fuente.
+  canCopyPreviousWeek?: (weekIndex: number) => boolean;
+  onCopyPreviousWeek?: (weekIndex: number) => void;
 }
 
 // Calendario de N semanas, pero mostradas de a una: primero se elige la semana (tabs
@@ -215,7 +247,7 @@ interface AvailabilityGridProps {
 // siguiente nivel (1..4, cíclico, o Puede/No puede si `binary`); los bloques que el
 // admin cerró (blockedBlocks) o que ya tienen un partido asignado (occupiedBlocks) se
 // muestran aparte y no son tocables.
-export const AvailabilityGrid: React.FC<AvailabilityGridProps> = ({ values, onChange, blockedBlocks, occupiedBlocks, disabled, binary }) => {
+export const AvailabilityGrid: React.FC<AvailabilityGridProps> = ({ values, onChange, blockedBlocks, occupiedBlocks, disabled, binary, canCopyPreviousWeek, onCopyPreviousWeek }) => {
   const weeks = getScheduleWindow();
   // Por defecto se abre en la primera semana que todavía tenga algo marcable, no
   // siempre en la semana 0: si hoy es sábado o domingo, la semana actual (lun-vie) ya
@@ -243,6 +275,17 @@ export const AvailabilityGrid: React.FC<AvailabilityGridProps> = ({ values, onCh
           </TouchableOpacity>
         ))}
       </View>
+
+      {!disabled && onCopyPreviousWeek && canCopyPreviousWeek?.(selectedWeek) ? (
+        <TouchableOpacity
+          style={styles.copyWeekBtn}
+          activeOpacity={0.7}
+          onPress={() => onCopyPreviousWeek(selectedWeek)}
+        >
+          <Feather name="copy" size={12} color={theme.colors.primary} />
+          <Text style={styles.copyWeekBtnText}>Repetir la semana anterior</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <View style={styles.row}>
         <View style={styles.hourLabelCell} />
@@ -321,6 +364,22 @@ export const AvailabilityGrid: React.FC<AvailabilityGridProps> = ({ values, onCh
 };
 
 const styles = StyleSheet.create({
+  copyWeekBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 14,
+  },
+  copyWeekBtnText: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   weekTabs: {
     flexDirection: 'row',
     flexWrap: 'wrap',

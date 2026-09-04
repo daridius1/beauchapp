@@ -18,6 +18,9 @@ import {
   LEVEL_COLORS,
   LEVEL_TEXT_COLORS,
   canPlay,
+  getScheduleWindow,
+  weekBlockCodes,
+  previousScheduleWeek,
 } from '../components/schedule/AvailabilityGrid';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TeamSchedule'>;
@@ -41,6 +44,9 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
   const [blockedBlocks, setBlockedBlocks] = useState<Set<string>>(new Set());
   const [occupiedBlocks, setOccupiedBlocks] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  // La semana anterior a la ventana, tal como la archivó el backend. No se muestra ni se
+  // edita: existe solo para poder repetirla sobre la primera semana visible.
+  const [previousWeekValues, setPreviousWeekValues] = useState<Record<string, number>>({});
 
   // Cualquier cuenta autenticada puede marcar su propia disponibilidad (jugadores
   // individuales igual que equipos) — solo las cuentas de equipo, además, pueden ver
@@ -113,9 +119,11 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
           if (existingHappiness[b] !== undefined) merged[b] = existingHappiness[b];
         });
         setValues(merged);
+        setPreviousWeekValues(existing.happiness_previous_week || {});
       } catch (err) {
         setExistingRecordId(null);
         setValues(defaults);
+        setPreviousWeekValues({});
       }
 
     } catch (err) {
@@ -169,6 +177,42 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
       return;
     }
     setValues((prev) => ({ ...prev, [block]: nextLevel }));
+  };
+
+  // De dónde copia cada semana de la ventana: de la inmediatamente anterior. Para la
+  // segunda y la tercera la fuente ya está en `values` (son parte de la ventana); solo la
+  // primera tiene que mirar fuera, al archivo que el backend guarda aparte
+  // (happiness_previous_week). Por eso alcanza con recordar UNA semana.
+  const copySourceFor = (weekIndex: number): { codes: string[]; from: Record<string, number> } =>
+    weekIndex === 0
+      ? { codes: weekBlockCodes(previousScheduleWeek()), from: previousWeekValues }
+      : { codes: weekBlockCodes(getScheduleWindow()[weekIndex - 1]), from: values };
+
+  const canCopyPreviousWeek = (weekIndex: number) => {
+    const { codes, from } = copySourceFor(weekIndex);
+    return codes.some((code) => from[code] !== undefined);
+  };
+
+  const handleCopyPreviousWeek = (weekIndex: number) => {
+    const { codes: sourceCodes, from } = copySourceFor(weekIndex);
+    const targetCodes = weekBlockCodes(getScheduleWindow()[weekIndex]);
+    const markable = new Set(validBlocks);
+
+    // Las dos listas vienen en el mismo orden (día lun-vie x hora), así que copiar es
+    // aparearlas por índice — nada de aritmética de fechas. Los bloques que el admin
+    // cerró o que ya tienen un partido no se pisan: el backend los descartaría igual.
+    const copied: Record<string, number> = {};
+    sourceCodes.forEach((sourceBlock, i) => {
+      const level = from[sourceBlock];
+      if (level !== undefined && markable.has(targetCodes[i])) copied[targetCodes[i]] = level;
+    });
+
+    if (Object.keys(copied).length === 0) {
+      Toast.show({ type: 'info', text1: 'No hay nada que copiar de la semana anterior' });
+      return;
+    }
+    setValues((prev) => ({ ...prev, ...copied }));
+    Toast.show({ type: 'success', text1: 'Semana anterior copiada', text2: 'Acuérdate de guardar.' });
   };
 
   const handleSave = async () => {
@@ -227,6 +271,8 @@ export const TeamScheduleScreen: React.FC<Props> = () => {
           blockedBlocks={blockedBlocks}
           occupiedBlocks={occupiedBlocks}
           binary={!isTeamAccount}
+          canCopyPreviousWeek={canCopyPreviousWeek}
+          onCopyPreviousWeek={handleCopyPreviousWeek}
         />
       </View>
 

@@ -15,7 +15,7 @@ const validateAvailabilitySubmission = (e) => {
         throw new BadRequestError("No puedes enviar disponibilidad en nombre de otra cuenta.");
     }
 
-    const { windowBlockCodes, windowBlockRange, computeValidBlocks, filterToBlocks } = require(`${__hooks}/lib/teamSchedule.js`);
+    const { windowBlockCodes, windowBlockRange, computeValidBlocks, filterToBlocks, previousWeekBlockCodes } = require(`${__hooks}/lib/teamSchedule.js`);
     // Acotado a la ventana móvil: sin este rango se traían TODOS los partidos jugados
     // de la historia para calcular qué bloques de las próximas 3 semanas están libres.
     // El límite es el tamaño de la ventana porque no puede haber más bloques ocupados
@@ -64,6 +64,40 @@ const validateAvailabilitySubmission = (e) => {
         }
     }
     e.record.set("happiness", JSON.stringify(filteredHappiness));
+
+    // Archivo de dos semanas — la única disponibilidad que se conserva fuera de la
+    // ventana móvil. Sin esto, la primera de las tres semanas visibles no tendría de
+    // dónde copiar cuando alguien pide "repetir la semana anterior" (las otras dos
+    // copian de su anterior en el cliente, porque su fuente sigue estando en `happiness`).
+    //
+    // Guarda la semana anterior Y la actual, y no solo la anterior, porque el archivo se
+    // arma con lo que manda el cliente: el payload nunca trae la semana pasada (el
+    // cliente solo envía la ventana vigente), así que la semana pasada solo puede venir
+    // del archivo previo. Archivar también la actual es lo que hace que, cuando la
+    // ventana corra una semana, esa semana ya esté guardada para servir de fuente. Se
+    // auto-poda sola: lo que cae fuera de estas dos semanas se descarta en cada guardado.
+    //
+    // `e.record` ya trae los valores almacenados de los campos que el cliente NO mandó,
+    // así que la copia anterior se lee de ahí — no hace falta `.original()`, que además
+    // sería arriesgado después de los `$app.*` de arriba (ver la nota de team_players.pb.js).
+    const archiveBlocks = previousWeekBlockCodes().concat(windowBlockCodes(new Date(), 1));
+    const archived = filterToBlocks(
+        Object.assign(
+            {},
+            JSON.parse(e.record.getString("happiness_previous_week") || "{}"),
+            happiness
+        ),
+        archiveBlocks
+    );
+    // El archivo es una comodidad para poder copiar, no un dato del que dependa el
+    // emparejamiento: una entrada inválida se descarta en silencio en vez de rebotar el
+    // guardado entero. Lo que se copie desde acá pasa igual por la validación de arriba
+    // cuando el usuario guarde.
+    for (const block of Object.keys(archived)) {
+        const v = archived[block];
+        if (!Number.isInteger(v) || v < 1 || v > 5) delete archived[block];
+    }
+    e.record.set("happiness_previous_week", JSON.stringify(archived));
 
     return e.next();
 };
