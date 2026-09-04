@@ -20,7 +20,7 @@ import { CommentsHeader } from './CommentsHeader';
 import { EntityCommentBox } from './EntityCommentBox';
 import { PostCard } from './PostCard';
 import { withMinimumDelay } from '../utils/refresh';
-import { Feather, FontAwesome } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { PetRecord, petsService } from '../services/petsService';
 import Toast from 'react-native-toast-message';
 
@@ -56,24 +56,17 @@ export const PetProfileCard: React.FC<Props> = ({ petId, onPrevProfile, onNextPr
 
   const [photoIndex, setPhotoIndex] = useState(0);
 
-  const [liked, setLiked] = useState(false);
-  const [likeRecordId, setLikeRecordId] = useState<string | undefined>(undefined);
-  const [likeBusy, setLikeBusy] = useState(false);
-
   const fetchDetail = async (hideLoading = false) => {
     try {
       if (!hideLoading) setLoading(true);
 
-      const [petRes, commentsRes, likeRes] = await Promise.allSettled([
+      const [petRes, commentsRes] = await Promise.allSettled([
         petsService.getOne(petId),
         pb.collection('posts').getList(1, 50, {
           filter: `targetType = "pet" && targetId = "${petId}" && actionType = "comment" && deleted = false`,
           sort: '+created',
           expand: 'author',
         }),
-        user
-          ? petsService.checkIsLiked(petId, user.id)
-          : Promise.resolve<{ liked: boolean; likeRecordId?: string }>({ liked: false }),
       ]);
 
       if (petRes.status !== 'fulfilled') throw petRes.reason;
@@ -81,10 +74,6 @@ export const PetProfileCard: React.FC<Props> = ({ petId, onPrevProfile, onNextPr
       setPhotoIndex(0);
 
       if (commentsRes.status === 'fulfilled') setComments((commentsRes.value as any).items);
-      if (likeRes.status === 'fulfilled') {
-        setLiked(likeRes.value.liked);
-        setLikeRecordId(likeRes.value.likeRecordId);
-      }
     } catch (err) {
       console.error('Error fetching pet detail:', err);
     } finally {
@@ -108,35 +97,6 @@ export const PetProfileCard: React.FC<Props> = ({ petId, onPrevProfile, onNextPr
   const goTo = (fn: () => void) => {
     onBeforeNavigate?.();
     fn();
-  };
-
-  const handleToggleLike = async () => {
-    if (!user) {
-      Toast.show({ type: 'info', text1: 'Autenticación requerida', text2: 'Inicia sesión para dar like.' });
-      return;
-    }
-    if (likeBusy || !pet) return;
-    setLikeBusy(true);
-    const wasLiked = liked;
-    const prevRecordId = likeRecordId;
-    setLiked(!wasLiked);
-    setPet((prev) => (prev ? { ...prev, like_count: (prev.like_count || 0) + (wasLiked ? -1 : 1) } : prev));
-    try {
-      const nowLiked = await petsService.toggleLike(pet.id, user.id, prevRecordId);
-      if (nowLiked) {
-        const check = await petsService.checkIsLiked(pet.id, user.id);
-        setLikeRecordId(check.likeRecordId);
-      } else {
-        setLikeRecordId(undefined);
-      }
-    } catch (err) {
-      console.error('Error dando like a la mascota:', err);
-      setLiked(wasLiked);
-      setLikeRecordId(prevRecordId);
-      setPet((prev) => (prev ? { ...prev, like_count: (prev.like_count || 0) + (wasLiked ? 1 : -1) } : prev));
-    } finally {
-      setLikeBusy(false);
-    }
   };
 
   const handleSendComment = async (content: string, photoFile: File | null, pollOptions: string[] | null) => {
@@ -277,13 +237,7 @@ export const PetProfileCard: React.FC<Props> = ({ petId, onPrevProfile, onNextPr
           </View>
 
           <View style={styles.cardDetails}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={styles.cardName}>{pet.name}</Text>
-              <View style={styles.likeCountPill}>
-                <FontAwesome name="heart" size={12} color="#ef4444" />
-                <Text style={styles.likeCountPillText}>{pet.like_count || 0}</Text>
-              </View>
-            </View>
+            <Text style={styles.cardName}>{pet.name}</Text>
 
             <TouchableOpacity
               activeOpacity={0.7}
@@ -304,27 +258,21 @@ export const PetProfileCard: React.FC<Props> = ({ petId, onPrevProfile, onNextPr
           </View>
         </View>
 
-        <View style={styles.swipeButtonsRow}>
-          {onPrevProfile && (
-            <TouchableOpacity style={[styles.swipeBtn, styles.swipeBtnControl]} onPress={onPrevProfile}>
-              <Feather name="arrow-left" size={24} color="#a3a3a3" />
-            </TouchableOpacity>
-          )}
+        {(onPrevProfile || onNextProfile) && (
+          <View style={styles.swipeButtonsRow}>
+            {onPrevProfile && (
+              <TouchableOpacity style={[styles.swipeBtn, styles.swipeBtnControl]} onPress={onPrevProfile}>
+                <Feather name="arrow-left" size={24} color="#a3a3a3" />
+              </TouchableOpacity>
+            )}
 
-          <TouchableOpacity
-            style={[styles.swipeBtn, styles.swipeBtnLike, liked && { backgroundColor: '#10B981', borderColor: '#10B981' }]}
-            onPress={handleToggleLike}
-            disabled={likeBusy}
-          >
-            <FontAwesome name={liked ? 'heart' : 'heart-o'} size={26} color={liked ? '#ffffff' : '#10B981'} />
-          </TouchableOpacity>
-
-          {onNextProfile && (
-            <TouchableOpacity style={[styles.swipeBtn, styles.swipeBtnControl]} onPress={onNextProfile}>
-              <Feather name="arrow-right" size={24} color="#a3a3a3" />
-            </TouchableOpacity>
-          )}
-        </View>
+            {onNextProfile && (
+              <TouchableOpacity style={[styles.swipeBtn, styles.swipeBtnControl]} onPress={onNextProfile}>
+                <Feather name="arrow-right" size={24} color="#a3a3a3" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {!!positionLabel && <Text style={styles.positionLabel}>{positionLabel}</Text>}
       </View>
