@@ -4,10 +4,13 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Juegos'>;
 
 export const JuegosScreen: React.FC<Props> = ({ navigation }) => {
+  const { developerMode } = useAuth();
+
   const apps = [
     {
       id: 'Beaudle',
@@ -15,24 +18,33 @@ export const JuegosScreen: React.FC<Props> = ({ navigation }) => {
       icon: 'grid',
       screen: 'Beaudle',
     },
-    {
-      id: 'LaddersList',
-      title: 'Ladders',
-      icon: 'award',
-      screen: 'LaddersList',
-    },
+    // Todavía no están terminados — visibles solo en modo desarrollador hasta que se lancen.
+    ...(developerMode
+      ? [
+          {
+            id: 'LaddersList',
+            title: 'Ladders',
+            icon: 'award',
+            screen: 'LaddersList',
+          },
+        ]
+      : []),
     {
       id: 'Beaumarket',
       title: 'Beaumarket',
       icon: 'trending-up',
       screen: 'Beaumarket',
     },
-    {
-      id: 'PollasList',
-      title: 'Beaupolla',
-      icon: 'target',
-      screen: 'PollasList',
-    },
+    ...(developerMode
+      ? [
+          {
+            id: 'PollasList',
+            title: 'Beaupolla',
+            icon: 'target',
+            screen: 'PollasList',
+          },
+        ]
+      : []),
   ];
 
   return (

@@ -19,7 +19,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activeScreen, onNavigate, isDocked = false, hasUnreadNotifications }) => {
-  const { user, logout, developerMode } = useAuth();
+  const { user, logout } = useAuth();
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const [runningAsPwa, setRunningAsPwa] = useState(false);
@@ -69,9 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
   const menuItems = [
     { id: 'Home', label: 'Inicio' },
     { id: 'Comunidad', label: 'Comunidad' },
-    // Todavía no está terminada — visible solo en modo desarrollador hasta que se lance
-    // (mismo gateo que tenía antes como sub-ítem de Comunidad).
-    ...(developerMode ? [{ id: 'ConoceBeauchef', label: 'Conoce Beauchef' }] : []),
+    { id: 'ConoceBeauchef', label: 'Conoce Beauchef' },
     { id: 'Academico', label: 'Académico' },
     { id: 'Deportes', label: 'Deportes' },
     { id: 'Juegos', label: 'Juegos' },

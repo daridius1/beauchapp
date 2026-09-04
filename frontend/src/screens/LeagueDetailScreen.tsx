@@ -45,7 +45,7 @@ function blockCodeTimestamp(code: string): number {
 
 export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { leagueId } = route.params;
-  const { user } = useAuth();
+  const { user, developerMode } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -389,8 +389,8 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </TouchableOpacity>
 
-        {/* Solo si la liga habilitó su Beaupolla. */}
-        {!!leagueUser?.pollaEnabled && (
+        {/* Solo si la liga habilitó su Beaupolla, y Beaupolla todavía está en modo desarrollador. */}
+        {!!leagueUser?.pollaEnabled && developerMode && (
           <TouchableOpacity
             style={styles.pollaBtn}
             activeOpacity={0.7}

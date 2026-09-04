@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 type Props = NativeStackScreenProps<RootStackParamList, 'Deportes'>;
 
 export const DeportesScreen: React.FC<Props> = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, developerMode } = useAuth();
 
   const apps = [
     {
@@ -18,12 +18,17 @@ export const DeportesScreen: React.FC<Props> = ({ navigation }) => {
       icon: 'flag',
       screen: 'LeaguesList',
     },
-    {
-      id: 'NoticiasList',
-      title: 'Noticias',
-      icon: 'file-text',
-      screen: 'NoticiasList',
-    },
+    // Todavía no está terminada — visible solo en modo desarrollador hasta que se lance.
+    ...(developerMode
+      ? [
+          {
+            id: 'NoticiasList',
+            title: 'Noticias',
+            icon: 'file-text',
+            screen: 'NoticiasList',
+          },
+        ]
+      : []),
     // Horarios pide sesión: es la disponibilidad de la cuenta que la marca.
     ...(user
       ? [
