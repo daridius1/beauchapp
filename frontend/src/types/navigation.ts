@@ -22,6 +22,9 @@ export type RootStackParamList = {
   PetDetail: { petId: string };
   Musica: { initialTab?: 'explorar' | 'mi-cancion' } | undefined;
   SongDetail: { songId: string };
+  Peliculas: undefined;
+  Videojuegos: undefined;
+  Libros: undefined;
   Comunidad: undefined;
   Academico: undefined;
   Deportes: undefined;
@@ -69,4 +72,6 @@ export type RootStackParamList = {
   Polla: { leagueId: string };
   PollaMatch: { leagueId: string; matchId: string };
   PollaUserBets: { leagueId: string; userId: string };
+  NoticiasList: undefined;
+  NoticiaDetail: { newsId: string; title?: string };
 };

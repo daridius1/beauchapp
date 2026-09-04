@@ -46,6 +46,9 @@ import { MascotasScreen } from './src/screens/MascotasScreen';
 import { PetDetailScreen } from './src/screens/PetDetailScreen';
 import { MusicaScreen } from './src/screens/MusicaScreen';
 import { SongDetailScreen } from './src/screens/SongDetailScreen';
+import { PeliculasScreen } from './src/screens/PeliculasScreen';
+import { VideojuegosScreen } from './src/screens/VideojuegosScreen';
+import { BooksScreen } from './src/screens/BooksScreen';
 import { AcademicoScreen } from './src/screens/AcademicoScreen';
 import { DeportesScreen } from './src/screens/DeportesScreen';
 import { JuegosScreen } from './src/screens/JuegosScreen';
@@ -64,6 +67,8 @@ import { LeagueDetailScreen } from './src/screens/LeagueDetailScreen';
 import { LeagueMatchDetailScreen } from './src/screens/LeagueMatchDetailScreen';
 import { LeagueMatchArbitratorScreen } from './src/screens/LeagueMatchArbitratorScreen';
 import { TeamProfileScreen } from './src/screens/TeamProfileScreen';
+import { NoticiasListScreen } from './src/screens/NoticiasListScreen';
+import { NoticiaDetailScreen } from './src/screens/NoticiaDetailScreen';
 import { PublicLeaguesScreen } from './src/screens/PublicLeaguesScreen';
 import { PublicLeagueScreen } from './src/screens/PublicLeagueScreen';
 import { PublicMatchScreen } from './src/screens/PublicMatchScreen';
@@ -312,6 +317,9 @@ function AppContent() {
       case 'PetDetail': return 'Mascota';
       case 'Musica': return 'Música';
       case 'SongDetail': return 'Canción';
+      case 'Peliculas': return 'Películas y Series';
+      case 'Videojuegos': return 'Videojuegos';
+      case 'Libros': return 'Libros';
       case 'Students': return 'Personas';
       case 'FollowList': {
         const type = params?.type;
@@ -353,6 +361,8 @@ function AppContent() {
       case 'Polla': return 'Beaupolla';
       case 'PollaMatch': return 'Partido';
       case 'PollaUserBets': return 'Jugador';
+      case 'NoticiasList': return 'Noticias';
+      case 'NoticiaDetail': return params?.title || 'Noticia';
       case 'LadderDetail':
       case 'LadderMatchArbitrator':
       case 'LadderMatchDetail':
@@ -372,7 +382,7 @@ function AppContent() {
     }
   };
 
-  const TOP_LEVEL_SCREENS = ['Home', 'Comunidad', 'Academico', 'Deportes', 'Juegos'];
+  const TOP_LEVEL_SCREENS = ['Home', 'Comunidad', 'ConoceBeauchef', 'Academico', 'Deportes', 'Juegos'];
   const showBackButton = !TOP_LEVEL_SCREENS.includes(currentRouteName);
 
   const handleBack = () => {
@@ -400,22 +410,22 @@ function AppContent() {
       navigationRef.navigate('LeaguesList' as never);
     } else if (['ProblemsList', 'Reviews'].includes(currentRouteName)) {
       navigationRef.navigate('Academico' as never);
-    } else if (['LeaguesList', 'TeamSchedule'].includes(currentRouteName)) {
+    } else if (currentRouteName === 'NoticiaDetail') {
+      navigationRef.navigate('NoticiasList' as never);
+    } else if (['LeaguesList', 'TeamSchedule', 'NoticiasList'].includes(currentRouteName)) {
       navigationRef.navigate('Deportes' as never);
     } else if (['LaddersList', 'Beaudle', 'Beaumarket', 'PollasList'].includes(currentRouteName)) {
       navigationRef.navigate('Juegos' as never);
-    } else if (['Marketplace', 'Tinder', 'Directory', 'Activities', 'ConoceBeauchef'].includes(currentRouteName)) {
+    } else if (['Marketplace', 'Directory', 'Activities'].includes(currentRouteName)) {
       navigationRef.navigate('Comunidad' as never);
     } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'FollowList'].includes(currentRouteName)) {
       navigationRef.navigate('Directory' as never);
     } else if (['ActivityDetail', 'ActivityEditor'].includes(currentRouteName)) {
       navigationRef.navigate('Activities' as never);
-    } else if (currentRouteName === 'Mascotas') {
+    } else if (['Tinder', 'Mascotas', 'Musica', 'Peliculas', 'Videojuegos', 'Libros'].includes(currentRouteName)) {
       navigationRef.navigate('ConoceBeauchef' as never);
     } else if (currentRouteName === 'PetDetail') {
       navigationRef.navigate('Mascotas' as never);
-    } else if (currentRouteName === 'Musica') {
-      navigationRef.navigate('ConoceBeauchef' as never);
     } else if (currentRouteName === 'SongDetail') {
       navigationRef.navigate('Musica' as never);
     } else if (['CourseDetail', 'ProfessorDetail'].includes(currentRouteName)) {
@@ -452,11 +462,19 @@ function AppContent() {
                 Teams: 'teams',
                 Bands: 'bands',
                 Directory: 'directory',
-                ConoceBeauchef: 'comunidad/conoce-beauchef',
-                Mascotas: 'comunidad/conoce-beauchef/mascotas',
-                PetDetail: 'comunidad/conoce-beauchef/mascotas/:petId',
-                Musica: 'comunidad/conoce-beauchef/musica',
-                SongDetail: 'comunidad/conoce-beauchef/musica/:songId',
+                // "Conoce Beauchef" pasó a ser sección de primer nivel del sidebar (ya no un
+                // sub-ítem de Comunidad): URLs sin el prefijo 'comunidad/', al mismo nivel que
+                // 'academico'/'deportes'/'juegos'. Estas rutas son nuevas de esta sesión y
+                // siguen detrás de developerMode, así que no hay enlaces reales ya compartidos
+                // con el prefijo viejo que se puedan romper.
+                ConoceBeauchef: 'conoce-beauchef',
+                Mascotas: 'conoce-beauchef/mascotas',
+                PetDetail: 'conoce-beauchef/mascotas/:petId',
+                Musica: 'conoce-beauchef/musica',
+                SongDetail: 'conoce-beauchef/musica/:songId',
+                Peliculas: 'conoce-beauchef/peliculas',
+                Videojuegos: 'conoce-beauchef/videojuegos',
+                Libros: 'conoce-beauchef/libros',
                 Comunidad: 'comunidad',
                 Academico: 'academico',
                 Deportes: 'deportes',
@@ -512,6 +530,8 @@ function AppContent() {
                 PublicLeague: 'ligas-publicas/:leagueId',
                 PublicMatch: 'ligas-publicas/partido/:matchId',
                 PublicTeam: 'ligas-publicas/equipo/:teamId',
+                NoticiasList: 'deportes/noticias',
+                NoticiaDetail: 'deportes/noticias/:newsId',
                 PollasList: 'beaupolla',
                 Polla: 'beaupolla/:leagueId',
                 PollaMatch: 'beaupolla/:leagueId/partido/:matchId',
@@ -555,7 +575,7 @@ function AppContent() {
                     title={getScreenTitle(currentRouteName, currentRouteParams)} 
                     onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                     onBack={showBackButton ? handleBack : undefined}
-                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'TeamSchedule', 'LeaguesList', 'LeagueDetail', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'PollasList', 'Polla', 'PollaMatch', 'PollaUserBets'].includes(currentRouteName) ? () => {
+                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Mascotas', 'Musica', 'Peliculas', 'Videojuegos', 'Libros', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'TeamSchedule', 'LeaguesList', 'LeagueDetail', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'NoticiasList', 'PollasList', 'Polla', 'PollaMatch', 'PollaUserBets'].includes(currentRouteName) ? () => {
                       DeviceEventEmitter.emit('onGlobalRefresh');
                     } : undefined}
                     hasUnreadNotifications={hasUnreadNotifications}
@@ -570,6 +590,9 @@ function AppContent() {
                       <Stack.Screen name="PetDetail" component={PetDetailScreen} />
                       <Stack.Screen name="Musica" component={MusicaScreen} />
                       <Stack.Screen name="SongDetail" component={SongDetailScreen} />
+                      <Stack.Screen name="Peliculas" component={PeliculasScreen} />
+                      <Stack.Screen name="Videojuegos" component={VideojuegosScreen} />
+                      <Stack.Screen name="Libros" component={BooksScreen} />
                       <Stack.Screen name="Comunidad" component={ComunidadScreen} />
                       <Stack.Screen name="Academico" component={AcademicoScreen} />
                       <Stack.Screen name="Deportes" component={DeportesScreen} />
@@ -619,6 +642,8 @@ function AppContent() {
                       <Stack.Screen name="LeagueMatchDetail" component={LeagueMatchDetailScreen} />
                       <Stack.Screen name="LeagueMatchArbitrator" component={LeagueMatchArbitratorScreen} />
                       <Stack.Screen name="TeamProfile" component={TeamProfileScreen} />
+                      <Stack.Screen name="NoticiasList" component={NoticiasListScreen} />
+                      <Stack.Screen name="NoticiaDetail" component={NoticiaDetailScreen} />
                       <Stack.Screen name="PollasList" component={PollasListScreen} />
                       <Stack.Screen name="Polla" component={PollaScreen} />
                       <Stack.Screen name="PollaMatch" component={PollaMatchScreen} />

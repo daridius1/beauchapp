@@ -18,6 +18,12 @@ export const DeportesScreen: React.FC<Props> = ({ navigation }) => {
       icon: 'flag',
       screen: 'LeaguesList',
     },
+    {
+      id: 'NoticiasList',
+      title: 'Noticias',
+      icon: 'file-text',
+      screen: 'NoticiasList',
+    },
     // Horarios pide sesión: es la disponibilidad de la cuenta que la marca.
     ...(user
       ? [

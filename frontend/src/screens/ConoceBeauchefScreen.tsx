@@ -4,14 +4,28 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConoceBeauchef'>;
 
 // Categorías de "Conoce Beauchef": cada una es un espacio donde la comunidad comparte
-// cosas propias (fotos, historias). Empieza solo con Mascotas; agregar una nueva
+// cosas propias (fotos, historias) o hace match por gustos en común. Agregar una nueva
 // categoría es agregar un ítem acá.
 export const ConoceBeauchefScreen: React.FC<Props> = ({ navigation }) => {
+  const { user } = useAuth();
+
   const categorias = [
+    // Mismo gateo que tenía en ComunidadScreen: organizaciones no tienen perfil de citas.
+    ...(user && user.type !== 'organization'
+      ? [
+          {
+            id: 'Tinder',
+            title: 'Tinder Beauchef',
+            icon: 'heart',
+            screen: 'Tinder',
+          },
+        ]
+      : []),
     {
       id: 'Mascotas',
       title: 'Mascotas',
@@ -23,6 +37,24 @@ export const ConoceBeauchefScreen: React.FC<Props> = ({ navigation }) => {
       title: 'Música',
       icon: 'music',
       screen: 'Musica',
+    },
+    {
+      id: 'Peliculas',
+      title: 'Películas y Series',
+      icon: 'film',
+      screen: 'Peliculas',
+    },
+    {
+      id: 'Videojuegos',
+      title: 'Videojuegos',
+      icon: 'cpu',
+      screen: 'Videojuegos',
+    },
+    {
+      id: 'Libros',
+      title: 'Libros',
+      icon: 'book',
+      screen: 'Libros',
     },
   ];
 

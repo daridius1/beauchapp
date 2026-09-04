@@ -4,13 +4,10 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Comunidad'>;
 
 export const ComunidadScreen: React.FC<Props> = ({ navigation }) => {
-  const { user, developerMode } = useAuth();
-
   const apps = [
     {
       id: 'Activities',
@@ -24,33 +21,12 @@ export const ComunidadScreen: React.FC<Props> = ({ navigation }) => {
       icon: 'shopping-bag',
       screen: 'Marketplace',
     },
-    ...(user && user.type !== 'organization'
-      ? [
-          {
-            id: 'Tinder',
-            title: 'Tinder Beauchef',
-            icon: 'heart',
-            screen: 'Tinder',
-          },
-        ]
-      : []),
     {
       id: 'Directory',
       title: 'Perfiles',
       icon: 'users',
       screen: 'Directory',
     },
-    // Todavía no está terminada — visible solo en modo desarrollador hasta que se lance.
-    ...(developerMode
-      ? [
-          {
-            id: 'ConoceBeauchef',
-            title: 'Conoce Beauchef',
-            icon: 'globe',
-            screen: 'ConoceBeauchef',
-          },
-        ]
-      : []),
   ];
 
   return (

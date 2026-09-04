@@ -19,7 +19,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activeScreen, onNavigate, isDocked = false, hasUnreadNotifications }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, developerMode } = useAuth();
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const [runningAsPwa, setRunningAsPwa] = useState(false);
@@ -59,15 +59,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
   // usuario está adentro de una de ellas — hay que mantenerla sincronizada a mano
   // con la lista `apps` de cada pantalla-grilla y con el mapeo de `handleBack` en App.tsx.
   const categoryScreens: Record<string, string[]> = {
-    Comunidad: ['Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'SellerProfileEditor', 'MarketplaceItemEditor', 'Tinder', 'Directory', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'UserProfile', 'FollowList', 'Activities', 'ActivityDetail', 'ActivityEditor', 'ConoceBeauchef', 'Mascotas', 'PetDetail', 'Musica', 'SongDetail'],
+    Comunidad: ['Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'SellerProfileEditor', 'MarketplaceItemEditor', 'Directory', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'UserProfile', 'FollowList', 'Activities', 'ActivityDetail', 'ActivityEditor'],
     Academico: ['ProblemsList', 'ProblemDetail', 'ProblemEditor', 'Reviews', 'CourseDetail', 'ProfessorDetail'],
-    Deportes: ['LeaguesList', 'LeagueDetail', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'Polla', 'PollaMatch', 'PollaUserBets', 'TeamSchedule'],
+    Deportes: ['LeaguesList', 'LeagueDetail', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'Polla', 'PollaMatch', 'PollaUserBets', 'TeamSchedule', 'NoticiasList', 'NoticiaDetail'],
     Juegos: ['LaddersList', 'LadderDetail', 'LadderMatchArbitrator', 'LadderMatchDetail', 'LadderPlayerProfile', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'PollasList'],
+    ConoceBeauchef: ['Tinder', 'Mascotas', 'PetDetail', 'Musica', 'SongDetail', 'Peliculas', 'Videojuegos', 'Libros'],
   };
 
   const menuItems = [
     { id: 'Home', label: 'Inicio' },
     { id: 'Comunidad', label: 'Comunidad' },
+    // Todavía no está terminada — visible solo en modo desarrollador hasta que se lance
+    // (mismo gateo que tenía antes como sub-ítem de Comunidad).
+    ...(developerMode ? [{ id: 'ConoceBeauchef', label: 'Conoce Beauchef' }] : []),
     { id: 'Academico', label: 'Académico' },
     { id: 'Deportes', label: 'Deportes' },
     { id: 'Juegos', label: 'Juegos' },
