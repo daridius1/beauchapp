@@ -2,27 +2,17 @@
 
 // Mascotas: reescritura de pet_likes/pet_matches al estilo Tinder
 // Beauchef. Es el mismo mecanismo (like recíproco → match), calcado de tinder.pb.js, con
-// dos diferencias de comportamiento a propósito:
-//   1. Para dar like hace falta tener al menos 1 mascota subida (acá sí se refuerza en el
-//      backend — en Tinder Beauchef esa regla vive solo en la pantalla).
-//   2. No hay concepto de perfil "activo/inactivo": alcanza con tener 1 ítem para aparecer
+// una diferencia de comportamiento a propósito:
+//   1. Para dar like hace falta tener al menos 1 foto subida en pet_profiles (acá sí se
+//      refuerza en el backend — en Tinder Beauchef esa regla vive solo en la pantalla).
+//   2. No hay concepto de perfil "activo/inactivo": alcanza con tener 1 foto para aparecer
 //      en el descubrimiento de los demás.
-
-// 1. Tope de 5 mascotas por usuario — el createRule de PocketBase no puede expresar un
-// conteo, así que se refuerza acá.
-onRecordCreateRequest((e) => {
-    const userId = e.record.getString("user");
-    const existing = $app.findRecordsByFilter(
-        "pets",
-        "user = {:user} && deleted = false",
-        "", 5, 0,
-        { user: userId }
-    );
-    if (existing.length >= 5) {
-        throw new BadRequestError("Ya subiste el máximo de 5 mascotas.");
-    }
-    return e.next();
-}, "pets");
+//
+// La colección "pets" (varias mascotas por persona, cada una con nombre/fotos propias) ya
+// no recibe creaciones nuevas: un perfil de mascotas ahora es un solo registro en
+// pet_profiles con nombre libre (para poner el nombre de una o varias mascotas) y hasta 10
+// fotos, igual que tinder_profiles. Se deja la colección "pets" viva sin más porque hay
+// citas/quotes viejas desde el feed que apuntan a mascotas puntuales ahí.
 
 // 2. Detección y creación automática de matches al dar like (mismo patrón sync que
 // tinder.pb.js, para que un chequeo inmediato tras dar like ya encuentre el match).
@@ -48,21 +38,21 @@ onRecordCreateRequest((e) => {
         throw new BadRequestError("No puedes interactuar con este usuario.");
     }
 
-    // Regla nueva (no existe en Tinder Beauchef): hace falta tener al menos 1 mascota
-    // subida para poder dar like. También fuera del try/catch para que se propague.
-    let hasOwnItem = false;
+    // Regla nueva (no existe en Tinder Beauchef): hace falta tener al menos 1 foto subida
+    // en el perfil para poder dar like. También fuera del try/catch para que se propague.
+    let hasPhoto = false;
     try {
-        $app.findFirstRecordByFilter(
-            "pets",
-            "user = {:user} && deleted = false",
+        const ownProfile = $app.findFirstRecordByFilter(
+            "pet_profiles",
+            "user = {:user}",
             { user: fromUser }
         );
-        hasOwnItem = true;
+        hasPhoto = (ownProfile.get("photos") || []).length > 0;
     } catch (err) {
-        // No tiene ninguna mascota subida
+        // No tiene perfil de mascotas todavía
     }
-    if (!hasOwnItem) {
-        throw new BadRequestError("Necesitas subir al menos una mascota a tu perfil antes de poder dar like.");
+    if (!hasPhoto) {
+        throw new BadRequestError("Necesitas subir al menos una foto a tu perfil antes de poder dar like.");
     }
 
     try {
@@ -164,17 +154,17 @@ onRecordAfterDeleteSuccess((e) => {
     }
 }, "pet_matches");
 
-// 4. Feed de descubrimiento pre-armado en el servidor, mismo espíritu que
-// /api/tinder/discover (tinder.pb.js:214-315): candidato = cualquier usuario con al menos
-// 1 mascota no borrada, ya filtrado por match/bloqueo y ya marcado si le di like.
+// 4. Feed de descubrimiento pre-armado en el servidor, mismo espíritu y misma forma que
+// /api/tinder/discover (tinder.pb.js:214-315): candidato = cualquier pet_profiles con al
+// menos 1 foto, ya filtrado por match/bloqueo y ya marcado si le di like.
 routerAdd("GET", "/api/pets/discover", (e) => {
     try {
         const currentUserId = e.auth.id;
 
-        const items = $app.findRecordsByFilter(
-            "pets",
-            "deleted = false && user != {:me}",
-            "-created", 1000, 0,
+        const profiles = $app.findRecordsByFilter(
+            "pet_profiles",
+            "user != {:me}",
+            "-created", 500, 0,
             { me: currentUserId }
         );
 
@@ -218,41 +208,13 @@ routerAdd("GET", "/api/pets/discover", (e) => {
             likeIdByUser[l.getString("toUser")] = l.id;
         });
 
-        // Agrupar pets por usuario, excluyendo ya acá los que hicieron match o están
-        // bloqueados (para no perder tiempo armando datos de gente que no se va a mostrar).
-        const itemsByUser = {};
-        items.forEach((it) => {
-            const userId = it.getString("user");
-            if (matchedUserIds[userId] || blockedUserIds[userId]) return;
-            if (!itemsByUser[userId]) itemsByUser[userId] = [];
-            if (itemsByUser[userId].length < 5) {
-                const photos = it.get("photos") || [];
-                itemsByUser[userId].push({
-                    id: it.id,
-                    name: it.getString("name"),
-                    description: it.getString("description"),
-                    image: photos[0] || "",
-                    collectionId: it.collection().id,
-                    collectionName: "pets",
-                });
-            }
+        // Igual que Tinder Beauchef: "activo" acá es tener al menos 1 foto subida.
+        const visibleProfiles = profiles.filter((p) => {
+            const userId = p.getString("user");
+            if (matchedUserIds[userId] || blockedUserIds[userId]) return false;
+            return (p.get("photos") || []).length > 0;
         });
-        const userIds = Object.keys(itemsByUser);
-
-        // Cada mascota ya trae su propio nombre y descripción, pero además hay una
-        // descripción a nivel de perfil (qué tipo de mascotas te gustan), igual que
-        // movie_profiles/song_profiles/book_profiles.
-        const profileRecords = userIds.length > 0
-            ? $app.findRecordsByFilter(
-                "pet_profiles",
-                userIds.map((id) => `user = "${id}"`).join(" || "),
-                "", userIds.length, 0
-              )
-            : [];
-        const descriptionByUser = {};
-        profileRecords.forEach((p) => {
-            descriptionByUser[p.getString("user")] = p.getString("description");
-        });
+        const userIds = visibleProfiles.map((p) => p.getString("user"));
 
         const { pickChipUserFields } = require(`${__hooks}/lib/chipFields.js`);
 
@@ -265,14 +227,21 @@ routerAdd("GET", "/api/pets/discover", (e) => {
             });
         }
 
-        const result = userIds.map((userId) => ({
-            user: userId,
-            description: descriptionByUser[userId] || "",
-            items: itemsByUser[userId],
-            expand: { user: usersById[userId] || null },
-            isLiked: !!likeIdByUser[userId],
-            likeId: likeIdByUser[userId] || null,
-        }));
+        const result = visibleProfiles.map((p) => {
+            const userId = p.getString("user");
+            return {
+                id: p.id,
+                user: userId,
+                name: p.getString("name"),
+                description: p.getString("description"),
+                photos: p.get("photos") || [],
+                collectionId: p.collection().id,
+                collectionName: "pet_profiles",
+                expand: { user: usersById[userId] || null },
+                isLiked: !!likeIdByUser[userId],
+                likeId: likeIdByUser[userId] || null,
+            };
+        });
 
         return e.json(200, { profiles: result });
     } catch (err) {

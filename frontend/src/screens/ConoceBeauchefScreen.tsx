@@ -5,6 +5,7 @@ import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { ConoceContactForm } from '../components/ConoceContactForm';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConoceBeauchef'>;
 
@@ -54,7 +55,7 @@ export const ConoceBeauchefScreen: React.FC<Props> = ({ navigation }) => {
     },
     {
       id: 'Libros',
-      title: 'Libros',
+      title: 'Libros y Comics',
       icon: 'book',
       screen: 'Libros',
     },
@@ -63,6 +64,7 @@ export const ConoceBeauchefScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ConoceContactForm />
         {categorias.map((item) => (
           <TouchableOpacity
             key={item.id}

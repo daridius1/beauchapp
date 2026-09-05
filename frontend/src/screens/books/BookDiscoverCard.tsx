@@ -3,6 +3,7 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { DiscoverBookProfile } from '../../services/booksService';
+import { CarouselDots } from '../../components/CarouselDots';
 
 interface Props {
   profile: DiscoverBookProfile;
@@ -61,13 +62,7 @@ export const BookDiscoverCard: React.FC<Props> = ({
                   />
                 </View>
 
-                {items.length > 1 && (
-                  <View style={styles.dotsRow}>
-                    {items.map((_, idx) => (
-                      <View key={idx} style={[styles.dot, idx === activeIndex && styles.dotActive]} />
-                    ))}
-                  </View>
-                )}
+                <CarouselDots count={items.length} activeIndex={activeIndex % items.length} />
               </>
             ) : (
               <View style={styles.emptyImage}>
@@ -145,17 +140,6 @@ const styles = StyleSheet.create({
   itemTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
   itemYear: { color: '#d4d4d4', fontSize: 13, marginTop: 2 },
   imageNavArea: { position: 'absolute', top: 0, bottom: 0, width: '50%' },
-  dotsRow: {
-    position: 'absolute',
-    top: 12,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.4)' },
-  dotActive: { backgroundColor: '#ffffff', width: 8 },
   emptyImage: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyImageText: { color: theme.colors.textMuted, fontSize: 12, marginTop: 8 },
   cardDetails: { paddingVertical: theme.spacing.sm },

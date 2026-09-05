@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Linking, StyleProp, ViewStyle } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { User } from '../context/AuthContext';
+import { User, useAuth } from '../context/AuthContext';
 import { OrganizationMemberRecord } from '../services/organizationService';
 import { SportIcon } from './SportIcon';
 import { OrgChip } from './OrgChip';
@@ -91,14 +91,19 @@ export const UserChipsRow: React.FC<Props> = ({
   align = 'center',
   style,
 }) => {
+  const { developerMode } = useAuth();
+
   if (!user) return null;
   const isSmall = size === 'sm';
 
   const entryYearText = user.entry_year ? `Gen '${user.entry_year.slice(2)}` : null;
   const deptText = user.department ? user.department : null;
 
-  // Filtrar ladders que tengan show_on_profile en true
-  const validLadderRanks = ladderRanks.filter(r => r.show_on_profile !== false && (r.ordinal_rating || r.rating || r.points || r.mu));
+  // Ladders está en modo desarrollador: sus insignias de ELO se ocultan en los
+  // perfiles hasta que se active el modo desarrollador.
+  const validLadderRanks = developerMode
+    ? ladderRanks.filter(r => r.show_on_profile !== false && (r.ordinal_rating || r.rating || r.points || r.mu))
+    : [];
 
   const showKarma = user.type !== 'organization' && Boolean(user.show_karma_on_profile);
   const karmaVal = user.karma || 0;

@@ -413,6 +413,11 @@ export const ProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                   ? () => navigation.push('TeamProfile', { teamId: targetUserId })
                   : undefined
               }
+              onLeagueDetailPress={
+                profileUser.type === 'organization' && profileUser.subtype === 'league'
+                  ? () => navigation.push('LeagueDetail', { leagueId: targetUserId })
+                  : undefined
+              }
             />
           </View>
 

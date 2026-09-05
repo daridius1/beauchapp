@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, RefreshControl, Platform, DeviceEventEmitter, Alert } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
@@ -167,11 +166,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
     return () => sub.remove();
   }, [onRefresh]);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchPosts(1, false);
-    }, [activeSearch, filterTags.join(','), feedTab, user])
-  );
+  useEffect(() => {
+    fetchPosts(1, false);
+  }, [activeSearch, filterTags.join(','), feedTab, user]);
 
   const handleSearchChange = (text: string) => {
     if (text.endsWith(' ') && text.includes('#')) {

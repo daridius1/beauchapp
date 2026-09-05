@@ -92,25 +92,6 @@ export const styles = StyleSheet.create({
     bottom: 0,
     width: '50%',
   },
-  photoDotsRow: {
-    position: 'absolute',
-    top: 12,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  photoDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  photoDotActive: {
-    backgroundColor: '#ffffff',
-    width: 8,
-  },
   emptyCardImage: {
     flex: 1,
     alignItems: 'center',
@@ -216,17 +197,14 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   matchesScroll: {
-    padding: theme.spacing.md,
-    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
   },
   matchCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.cardBg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   matchCardBody: {
     flex: 1,

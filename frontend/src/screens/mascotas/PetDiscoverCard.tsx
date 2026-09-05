@@ -4,6 +4,7 @@ import { Feather, FontAwesome } from '@expo/vector-icons';
 import { getFileUrl } from '../../services/pocketbase';
 import { theme } from '../../theme/theme';
 import { DiscoverPetProfile } from '../../services/petsService';
+import { CarouselDots } from '../../components/CarouselDots';
 
 interface Props {
   profile: DiscoverPetProfile;
@@ -14,10 +15,9 @@ interface Props {
   onNavigateToUser: (userId: string) => void;
 }
 
-// Carrusel de las mascotas de la persona (foto + nombre superpuesto) + like/pase — mismo
-// layout que TinderDiscoverCard. Se muestran dos descripciones distintas: la del perfil
-// (qué tipo de mascotas le gustan a la persona) y, si la tiene, la de la mascota activa en
-// el carrusel (raza, personalidad, etc. de esa mascota puntual).
+// Carrusel de fotos del perfil de mascotas de la persona (foto + nombre superpuesto) +
+// like/pase — mismo layout que TinderDiscoverCard: un solo perfil con hasta 10 fotos, no
+// una lista de mascotas cada una con las suyas.
 export const PetDiscoverCard: React.FC<Props> = ({
   profile,
   onPrevProfile,
@@ -27,8 +27,7 @@ export const PetDiscoverCard: React.FC<Props> = ({
   onNavigateToUser,
 }) => {
   const [activeIndex, setActiveIndex] = useState(0);
-  const items = profile.items || [];
-  const activeItem = items[activeIndex % Math.max(items.length, 1)];
+  const photos = profile.photos || [];
   const user = profile.expand?.user;
 
   useEffect(() => {
@@ -40,13 +39,15 @@ export const PetDiscoverCard: React.FC<Props> = ({
       <View style={styles.cardWrapper}>
         <View style={styles.profileCard}>
           <View style={styles.cardImageWrapper}>
-            {items.length > 0 ? (
+            {photos.length > 0 ? (
               <>
-                <Image source={{ uri: getFileUrl(activeItem, activeItem.image) }} style={styles.cardImage} />
+                <Image source={{ uri: getFileUrl(profile, photos[activeIndex % photos.length]) }} style={styles.cardImage} />
 
-                <View style={styles.itemOverlay} pointerEvents="none">
-                  <Text style={styles.itemTitle}>{activeItem.name}</Text>
-                </View>
+                {!!profile.name && (
+                  <View style={styles.nameOverlay} pointerEvents="none">
+                    <Text style={styles.nameText}>{profile.name}</Text>
+                  </View>
+                )}
 
                 <View style={[StyleSheet.absoluteFillObject, { pointerEvents: 'box-none' }]}>
                   <TouchableOpacity
@@ -55,22 +56,16 @@ export const PetDiscoverCard: React.FC<Props> = ({
                   />
                   <TouchableOpacity
                     style={[styles.imageNavArea, { right: 0 }]}
-                    onPress={() => setActiveIndex((prev) => Math.min(items.length - 1, prev + 1))}
+                    onPress={() => setActiveIndex((prev) => Math.min(photos.length - 1, prev + 1))}
                   />
                 </View>
 
-                {items.length > 1 && (
-                  <View style={styles.dotsRow}>
-                    {items.map((_, idx) => (
-                      <View key={idx} style={[styles.dot, idx === activeIndex && styles.dotActive]} />
-                    ))}
-                  </View>
-                )}
+                <CarouselDots count={photos.length} activeIndex={activeIndex % photos.length} />
               </>
             ) : (
               <View style={styles.emptyImage}>
-                <Feather name="heart" size={48} color="#404040" />
-                <Text style={styles.emptyImageText}>Sin mascotas subidas</Text>
+                <FontAwesome name="paw" size={48} color="#404040" />
+                <Text style={styles.emptyImageText}>Sin fotos subidas</Text>
               </View>
             )}
           </View>
@@ -85,10 +80,6 @@ export const PetDiscoverCard: React.FC<Props> = ({
               <Text style={styles.cardDesc}>{profile.description}</Text>
             ) : (
               <Text style={[styles.cardDesc, styles.cardDescEmpty]}>Sin descripción</Text>
-            )}
-
-            {!!activeItem?.description && (
-              <Text style={styles.itemDescText}>{activeItem.description}</Text>
             )}
           </View>
         </View>
@@ -134,7 +125,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cardImage: { width: '100%', height: '100%' },
-  itemOverlay: {
+  nameOverlay: {
     position: 'absolute',
     left: 0,
     right: 0,
@@ -142,20 +133,8 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  itemTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  itemYear: { color: '#d4d4d4', fontSize: 13, marginTop: 2 },
+  nameText: { color: '#fff', fontSize: 16, fontWeight: '800' },
   imageNavArea: { position: 'absolute', top: 0, bottom: 0, width: '50%' },
-  dotsRow: {
-    position: 'absolute',
-    top: 12,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.4)' },
-  dotActive: { backgroundColor: '#ffffff', width: 8 },
   emptyImage: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyImageText: { color: theme.colors.textMuted, fontSize: 12, marginTop: 8 },
   cardDetails: { paddingVertical: theme.spacing.sm },
@@ -163,7 +142,6 @@ const styles = StyleSheet.create({
   cardUsername: { color: theme.colors.textMuted, fontSize: 13, marginTop: 2 },
   cardDesc: { color: theme.colors.text, fontSize: 14, lineHeight: 18, marginTop: theme.spacing.sm },
   cardDescEmpty: { fontStyle: 'italic', color: '#606060' },
-  itemDescText: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 17, marginTop: theme.spacing.sm },
   swipeButtonsRow: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 10, width: '100%' },
   swipeBtn: {
     width: 58,

@@ -1,8 +1,10 @@
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
+import { ContactLinksList } from '../../components/ContactLinksList';
 import { theme } from '../../theme/theme';
+import { ConoceContact, conoceContactService } from '../../services/conoceContactService';
 
 interface Props {
   currentUser: any;
@@ -11,14 +13,27 @@ interface Props {
   onClose: () => void;
 }
 
-// Calco de PeliculaMatchModal.
+// Aviso de "es un match" + contacto centralizado de Conoce Beauchef (ver
+// conoceContactService.ts) — antes esto era exclusivo de Tinder Beauchef.
 export const BookMatchModal: React.FC<Props> = ({ currentUser, matchUser, onNavigateToUser, onClose }) => {
+  const [contact, setContact] = useState<ConoceContact | null>(null);
+  const [loadingContact, setLoadingContact] = useState(true);
+
+  useEffect(() => {
+    if (!matchUser?.id) return;
+    conoceContactService
+      .getContactForUser(matchUser.id)
+      .then(setContact)
+      .catch(() => setContact(null))
+      .finally(() => setLoadingContact(false));
+  }, [matchUser?.id]);
+
   return (
     <View style={styles.overlay}>
-      <View style={styles.popup}>
+      <ScrollView style={{ width: '100%' }} contentContainerStyle={styles.popup} showsVerticalScrollIndicator={false}>
         <FontAwesome name="heart" size={56} color="#10B981" />
         <Text style={styles.title}>¡Es un Match!</Text>
-        <Text style={styles.subtitle}>A vos y a {matchUser?.name || 'esta persona'} les gustan los mismos libros.</Text>
+        <Text style={styles.subtitle}>A ti y a {matchUser?.name || 'esta persona'} les gustan los mismos libros.</Text>
 
         <View style={styles.avatarsRow}>
           <Avatar user={currentUser} size={72} />
@@ -30,10 +45,15 @@ export const BookMatchModal: React.FC<Props> = ({ currentUser, matchUser, onNavi
           </TouchableOpacity>
         </View>
 
+        <View style={styles.contactSection}>
+          <Text style={styles.contactLabel}>Contacto</Text>
+          <ContactLinksList contact={contact} loading={loadingContact} />
+        </View>
+
         <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
           <Text style={styles.closeBtnText}>Seguir viendo</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </View>
   );
 };
@@ -50,7 +70,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: theme.spacing.lg,
   },
-  popup: { alignItems: 'center', maxWidth: 360, width: '100%' },
+  popup: { alignItems: 'center', maxWidth: 360, width: '100%', alignSelf: 'center', paddingBottom: theme.spacing.md },
   title: { color: theme.colors.text, fontSize: 26, fontWeight: '900', marginTop: theme.spacing.md },
   subtitle: {
     color: theme.colors.textMuted,
@@ -70,6 +90,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  contactSection: { width: '100%', marginTop: theme.spacing.lg },
+  contactLabel: { color: theme.colors.textMuted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginBottom: 8 },
   closeBtn: {
     marginTop: theme.spacing.xl,
     backgroundColor: theme.colors.primary,

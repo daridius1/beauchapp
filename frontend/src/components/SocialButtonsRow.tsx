@@ -18,10 +18,11 @@ interface Props {
   contacts: SocialContactData;
   onMarketplacePress?: () => void;
   onTeamProfilePress?: () => void;
+  onLeagueDetailPress?: () => void;
   style?: any;
 }
 
-export const SocialButtonsRow: React.FC<Props> = ({ contacts, onMarketplacePress, onTeamProfilePress, style }) => {
+export const SocialButtonsRow: React.FC<Props> = ({ contacts, onMarketplacePress, onTeamProfilePress, onLeagueDetailPress, style }) => {
   const [activeModal, setActiveModal] = useState<{
     type: 'whatsapp' | 'instagram' | 'telegram' | 'signal' | 'email' | 'website';
     title: string;
@@ -41,7 +42,7 @@ export const SocialButtonsRow: React.FC<Props> = ({ contacts, onMarketplacePress
 
   const { instagram, telegram, whatsapp, signal, email, website } = contacts;
 
-  const hasAnyContact = !!instagram || !!telegram || !!whatsapp || !!signal || !!email || !!website || !!onMarketplacePress || !!onTeamProfilePress;
+  const hasAnyContact = !!instagram || !!telegram || !!whatsapp || !!signal || !!email || !!website || !!onMarketplacePress || !!onTeamProfilePress || !!onLeagueDetailPress;
   if (!hasAnyContact) return null;
 
   return (
@@ -197,6 +198,17 @@ export const SocialButtonsRow: React.FC<Props> = ({ contacts, onMarketplacePress
           onPress={onTeamProfilePress}
         >
           <Feather name="shield" size={18} color={theme.colors.primary} />
+        </TouchableOpacity>
+      )}
+
+      {/* Botón Vista de Liga */}
+      {!!onLeagueDetailPress && (
+        <TouchableOpacity
+          style={[styles.contactSquareBtn, { borderColor: 'rgba(56, 189, 248, 0.3)', backgroundColor: 'rgba(56, 189, 248, 0.1)' }]}
+          activeOpacity={0.7}
+          onPress={onLeagueDetailPress}
+        >
+          <Feather name="flag" size={18} color={theme.colors.primary} />
         </TouchableOpacity>
       )}
 

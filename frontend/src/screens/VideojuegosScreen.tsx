@@ -19,12 +19,13 @@ import { getFileUrl } from '../services/pocketbase';
 import { gamesService, GameItem, DiscoverGameProfile } from '../services/gamesService';
 import { igdbService, IgdbResult } from '../services/igdbService';
 import { theme } from '../theme/theme';
-import { Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { withMinimumDelay } from '../utils/refresh';
 import { GameDiscoverCard } from './games/GameDiscoverCard';
 import { GameMatchModal } from './games/GameMatchModal';
 import { ConfirmExitModal } from '../components/ConfirmExitModal';
+import { MatchContactModal } from '../components/MatchContactModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Videojuegos'>;
 
@@ -91,7 +92,7 @@ export const VideojuegosScreen: React.FC<Props> = ({ navigation }) => {
       Toast.show({
         type: 'info',
         text1: 'Te falta un perfil',
-        text2: 'Sube al menos un videojuego en "Mis Videojuegos" antes de dar like.',
+        text2: 'Sube al menos un videojuego en "Mis juegos" antes de dar like.',
       });
       return;
     }
@@ -277,6 +278,7 @@ export const VideojuegosScreen: React.FC<Props> = ({ navigation }) => {
   }, [activeTab]);
 
   const [unmatchTarget, setUnmatchTarget] = useState<any | null>(null);
+  const [contactModalMatch, setContactModalMatch] = useState<any | null>(null);
 
   const handleUnmatch = (match: any) => setUnmatchTarget(match);
 
@@ -295,8 +297,8 @@ export const VideojuegosScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={[styles.tabBtnText, activeTab === 'descubrir' && styles.tabBtnTextActive]}>Descubrir</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.tabBtn, activeTab === 'mis-videojuegos' && styles.tabBtnActive]} onPress={() => setActiveTab('mis-videojuegos')}>
-          <Feather name="cpu" size={18} color={activeTab === 'mis-videojuegos' ? theme.colors.primary : '#a3a3a3'} />
-          <Text style={[styles.tabBtnText, activeTab === 'mis-videojuegos' && styles.tabBtnTextActive]}>Mis Videojuegos</Text>
+          <FontAwesome name="gamepad" size={18} color={activeTab === 'mis-videojuegos' ? theme.colors.primary : '#a3a3a3'} />
+          <Text style={[styles.tabBtnText, activeTab === 'mis-videojuegos' && styles.tabBtnTextActive]}>Mis juegos</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.tabBtn, activeTab === 'matches' && styles.tabBtnActive]} onPress={() => setActiveTab('matches')}>
           <Feather name="heart" size={18} color={activeTab === 'matches' ? theme.colors.primary : '#a3a3a3'} />
@@ -311,7 +313,7 @@ export const VideojuegosScreen: React.FC<Props> = ({ navigation }) => {
           <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
         ) : discoverProfiles.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Feather name="cpu" size={40} color={theme.colors.textMuted} style={{ marginBottom: 12 }} />
+            <FontAwesome name="gamepad" size={40} color={theme.colors.textMuted} style={{ marginBottom: 12 }} />
             <Text style={styles.emptyText}>Todavía nadie ha compartido sus videojuegos.</Text>
           </View>
         ) : (
@@ -450,7 +452,7 @@ export const VideojuegosScreen: React.FC<Props> = ({ navigation }) => {
                 <TouchableOpacity
                   key={m.id}
                   style={styles.matchRow}
-                  onPress={() => other?.id && navigation.push('UserProfile', { userId: other.id })}
+                  onPress={() => setContactModalMatch(m)}
                   onLongPress={() => handleUnmatch(m)}
                 >
                   <View style={styles.matchAvatarPlaceholder}>
@@ -492,6 +494,21 @@ export const VideojuegosScreen: React.FC<Props> = ({ navigation }) => {
         confirmText="Deshacer"
         onConfirm={confirmUnmatch}
         onCancel={() => setUnmatchTarget(null)}
+      />
+
+      <MatchContactModal
+        visible={!!contactModalMatch}
+        matchUser={contactModalMatch?.userA === user?.id ? contactModalMatch?.expand?.userB : contactModalMatch?.expand?.userA}
+        onClose={() => setContactModalMatch(null)}
+        onNavigateToUser={(userId) => {
+          setContactModalMatch(null);
+          navigation.push('UserProfile', { userId });
+        }}
+        onUnmatch={() => {
+          const match = contactModalMatch;
+          setContactModalMatch(null);
+          if (match) handleUnmatch(match);
+        }}
       />
     </View>
   );

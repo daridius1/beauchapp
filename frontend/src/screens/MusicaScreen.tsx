@@ -26,6 +26,7 @@ import { SpotifyEmbed } from '../components/SpotifyEmbed';
 import { MusicaDiscoverCard } from './musica/MusicaDiscoverCard';
 import { MusicaMatchModal } from './musica/MusicaMatchModal';
 import { ConfirmExitModal } from '../components/ConfirmExitModal';
+import { MatchContactModal } from '../components/MatchContactModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Musica'>;
 
@@ -284,6 +285,7 @@ export const MusicaScreen: React.FC<Props> = ({ navigation }) => {
   }, [activeTab]);
 
   const [unmatchTarget, setUnmatchTarget] = useState<any | null>(null);
+  const [contactModalMatch, setContactModalMatch] = useState<any | null>(null);
 
   const handleUnmatch = (match: any) => setUnmatchTarget(match);
 
@@ -357,24 +359,32 @@ export const MusicaScreen: React.FC<Props> = ({ navigation }) => {
             {myItems.map((item) => (
               <View key={item.id} style={styles.itemBlock}>
                 <View style={styles.itemRow}>
-                  {item.spotifyImageUrl || item.cover ? (
-                    <Image source={{ uri: item.spotifyImageUrl || getFileUrl(item, item.cover) }} style={styles.itemThumb} />
-                  ) : (
-                    <View style={[styles.itemThumb, styles.itemThumbEmpty]}>
-                      <Feather name="music" size={18} color={theme.colors.textMuted} />
+                  {item.spotifyTrackId ? (
+                    // El embed ya trae carátula, título y artista — repetirlos en una fila
+                    // aparte era información duplicada. Solo se cae a la fila con
+                    // miniatura/título de abajo si la canción no tiene trackId de Spotify.
+                    <View style={{ flex: 1 }}>
+                      {isFocused && <SpotifyEmbed key={item.spotifyTrackId} trackId={item.spotifyTrackId} compact />}
                     </View>
+                  ) : (
+                    <>
+                      {item.spotifyImageUrl || item.cover ? (
+                        <Image source={{ uri: item.spotifyImageUrl || getFileUrl(item, item.cover) }} style={styles.itemThumb} />
+                      ) : (
+                        <View style={[styles.itemThumb, styles.itemThumbEmpty]}>
+                          <Feather name="music" size={18} color={theme.colors.textMuted} />
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.itemRowTitle}>{item.title}</Text>
+                        <Text style={styles.itemRowYear}>{[item.author, item.year].filter(Boolean).join(' · ')}</Text>
+                      </View>
+                    </>
                   )}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.itemRowTitle}>{item.title}</Text>
-                    <Text style={styles.itemRowYear}>{[item.author, item.year].filter(Boolean).join(' · ')}</Text>
-                  </View>
                   <TouchableOpacity onPress={() => handleDeleteItem(item)} style={styles.itemActionBtn}>
                     <Feather name="trash-2" size={16} color={theme.colors.error} />
                   </TouchableOpacity>
                 </View>
-                {!!item.spotifyTrackId && isFocused && (
-                  <SpotifyEmbed key={item.spotifyTrackId} trackId={item.spotifyTrackId} compact />
-                )}
               </View>
             ))}
 
@@ -461,7 +471,7 @@ export const MusicaScreen: React.FC<Props> = ({ navigation }) => {
                 <TouchableOpacity
                   key={m.id}
                   style={styles.matchRow}
-                  onPress={() => other?.id && navigation.push('UserProfile', { userId: other.id })}
+                  onPress={() => setContactModalMatch(m)}
                   onLongPress={() => handleUnmatch(m)}
                 >
                   <View style={styles.matchAvatarPlaceholder}>
@@ -503,6 +513,21 @@ export const MusicaScreen: React.FC<Props> = ({ navigation }) => {
         confirmText="Deshacer"
         onConfirm={confirmUnmatch}
         onCancel={() => setUnmatchTarget(null)}
+      />
+
+      <MatchContactModal
+        visible={!!contactModalMatch}
+        matchUser={contactModalMatch?.userA === user?.id ? contactModalMatch?.expand?.userB : contactModalMatch?.expand?.userA}
+        onClose={() => setContactModalMatch(null)}
+        onNavigateToUser={(userId) => {
+          setContactModalMatch(null);
+          navigation.push('UserProfile', { userId });
+        }}
+        onUnmatch={() => {
+          const match = contactModalMatch;
+          setContactModalMatch(null);
+          if (match) handleUnmatch(match);
+        }}
       />
     </View>
   );

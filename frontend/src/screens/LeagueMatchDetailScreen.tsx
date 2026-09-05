@@ -360,7 +360,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
         onPressTeamA={teamA ? () => navigation.push('TeamProfile', { teamId: teamA.id }) : undefined}
         onPressTeamB={teamB ? () => navigation.push('TeamProfile', { teamId: teamB.id }) : undefined}
         onPressLeague={
-          match.expand?.league ? () => navigation.push('UserProfile', { userId: match.expand.league.id }) : undefined
+          match.expand?.league ? () => navigation.push('LeagueDetail', { leagueId: match.expand.league.id }) : undefined
         }
         onPressArbitrate={() => navigation.push('LeagueMatchArbitrator', { matchId })}
       />

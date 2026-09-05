@@ -3,6 +3,7 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { getFileUrl } from '../../services/pocketbase';
 import { UserChipsRow } from '../../components/UserChipsRow';
+import { CarouselDots } from '../../components/CarouselDots';
 import { styles } from './TinderScreen.styles';
 import { TinderExtraDetails } from './TinderExtraDetails';
 
@@ -79,19 +80,7 @@ export const TinderDiscoverCard: React.FC<TinderDiscoverCardProps> = ({
                 </View>
 
                 {/* Photo Dots Indicators */}
-                {activePhotos.length > 1 && (
-                  <View style={styles.photoDotsRow}>
-                    {activePhotos.map((_: any, dotIdx: number) => (
-                      <View
-                        key={dotIdx}
-                        style={[
-                          styles.photoDot,
-                          dotIdx === activePhotoIndex && styles.photoDotActive
-                        ]}
-                      />
-                    ))}
-                  </View>
-                )}
+                <CarouselDots count={activePhotos.length} activeIndex={activePhotoIndex} />
               </>
             ) : (
               <View style={styles.emptyCardImage}>

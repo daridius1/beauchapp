@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, Platform, ScrollView, Image } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { pb } from '../services/pocketbase';
@@ -10,7 +10,6 @@ import Toast from 'react-native-toast-message';
 import { OrgChip } from '../components/OrgChip';
 import { UserChipsRow, YEARS_LIST, DEPARTMENTS_LIST } from '../components/UserChipsRow';
 import { SocialInput } from '../components/SocialInput';
-import { SportIcon } from '../components/SportIcon';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 
@@ -44,43 +43,8 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [signal, setSignal] = useState(user?.signal || '');
   const [website, setWebsite] = useState(user?.website || '');
 
-  // Ladder Ranks individuales con toggle por deporte
-  const [myLadderRanks, setMyLadderRanks] = useState<any[]>([]);
-
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (user?.id) {
-      loadMyLadderRanks();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-
-  const loadMyLadderRanks = async () => {
-    if (!user) return;
-    try {
-      const res = await pb.collection('ladder_ranks').getList(1, 20, {
-        filter: `user = "${user.id}"`,
-        expand: 'ladder'
-      });
-      setMyLadderRanks(res.items.map(item => ({
-        ...item,
-        show_on_profile: Boolean(item.show_on_profile)
-      })));
-    } catch (e) {
-      console.warn('Error cargando ranks de ladders en edición de perfil:', e);
-    }
-  };
-
-  const toggleLadderVisibility = (rankId: string) => {
-    setMyLadderRanks(prev => prev.map(r => {
-      if (r.id === rankId) {
-        return { ...r, show_on_profile: !r.show_on_profile };
-      }
-      return r;
-    }));
-  };
 
   if (!user) return null;
 
@@ -159,20 +123,6 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
       }
 
       await pb.collection('users').update(user.id, formData);
-
-      // Actualizar visibilidad individual de cada ladder rank (en paralelo, son independientes entre sí)
-      const rankUpdates = await Promise.allSettled(
-        myLadderRanks.map((rank) =>
-          pb.collection('ladder_ranks').update(rank.id, {
-            show_on_profile: Boolean(rank.show_on_profile)
-          })
-        )
-      );
-      rankUpdates.forEach((res, i) => {
-        if (res.status === 'rejected') {
-          console.error('Error guardando visibilidad de ladder rank:', myLadderRanks[i].id, res.reason);
-        }
-      });
 
       await pb.collection('users').authRefresh();
 
@@ -371,15 +321,12 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Ladders: Karma, BeauTokens y Racha de Beaudle son "ladders" para efectos de
-              la insignia de perfil, igual que cada deporte — todos viven juntos acá con
-              su propio toggle de visibilidad. */}
           <View style={[styles.section, { marginTop: theme.spacing.md }]}>
             <Text style={[styles.inputLabel, { fontSize: 14, color: theme.colors.text, marginBottom: 2 }]}>
-              Ladders
+              Insignias
             </Text>
             <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 10 }}>
-              Elige qué insignias de ladder quieres mostrar en tu perfil.
+              Elige qué insignias quieres mostrar en tu perfil.
             </Text>
 
             <TouchableOpacity
@@ -414,31 +361,6 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
                 Racha de Beaudle
               </Text>
             </TouchableOpacity>
-
-            {myLadderRanks.map((rank) => {
-              const sportName = rank.expand?.ladder?.name || rank.expand?.sport?.name || rank.sportKey || '';
-              const sportSlug = rank.expand?.ladder?.slug || rank.sportKey || '';
-              const mode = rank.mode || '1v1';
-              const is2v2 = mode.includes('2v2');
-              const eloVal = Math.round(rank.ordinal_rating || rank.rating || rank.points || 1200);
-              return (
-                <TouchableOpacity
-                  key={rank.id}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}
-                  onPress={() => toggleLadderVisibility(rank.id)}
-                  activeOpacity={0.7}
-                >
-                  <Feather name={rank.show_on_profile ? "check-square" : "square"} size={18} color={theme.colors.primary} />
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <SportIcon name={sportName} slug={sportSlug} size={15} color={theme.colors.text} />
-                    {is2v2 && <Feather name="users" size={13} color={theme.colors.textMuted} />}
-                  </View>
-                  <Text style={{ color: theme.colors.text, fontSize: 13, fontWeight: '600' }}>
-                    {sportName ? `${sportName} ${mode}` : 'Ladder'} ({eloVal})
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
           </View>
 
           {/* Previsualización de Pins */}
@@ -457,7 +379,6 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
                 whatsapp,
                 signal,
               }}
-              ladderRanks={myLadderRanks}
             />
           </View>
         </>

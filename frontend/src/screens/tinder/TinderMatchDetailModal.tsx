@@ -1,14 +1,16 @@
 import React, { useEffect } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Feather, FontAwesome } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { getFileUrl } from '../../services/pocketbase';
 import { Avatar } from '../../components/Avatar';
 import { UserChipsRow } from '../../components/UserChipsRow';
+import { ContactLinksList } from '../../components/ContactLinksList';
+import { CarouselDots } from '../../components/CarouselDots';
 import { theme } from '../../theme/theme';
-import { SIGNAL_LOGO_BASE64 } from '../../assets/signalLogo';
 import { styles } from './TinderScreen.styles';
 import { CARD_WIDTH } from './constants';
 import { TinderExtraDetails } from './TinderExtraDetails';
+import { ConoceContact } from '../../services/conoceContactService';
 
 interface TinderMatchDetailModalProps {
   selectedMatch: any;
@@ -17,7 +19,8 @@ interface TinderMatchDetailModalProps {
   userLadderRanksMap: Record<string, any[]>;
   userSellerProfilesMap: Record<string, any>;
   userMembershipsMap: Record<string, any[]>;
-  onOpenSocialLink: (type: string, value: string) => void;
+  contact: ConoceContact | null;
+  loadingContact?: boolean;
   onNavigateToUser: (userId: string) => void;
   onClose: () => void;
   onUnmatch: (matchId: string) => void;
@@ -30,7 +33,8 @@ export const TinderMatchDetailModal: React.FC<TinderMatchDetailModalProps> = ({
   userLadderRanksMap,
   userSellerProfilesMap,
   userMembershipsMap,
-  onOpenSocialLink,
+  contact,
+  loadingContact,
   onNavigateToUser,
   onClose,
   onUnmatch,
@@ -103,19 +107,7 @@ export const TinderMatchDetailModal: React.FC<TinderMatchDetailModalProps> = ({
                   </View>
 
                   {/* Photo Dots Indicators */}
-                  {selectedMatch.profile.photos.length > 1 && (
-                    <View style={styles.photoDotsRow}>
-                      {selectedMatch.profile.photos.map((_: any, dotIdx: number) => (
-                        <View
-                          key={dotIdx}
-                          style={[
-                            styles.photoDot,
-                            dotIdx === (detailPhotoIndex % selectedMatch.profile.photos.length) && styles.photoDotActive
-                          ]}
-                        />
-                      ))}
-                    </View>
-                  )}
+                  <CarouselDots count={selectedMatch.profile.photos.length} activeIndex={detailPhotoIndex % selectedMatch.profile.photos.length} />
                 </View>
               </View>
             </View>
@@ -144,55 +136,7 @@ export const TinderMatchDetailModal: React.FC<TinderMatchDetailModalProps> = ({
           ) : (
             <>
               <View style={{ gap: theme.spacing.sm, marginTop: theme.spacing.xs }}>
-                {!!selectedMatch.profile.instagram && (
-                  <TouchableOpacity
-                    style={[styles.unlockedContactItem, { borderColor: '#E1306C' }]}
-                    onPress={() => onOpenSocialLink('instagram', selectedMatch.profile.instagram)}
-                  >
-                    <FontAwesome name="instagram" size={22} color="#E1306C" style={{ marginRight: 10 }} />
-                    <Text style={styles.unlockedContactText}>@{selectedMatch.profile.instagram}</Text>
-                    <Feather name="external-link" size={14} color="#E1306C" style={{ marginLeft: 'auto' }} />
-                  </TouchableOpacity>
-                )}
-
-                {!!selectedMatch.profile.whatsapp && (
-                  <TouchableOpacity
-                    style={[styles.unlockedContactItem, { borderColor: '#25D366' }]}
-                    onPress={() => onOpenSocialLink('whatsapp', selectedMatch.profile.whatsapp)}
-                  >
-                    <FontAwesome name="whatsapp" size={22} color="#25D366" style={{ marginRight: 10 }} />
-                    <Text style={styles.unlockedContactText}>WhatsApp: {selectedMatch.profile.whatsapp}</Text>
-                    <Feather name="external-link" size={14} color="#25D366" style={{ marginLeft: 'auto' }} />
-                  </TouchableOpacity>
-                )}
-
-                {!!selectedMatch.profile.telegram && (
-                  <TouchableOpacity
-                    style={[styles.unlockedContactItem, { borderColor: '#0088cc' }]}
-                    onPress={() => onOpenSocialLink('telegram', selectedMatch.profile.telegram)}
-                  >
-                    <FontAwesome name="paper-plane" size={18} color="#0088cc" style={{ marginRight: 10 }} />
-                    <Text style={styles.unlockedContactText}>Telegram</Text>
-                    <Feather name="external-link" size={12} color="#0088cc" style={{ marginLeft: 'auto' }} />
-                  </TouchableOpacity>
-                )}
-
-                {!!selectedMatch.profile.signal && (
-                  <TouchableOpacity
-                    style={[styles.unlockedContactItem, { borderColor: '#3a76f0' }]}
-                    onPress={() => onOpenSocialLink('signal', selectedMatch.profile.signal)}
-                  >
-                    <Image source={{ uri: SIGNAL_LOGO_BASE64 }} style={{ width: 20, height: 20, borderRadius: 10, marginRight: 10 }} />
-                    <Text style={styles.unlockedContactText}>Signal: {selectedMatch.profile.signal}</Text>
-                    <Feather name="external-link" size={12} color="#3a76f0" style={{ marginLeft: 'auto' }} />
-                  </TouchableOpacity>
-                )}
-
-                {!selectedMatch.profile.instagram && !selectedMatch.profile.whatsapp && !selectedMatch.profile.telegram && !selectedMatch.profile.signal && (
-                  <Text style={{ fontStyle: 'italic', color: '#606060', fontSize: 13 }}>
-                    No especificó datos de contacto.
-                  </Text>
-                )}
+                <ContactLinksList contact={contact} loading={loadingContact} />
               </View>
 
               <View style={{ height: 20 }} />

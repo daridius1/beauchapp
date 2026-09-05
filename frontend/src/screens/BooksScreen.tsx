@@ -24,6 +24,7 @@ import { withMinimumDelay } from '../utils/refresh';
 import { BookDiscoverCard } from './books/BookDiscoverCard';
 import { BookMatchModal } from './books/BookMatchModal';
 import { ConfirmExitModal } from '../components/ConfirmExitModal';
+import { MatchContactModal } from '../components/MatchContactModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Libros'>;
 
@@ -277,6 +278,7 @@ export const BooksScreen: React.FC<Props> = ({ navigation }) => {
   }, [activeTab]);
 
   const [unmatchTarget, setUnmatchTarget] = useState<any | null>(null);
+  const [contactModalMatch, setContactModalMatch] = useState<any | null>(null);
 
   const handleUnmatch = (match: any) => setUnmatchTarget(match);
 
@@ -450,7 +452,7 @@ export const BooksScreen: React.FC<Props> = ({ navigation }) => {
                 <TouchableOpacity
                   key={m.id}
                   style={styles.matchRow}
-                  onPress={() => other?.id && navigation.push('UserProfile', { userId: other.id })}
+                  onPress={() => setContactModalMatch(m)}
                   onLongPress={() => handleUnmatch(m)}
                 >
                   <View style={styles.matchAvatarPlaceholder}>
@@ -492,6 +494,21 @@ export const BooksScreen: React.FC<Props> = ({ navigation }) => {
         confirmText="Deshacer"
         onConfirm={confirmUnmatch}
         onCancel={() => setUnmatchTarget(null)}
+      />
+
+      <MatchContactModal
+        visible={!!contactModalMatch}
+        matchUser={contactModalMatch?.userA === user?.id ? contactModalMatch?.expand?.userB : contactModalMatch?.expand?.userA}
+        onClose={() => setContactModalMatch(null)}
+        onNavigateToUser={(userId) => {
+          setContactModalMatch(null);
+          navigation.push('UserProfile', { userId });
+        }}
+        onUnmatch={() => {
+          const match = contactModalMatch;
+          setContactModalMatch(null);
+          if (match) handleUnmatch(match);
+        }}
       />
     </View>
   );

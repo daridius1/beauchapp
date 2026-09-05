@@ -319,7 +319,7 @@ function AppContent() {
       case 'SongDetail': return 'Canción';
       case 'Peliculas': return 'Películas y Series';
       case 'Videojuegos': return 'Videojuegos';
-      case 'Libros': return 'Libros';
+      case 'Libros': return 'Libros y Comics';
       case 'Students': return 'Personas';
       case 'FollowList': {
         const type = params?.type;

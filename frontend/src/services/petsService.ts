@@ -1,5 +1,9 @@
 import { pb } from './pocketbase';
 
+// La colección "pets" (varias mascotas por persona, cada una con nombre/fotos propias) ya
+// no recibe creaciones nuevas — ver pet_profiles más abajo — pero se deja el tipo y
+// `getOne` porque hay citas/quotes viejas desde el feed que apuntan a mascotas puntuales
+// ahí (PetProfileCard.tsx las sigue mostrando).
 export interface PetRecord {
   id: string;
   user: string;
@@ -22,25 +26,24 @@ export interface PetRecord {
   };
 }
 
-export interface DiscoverPetItem {
+export interface PetProfile {
   id: string;
+  user: string;
   name: string;
   description: string;
-  image: string;
+  photos: string[];
   collectionId?: string;
   collectionName?: string;
 }
 
-export interface PetProfile {
+export interface DiscoverPetProfile {
   id: string;
   user: string;
+  name: string;
   description: string;
-}
-
-export interface DiscoverPetProfile {
-  user: string;
-  description: string;
-  items: DiscoverPetItem[];
+  photos: string[];
+  collectionId?: string;
+  collectionName?: string;
   isLiked: boolean;
   likeId: string | null;
   expand?: {
@@ -53,9 +56,8 @@ export interface DiscoverPetProfile {
   };
 }
 
-// Calco de frontend/src/services/moviesService.ts. Cada mascota ya trae su propio nombre y
-// descripción, y además hay una descripción a nivel de perfil (pet_profiles) — qué tipo de
-// mascotas te gustan, no de una mascota puntual.
+// Calco de frontend/src/services/tinder.ts: un solo perfil por persona (nombre libre,
+// descripción, hasta 10 fotos), no una lista de ítems como games/movies/songs/books.
 export const petsService = {
   getOne: async (petId: string): Promise<PetRecord> => {
     const record = await pb.collection('pets').getOne(petId, { expand: 'user' });
@@ -77,36 +79,14 @@ export const petsService = {
     }
   },
 
-  createProfile: async (data: Partial<PetProfile>): Promise<PetProfile> => {
+  createProfile: async (data: FormData | Record<string, any>): Promise<PetProfile> => {
     const record = await pb.collection('pet_profiles').create(data);
     return record as unknown as PetProfile;
   },
 
-  updateProfile: async (profileId: string, data: Partial<PetProfile>): Promise<PetProfile> => {
+  updateProfile: async (profileId: string, data: FormData | Record<string, any>): Promise<PetProfile> => {
     const record = await pb.collection('pet_profiles').update(profileId, data);
     return record as unknown as PetProfile;
-  },
-
-  listMyItems: async (userId: string): Promise<PetRecord[]> => {
-    const res = await pb.collection('pets').getFullList({
-      filter: `user = "${userId}" && deleted = false`,
-      sort: '+created',
-    });
-    return res as unknown as PetRecord[];
-  },
-
-  createItem: async (data: FormData): Promise<PetRecord> => {
-    const record = await pb.collection('pets').create(data);
-    return record as unknown as PetRecord;
-  },
-
-  updateItem: async (petId: string, data: FormData): Promise<PetRecord> => {
-    const record = await pb.collection('pets').update(petId, data);
-    return record as unknown as PetRecord;
-  },
-
-  deleteItem: async (petId: string): Promise<void> => {
-    await pb.collection('pets').update(petId, { deleted: true });
   },
 
   getMatchesList: async (userId: string): Promise<any[]> => {

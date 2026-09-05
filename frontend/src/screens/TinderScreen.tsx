@@ -10,7 +10,6 @@ import {
   Image,
   Alert,
   Platform,
-  Linking,
   DeviceEventEmitter
 } from 'react-native';
 import { withMinimumDelay } from '../utils/refresh';
@@ -27,6 +26,8 @@ import { Feather, FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
 import { compressImage, compressImageNative } from '../utils/imageCompressor';
+import { conoceContactService, ConoceContact } from '../services/conoceContactService';
+import { CarouselDots } from '../components/CarouselDots';
 import { styles } from './tinder/TinderScreen.styles';
 import { TinderExtraDetails } from './tinder/TinderExtraDetails';
 import { TinderRulesPanel } from './tinder/TinderRulesPanel';
@@ -78,11 +79,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
   const [profile, setProfile] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [description, setDescription] = useState('');
-  const [instagram, setInstagram] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
-  const [telegram, setTelegram] = useState('');
-  const [signal, setSignal] = useState('');
-  
+
   // Extra optional fields
   const [favoriteSong, setFavoriteSong] = useState('');
   const [favoriteBook, setFavoriteBook] = useState('');
@@ -117,6 +114,12 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
   const [matchUser, setMatchUser] = useState<any>(null);
   const [matchProfile, setMatchProfile] = useState<any>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
+
+  // Contacto centralizado (conoce_contacts): uno para el popup de "es un match" y otro
+  // para el modal de detalle, porque pueden abrirse en momentos distintos.
+  const [matchContact, setMatchContact] = useState<ConoceContact | null>(null);
+  const [detailContact, setDetailContact] = useState<ConoceContact | null>(null);
+  const [loadingDetailContact, setLoadingDetailContact] = useState(false);
 
   // Time Lockout State
   const [lockoutHoursLeft, setLockoutHoursLeft] = useState<number | null>(null);
@@ -223,10 +226,6 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
 
       setProfile(res as any);
       setDescription(res.description || '');
-      setInstagram(res.instagram || '');
-      setWhatsapp(res.whatsapp || '');
-      setTelegram(res.telegram || '');
-      setSignal(res.signal || '');
 
       setFavoriteSong((res as any).favorite_song || '');
       setFavoriteBook((res as any).favorite_book || '');
@@ -366,6 +365,21 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
+  // Contacto centralizado de la persona del modal de detalle: se pide de nuevo cada vez
+  // que cambia el match seleccionado.
+  useEffect(() => {
+    if (!selectedMatch?.user?.id) {
+      setDetailContact(null);
+      return;
+    }
+    setLoadingDetailContact(true);
+    conoceContactService
+      .getContactForUser(selectedMatch.user.id)
+      .then(setDetailContact)
+      .catch(() => setDetailContact(null))
+      .finally(() => setLoadingDetailContact(false));
+  }, [selectedMatch?.user?.id]);
+
   // Load screen data on focus
   useFocusEffect(
     useCallback(() => {
@@ -467,13 +481,13 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
         if (matchedRecord) {
           // MUTUAL MATCH! Show overlay alert
           setMatchUser(targetProfile.expand?.user);
-          
-          // Refetch profile to get the contact info (now authorized by match hook)
+          setMatchProfile(targetProfile);
+
+          // Contacto centralizado (conoce_contacts), ahora autorizado por el match
           try {
-            const unlockedProfile = await tinderService.getProfileByUserId(targetUserId);
-            setMatchProfile(unlockedProfile);
+            setMatchContact(await conoceContactService.getContactForUser(targetUserId));
           } catch (_) {
-            setMatchProfile(targetProfile);
+            setMatchContact(null);
           }
           setShowMatchModal(true);
         }
@@ -573,10 +587,6 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       setSavingProfile(true);
       const formData = new FormData();
       formData.append('description', description.trim());
-      formData.append('instagram', instagram.trim());
-      formData.append('whatsapp', whatsapp.trim());
-      formData.append('telegram', telegram.trim());
-      formData.append('signal', signal.trim());
 
       formData.append('favorite_song', favoriteSong.trim());
       formData.append('favorite_book', favoriteBook.trim());
@@ -648,33 +658,6 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
       Alert.alert('Error', err.message || 'No se pudo guardar el perfil.');
     } finally {
       setSavingProfile(false);
-    }
-  };
-
-  // Social Links helper
-  const openSocialLink = (type: string, value: string) => {
-    let url = '';
-    const cleanValue = value.replace('@', '').trim();
-    
-    if (type === 'instagram') {
-      url = `https://instagram.com/${cleanValue}`;
-    } else if (type === 'whatsapp') {
-      const phone = cleanValue.replace(/[^0-9+]/g, '');
-      url = `https://wa.me/${phone}`;
-    } else if (type === 'telegram') {
-      url = `https://t.me/${cleanValue}`;
-    } else if (type === 'signal') {
-      url = `https://signal.me/#p/${cleanValue}`;
-    }
-
-    if (url) {
-      Linking.openURL(url).catch(() => {
-        Toast.show({
-          type: 'error',
-          text1: 'Error al abrir link',
-          text2: 'No se pudo abrir la aplicación seleccionada.'
-        });
-      });
     }
   };
 
@@ -752,22 +735,22 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={[styles.tabBtnText, activeTab === 'discover' && styles.tabBtnTextActive]}>Descubrir</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[styles.tabBtn, activeTab === 'matches' && styles.tabBtnActive]} 
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'profile' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('profile')}
+        >
+          <Feather name="user" size={18} color={activeTab === 'profile' ? theme.colors.primary : '#a3a3a3'} />
+          <Text style={[styles.tabBtnText, activeTab === 'profile' && styles.tabBtnTextActive]}>Mi Perfil</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'matches' && styles.tabBtnActive]}
           onPress={() => setActiveTab('matches')}
         >
           <Feather name="heart" size={18} color={activeTab === 'matches' ? theme.colors.primary : '#a3a3a3'} />
           <Text style={[styles.tabBtnText, activeTab === 'matches' && styles.tabBtnTextActive]}>
             Matches {matches.length > 0 && `(${matches.length})`}
           </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.tabBtn, activeTab === 'profile' && styles.tabBtnActive]} 
-          onPress={() => setActiveTab('profile')}
-        >
-          <Feather name="user" size={18} color={activeTab === 'profile' ? theme.colors.primary : '#a3a3a3'} />
-          <Text style={[styles.tabBtnText, activeTab === 'profile' && styles.tabBtnTextActive]}>Mi Perfil</Text>
         </TouchableOpacity>
       </View>
 
@@ -822,7 +805,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                 return (
                   <TouchableOpacity 
                     key={idx}
-                    style={[styles.matchCard, isUnmatched && { opacity: 0.6, borderColor: 'rgba(255,255,255,0.05)' }]}
+                    style={[styles.matchCard, isUnmatched && { opacity: 0.6 }]}
                     activeOpacity={0.8}
                     onPress={() => {
                       setSelectedMatch(item);
@@ -925,19 +908,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
                     </View>
 
                     {/* Photo Dots Indicators */}
-                    {photosList.length > 1 && (
-                      <View style={styles.photoDotsRow}>
-                        {photosList.map((_: any, dotIdx: number) => (
-                          <View 
-                            key={dotIdx} 
-                            style={[
-                              styles.photoDot, 
-                              dotIdx === (previewPhotoIndex % photosList.length) && styles.photoDotActive
-                            ]} 
-                          />
-                        ))}
-                      </View>
-                    )}
+                    <CarouselDots count={photosList.length} activeIndex={previewPhotoIndex % photosList.length} />
                   </>
                 ) : (
                   <View style={styles.emptyCardImage}>
@@ -1035,71 +1006,9 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
               multiline
             />
 
-            {/* Contacto */}
-            <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Contacto</Text>
-            
-            <View style={styles.contactRow}>
-              <Text style={styles.contactLabelText}>Instagram</Text>
-              <View style={styles.contactInputWrapper}>
-                <FontAwesome name="instagram" size={18} color="#E1306C" style={styles.contactIconInside} />
-                <Text style={styles.atBadgeText}>@</Text>
-                <TextInput
-                  style={styles.contactInputInside}
-                  placeholder="tu_usuario"
-                  placeholderTextColor={theme.colors.textMuted}
-                  value={instagram.replace(/^@+/, '')}
-                  onChangeText={(text) => setInstagram(text.replace(/^@+/, ''))}
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
-
-            <View style={styles.contactRow}>
-              <Text style={styles.contactLabelText}>WhatsApp</Text>
-              <View style={styles.contactInputWrapper}>
-                <FontAwesome name="whatsapp" size={18} color="#25D366" style={styles.contactIconInside} />
-                <TextInput
-                  style={styles.contactInputInside}
-                  placeholder="+56912345678"
-                  placeholderTextColor={theme.colors.textMuted}
-                  value={whatsapp}
-                  onChangeText={setWhatsapp}
-                  keyboardType="phone-pad"
-                />
-              </View>
-            </View>
-
-            <View style={styles.contactRow}>
-              <Text style={styles.contactLabelText}>Telegram</Text>
-              <View style={styles.contactInputWrapper}>
-                <FontAwesome name="paper-plane" size={16} color="#0088cc" style={styles.contactIconInside} />
-                <Text style={styles.atBadgeText}>@</Text>
-                <TextInput
-                  style={styles.contactInputInside}
-                  placeholder="tu_usuario"
-                  placeholderTextColor={theme.colors.textMuted}
-                  value={telegram.replace(/^@+/, '')}
-                  onChangeText={(text) => setTelegram(text.replace(/^@+/, ''))}
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
-
-            <View style={styles.contactRow}>
-              <Text style={styles.contactLabelText}>Signal</Text>
-              <View style={styles.contactInputWrapper}>
-                <Feather name="message-square" size={18} color="#3a76f0" style={styles.contactIconInside} />
-                <Text style={styles.atBadgeText}>@</Text>
-                <TextInput
-                  style={styles.contactInputInside}
-                  placeholder="tu_usuario"
-                  placeholderTextColor={theme.colors.textMuted}
-                  value={signal.replace(/^@+/, '')}
-                  onChangeText={(text) => setSignal(text.replace(/^@+/, ''))}
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
+            {/* El contacto ahora se configura una sola vez, centralizado, desde
+                ConoceBeauchefScreen (ConoceContactForm) — sirve para Tinder y el resto de
+                "Conoce Beauchef" por igual. */}
 
             {/* Gustos Personales */}
             <Text style={[styles.fieldLabel, { marginTop: 24 }]}>Gustos Personales</Text>
@@ -1266,7 +1175,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
           userLadderRanksMap={userLadderRanksMap}
           userSellerProfilesMap={userSellerProfilesMap}
           userMembershipsMap={userMembershipsMap}
-          onOpenSocialLink={openSocialLink}
+          contact={matchContact}
           onNavigateToUser={(userId) => {
             setShowMatchModal(false);
             navigation.navigate('UserProfile', { userId });
@@ -1275,6 +1184,7 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
             setShowMatchModal(false);
             setMatchUser(null);
             setMatchProfile(null);
+            setMatchContact(null);
             // Also trigger a matches reload so they see it in the other tab
             fetchMatches();
           }}
@@ -1290,7 +1200,8 @@ export const TinderScreen: React.FC<Props> = ({ route, navigation }) => {
           userLadderRanksMap={userLadderRanksMap}
           userSellerProfilesMap={userSellerProfilesMap}
           userMembershipsMap={userMembershipsMap}
-          onOpenSocialLink={openSocialLink}
+          contact={detailContact}
+          loadingContact={loadingDetailContact}
           onNavigateToUser={(userId) => {
             setShowMatchDetailModal(false);
             navigation.navigate('UserProfile', { userId });

@@ -225,7 +225,7 @@ export const SongProfileCard: React.FC<Props> = ({ songId, onPrevProfile, onNext
 
             <View style={{ marginTop: theme.spacing.md }}>
               {isFocused && song.spotifyTrackId ? (
-                <SpotifyEmbed key={song.spotifyTrackId} trackId={song.spotifyTrackId} />
+                <SpotifyEmbed key={song.spotifyTrackId} trackId={song.spotifyTrackId} compact />
               ) : isFocused ? (
                 <SongPlayer key={song.audio || 'none'} uri={song.audio ? getFileUrl(song, song.audio) : null} />
               ) : null}

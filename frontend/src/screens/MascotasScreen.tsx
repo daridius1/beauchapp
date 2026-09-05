@@ -17,16 +17,20 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { useAuth } from '../context/AuthContext';
 import { getFileUrl } from '../services/pocketbase';
-import { petsService, PetRecord, DiscoverPetProfile } from '../services/petsService';
+import { petsService, PetProfile, DiscoverPetProfile } from '../services/petsService';
 import { theme } from '../theme/theme';
-import { Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
 import { compressImage, compressImageNative } from '../utils/imageCompressor';
 import { withMinimumDelay } from '../utils/refresh';
+import { CarouselDots } from '../components/CarouselDots';
 import { PetDiscoverCard } from './mascotas/PetDiscoverCard';
 import { PetMatchModal } from './mascotas/PetMatchModal';
 import { ConfirmExitModal } from '../components/ConfirmExitModal';
+import { MatchContactModal } from '../components/MatchContactModal';
+
+const MAX_PHOTOS = 10;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Mascotas'>;
 
@@ -34,26 +38,37 @@ export const MascotasScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'descubrir' | 'mis-mascotas' | 'matches'>('descubrir');
 
-  // --- Mis Mascotas: se necesita en más de una pestaña (para saber si ya se puede dar
-  // like en Descubrir), así que vive a nivel de pantalla.
-  const [myItems, setMyItems] = useState<PetRecord[]>([]);
-  const [loadingMyItems, setLoadingMyItems] = useState(true);
+  // --- Mi perfil de mascotas: un solo registro (nombre libre + descripción + hasta 10
+  // fotos), no una lista de mascotas cada una con lo suyo. Se pide sin esperar a que se
+  // abra la pestaña "Mis Mascotas" porque "Descubrir" necesita saber si ya se puede dar like.
+  const [profile, setProfile] = useState<PetProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [photosList, setPhotosList] = useState<any[]>([]);
+  const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0);
+  const [savingProfile, setSavingProfile] = useState(false);
 
-  const fetchMyItems = async () => {
+  const fetchProfile = async () => {
     if (!user) return;
     try {
-      setLoadingMyItems(true);
-      setMyItems(await petsService.listMyItems(user.id));
+      setLoadingProfile(true);
+      const res = await petsService.getProfileByUserId(user.id);
+      setProfile(res);
+      setName(res?.name || '');
+      setDescription(res?.description || '');
+      setPhotosList((res?.photos || []).map((ph: string) => ({ uri: getFileUrl(res, ph), isLocal: false, name: ph })));
+      setPreviewPhotoIndex(0);
     } catch (err) {
-      console.error('Error cargando mis mascotas:', err);
+      console.error('Error cargando perfil de mascotas:', err);
     } finally {
-      setLoadingMyItems(false);
+      setLoadingProfile(false);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
-      fetchMyItems();
+      fetchProfile();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id])
   );
@@ -89,11 +104,11 @@ export const MascotasScreen: React.FC<Props> = ({ navigation }) => {
     const target = discoverProfiles[currentIndex % discoverProfiles.length];
     if (!target || !user) return;
 
-    if (!target.isLiked && myItems.length === 0) {
+    if (!target.isLiked && (!profile?.photos || profile.photos.length === 0)) {
       Toast.show({
         type: 'info',
         text1: 'Te falta un perfil',
-        text2: 'Sube al menos una mascota en "Mis Mascotas" antes de dar like.',
+        text2: 'Sube al menos una foto en "Mis Mascotas" antes de dar like.',
       });
       return;
     }
@@ -123,81 +138,9 @@ export const MascotasScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  // --- Descripción de perfil (qué tipo de mascotas te gustan, no de una mascota puntual) ---
-  const [description, setDescription] = useState('');
-  const [profileId, setProfileId] = useState<string | null>(null);
-  const [savingDescription, setSavingDescription] = useState(false);
-
-  const fetchProfile = async () => {
-    if (!user) return;
-    const profile = await petsService.getProfileByUserId(user.id);
-    setProfileId(profile?.id || null);
-    setDescription(profile?.description || '');
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      if (activeTab === 'mis-mascotas') fetchProfile();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, user?.id])
-  );
-
-  const handleSaveDescription = async () => {
-    if (!user) return;
-    try {
-      setSavingDescription(true);
-      if (profileId) {
-        await petsService.updateProfile(profileId, { description: description.trim() });
-      } else {
-        const created = await petsService.createProfile({ user: user.id, description: description.trim() });
-        setProfileId(created.id);
-      }
-      Toast.show({ type: 'success', text1: 'Descripción guardada' });
-    } catch (err: any) {
-      Alert.alert('Error', err?.message || 'No se pudo guardar la descripción.');
-    } finally {
-      setSavingDescription(false);
-    }
-  };
-
-  // --- Formulario de una mascota (agregar o editar) ---
-  const [editingItem, setEditingItem] = useState<PetRecord | 'new' | null>(null);
-  const [itemName, setItemName] = useState('');
-  const [itemDescription, setItemDescription] = useState('');
-  const [photosList, setPhotosList] = useState<any[]>([]);
-  const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0);
-  const [savingItem, setSavingItem] = useState(false);
-
-  const openNewItemForm = () => {
-    if (myItems.length >= 5) {
-      Toast.show({ type: 'info', text1: 'Límite alcanzado', text2: 'Ya subiste el máximo de 5 mascotas.' });
-      return;
-    }
-    setEditingItem('new');
-    setItemName('');
-    setItemDescription('');
-    setPhotosList([]);
-    setPreviewPhotoIndex(0);
-  };
-
-  const openEditItemForm = (item: PetRecord) => {
-    setEditingItem(item);
-    setItemName(item.name);
-    setItemDescription(item.description || '');
-    setPhotosList(
-      (item.photos || []).map((ph: string) => ({ uri: getFileUrl(item, ph), isLocal: false, name: ph }))
-    );
-    setPreviewPhotoIndex(0);
-  };
-
-  const closeItemForm = () => {
-    setEditingItem(null);
-    setPhotosList([]);
-  };
-
   const handleAddPhoto = async () => {
-    if (photosList.length >= 5) {
-      Alert.alert('Límite de fotos', 'Puedes subir un máximo de 5 fotos.');
+    if (photosList.length >= MAX_PHOTOS) {
+      Alert.alert('Límite de fotos', `Puedes subir un máximo de ${MAX_PHOTOS} fotos.`);
       return;
     }
 
@@ -225,20 +168,15 @@ export const MascotasScreen: React.FC<Props> = ({ navigation }) => {
     setPreviewPhotoIndex(0);
   };
 
-  const handleSaveItem = async () => {
+  const handleSaveProfile = async () => {
     if (!user) return;
-    if (!itemName.trim()) {
-      Toast.show({ type: 'error', text1: 'Falta el nombre', text2: 'Ponle un nombre a tu mascota.' });
-      return;
-    }
-
     try {
-      setSavingItem(true);
+      setSavingProfile(true);
       const formData = new FormData();
-      formData.append('name', itemName.trim());
-      formData.append('description', itemDescription.trim());
+      formData.append('name', name.trim());
+      formData.append('description', description.trim());
 
-      const isNew = editingItem === 'new';
+      const isNew = !profile;
       if (isNew) formData.append('user', user.id);
 
       for (const ph of photosList) {
@@ -268,36 +206,17 @@ export const MascotasScreen: React.FC<Props> = ({ navigation }) => {
         }
       }
 
-      const isNewFinal = editingItem === 'new';
-      if (isNewFinal) {
-        await petsService.createItem(formData);
-      } else {
-        await petsService.updateItem((editingItem as PetRecord).id, formData);
-      }
+      const saved = isNew
+        ? await petsService.createProfile(formData)
+        : await petsService.updateProfile(profile!.id, formData);
 
-      Toast.show({ type: 'success', text1: 'Mascota guardada' });
-      closeItemForm();
-      fetchMyItems();
+      setProfile(saved);
+      setPhotosList((saved.photos || []).map((ph: string) => ({ uri: getFileUrl(saved, ph), isLocal: false, name: ph })));
+      Toast.show({ type: 'success', text1: 'Perfil guardado' });
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'No se pudo guardar tu mascota.');
+      Alert.alert('Error', err?.message || 'No se pudo guardar tu perfil.');
     } finally {
-      setSavingItem(false);
-    }
-  };
-
-  const [deleteTarget, setDeleteTarget] = useState<PetRecord | null>(null);
-
-  const handleDeleteItem = (item: PetRecord) => setDeleteTarget(item);
-
-  const confirmDeleteItem = async () => {
-    if (!deleteTarget) return;
-    try {
-      await petsService.deleteItem(deleteTarget.id);
-      fetchMyItems();
-    } catch (err) {
-      console.error('Error eliminando mascota:', err);
-    } finally {
-      setDeleteTarget(null);
+      setSavingProfile(false);
     }
   };
 
@@ -332,7 +251,7 @@ export const MascotasScreen: React.FC<Props> = ({ navigation }) => {
     const sub = DeviceEventEmitter.addListener('onGlobalRefresh', async () => {
       await withMinimumDelay(async () => {
         if (activeTab === 'descubrir') await fetchDiscover();
-        else if (activeTab === 'mis-mascotas') await Promise.all([fetchMyItems(), fetchProfile()]);
+        else if (activeTab === 'mis-mascotas') await fetchProfile();
         else if (activeTab === 'matches') await fetchMatches();
       });
     });
@@ -341,6 +260,7 @@ export const MascotasScreen: React.FC<Props> = ({ navigation }) => {
   }, [activeTab]);
 
   const [unmatchTarget, setUnmatchTarget] = useState<any | null>(null);
+  const [contactModalMatch, setContactModalMatch] = useState<any | null>(null);
 
   const handleUnmatch = (match: any) => setUnmatchTarget(match);
 
@@ -359,11 +279,11 @@ export const MascotasScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={[styles.tabBtnText, activeTab === 'descubrir' && styles.tabBtnTextActive]}>Descubrir</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.tabBtn, activeTab === 'mis-mascotas' && styles.tabBtnActive]} onPress={() => setActiveTab('mis-mascotas')}>
-          <Feather name="heart" size={18} color={activeTab === 'mis-mascotas' ? theme.colors.primary : '#a3a3a3'} />
+          <FontAwesome name="paw" size={18} color={activeTab === 'mis-mascotas' ? theme.colors.primary : '#a3a3a3'} />
           <Text style={[styles.tabBtnText, activeTab === 'mis-mascotas' && styles.tabBtnTextActive]}>Mis Mascotas</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.tabBtn, activeTab === 'matches' && styles.tabBtnActive]} onPress={() => setActiveTab('matches')}>
-          <Feather name="smile" size={18} color={activeTab === 'matches' ? theme.colors.primary : '#a3a3a3'} />
+          <Feather name="heart" size={18} color={activeTab === 'matches' ? theme.colors.primary : '#a3a3a3'} />
           <Text style={[styles.tabBtnText, activeTab === 'matches' && styles.tabBtnTextActive]}>
             Matches {matches.length > 0 && `(${matches.length})`}
           </Text>
@@ -375,7 +295,7 @@ export const MascotasScreen: React.FC<Props> = ({ navigation }) => {
           <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
         ) : discoverProfiles.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Feather name="heart" size={40} color={theme.colors.textMuted} style={{ marginBottom: 12 }} />
+            <FontAwesome name="paw" size={40} color={theme.colors.textMuted} style={{ marginBottom: 12 }} />
             <Text style={styles.emptyText}>Todavía nadie ha compartido a su mascota.</Text>
           </View>
         ) : (
@@ -391,137 +311,75 @@ export const MascotasScreen: React.FC<Props> = ({ navigation }) => {
         ))}
 
       {activeTab === 'mis-mascotas' &&
-        (loadingMyItems ? (
+        (loadingProfile ? (
           <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
         ) : (
           <ScrollView contentContainerStyle={styles.formContent}>
-            <Text style={styles.label}>Descripción de tu perfil</Text>
+            <View style={styles.previewWrapper}>
+              {photosList.length > 0 ? (
+                <>
+                  <Image source={{ uri: photosList[previewPhotoIndex % photosList.length]?.uri }} style={styles.previewImage} />
+
+                  <View style={[StyleSheet.absoluteFillObject, { pointerEvents: 'box-none' }]}>
+                    <TouchableOpacity
+                      style={[styles.previewNavArea, { left: 0 }]}
+                      onPress={() => setPreviewPhotoIndex((prev) => Math.max(0, prev - 1))}
+                    />
+                    <TouchableOpacity
+                      style={[styles.previewNavArea, { right: 0 }]}
+                      onPress={() => setPreviewPhotoIndex((prev) => Math.min(photosList.length - 1, prev + 1))}
+                    />
+                  </View>
+
+                  <CarouselDots count={photosList.length} activeIndex={previewPhotoIndex % photosList.length} />
+                </>
+              ) : (
+                <View style={styles.previewEmpty}>
+                  <FontAwesome name="paw" size={40} color="#404040" />
+                  <Text style={styles.previewEmptyText}>Sin fotos subidas</Text>
+                </View>
+              )}
+            </View>
+
+            <Text style={[styles.label, { marginTop: theme.spacing.md }]}>Nombre</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Nombre de tu mascota (o de varias, si tienes más de una)"
+              placeholderTextColor={theme.colors.textMuted}
+              value={name}
+              onChangeText={setName}
+            />
+
+            <Text style={[styles.label, { marginTop: theme.spacing.md }]}>Descripción</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="Contale a la gente qué tipo de mascotas te gustan..."
+              placeholder="Contale a la gente de qué se trata (raza, personalidad, historia...)"
               placeholderTextColor={theme.colors.textMuted}
               value={description}
               onChangeText={setDescription}
               multiline
             />
-            <TouchableOpacity style={[styles.saveBtn, savingDescription && styles.saveBtnDisabled]} onPress={handleSaveDescription} disabled={savingDescription}>
-              {savingDescription ? <ActivityIndicator size="small" color="#000" /> : <Text style={styles.saveBtnText}>Guardar descripción</Text>}
+
+            <Text style={[styles.label, { marginTop: theme.spacing.md }]}>Fotos ({photosList.length}/{MAX_PHOTOS})</Text>
+            <View style={styles.photosRow}>
+              {photosList.map((ph, idx) => (
+                <View key={idx} style={styles.photoSlot}>
+                  <Image source={{ uri: ph.uri }} style={styles.photoThumb} />
+                  <TouchableOpacity style={styles.removePhotoBtn} onPress={() => handleRemovePhoto(idx)}>
+                    <Feather name="x" size={12} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {photosList.length < MAX_PHOTOS && (
+                <TouchableOpacity style={styles.addPhotoSlot} onPress={handleAddPhoto}>
+                  <Feather name="plus" size={22} color={theme.colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity style={[styles.saveBtn, savingProfile && styles.saveBtnDisabled]} onPress={handleSaveProfile} disabled={savingProfile}>
+              {savingProfile ? <ActivityIndicator size="small" color="#000" /> : <Text style={styles.saveBtnText}>Guardar perfil</Text>}
             </TouchableOpacity>
-
-            <Text style={[styles.label, { marginTop: theme.spacing.xl }]}>Tus mascotas ({myItems.length}/5)</Text>
-
-            {myItems.map((item) => (
-              <View key={item.id} style={styles.itemRow}>
-                {item.photos && item.photos.length > 0 ? (
-                  <Image source={{ uri: getFileUrl(item, item.photos[0]) }} style={styles.itemThumb} />
-                ) : (
-                  <View style={[styles.itemThumb, styles.itemThumbEmpty]}>
-                    <Feather name="image" size={18} color={theme.colors.textMuted} />
-                  </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.itemRowTitle}>{item.name}</Text>
-                  {!!item.description && (
-                    <Text style={styles.itemRowYear} numberOfLines={1}>{item.description}</Text>
-                  )}
-                </View>
-                <TouchableOpacity onPress={() => openEditItemForm(item)} style={styles.itemActionBtn}>
-                  <Feather name="edit-2" size={16} color={theme.colors.textMuted} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDeleteItem(item)} style={styles.itemActionBtn}>
-                  <Feather name="trash-2" size={16} color={theme.colors.error} />
-                </TouchableOpacity>
-              </View>
-            ))}
-
-            {editingItem ? (
-              <View style={styles.itemForm}>
-                <View style={styles.previewWrapper}>
-                  {photosList.length > 0 ? (
-                    <>
-                      <Image source={{ uri: photosList[previewPhotoIndex % photosList.length]?.uri }} style={styles.previewImage} />
-
-                      <View style={[StyleSheet.absoluteFillObject, { pointerEvents: 'box-none' }]}>
-                        <TouchableOpacity
-                          style={[styles.previewNavArea, { left: 0 }]}
-                          onPress={() => setPreviewPhotoIndex((prev) => Math.max(0, prev - 1))}
-                        />
-                        <TouchableOpacity
-                          style={[styles.previewNavArea, { right: 0 }]}
-                          onPress={() => setPreviewPhotoIndex((prev) => Math.min(photosList.length - 1, prev + 1))}
-                        />
-                      </View>
-
-                      {photosList.length > 1 && (
-                        <View style={styles.previewDotsRow}>
-                          {photosList.map((_, dotIdx) => (
-                            <View
-                              key={dotIdx}
-                              style={[styles.previewDot, dotIdx === previewPhotoIndex % photosList.length && styles.previewDotActive]}
-                            />
-                          ))}
-                        </View>
-                      )}
-                    </>
-                  ) : (
-                    <View style={styles.previewEmpty}>
-                      <Feather name="image" size={40} color="#404040" />
-                      <Text style={styles.previewEmptyText}>Sin fotos subidas</Text>
-                    </View>
-                  )}
-                </View>
-
-                <TextInput
-                  style={[styles.input, { marginTop: theme.spacing.md }]}
-                  placeholder="Nombre de tu mascota"
-                  placeholderTextColor={theme.colors.textMuted}
-                  value={itemName}
-                  onChangeText={setItemName}
-                />
-
-                <TextInput
-                  style={[styles.input, styles.textArea, { marginTop: 8 }]}
-                  placeholder="Cuéntanos sobre tu mascota (raza, personalidad...)"
-                  placeholderTextColor={theme.colors.textMuted}
-                  value={itemDescription}
-                  onChangeText={setItemDescription}
-                  multiline
-                />
-
-                <Text style={[styles.label, { marginTop: theme.spacing.md }]}>Fotos</Text>
-                <View style={styles.photosRow}>
-                  {photosList.map((ph, idx) => (
-                    <View key={idx} style={styles.photoSlot}>
-                      <Image source={{ uri: ph.uri }} style={styles.photoThumb} />
-                      <TouchableOpacity style={styles.removePhotoBtn} onPress={() => handleRemovePhoto(idx)}>
-                        <Feather name="x" size={12} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                  {photosList.length < 5 && (
-                    <TouchableOpacity style={styles.addPhotoSlot} onPress={handleAddPhoto}>
-                      <Feather name="plus" size={22} color={theme.colors.textMuted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                <View style={styles.itemFormActions}>
-                  <TouchableOpacity style={[styles.saveBtn, styles.itemFormBtn, savingItem && styles.saveBtnDisabled]} onPress={handleSaveItem} disabled={savingItem}>
-                    {savingItem ? <ActivityIndicator size="small" color="#000" /> : <Text style={styles.saveBtnText}>Guardar mascota</Text>}
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.cancelBtn, styles.itemFormBtn]} onPress={closeItemForm}>
-                    <Text style={styles.cancelBtnText}>Cancelar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              myItems.length < 5 && (
-                <TouchableOpacity style={styles.addItemBtn} onPress={openNewItemForm}>
-                  <Feather name="plus" size={18} color={theme.colors.text} />
-                  <Text style={styles.addItemBtnText}>Agregar mascota</Text>
-                </TouchableOpacity>
-              )
-            )}
           </ScrollView>
         ))}
 
@@ -530,7 +388,7 @@ export const MascotasScreen: React.FC<Props> = ({ navigation }) => {
           <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
         ) : matches.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Feather name="smile" size={40} color={theme.colors.textMuted} style={{ marginBottom: 12 }} />
+            <Feather name="heart" size={40} color={theme.colors.textMuted} style={{ marginBottom: 12 }} />
             <Text style={styles.emptyText}>Aún no tienes matches.</Text>
           </View>
         ) : (
@@ -541,7 +399,7 @@ export const MascotasScreen: React.FC<Props> = ({ navigation }) => {
                 <TouchableOpacity
                   key={m.id}
                   style={styles.matchRow}
-                  onPress={() => other?.id && navigation.push('UserProfile', { userId: other.id })}
+                  onPress={() => setContactModalMatch(m)}
                   onLongPress={() => handleUnmatch(m)}
                 >
                   <View style={styles.matchAvatarPlaceholder}>
@@ -568,21 +426,27 @@ export const MascotasScreen: React.FC<Props> = ({ navigation }) => {
       )}
 
       <ConfirmExitModal
-        visible={!!deleteTarget}
-        title="Eliminar mascota"
-        message={`¿Eliminar "${deleteTarget?.name}" de tu perfil?`}
-        confirmText="Eliminar"
-        onConfirm={confirmDeleteItem}
-        onCancel={() => setDeleteTarget(null)}
-      />
-
-      <ConfirmExitModal
         visible={!!unmatchTarget}
         title="Deshacer match"
         message={`¿Deshacer el match con ${(unmatchTarget?.userA === user?.id ? unmatchTarget?.expand?.userB : unmatchTarget?.expand?.userA)?.name || 'esta persona'}?`}
         confirmText="Deshacer"
         onConfirm={confirmUnmatch}
         onCancel={() => setUnmatchTarget(null)}
+      />
+
+      <MatchContactModal
+        visible={!!contactModalMatch}
+        matchUser={contactModalMatch?.userA === user?.id ? contactModalMatch?.expand?.userB : contactModalMatch?.expand?.userA}
+        onClose={() => setContactModalMatch(null)}
+        onNavigateToUser={(userId) => {
+          setContactModalMatch(null);
+          navigation.push('UserProfile', { userId });
+        }}
+        onUnmatch={() => {
+          const match = contactModalMatch;
+          setContactModalMatch(null);
+          if (match) handleUnmatch(match);
+        }}
       />
     </View>
   );
@@ -601,22 +465,9 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '700', color: theme.colors.textMuted, marginBottom: 6 },
   input: { backgroundColor: theme.colors.cardBg, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.borderRadius.md, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.text, fontSize: 14 },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
-  saveBtn: { marginTop: theme.spacing.md, backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.md, paddingVertical: 14, alignItems: 'center' },
+  saveBtn: { marginTop: theme.spacing.xl, backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.md, paddingVertical: 14, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { color: '#000', fontSize: 15, fontWeight: '800' },
-  cancelBtn: { marginTop: theme.spacing.md, backgroundColor: theme.colors.cardBg, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.borderRadius.md, paddingVertical: 14, alignItems: 'center' },
-  cancelBtnText: { color: theme.colors.text, fontSize: 15, fontWeight: '700' },
-  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
-  itemThumb: { width: 44, height: 44, borderRadius: 8 },
-  itemThumbEmpty: { backgroundColor: theme.colors.cardBg, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
-  itemRowTitle: { color: theme.colors.text, fontSize: 14, fontWeight: '700' },
-  itemRowYear: { color: theme.colors.textMuted, fontSize: 12, marginTop: 2 },
-  itemActionBtn: { padding: 8 },
-  itemForm: { marginTop: theme.spacing.md, padding: theme.spacing.md, backgroundColor: theme.colors.cardBg, borderRadius: theme.borderRadius.md, borderWidth: 1, borderColor: theme.colors.border },
-  itemFormActions: { flexDirection: 'row', gap: 10 },
-  itemFormBtn: { flex: 1 },
-  addItemBtn: { marginTop: theme.spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: theme.borderRadius.md, borderWidth: 1, borderColor: theme.colors.border, borderStyle: 'dashed' },
-  addItemBtnText: { color: theme.colors.text, fontSize: 14, fontWeight: '700' },
   matchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   matchAvatarPlaceholder: { width: 44, height: 44, borderRadius: 22, backgroundColor: theme.colors.cardBg, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
   matchAvatarLetter: { color: theme.colors.text, fontWeight: '800' },
@@ -631,9 +482,6 @@ const styles = StyleSheet.create({
   },
   previewImage: { width: '100%', height: '100%' },
   previewNavArea: { position: 'absolute', top: 0, bottom: 0, width: '50%' },
-  previewDotsRow: { position: 'absolute', top: 12, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  previewDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255, 255, 255, 0.4)' },
-  previewDotActive: { backgroundColor: '#ffffff', width: 8 },
   previewEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   previewEmptyText: { color: theme.colors.textMuted, fontSize: 12, marginTop: 8 },
   photosRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },

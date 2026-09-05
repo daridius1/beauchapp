@@ -22,6 +22,7 @@ import { PostCard } from './PostCard';
 import { withMinimumDelay } from '../utils/refresh';
 import { Feather } from '@expo/vector-icons';
 import { PetRecord, petsService } from '../services/petsService';
+import { CarouselDots } from './CarouselDots';
 import Toast from 'react-native-toast-message';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -220,13 +221,7 @@ export const PetProfileCard: React.FC<Props> = ({ petId, onPrevProfile, onNextPr
                   />
                 </View>
 
-                {photos.length > 1 && (
-                  <View style={styles.photoDotsRow}>
-                    {photos.map((_, idx) => (
-                      <View key={idx} style={[styles.photoDot, idx === photoIndex % photos.length && styles.photoDotActive]} />
-                    ))}
-                  </View>
-                )}
+                <CarouselDots count={photos.length} activeIndex={photoIndex % photos.length} />
               </>
             ) : (
               <View style={styles.emptyCardImage}>
@@ -365,25 +360,6 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: '50%',
-  },
-  photoDotsRow: {
-    position: 'absolute',
-    top: 12,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  photoDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  photoDotActive: {
-    backgroundColor: '#ffffff',
-    width: 8,
   },
   emptyCardImage: {
     flex: 1,

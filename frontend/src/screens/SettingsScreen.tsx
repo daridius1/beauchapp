@@ -24,6 +24,11 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const [deletePassword, setDeletePassword] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
 
+  // Modo Desarrollador (barrera simple de código, solo de front)
+  const [showDevCodeModal, setShowDevCodeModal] = useState(false);
+  const [devCodeInput, setDevCodeInput] = useState('');
+  const [devCodeError, setDevCodeError] = useState(false);
+
   // Gestión de Integrantes para Organizaciones
   const [isManagingMembers, setIsManagingMembers] = useState(false);
   const [members, setMembers] = useState<OrganizationMemberRecord[]>([]);
@@ -377,16 +382,21 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
       <Text style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>Opciones Avanzadas</Text>
 
       <View style={styles.optionCard}>
-        <TouchableOpacity 
-          style={styles.optionHeader} 
+        <TouchableOpacity
+          style={styles.optionHeader}
           onPress={() => {
-            const nextState = !developerMode;
-            setDeveloperMode(nextState);
-            Toast.show({
-              type: 'info',
-              text1: nextState ? 'Modo Desarrollador Activado 🛠️' : 'Modo Desarrollador Desactivado',
-              text2: nextState ? 'Los IDs de los posts se mostrarán en la interfaz.' : 'Se han ocultado los identificadores.',
-            });
+            if (developerMode) {
+              setDeveloperMode(false);
+              Toast.show({
+                type: 'info',
+                text1: 'Modo Desarrollador Desactivado',
+                text2: 'Se han ocultado los identificadores.',
+              });
+            } else {
+              setDevCodeInput('');
+              setDevCodeError(false);
+              setShowDevCodeModal(true);
+            }
           }}
           activeOpacity={0.7}
         >
@@ -469,6 +479,64 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
                 ) : (
                   <Text style={styles.modalDeleteBtnText}>Eliminar cuenta</Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showDevCodeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDevCodeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Modo Desarrollador</Text>
+            <Text style={styles.modalText}>
+              Ingresa el código para activar el modo desarrollador.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={devCodeInput}
+              onChangeText={(text) => {
+                setDevCodeInput(text);
+                setDevCodeError(false);
+              }}
+              placeholder="Código"
+              placeholderTextColor={theme.colors.textMuted}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            {devCodeError && (
+              <Text style={styles.modalErrorText}>Código incorrecto.</Text>
+            )}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowDevCodeModal(false)}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalDeleteBtn, !devCodeInput && styles.modalDeleteBtnDisabled]}
+                disabled={!devCodeInput}
+                onPress={() => {
+                  if (devCodeInput === 'matadorsalas') {
+                    setDeveloperMode(true);
+                    setShowDevCodeModal(false);
+                    Toast.show({
+                      type: 'info',
+                      text1: 'Modo Desarrollador Activado 🛠️',
+                      text2: 'Los IDs de los posts se mostrarán en la interfaz.',
+                    });
+                  } else {
+                    setDevCodeError(true);
+                  }
+                }}
+              >
+                <Text style={styles.modalDeleteBtnText}>Activar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -757,6 +825,12 @@ const styles = StyleSheet.create({
     padding: theme.spacing.sm,
     color: theme.colors.text,
     fontSize: 15,
+    marginBottom: theme.spacing.md,
+  },
+  modalErrorText: {
+    color: theme.colors.error,
+    fontSize: 13,
+    marginTop: -theme.spacing.sm,
     marginBottom: theme.spacing.md,
   },
   modalActions: {
