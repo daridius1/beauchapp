@@ -38,6 +38,7 @@ No saltarse ninguno de estos pasos, en este orden:
    Los tests de lógica pura (`backend/pb_hooks/lib/__tests__`) deben pasar.
 4. **Revisar que `backend/start.sh` no tenga `--dev`** — si en algún momento se agregó para debug local, sacarlo antes de desplegar (ver [`SECURITY_AND_MAINTENANCE.md`](./SECURITY_AND_MAINTENANCE.md)).
 5. **Migraciones nuevas, si las hay** — revisar que cada migración nueva en `backend/pb_migrations/` tenga su función `down` y que no sea una edición de una migración ya aplicada en producción (ver `auditoria.md`, hallazgo sobre migraciones inmutables). Las migraciones se aplican automáticamente al arrancar PocketBase.
+6. **Ninguna migración ni cambio debe tocar la configuración de auth de la colección `users`** (su `secret`/`tokenKey`, duración de tokens, config de OAuth2) — eso invalida de golpe la sesión de **todos** los usuarios logueados a la vez, no solo la de uno. Ver la sección de abajo sobre el deslogueo masivo.
 
 ## Deploy manual (paso a paso)
 
@@ -105,6 +106,31 @@ PocketBase detrás de Cloudflare.
 Y compila siempre con `--clear`: sin eso Metro reutiliza el bundle cacheado y un cambio en
 las `EXPO_PUBLIC_*` no se refleja — sale con el mismo hash que antes y parece que no pasó
 nada, porque efectivamente no pasó.
+
+## Ojo: un deploy no debería desloguear a nadie
+
+El usuario reportó que, después de un deploy anterior, **todos los usuarios quedaron
+deslogueados de golpe**. No es un comportamiento normal ni esperado de `deploy.sh` — un
+reinicio de PocketBase (§ siguiente) o un frontend nuevo no invalidan por sí solos las
+sesiones existentes, así que si vuelve a pasar hay una causa puntual que rastrear, no algo
+a asumir como "normal de desplegar". Candidatos conocidos, de más a menos probable:
+
+- **Una migración tocó la config de auth de `users`** (regenerar `secret`/`tokenKey`, cambiar
+  duración de tokens, tocar OAuth2) — invalida todos los JWT existentes en un solo golpe.
+  Es el único mecanismo del lado del servidor que puede deslogar a *todo el mundo* a la vez
+  (deslogar a un usuario puntual sí es normal: pasa al cambiar su contraseña). **Revisar esto
+  explícitamente antes de cada deploy con migraciones nuevas** (punto 6 del checklist).
+- **El frontend cambió `frontend/src/services/pocketbase.ts`** (la clave de `AsyncAuthStore`,
+  el nombre bajo el que se guarda el token) — un cambio ahí hace que el bundle nuevo busque
+  la sesión en otro lado y no la encuentre, aunque el token viejo siga siendo válido.
+- **El dominio o origen cambió** (nuevo túnel de Cloudflare, redirect a otro host) — el
+  `localStorage` del navegador es por origen, así que un cambio de dominio pierde la sesión
+  web sin que sea culpa del backend.
+
+Antes de desplegar algo que toque cualquiera de esos tres puntos, decirlo explícitamente al
+usuario y pedir confirmación aparte, incluso si ya confirmó el deploy en general. Después de
+cualquier deploy, como parte de la verificación normal (no opcional): confirmar con el
+usuario que su propia sesión sigue activa sin tener que volver a loguearse.
 
 ## Ojo: subir `pb_hooks/` reinicia PocketBase solo
 
@@ -179,7 +205,7 @@ sudo systemctl start pocketbase
 
 Si eres un agente de IA (Claude Code u otro) y te piden desplegar Beauchapp, o consideras que un cambio amerita un deploy: **desplegar a producción es una acción de alto impacto, parcialmente irreversible, y con efecto visible para usuarios reales.** No es equivalente a correr tests o hacer un commit local.
 
-1. **Nunca ejecutes `./deploy.sh` sin que el usuario lo haya pedido explícitamente *en ese momento* de la conversación.** Una autorización pasada ("dale, puedes desplegar cuando quieras") no cuenta como confirmación para una ejecución futura no relacionada — vuelve a confirmar cada vez, salvo que el usuario haya sido explícito en que no hace falta.
+1. **Nunca ejecutes `./deploy.sh` sin que el usuario lo haya pedido explícitamente *en ese momento* de la conversación.** Una autorización pasada ("dale, puedes desplegar cuando quieras") no cuenta como confirmación para una ejecución futura no relacionada — vuelve a confirmar cada vez, salvo que el usuario haya sido explícito en que no hace falta. Antes de esa confirmación, muéstrale el resultado del checklist (tsc, tests, `git status`, si hay migraciones y qué tocan) para que la autorización sea informada, no un "dale nomás" a ciegas.
 2. **Corre el checklist completo de la sección de arriba antes de proponer el deploy.** Si algo falla (tsc, tests, `--dev` presente, `git status` sucio), repórtalo y detente — no despliegues igual "para ver si funciona".
 3. **Nunca hardcodees ni adivines `DEPLOY_SERVER`.** Debe venir de una variable de entorno que el usuario ya tiene configurada o te pasa explícitamente en el momento. Si no está seteada, `deploy.sh` falla solo con un mensaje claro — no lo reemplaces por un valor que "parece correcto" de otro archivo.
 4. **Nunca uses `--force`, saltes el paso de backup, ni edites `deploy.sh` para quitar la confirmación de Cloudflare Tunnel** sin que el usuario lo pida explícitamente.
