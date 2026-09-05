@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -29,30 +29,22 @@ const FIELDS: FieldConfig[] = [
 // Cada red se guarda por separado (botón al final de su fila) — no hay un solo "Guardar"
 // para las 4 juntas.
 export const ConoceContactForm: React.FC = () => {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [contactId, setContactId] = useState<string | null>(null);
-  const [values, setValues] = useState<Record<FieldKey, string>>({ instagram: '', whatsapp: '', telegram: '' });
+  const { user, refreshUser } = useAuth();
+  // El contacto ya viene expandido junto con la sesión (ver CONOCE_CONTACT_EXPAND en
+  // AuthContext) para que aparezca desde el primer render, sin un fetch propio que se
+  // note como un salto visual. El useState con inicializador solo lee ese valor una vez
+  // al montar; ediciones posteriores del usuario en este formulario no se pisan con
+  // refrescos periódicos de `user` porque no vuelven a correr el inicializador.
+  const initialContact = user?.expand?.conoce_contacts_via_user;
+  const [contactId, setContactId] = useState<string | null>(initialContact?.id || null);
+  const [values, setValues] = useState<Record<FieldKey, string>>({
+    instagram: initialContact?.instagram || '',
+    whatsapp: initialContact?.whatsapp || '',
+    telegram: initialContact?.telegram || '',
+  });
   const [savingField, setSavingField] = useState<FieldKey | null>(null);
 
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      try {
-        const contact = await conoceContactService.getMyContact(user.id);
-        setContactId(contact?.id || null);
-        setValues({
-          instagram: contact?.instagram || '',
-          whatsapp: contact?.whatsapp || '',
-          telegram: contact?.telegram || '',
-        });
-      } catch (err) {
-        console.error('Error cargando contacto de Conoce Beauchef:', err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [user?.id]);
+  if (!user) return null;
 
   const setFieldValue = (key: FieldKey, text: string) => {
     const clean = key === 'whatsapp' ? text : text.replace(/^@+/, '');
@@ -66,6 +58,10 @@ export const ConoceContactForm: React.FC = () => {
       const saved = await conoceContactService.saveMyContact(user.id, { [key]: values[key].trim() }, contactId);
       setContactId(saved.id);
       Toast.show({ type: 'success', text1: `${FIELDS.find((f) => f.key === key)?.label} guardado` });
+      // Sin esperar: refresca el `user` del contexto para que su `expand` quede al día y,
+      // si se sale y se vuelve a entrar a esta pantalla, el remount no muestre datos viejos
+      // (el formulario en sí ya se actualizó arriba con el estado local `values`).
+      refreshUser();
     } catch (err: any) {
       Toast.show({ type: 'error', text1: 'No se pudo guardar', text2: err?.message || '' });
     } finally {
@@ -81,39 +77,36 @@ export const ConoceContactForm: React.FC = () => {
           <Text style={styles.title}>Tu contacto para matches</Text>
           <Text style={styles.subtitle}>Se muestra cuando hagas match en cualquier categoría de acá abajo.</Text>
         </View>
-        {loading && <ActivityIndicator size="small" color={theme.colors.textMuted} />}
       </View>
 
-      {!loading && (
-        <View style={styles.form}>
-          {FIELDS.map((field, idx) => (
-            <View key={field.key} style={[styles.row, idx < FIELDS.length - 1 && styles.rowSeparator]}>
-              <View style={styles.icon}>{field.icon}</View>
-              {field.showAtBadge && <Text style={styles.atBadge}>@</Text>}
-              <TextInput
-                style={styles.input}
-                placeholder={field.placeholder}
-                placeholderTextColor={theme.colors.textMuted}
-                value={values[field.key]}
-                onChangeText={(text) => setFieldValue(field.key, text)}
-                keyboardType={field.keyboardType}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity
-                style={[styles.saveFieldBtn, savingField === field.key && styles.saveFieldBtnDisabled]}
-                onPress={() => handleSaveField(field.key)}
-                disabled={savingField === field.key}
-              >
-                {savingField === field.key ? (
-                  <ActivityIndicator size="small" color="#000" />
-                ) : (
-                  <Text style={styles.saveFieldBtnText}>Guardar</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
-      )}
+      <View style={styles.form}>
+        {FIELDS.map((field, idx) => (
+          <View key={field.key} style={[styles.row, idx < FIELDS.length - 1 && styles.rowSeparator]}>
+            <View style={styles.icon}>{field.icon}</View>
+            {field.showAtBadge && <Text style={styles.atBadge}>@</Text>}
+            <TextInput
+              style={styles.input}
+              placeholder={field.placeholder}
+              placeholderTextColor={theme.colors.textMuted}
+              value={values[field.key]}
+              onChangeText={(text) => setFieldValue(field.key, text)}
+              keyboardType={field.keyboardType}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={[styles.saveFieldBtn, savingField === field.key && styles.saveFieldBtnDisabled]}
+              onPress={() => handleSaveField(field.key)}
+              disabled={savingField === field.key}
+            >
+              {savingField === field.key ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Text style={styles.saveFieldBtnText}>Guardar</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ))}
+      </View>
     </View>
   );
 };

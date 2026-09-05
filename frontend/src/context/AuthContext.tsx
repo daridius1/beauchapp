@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { pb } from '../services/pocketbase';
 import { storage } from '../utils/storage';
+import { ConoceContact } from '../services/conoceContactService';
+
+// Se expande junto con el usuario (login, refresh periódico) para que el contacto de
+// "Conoce Beauchef" esté disponible desde el primer render de ConoceContactForm, sin un
+// fetch propio que se note como un salto visual. Es una relación inversa única
+// (conoce_contacts.user tiene índice UNIQUE), así que PocketBase la expande como objeto
+// único en vez de array.
+const CONOCE_CONTACT_EXPAND = 'conoce_contacts_via_user';
 
 export interface User {
   id: string;
@@ -31,6 +39,9 @@ export interface User {
   beaudle_best_streak?: number;
   show_beaudle_streak_on_profile?: boolean;
   last_seen_announcement?: string;
+  expand?: {
+    conoce_contacts_via_user?: ConoceContact;
+  };
 }
 
 interface AuthContextType {
@@ -121,7 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         if (pb.authStore.isValid && pb.authStore.token) {
           // Refresh the auth token to ensure session is still valid in DB
-          const authData = await pb.collection('users').authRefresh();
+          const authData = await pb.collection('users').authRefresh({ expand: CONOCE_CONTACT_EXPAND });
           setUser(authData.record as unknown as User);
         } else {
           setUser(null);
@@ -159,7 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
     setUnverifiedEmail(null);
     try {
-      const authData = await pb.collection('users').authWithPassword(email, password);
+      const authData = await pb.collection('users').authWithPassword(email, password, { expand: CONOCE_CONTACT_EXPAND });
       setUser(authData.record as unknown as User);
     } catch (err: any) {
       console.error('login error:', err);
@@ -224,7 +235,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshUser = async () => {
     if (!pb.authStore.model?.id) return;
     try {
-      const updated = await pb.collection('users').getOne(pb.authStore.model.id);
+      const updated = await pb.collection('users').getOne(pb.authStore.model.id, { expand: CONOCE_CONTACT_EXPAND });
       setUser(updated as unknown as User);
       pb.authStore.save(pb.authStore.token, updated);
     } catch (err) {

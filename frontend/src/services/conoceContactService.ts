@@ -15,16 +15,6 @@ export type ConoceContactFields = Pick<ConoceContact, 'instagram' | 'whatsapp' |
 // Videojuegos y Libros: se llena una vez desde ConoceBeauchefScreen y el backend lo
 // blanquea para cualquiera con quien no haya match (ver conoce_contacts.pb.js).
 export const conoceContactService = {
-  getMyContact: async (userId: string): Promise<ConoceContact | null> => {
-    try {
-      const res = await pb.collection('conoce_contacts').getFirstListItem(`user = "${userId}"`);
-      return res as unknown as ConoceContact;
-    } catch (err: any) {
-      if (err.status === 404) return null;
-      throw err;
-    }
-  },
-
   // Cada campo se guarda por separado (un botón por fila en ConoceContactForm), así que
   // `fields` normalmente trae solo uno — PocketBase actualiza nomás lo que se le manda.
   saveMyContact: async (userId: string, fields: Partial<ConoceContactFields>, existingId: string | null): Promise<ConoceContact> => {
