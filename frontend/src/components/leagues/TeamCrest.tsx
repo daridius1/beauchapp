@@ -43,7 +43,10 @@ export const TeamCrest: React.FC<TeamCrestProps> = ({ team, size }) => {
   // a secas, que recorta al centro para llenar el cuadrado). Sin ella, un escudo más
   // alto que ancho llegaba desde el servidor ya recortado, y el resizeMode="contain"
   // de acá abajo no tenía nada que hacer porque el recorte ya había pasado antes.
-  const thumbSize = size <= 60 ? '100x100f' : undefined;
+  // '300x300f' cubre los tamaños grandes (hasta 80px hoy) sin traer el original
+  // completo — antes se pedía undefined (imagen sin procesar) porque el único thumb
+  // grande declarado recortaba mal; ver migración 1790800000_fix_match_photo_crop_thumb.
+  const thumbSize = size <= 60 ? '100x100f' : '300x300f';
 
   if (!photo) {
     return (

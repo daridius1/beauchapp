@@ -44,33 +44,79 @@ export async function compressImage(
         }
 
         const targetSize = 250 * 1024;
-        // Progressive max dimensions: try larger first, shrink if needed
-        const dimensionSteps = [1200, 900, 600];
 
-        const tryWithMaxDim = (stepIndex: number) => {
-          const MAX_DIM = dimensionSteps[stepIndex];
-
-          // Calculate new dimensions
-          let width = sWidth;
-          let height = sHeight;
-          if (width > height) {
-            if (width > MAX_DIM) {
-              height *= MAX_DIM / width;
-              width = MAX_DIM;
-            }
-          } else {
-            if (height > MAX_DIM) {
-              width *= MAX_DIM / height;
-              height = MAX_DIM;
-            }
-          }
-
+        const drawAt = (width: number, height: number): HTMLCanvasElement => {
           const canvas = document.createElement('canvas');
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
-          if (!ctx) return reject(new Error('Canvas ctx null'));
+          if (!ctx) throw new Error('Canvas ctx null');
           ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, width, height);
+          return canvas;
+        };
+
+        const toBlob = (canvas: HTMLCanvasElement, quality?: number) =>
+          new Promise<Blob | null>((res) => canvas.toBlob(res, effectiveFormat, quality));
+
+        const dimsAtMax = (maxDim: number) => {
+          let width = sWidth;
+          let height = sHeight;
+          if (width > height) {
+            if (width > maxDim) { height *= maxDim / width; width = maxDim; }
+          } else {
+            if (height > maxDim) { width *= maxDim / height; height = maxDim; }
+          }
+          return { width: Math.round(width), height: Math.round(height) };
+        };
+
+        if (effectiveFormat === 'image/png') {
+          // El parámetro "quality" de canvas.toBlob no existe para PNG (sin pérdida,
+          // el navegador lo ignora): bajarlo no cambia un solo byte. El único lever
+          // real es el tamaño en píxeles, así que se reescala de forma adaptativa —
+          // en vez de probar pasos fijos (1200/900/600) que podían quedar todos por
+          // encima del target en una foto/escudo con transparencia detallada — usando
+          // la relación de tamaños (el peso de un PNG es aprox. proporcional al área)
+          // para saltar directo cerca del tamaño que hace falta.
+          const MIN_DIM = 200;
+          let { width, height } = dimsAtMax(1200);
+
+          const attempt = async (): Promise<void> => {
+            let blob: Blob | null;
+            try {
+              blob = await toBlob(drawAt(width, height));
+            } catch (err) {
+              return reject(err);
+            }
+            if (!blob) return reject(new Error('Compression failed'));
+
+            const atFloor = width <= MIN_DIM || height <= MIN_DIM;
+            if (blob.size <= targetSize || atFloor) {
+              // Best effort: si tocó el piso y sigue pesado, se sube igual — no hay
+              // más margen sin perder nitidez a un punto inútil para una cara/escudo.
+              return resolve(blob);
+            }
+
+            const factor = Math.sqrt(targetSize / blob.size) * 0.92; // margen de seguridad
+            width = Math.max(MIN_DIM, Math.round(width * factor));
+            height = Math.max(MIN_DIM, Math.round(height * factor));
+            attempt();
+          };
+
+          attempt();
+          return;
+        }
+
+        // JPEG/WebP: sí soportan un knob real de calidad con pérdida.
+        const dimensionSteps = [1200, 900, 600];
+
+        const tryWithMaxDim = (stepIndex: number) => {
+          const { width, height } = dimsAtMax(dimensionSteps[stepIndex]);
+          let canvas: HTMLCanvasElement;
+          try {
+            canvas = drawAt(width, height);
+          } catch (err) {
+            return reject(err);
+          }
 
           // Iterative quality reduction
           let quality = 0.85;

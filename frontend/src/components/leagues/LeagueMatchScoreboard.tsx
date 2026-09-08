@@ -170,17 +170,17 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
           <Text style={styles.dateText}>{formattedDate}</Text>
         </View>
 
-        {/* Siempre visible — incluso con el partido ya jugado se puede volver a entrar
-            (con el código) a corregir el informe arbitral oficial. */}
-        <TouchableOpacity
-          style={styles.arbitrateBtn}
-          onPress={onPressArbitrate}
-          activeOpacity={0.7}
-          disabled={!onPressArbitrate}
-        >
-          <Feather name="user-check" size={12} color="#000000" style={{ marginRight: 5 }} />
-          <Text style={styles.arbitrateBtnText}>Arbitraje</Text>
-        </TouchableOpacity>
+        {/* El arbitraje en vivo queda archivado (ver LeagueMatchArbitratorScreen): ya
+            nadie pasa onPressArbitrate, así que este botón no se renderiza — el
+            resultado ahora se registra con el link de un solo uso que la liga le manda
+            al árbitro después del partido (match_result.pb.js). Se deja el prop y el
+            botón acá, no borrados, por si algo lo vuelve a usar. */}
+        {onPressArbitrate && (
+          <TouchableOpacity style={styles.arbitrateBtn} onPress={onPressArbitrate} activeOpacity={0.7}>
+            <Feather name="user-check" size={12} color="#000000" style={{ marginRight: 5 }} />
+            <Text style={styles.arbitrateBtnText}>Arbitraje</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

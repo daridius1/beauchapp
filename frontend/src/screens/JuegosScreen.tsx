@@ -35,6 +35,12 @@ export const JuegosScreen: React.FC<Props> = ({ navigation }) => {
       icon: 'trending-up',
       screen: 'Beaumarket',
     },
+    {
+      id: 'AlbumsList',
+      title: 'Álbumes',
+      icon: 'book',
+      screen: 'AlbumsList',
+    },
     ...(developerMode
       ? [
           {

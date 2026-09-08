@@ -8,16 +8,17 @@ export interface TeamPlayerRecord {
   name: string;
   photo?: string;
   user?: string;
-  /** 'player' (default) o 'coach' (cuerpo técnico) — se agrega y se vincula a una
-   *  cuenta exactamente igual que un jugador, ver EditTeamScreen.tsx. El cuerpo técnico
-   *  admite cualquier cantidad de personas; `isDT` marca cuál de ellas es el director
-   *  técnico (una sola por equipo, el servidor desmarca a cualquier otra). */
+  /** 'player' (default) o 'coach' (el DT) — se agrega y se vincula a una cuenta
+   *  exactamente igual que un jugador, ver EditTeamScreen.tsx. Un equipo admite a lo
+   *  más un 'coach', reforzado en team_players.pb.js; la UI lo cubre ocultando
+   *  "Agregar DT" con uno ya cargado. El rol no se cambia editando: para eso se
+   *  elimina y se agrega de nuevo con el rol correcto. */
   role?: TeamPlayerRole;
-  /** Solo tiene sentido si role='coach'. Única por equipo — team_players.pb.js
-   *  desmarca a cualquier otra fila del mismo equipo al guardar una en true. */
-  isDT?: boolean;
-  /** Solo tiene sentido si role='player'. Única por equipo, mismo mecanismo que isDT. */
+  /** Solo tiene sentido si role='player'. Única por equipo, mismo mecanismo. */
   isCaptain?: boolean;
+  /** Posición en la cancha — solo tiene sentido si role='player'. Se usa únicamente
+   *  para agrupar y pintar las láminas del álbum de figuritas (LeagueAlbumScreen.tsx). */
+  position?: 'POR' | 'DEF' | 'MED' | 'DEL' | '';
   deleted?: boolean;
   created: string;
   updated: string;
@@ -59,14 +60,21 @@ export const teamPlayersService = {
 
   async updateTeamPlayer(
     id: string,
-    patch: { name?: string; photo?: File | null; userId?: string | null; role?: TeamPlayerRole; isDT?: boolean; isCaptain?: boolean }
+    patch: {
+      name?: string;
+      photo?: File | null;
+      userId?: string | null;
+      role?: TeamPlayerRole;
+      isCaptain?: boolean;
+      position?: 'POR' | 'DEF' | 'MED' | 'DEL' | '';
+    }
   ): Promise<TeamPlayerRecord> {
     const formData = new FormData();
     if (patch.name !== undefined) formData.append('name', patch.name.trim());
     if (patch.userId !== undefined) formData.append('user', patch.userId || '');
     if (patch.role !== undefined) formData.append('role', patch.role);
-    if (patch.isDT !== undefined) formData.append('isDT', String(patch.isDT));
     if (patch.isCaptain !== undefined) formData.append('isCaptain', String(patch.isCaptain));
+    if (patch.position !== undefined) formData.append('position', patch.position);
     if (patch.photo) formData.append('photo', patch.photo);
     return await pb.collection('team_players').update<TeamPlayerRecord>(id, formData);
   },

@@ -21,6 +21,13 @@ export interface LineupEntry {
   playerId: string | null;
   name: string;
   photo: string | null;
+  /** Solo lo llevan las entradas armadas con rosterToLineupEntries() a partir del
+   *  roster (nunca las derivadas de un evento de convocatoria guardado) — marca al DT
+   *  para que la vista de plantel le muestre la insignia. */
+  isDT?: boolean;
+  /** Mismo origen que isDT: solo viene de rosterToLineupEntries(), marca al capitán
+   *  para que la lista de jugadores del partido le muestre la banda. */
+  isCaptain?: boolean;
 }
 
 // `id` es la identidad estable de un evento dentro de la bitácora. Se genera acá al
@@ -84,6 +91,23 @@ export function visibleEvents(events: MatchEvent[] | null | undefined): MatchEve
 export function normalizeLineupEntry(p: string | LineupPlayer): LineupEntry {
   if (typeof p === 'string') return { playerId: null, name: p, photo: null };
   return { playerId: p.playerId || null, name: p.name, photo: p.photo || null };
+}
+
+// Ya no existe la convocatoria: todo el plantel de un equipo cuenta como disponible
+// para el partido (elegir goleador, mostrar el plantel en el detalle). Esto convierte
+// el roster de team_players (o su versión pública) a la misma forma LineupEntry que ya
+// consumían esas vistas, para no duplicar los componentes que las pintan. `isDT` se
+// deriva de `role` cuando el roster lo trae (ver rosterOf en public_league.pb.js) — la
+// vista de plantel lo usa para la insignia, el selector de gol/tarjeta/penal del
+// arbitraje filtra a los DT antes de llegar acá (no anotan).
+export function rosterToLineupEntries(roster: { id: string; name: string; photo?: string; role?: string; isCaptain?: boolean }[]): LineupEntry[] {
+  return roster.map((p) => ({
+    playerId: p.id,
+    name: p.name,
+    photo: p.photo || null,
+    isDT: p.role === 'coach' || undefined,
+    isCaptain: p.isCaptain || undefined,
+  }));
 }
 
 export interface MatchSummary {

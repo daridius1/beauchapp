@@ -831,10 +831,9 @@ routerAdd("POST", "/api/news/generate", (e) => {
                 function buildRosterData(teamIdForRoster) {
                     const rosterRecords = $app.findRecordsByFilter("team_players", "team = {:t} && deleted = false", "name", 0, 0, { t: teamIdForRoster });
                     const playerRows = rosterRecords.filter((p) => p.getString("role") !== "coach");
-                    // El cuerpo técnico admite cualquier cantidad de personas; el DT es
-                    // quien tenga isDT=true (único por equipo, lo hace cumplir
-                    // team_players.pb.js) — no "el primer coach que aparezca".
-                    const dtRow = rosterRecords.find((p) => p.getString("role") === "coach" && p.getBool("isDT")) || null;
+                    // Un equipo admite un solo DT (role='coach'), lo hace cumplir
+                    // team_players.pb.js.
+                    const dtRow = rosterRecords.find((p) => p.getString("role") === "coach") || null;
                     return {
                         dtName: dtRow ? dtRow.getString("name") : "",
                         players: playerRows.map((p) => ({

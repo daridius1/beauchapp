@@ -1,6 +1,5 @@
 import { pb, getFileUrl } from './pocketbase';
 import { User } from '../context/AuthContext';
-import { compressImage } from '../utils/imageCompressor';
 
 export interface SellerProfileRecord {
   id: string;
@@ -276,21 +275,12 @@ export const marketplaceService = {
     formData.append('status', 'available');
     formData.append('deleted', 'false');
 
-    // Compresión cliente de imágenes siguiendo la regla estricta de la plataforma
+    // rawImages ya llega comprimido a JPEG desde MarketplaceItemEditorScreen (que lo hace
+    // así, y no WebP, porque PocketBase 0.25.9 no sabe decodificar WebP como origen para
+    // generar thumbs). Re-comprimir acá a WebP era trabajo duplicado y además deshacía esa
+    // elección de formato justo antes de subir.
     for (let i = 0; i < rawImages.length; i++) {
-      const file = rawImages[i];
-      try {
-        const compressedBlob = await compressImage(file);
-        const compressedFile = new File(
-          [compressedBlob],
-          file.name.replace(/\.[^/.]+$/, '') + '.webp',
-          { type: 'image/webp' }
-        );
-        formData.append('images', compressedFile);
-      } catch (e) {
-        // Fallback si falla compresión
-        formData.append('images', file);
-      }
+      formData.append('images', rawImages[i]);
     }
 
     return await pb.collection('marketplace_items').create<MarketplaceItemRecord>(formData, {
@@ -325,19 +315,9 @@ export const marketplaceService = {
       formData.append('images-', filename);
     }
 
+    // Mismo motivo que en createItem: newImages ya llega comprimido a JPEG desde el editor.
     for (let i = 0; i < newImages.length; i++) {
-      const file = newImages[i];
-      try {
-        const compressedBlob = await compressImage(file);
-        const compressedFile = new File(
-          [compressedBlob],
-          file.name.replace(/\.[^/.]+$/, '') + '.webp',
-          { type: 'image/webp' }
-        );
-        formData.append('images', compressedFile);
-      } catch (e) {
-        formData.append('images', file);
-      }
+      formData.append('images', newImages[i]);
     }
 
     return await pb.collection('marketplace_items').update<MarketplaceItemRecord>(itemId, formData, {

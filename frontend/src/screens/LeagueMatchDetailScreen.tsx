@@ -20,7 +20,7 @@ import { CommentsHeader } from '../components/CommentsHeader';
 import { pb } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
-import { summarizeEvents, computeLiveElapsedMs, computeLiveStatus, MatchEvent } from '../utils/matchEvents';
+import { summarizeEvents, computeLiveElapsedMs, computeLiveStatus, rosterToLineupEntries, MatchEvent } from '../utils/matchEvents';
 import { hourLabel } from '../components/schedule/AvailabilityGrid';
 import { withMinimumDelay } from '../utils/refresh';
 import { LeagueMatchScoreboard } from '../components/leagues/LeagueMatchScoreboard';
@@ -33,6 +33,7 @@ import { beaumarketService, BeaumarketMarket } from '../services/beaumarketServi
 import { EntityCommentBox } from '../components/EntityCommentBox';
 import { PostCard } from '../components/PostCard';
 import { leagueService } from '../services/leagueService';
+import { teamPlayersService, TeamPlayerRecord } from '../services/teamPlayersService';
 import { MatchStatement } from '../types/league';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueMatchDetail'>;
@@ -67,6 +68,10 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
   const [statementDraft, setStatementDraft] = useState('');
   const [wantsMention, setWantsMention] = useState(false);
   const [savingStatement, setSavingStatement] = useState(false);
+  // Plantel completo de cada equipo — ya no existe convocatoria, todo team_players
+  // cuenta como disponible para el partido (ver rosterToLineupEntries).
+  const [rosterA, setRosterA] = useState<TeamPlayerRecord[]>([]);
+  const [rosterB, setRosterB] = useState<TeamPlayerRecord[]>([]);
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -106,6 +111,13 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
             } else {
               setBeaumarketMarket(null);
             }
+            // Jugadores + el DT del equipo, si tiene uno.
+            const [rosterARes, rosterBRes] = await Promise.all([
+              teamPlayersService.listTeamPlayers(matchRecord.teamA),
+              teamPlayersService.listTeamPlayers(matchRecord.teamB),
+            ]);
+            setRosterA(rosterARes);
+            setRosterB(rosterBRes);
           } else {
             console.error('Error cargando partido de liga:', matchRes.reason);
           }
@@ -362,7 +374,6 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
         onPressLeague={
           match.expand?.league ? () => navigation.push('LeagueDetail', { leagueId: match.expand.league.id }) : undefined
         }
-        onPressArbitrate={() => navigation.push('LeagueMatchArbitrator', { matchId })}
       />
 
       {beaumarketMarket && (
@@ -379,7 +390,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
       )}
 
       {/* Si el partido ya se jugó (o está en vivo, con los eventos que lleve hasta
-          ahora): Estadísticas, Cronología y Planteles en la misma vista */}
+          ahora): Estadísticas y Cronología */}
       {(isPlayed || isLive) && (
         <View style={styles.playedDetailsSection}>
           {/* Estadísticas — sin encabezado: la tabla ya se explica sola */}
@@ -389,16 +400,6 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
           <Text style={styles.sectionHeader}>Cronología</Text>
           <LeagueMatchTimeline events={displayEvents} teamAName={teamAName} teamBName={teamBName} />
 
-          {/* Planteles */}
-          <Text style={styles.sectionHeader}>Convocatoria</Text>
-          <LeagueMatchLineups
-            lineupA={summary.lineupA}
-            lineupB={summary.lineupB}
-            teamAName={teamAName}
-            teamBName={teamBName}
-            events={displayEvents}
-          />
-
           {isPlayed && !!approvedReport?.notes && (
             <>
               <Text style={styles.sectionHeader}>Informe del árbitro</Text>
@@ -407,6 +408,19 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
           )}
         </View>
       )}
+
+      {/* Planteles: siempre visibles, aunque el partido solo esté agendado — ya no
+          hay convocatoria, el plantel completo de cada equipo cuenta como disponible. */}
+      <View style={styles.playedDetailsSection}>
+        <Text style={styles.sectionHeader}>Plantel</Text>
+        <LeagueMatchLineups
+          rosterA={rosterToLineupEntries(rosterA)}
+          rosterB={rosterToLineupEntries(rosterB)}
+          teamAName={teamAName}
+          teamBName={teamBName}
+          events={displayEvents}
+        />
+      </View>
 
       {/* Declarar — privado, nunca se publica: solo lo usa el medio para escribir
           noticias (ver /admin/noticias). Solo tiene sentido una vez jugado el partido. */}

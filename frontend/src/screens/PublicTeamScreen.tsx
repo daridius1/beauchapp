@@ -60,6 +60,21 @@ export const PublicTeamScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
           </View>
 
+          {data.coaches.length > 0 && (
+            <>
+              <SectionHeading title="Cuerpo técnico" marginTop={18} />
+              {data.coaches.map((c, idx) => (
+                <View key={c.id} style={[styles.playerRow, idx === data.coaches.length - 1 && styles.playerRowLast]}>
+                  <PlayerAvatar player={c} size={32} />
+                  <View style={styles.playerNameRow}>
+                    <Text style={styles.playerName} numberOfLines={1}>{c.name}</Text>
+                    <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>DT</Text></View>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+
           <SectionHeading title="Jugadores" marginTop={18} />
           {data.players.length === 0 ? (
             <View style={styles.empty}><Text style={styles.emptyText}>Este equipo todavía no tiene plantel.</Text></View>
@@ -67,28 +82,15 @@ export const PublicTeamScreen: React.FC<Props> = ({ route, navigation }) => {
             data.players.map((p, idx) => (
               <View key={p.id} style={[styles.playerRow, idx === data.players.length - 1 && styles.playerRowLast]}>
                 <PlayerAvatar player={p} size={32} />
-                <Text style={styles.playerName}>{p.name}</Text>
-                {p.isCaptain && (
-                  <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>C</Text></View>
-                )}
+                <View style={styles.playerNameRow}>
+                  <Text style={styles.playerName} numberOfLines={1}>{p.name}</Text>
+                  {p.isCaptain && (
+                    <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>C</Text></View>
+                  )}
+                </View>
                 {p.goals > 0 && <Text style={styles.playerGoals}>{p.goals} {p.goals === 1 ? 'gol' : 'goles'}</Text>}
               </View>
             ))
-          )}
-
-          {data.coaches.length > 0 && (
-            <>
-              <SectionHeading title="Cuerpo técnico" marginTop={18} />
-              {data.coaches.map((c, idx) => (
-                <View key={c.id} style={[styles.playerRow, idx === data.coaches.length - 1 && styles.playerRowLast]}>
-                  <PlayerAvatar player={c} size={32} />
-                  <Text style={styles.playerName}>{c.name}</Text>
-                  {c.isDT && (
-                    <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>DT</Text></View>
-                  )}
-                </View>
-              ))}
-            </>
           )}
 
           <SectionHeading title="Partidos" marginTop={18} />
@@ -111,7 +113,11 @@ const styles = StyleSheet.create({
   bio: { fontSize: 12, color: theme.colors.textMuted, marginTop: 5 },
   playerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: '#161616' },
   playerRowLast: { borderBottomWidth: 0 },
-  playerName: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: '600', color: '#ffffff' },
+  // playerNameRow envuelve nombre + chip (C/DT) para que el chip quede pegado al
+  // nombre en vez de empujado al otro extremo de la fila (ver mismo patrón en
+  // TeamProfileScreen).
+  playerNameRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
+  playerName: { flexShrink: 1, fontSize: 14, fontWeight: '600', color: '#ffffff' },
   playerGoals: { fontSize: 12, color: theme.colors.textMuted, fontWeight: '600' },
   roleBadge: { backgroundColor: theme.colors.primary, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
   roleBadgeText: { color: '#000000', fontSize: 10, fontWeight: '800' },

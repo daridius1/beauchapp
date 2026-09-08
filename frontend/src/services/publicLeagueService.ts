@@ -19,6 +19,7 @@ export interface PublicReport {
 
 export interface PublicLeagueData {
   league: OrgAccountRef;
+  albumId: string | null;
   bio?: string;
   stages: { id: string; name: string; type: 'groups' | 'knockout'; order: number; teams: string[] }[];
   teams: { id: string; team: string; expand?: { team?: OrgAccountRef } }[];
@@ -30,7 +31,7 @@ export interface PublicTeamData {
   team: OrgAccountRef;
   bio?: string;
   players: { id: string; collectionId: string; name: string; photo?: string; goals: number; isCaptain: boolean }[];
-  coaches: { id: string; collectionId: string; name: string; photo?: string; isDT: boolean }[];
+  coaches: { id: string; collectionId: string; name: string; photo?: string }[];
   matches: LeagueMatch[];
 }
 
@@ -39,6 +40,10 @@ export interface PublicPlayer {
   collectionId: string;
   name: string;
   photo?: string;
+  /** 'player' o 'coach' — rosterA/rosterB de /api/public/match trae jugadores y, si
+   *  el equipo tiene uno, al DT. */
+  role?: 'player' | 'coach';
+  isCaptain?: boolean;
 }
 
 export interface PublicMatchData {

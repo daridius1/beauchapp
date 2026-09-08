@@ -28,6 +28,8 @@ import { Avatar } from '../components/Avatar';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { EXAMPLE_PLAYER_PHOTO } from '../assets/examplePlayerPhoto';
 import { EXAMPLE_TEAM_CREST } from '../assets/exampleTeamCrest';
+import { EXAMPLE_TEAM_PHOTO } from '../assets/exampleTeamPhoto';
+import { TEAM_COLORS, POSITION_ORDER, PlayerPosition } from '../constants/teamColors';
 import { RootStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditTeam'>;
@@ -41,7 +43,19 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
   const [crestFile, setCrestFile] = useState<File | null>(null);
   const [crestPreview, setCrestPreview] = useState<string | null>(null);
   const [savingCrest, setSavingCrest] = useState(false);
+  const [savingName, setSavingName] = useState(false);
   const [showCrestModal, setShowCrestModal] = useState(false);
+
+  // Foto de equipo: la foto grupal real del plantel — distinta del escudo, que es un
+  // ícono/insignia. Se usa por ejemplo como una de las figuritas del álbum.
+  const [teamPhotoFile, setTeamPhotoFile] = useState<File | null>(null);
+  const [teamPhotoPreview, setTeamPhotoPreview] = useState<string | null>(null);
+  const [savingTeamPhoto, setSavingTeamPhoto] = useState(false);
+  const [showTeamPhotoModal, setShowTeamPhotoModal] = useState(false);
+
+  // Color de equipo: pinta la página de este equipo en el álbum de figuritas.
+  const [teamColor, setTeamColor] = useState(user?.teamColor || '');
+  const [savingColor, setSavingColor] = useState(false);
 
   // Roster
   const [players, setPlayers] = useState<TeamPlayerRecord[]>([]);
@@ -66,8 +80,8 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
   const [formPhotoPreview, setFormPhotoPreview] = useState<string | null>(null);
   const [formUserId, setFormUserId] = useState<string | null>(null);
   const [formRole, setFormRole] = useState<TeamPlayerRole>('player');
-  const [formIsDT, setFormIsDT] = useState(false);
   const [formIsCaptain, setFormIsCaptain] = useState(false);
+  const [formPosition, setFormPosition] = useState<PlayerPosition | ''>('');
   const [savingPlayer, setSavingPlayer] = useState(false);
   const [showMemberSelector, setShowMemberSelector] = useState(false);
 
@@ -101,20 +115,82 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
     setCrestPreview(file ? URL.createObjectURL(file) : null);
   };
 
-  const handleSaveCrest = async () => {
+  // El escudo se guarda apenas se toca "Guardar" dentro del modal, no cuando se toca
+  // el "Guardar" de la fila (que es solo para el nombre) — antes ambos se mandaban
+  // juntos y confundía cuál de los dos botones hacía qué.
+  const handleSaveCrestPhoto = async () => {
     if (!user) return;
+    if (!crestFile) {
+      setShowCrestModal(false);
+      return;
+    }
     setSavingCrest(true);
     try {
       const formData = new FormData();
-      formData.append('matchAlias', matchAlias.trim());
-      if (crestFile) formData.append('matchPhoto', crestFile);
+      formData.append('matchPhoto', crestFile);
       await pb.collection('users').update(user.id, formData);
       await pb.collection('users').authRefresh();
-      Toast.show({ type: 'success', text1: 'Escudo y nombre actualizados' });
+      Toast.show({ type: 'success', text1: 'Escudo actualizado' });
+      setShowCrestModal(false);
     } catch (err: any) {
       Toast.show({ type: 'error', text1: 'Error al guardar', text2: err.message || 'No se pudo guardar.' });
     } finally {
       setSavingCrest(false);
+    }
+  };
+
+  const handleSaveTeamName = async () => {
+    if (!user) return;
+    setSavingName(true);
+    try {
+      await pb.collection('users').update(user.id, { matchAlias: matchAlias.trim() });
+      await pb.collection('users').authRefresh();
+      Toast.show({ type: 'success', text1: 'Nombre actualizado' });
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'Error al guardar', text2: err.message || 'No se pudo guardar.' });
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleTeamPhotoReady = (file: File | null) => {
+    setTeamPhotoFile(file);
+    if (teamPhotoPreview) URL.revokeObjectURL(teamPhotoPreview);
+    setTeamPhotoPreview(file ? URL.createObjectURL(file) : null);
+  };
+
+  const handleSaveTeamPhoto = async () => {
+    if (!user) return;
+    if (!teamPhotoFile) {
+      setShowTeamPhotoModal(false);
+      return;
+    }
+    setSavingTeamPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('teamPhoto', teamPhotoFile);
+      await pb.collection('users').update(user.id, formData);
+      await pb.collection('users').authRefresh();
+      Toast.show({ type: 'success', text1: 'Foto de equipo actualizada' });
+      setShowTeamPhotoModal(false);
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'Error al guardar', text2: err.message || 'No se pudo guardar.' });
+    } finally {
+      setSavingTeamPhoto(false);
+    }
+  };
+
+  const handleSaveColor = async () => {
+    if (!user) return;
+    setSavingColor(true);
+    try {
+      await pb.collection('users').update(user.id, { teamColor });
+      await pb.collection('users').authRefresh();
+      Toast.show({ type: 'success', text1: 'Color de equipo actualizado' });
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'Error al guardar', text2: err.message || 'No se pudo guardar.' });
+    } finally {
+      setSavingColor(false);
     }
   };
 
@@ -139,7 +215,10 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
     if (!user || !createName.trim()) return;
     setCreatingPlayer(true);
     try {
-      await teamPlayersService.createTeamPlayer(user.id, { name: createName, role: createRole });
+      await teamPlayersService.createTeamPlayer(user.id, {
+        name: createName,
+        role: createRole,
+      });
       setShowCreateModal(false);
       await loadRoster();
       Toast.show({ type: 'success', text1: createRole === 'coach' ? 'Agregado al cuerpo técnico' : 'Jugador agregado' });
@@ -157,8 +236,8 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
     setFormPhotoPreview(null);
     setFormUserId(p.user || null);
     setFormRole(p.role || 'player');
-    setFormIsDT(!!p.isDT);
     setFormIsCaptain(!!p.isCaptain);
+    setFormPosition((p.position as PlayerPosition) || '');
     setShowEditModal(true);
   };
   const closeEditModal = () => {
@@ -175,8 +254,8 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
         photo: formPhoto,
         userId: formUserId,
         role: formRole,
-        isDT: formIsDT,
         isCaptain: formIsCaptain,
+        position: formRole === 'player' ? formPosition : '',
       });
       Toast.show({ type: 'success', text1: 'Actualizado' });
       closeEditModal();
@@ -245,12 +324,60 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
         />
         <TouchableOpacity
           style={[styles.btn, styles.btnSave]}
-          onPress={handleSaveCrest}
-          disabled={savingCrest}
+          onPress={handleSaveTeamName}
+          disabled={savingName}
         >
-          {savingCrest ? <ActivityIndicator size="small" color="#000000" /> : <Text style={styles.btnSaveText}>Guardar</Text>}
+          {savingName ? <ActivityIndicator size="small" color="#000000" /> : <Text style={styles.btnSaveText}>Guardar</Text>}
         </TouchableOpacity>
       </View>
+
+      {/* Foto de equipo: la foto grupal real del plantel, no el escudo. Tocar la
+          miniatura abre el modal con las instrucciones y el ejemplo; se guarda con
+          el botón "Guardar" del propio modal. */}
+      <Text style={styles.sectionTitle}>Foto de equipo</Text>
+      <View style={styles.crestRow}>
+        <TouchableOpacity onPress={() => setShowTeamPhotoModal(true)} style={styles.teamPhotoTouch}>
+          <View style={[styles.teamPhotoBox, !teamPhotoPreview && !user.teamPhoto && styles.crestPreviewBoxPlaceholder]}>
+            {teamPhotoPreview ? (
+              <Image source={{ uri: teamPhotoPreview }} style={styles.teamPhotoImg} resizeMode="cover" />
+            ) : user.teamPhoto ? (
+              <Image source={{ uri: getFileUrl(user, user.teamPhoto) }} style={styles.teamPhotoImg} resizeMode="cover" />
+            ) : (
+              <Feather name="image" size={24} color="#8a8a8a" />
+            )}
+          </View>
+          <View style={styles.cameraOverlay}>
+            <Feather name="camera" size={12} color="#000000" />
+          </View>
+        </TouchableOpacity>
+        <Text style={[styles.photoStandardText, { flex: 1, marginBottom: 0 }]}>
+          La foto grupal del plantel completo.
+        </Text>
+      </View>
+
+      {/* Color de equipo: pinta la página de este equipo en el álbum de figuritas. */}
+      <Text style={styles.sectionTitle}>Color de equipo</Text>
+      <View style={styles.colorPaletteRow}>
+        {TEAM_COLORS.map((c) => (
+          <TouchableOpacity
+            key={c.value}
+            style={[styles.colorCircle, { backgroundColor: c.value }, teamColor === c.value && styles.colorCircleSelected]}
+            onPress={() => setTeamColor(c.value)}
+          />
+        ))}
+      </View>
+      <TouchableOpacity
+        style={[
+          styles.btn,
+          styles.btnSave,
+          { alignSelf: 'flex-start', marginTop: theme.spacing.sm },
+          (savingColor || teamColor === (user.teamColor || '')) && styles.btnDisabled,
+        ]}
+        onPress={handleSaveColor}
+        disabled={savingColor || teamColor === (user.teamColor || '')}
+      >
+        {savingColor ? <ActivityIndicator size="small" color="#000000" /> : <Text style={styles.btnSaveText}>Guardar</Text>}
+      </TouchableOpacity>
 
       {/* Roster — jugadores y cuerpo técnico son la misma colección (team_players),
           distinguidos por `role`; se agregan y se vinculan a una cuenta exactamente
@@ -300,14 +427,17 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.rosterHeaderRow}>
         <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Cuerpo técnico</Text>
-        <TouchableOpacity style={styles.addPlayerBtn} onPress={() => openCreatePlayer('coach')}>
-          <Feather name="plus" size={14} color="#000000" style={{ marginRight: 4 }} />
-          <Text style={styles.addPlayerBtnText}>Agregar</Text>
-        </TouchableOpacity>
+        {/* Un equipo admite un solo DT — con uno ya cargado no se ofrece agregar otro. */}
+        {rosterCoaches.length === 0 && (
+          <TouchableOpacity style={styles.addPlayerBtn} onPress={() => openCreatePlayer('coach')}>
+            <Feather name="plus" size={14} color="#000000" style={{ marginRight: 4 }} />
+            <Text style={styles.addPlayerBtnText}>Agregar DT</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {loadingPlayers ? null : rosterCoaches.length === 0 ? (
-        <Text style={styles.emptyText}>Todavía no agregaste a nadie del cuerpo técnico.</Text>
+        <Text style={styles.emptyText}>Todavía no agregaste al DT del equipo.</Text>
       ) : (
         rosterCoaches.map((p) => (
           <View key={p.id} style={styles.playerRow}>
@@ -315,11 +445,9 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.playerInfo}>
               <View style={styles.playerNameRow}>
                 <Text style={styles.playerName}>{p.name}</Text>
-                {!!p.isDT && (
-                  <View style={styles.roleBadge}>
-                    <Text style={styles.roleBadgeText}>DT</Text>
-                  </View>
-                )}
+                <View style={styles.roleBadge}>
+                  <Text style={styles.roleBadgeText}>DT</Text>
+                </View>
               </View>
               {!!p.expand?.user && (
                 <Text style={styles.playerLinked}>Vinculado a @{p.expand.user.username}</Text>
@@ -377,9 +505,57 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.modalButtonsRow}>
               <TouchableOpacity
                 style={[styles.btn, styles.btnSave, { flex: 1 }]}
-                onPress={() => setShowCrestModal(false)}
+                onPress={handleSaveCrestPhoto}
+                disabled={savingCrest}
               >
-                <Text style={styles.btnSaveText}>Listo</Text>
+                {savingCrest ? <ActivityIndicator size="small" color="#000000" /> : <Text style={styles.btnSaveText}>Guardar</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de la foto de equipo — mismo patrón que el modal del escudo: instrucciones
+          + ejemplo + picker que primero muestra el placeholder y, al elegir una foto,
+          la muestra a ella. A diferencia del escudo, acá sí se recorta/comprime como
+          una foto normal (cover, sin fondo transparente que preservar). */}
+      <Modal visible={showTeamPhotoModal} transparent animationType="fade" onRequestClose={() => setShowTeamPhotoModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Foto de equipo</Text>
+
+            <Text style={[styles.photoStandardText, { marginTop: theme.spacing.sm }]}>
+              Tiene que ser la foto grupal del plantel completo, como una foto oficial de
+              equipo: todos juntos, de pie, mirando a la cámara.
+            </Text>
+
+            <View style={styles.photoExampleRow}>
+              <View style={styles.teamPhotoBox}>
+                <Image source={{ uri: EXAMPLE_TEAM_PHOTO }} style={styles.teamPhotoImg} resizeMode="cover" />
+              </View>
+              <Text style={styles.photoExampleLabel}>Ejemplo</Text>
+            </View>
+
+            <View style={styles.photoPickerRow}>
+              <View style={[styles.teamPhotoBox, !teamPhotoPreview && !user.teamPhoto && styles.crestPreviewBoxPlaceholder]}>
+                {teamPhotoPreview ? (
+                  <Image source={{ uri: teamPhotoPreview }} style={styles.teamPhotoImg} resizeMode="cover" />
+                ) : user.teamPhoto ? (
+                  <Image source={{ uri: getFileUrl(user, user.teamPhoto) }} style={styles.teamPhotoImg} resizeMode="cover" />
+                ) : (
+                  <Feather name="image" size={24} color="#8a8a8a" />
+                )}
+              </View>
+              <ImagePicker onImageReady={handleTeamPhotoReady} value={teamPhotoFile} />
+            </View>
+
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity
+                style={[styles.btn, styles.btnSave, { flex: 1 }]}
+                onPress={handleSaveTeamPhoto}
+                disabled={savingTeamPhoto}
+              >
+                {savingTeamPhoto ? <ActivityIndicator size="small" color="#000000" /> : <Text style={styles.btnSaveText}>Guardar</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -391,7 +567,7 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
       <Modal visible={showCreateModal} transparent animationType="fade" onRequestClose={closeCreateModal}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>{createRole === 'coach' ? 'Agregar al cuerpo técnico' : 'Agregar jugador'}</Text>
+            <Text style={styles.modalTitle}>{createRole === 'coach' ? 'Agregar DT' : 'Agregar jugador'}</Text>
 
             <Text style={[styles.inputLabel, { marginTop: theme.spacing.sm }]}>Nombre</Text>
             <TextInput
@@ -440,35 +616,38 @@ export const EditTeamScreen: React.FC<Props> = ({ navigation }) => {
               maxLength={60}
             />
 
-            <Text style={[styles.inputLabel, { marginTop: theme.spacing.sm }]}>Rol</Text>
-            <View style={styles.roleToggleRow}>
-              <TouchableOpacity
-                style={[styles.roleToggleBtn, formRole === 'player' && styles.roleToggleBtnActive]}
-                onPress={() => { setFormRole('player'); setFormIsDT(false); }}
-              >
-                <Text style={[styles.roleToggleText, formRole === 'player' && styles.roleToggleTextActive]}>Jugador</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.roleToggleBtn, formRole === 'coach' && styles.roleToggleBtnActive]}
-                onPress={() => { setFormRole('coach'); setFormIsCaptain(false); }}
-              >
-                <Text style={[styles.roleToggleText, formRole === 'coach' && styles.roleToggleTextActive]}>Cuerpo técnico</Text>
-              </TouchableOpacity>
-            </View>
+            {/* El rol (jugador o DT) no se cambia acá: son dos fichas distintas
+                (un DT no tiene posición ni puede ser capitán) y ya hay una acción
+                dedicada para cada una — "Agregar jugador" / "Agregar DT" arriba, y
+                "Eliminar" para sacar a alguien. Convertir uno en otro sería mezclar
+                dos formularios distintos en un solo switch. */}
 
-            {/* Un solo capitán / un solo DT por equipo — marcar acá desmarca
-                automáticamente a quien lo tuviera antes (lo hace el servidor). */}
+            {/* Un solo capitán por equipo — marcar acá desmarca automáticamente a
+                quien lo tuviera antes (lo hace el servidor). */}
             {formRole === 'player' && (
               <TouchableOpacity style={styles.checkboxRow} onPress={() => setFormIsCaptain((v) => !v)}>
                 <Feather name={formIsCaptain ? 'check-square' : 'square'} size={18} color={formIsCaptain ? theme.colors.primary : theme.colors.textMuted} />
                 <Text style={styles.checkboxLabel}>Es el capitán del equipo</Text>
               </TouchableOpacity>
             )}
-            {formRole === 'coach' && (
-              <TouchableOpacity style={styles.checkboxRow} onPress={() => setFormIsDT((v) => !v)}>
-                <Feather name={formIsDT ? 'check-square' : 'square'} size={18} color={formIsDT ? theme.colors.primary : theme.colors.textMuted} />
-                <Text style={styles.checkboxLabel}>Es el DT del equipo</Text>
-              </TouchableOpacity>
+
+            {/* Posición en la cancha — solo para jugadores, se usa para agrupar y
+                pintar las láminas del álbum de figuritas. */}
+            {formRole === 'player' && (
+              <>
+                <Text style={[styles.inputLabel, { marginTop: theme.spacing.sm }]}>Posición (opcional)</Text>
+                <View style={styles.roleToggleRow}>
+                  {POSITION_ORDER.map((pos) => (
+                    <TouchableOpacity
+                      key={pos}
+                      style={[styles.roleToggleBtn, formPosition === pos && styles.roleToggleBtnActive]}
+                      onPress={() => setFormPosition((v) => (v === pos ? '' : pos))}
+                    >
+                      <Text style={[styles.roleToggleText, formPosition === pos && styles.roleToggleTextActive]}>{pos}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
             )}
 
             <Text style={[styles.inputLabel, { marginTop: theme.spacing.sm }]}>Foto (opcional)</Text>
@@ -619,6 +798,11 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
   },
   crestTouch: {
+    position: 'relative',
+    width: 64,
+    height: 64,
+  },
+  teamPhotoTouch: {
     position: 'relative',
     width: 64,
     height: 64,
@@ -839,6 +1023,40 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderStyle: 'dashed',
     borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  teamPhotoBox: {
+    width: 64,
+    height: 64,
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  teamPhotoImg: {
+    width: '100%',
+    height: '100%',
+  },
+  colorPaletteRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: theme.spacing.sm,
+  },
+  colorCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  colorCircleSelected: {
+    borderWidth: 3,
+    borderColor: '#ffffff',
+    transform: [{ scale: 1.15 }],
   },
   crestPreviewImg: {
     width: '100%',

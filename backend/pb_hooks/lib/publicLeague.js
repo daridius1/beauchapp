@@ -24,6 +24,8 @@ function publicAccount(record) {
         avatar: record.getString("avatar"),
         matchAlias: record.getString("matchAlias"),
         matchPhoto: record.getString("matchPhoto"),
+        teamPhoto: record.getString("teamPhoto"),
+        teamColor: record.getString("teamColor"),
     };
 }
 

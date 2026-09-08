@@ -22,7 +22,7 @@ import { useAuth } from '../context/AuthContext';
 import { pb, POCKETBASE_URL } from '../services/pocketbase';
 import { withMinimumDelay } from '../utils/refresh';
 import { RootStackParamList } from '../types/navigation';
-import { MatchEvent, Team, LineupEntry, summarizeEvents, isClockGatedSequenceValid, computeLiveElapsedMs, annotateEventsWithHalfTime, formatClockTime, eventKey, newEventId, visibleEvents } from '../utils/matchEvents';
+import { MatchEvent, Team, LineupEntry, summarizeEvents, isClockGatedSequenceValid, computeLiveElapsedMs, annotateEventsWithHalfTime, formatClockTime, eventKey, newEventId, visibleEvents, rosterToLineupEntries } from '../utils/matchEvents';
 import { leagueService, classifyPushError, PushErrorKind } from '../services/leagueService';
 import { LeagueMatch, MatchReport } from '../types/league';
 import { LeagueBadge, EventBadgeType } from '../components/leagues/LeagueBadge';
@@ -117,9 +117,9 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
   const [ownGoalToggle, setOwnGoalToggle] = useState(false);
   const [penaltyScoredToggle, setPenaltyScoredToggle] = useState(true);
 
-  // Convocatoria — roster de cada equipo (team_players), única fuente posible: ya no
-  // se puede tipear un nombre a mano, solo se convoca a quien el equipo ya agregó
-  // desde "Editar equipo".
+  // Plantel de cada equipo (team_players) — ya no existe convocatoria: TODO el
+  // plantel cuenta como disponible para anotarle un gol/tarjeta/penal, no un
+  // subconjunto que el árbitro tuviera que marcar antes.
   const [rosterA, setRosterA] = useState<TeamPlayerRecord[]>([]);
   const [rosterB, setRosterB] = useState<TeamPlayerRecord[]>([]);
 
@@ -240,13 +240,14 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
         const record = await leagueService.getMatch(matchId, 'teamA,teamB');
         setMatch(record);
 
-        // Roster de cada equipo — única fuente posible para convocatoria y eventos.
+        // Roster de cada equipo — única fuente posible de jugadores para los eventos.
+        // El endpoint público trae jugadores + el DT (para la vista de partido), pero
+        // acá solo interesan los jugadores: un DT no se marca gol/tarjeta/penal.
         const publicRosters = await leagueService.getMatchRosters(matchId);
         if (publicRosters) {
-          setRosterA(publicRosters.rosterA as TeamPlayerRecord[]);
-          setRosterB(publicRosters.rosterB as TeamPlayerRecord[]);
+          setRosterA((publicRosters.rosterA as TeamPlayerRecord[]).filter((p) => p.role !== 'coach'));
+          setRosterB((publicRosters.rosterB as TeamPlayerRecord[]).filter((p) => p.role !== 'coach'));
         } else {
-          // Solo jugadores son convocables — un DT no se marca gol/tarjeta/penal.
           const [rosterARes, rosterBRes] = await Promise.all([
             teamPlayersService.listTeamPlayers(record.teamA),
             teamPlayersService.listTeamPlayers(record.teamB),
@@ -546,19 +547,6 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     }
   };
 
-  // Manejo de convocatoria — se compara por playerId (no por nombre, que puede
-  // repetirse) y se reescribe la lista completa como objetos {playerId,name,photo},
-  // nunca strings sueltos (eso solo existe en partidos de antes de este roster).
-  const toggleRosterPlayer = async (team: Team, player: TeamPlayerRecord) => {
-    const currentLineup = team === 'A' ? summary.lineupA : summary.lineupB;
-    const isIncluded = currentLineup.some((p) => p.playerId === player.id);
-    const updated = isIncluded
-      ? currentLineup.filter((p) => p.playerId !== player.id)
-      : [...currentLineup, { playerId: player.id, name: player.name, photo: player.photo || undefined }];
-    const payload = updated.map((p) => ({ playerId: p.playerId || undefined, name: p.name, photo: p.photo || undefined }));
-    await pushEvent({ type: 'lineup', team, players: payload, at: new Date().toISOString() });
-  };
-
   // Iniciar/terminar tiempo y pausar SIEMPRE piden confirmación; reanudar no (para no
   // entorpecer volver al juego).
   const requestHalfStart = (half: 1 | 2) => {
@@ -632,8 +620,8 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
 
     if (pendingAction.type === 'goal') {
       // "team" siempre es el equipo del JUGADOR que la metió, no a quién se le acredita
-      // el punto — en autogol, el jugador convocado elegido es del equipo RIVAL al
-      // botón que se apretó (ver modalEligiblePlayers), así que el evento tiene que
+      // el punto — en autogol, el jugador elegido es del equipo RIVAL al botón que se
+      // apretó (ver modalEligiblePlayers), así que el evento tiene que
       // reflejar ESE equipo, o summarizeEvents termina acreditando el gol al lado
       // contrario del que corresponde.
       const scorerTeam = ownGoalToggle ? (pendingAction.team === 'A' ? 'B' : 'A') : pendingAction.team;
@@ -805,13 +793,16 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
     );
   }
 
-  // Lista de jugadores elegibles para el modal de acción
+  // Lista de jugadores elegibles para el modal de acción — el plantel completo del
+  // equipo correspondiente, ya no un subconjunto convocado.
+  const entriesA = rosterToLineupEntries(rosterA);
+  const entriesB = rosterToLineupEntries(rosterB);
   let modalEligiblePlayers: LineupEntry[] = [];
   if (pendingAction) {
     if (pendingAction.type === 'goal' && ownGoalToggle) {
-      modalEligiblePlayers = pendingAction.team === 'A' ? summary.lineupB : summary.lineupA;
+      modalEligiblePlayers = pendingAction.team === 'A' ? entriesB : entriesA;
     } else {
-      modalEligiblePlayers = pendingAction.team === 'A' ? summary.lineupA : summary.lineupB;
+      modalEligiblePlayers = pendingAction.team === 'A' ? entriesA : entriesB;
     }
   }
 
@@ -1047,58 +1038,6 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
         </View>
       )}
 
-      {/* Convocatoria */}
-      <View style={styles.divider} />
-      <Text style={styles.sectionHeader}>Convocatoria</Text>
-      <View style={styles.lineupRow}>
-        {(['A', 'B'] as Team[]).map((team) => {
-          const isA = team === 'A';
-          const teamName = isA ? nameA : nameB;
-          const lineup = isA ? summary.lineupA : summary.lineupB;
-          const roster = isA ? rosterA : rosterB;
-
-          // La columna del equipo B se invierte para que las dos se lean hacia el
-          // centro (cara-nombre | nombre-cara), igual que los planteles del detalle
-          // del partido. row-reverse en vez de duplicar el JSX.
-          const mirrored = !isA;
-
-          return (
-            <View key={team} style={styles.lineupCol}>
-              <Text style={[styles.lineupColTitle, mirrored && styles.textRight]} numberOfLines={1}>
-                {teamName}
-              </Text>
-
-              {roster.length === 0 ? (
-                <Text style={[styles.mutedTextSmall, mirrored && styles.textRight]}>Este equipo todavía no agregó jugadores a su roster.</Text>
-              ) : (
-                roster.map((p) => {
-                  const isChecked = lineup.some((e) => e.playerId === p.id);
-                  return (
-                    <TouchableOpacity
-                      key={p.id}
-                      style={[styles.checklistRow, mirrored && styles.rowMirrored]}
-                      onPress={() => toggleRosterPlayer(team, p)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.checkboxBox, isChecked && styles.checkboxBoxChecked]}>
-                        {isChecked && <Feather name="check" size={11} color="#000000" />}
-                      </View>
-                      <PlayerAvatar player={{ id: p.id, collectionId: 'team_players', photo: p.photo }} size={22} />
-                      <Text
-                        style={[styles.checklistName, isChecked && styles.checklistNameChecked, mirrored && styles.textRight]}
-                        numberOfLines={1}
-                      >
-                        {p.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </View>
-          );
-        })}
-      </View>
-
       {/* Modal de Acción (Gol, Penal, Tarjetas) */}
       <Modal visible={!!pendingAction} transparent animationType="fade" onRequestClose={closeActionModal}>
         <View style={styles.modalBackdrop}>
@@ -1147,7 +1086,7 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
               </View>
             )}
 
-            <Text style={styles.modalPlayerListLabel}>Selecciona el jugador convocado (o déjalo en blanco):</Text>
+            <Text style={styles.modalPlayerListLabel}>Selecciona el jugador (o déjalo en blanco):</Text>
             <ScrollView style={styles.modalPlayerScroll} contentContainerStyle={styles.modalPlayerScrollContent}>
               {/* "Sin jugador" — siempre disponible, no requiere convocatoria. */}
               <TouchableOpacity
@@ -1166,7 +1105,7 @@ export const LeagueMatchArbitratorScreen: React.FC<Props> = ({ route, navigation
 
               {modalEligiblePlayers.length === 0 ? (
                 <View style={styles.modalEmptyBox}>
-                  <Text style={styles.modalEmptyText}>Nadie convocado en este equipo todavía.</Text>
+                  <Text style={styles.modalEmptyText}>Este equipo todavía no agregó jugadores a su plantel.</Text>
                 </View>
               ) : (
                 modalEligiblePlayers.map((p, idx) => {
@@ -1260,7 +1199,6 @@ const styles = StyleSheet.create({
   content: { padding: theme.spacing.md, paddingBottom: 60 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background, padding: theme.spacing.lg },
   mutedText: { color: theme.colors.textMuted, fontSize: 14, textAlign: 'center' },
-  mutedTextSmall: { color: theme.colors.textMuted, fontSize: 11, fontStyle: 'italic', paddingVertical: 4 },
   syncWarning: { backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: theme.colors.danger, borderRadius: 4, padding: theme.spacing.sm, marginBottom: theme.spacing.sm },
   syncWarningText: { color: theme.colors.text, fontSize: 12 },
   // Gris/neutro a propósito — "sin conexión" es un estado esperado y transitorio, no un
@@ -1279,9 +1217,6 @@ const styles = StyleSheet.create({
   codeInput: { width: '100%', maxWidth: 220, backgroundColor: theme.colors.cardBg, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 10, paddingVertical: 14, paddingHorizontal: 14, color: theme.colors.text, fontSize: 24, fontWeight: '800', letterSpacing: 6, textAlign: 'center', marginVertical: theme.spacing.lg },
   divider: { height: 1, backgroundColor: '#1e1e1e', marginVertical: theme.spacing.md },
   sectionHeader: { fontSize: 13, fontWeight: '700', color: theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, textAlign: 'center' },
-  // Columna derecha de la convocatoria: mismo orden de hijos, leído al revés.
-  rowMirrored: { flexDirection: 'row-reverse' },
-  textRight: { textAlign: 'right' },
   scoreboardSection: { alignItems: 'center', paddingVertical: theme.spacing.sm },
   scoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: 10 },
   // minWidth: 0 — sin esto un nombre largo corre el guion del marcador.
@@ -1322,15 +1257,6 @@ const styles = StyleSheet.create({
   eventFeedMinute: { color: theme.colors.primary, fontSize: 13, fontWeight: '800' },
   eventClockTime: { color: theme.colors.textMuted, fontSize: 9 },
   eventDeleteBtn: { padding: 6 },
-  lineupRow: { flexDirection: 'row', gap: theme.spacing.md },
-  lineupCol: { flex: 1 },
-  lineupColTitle: { color: theme.colors.text, fontSize: 13, fontWeight: '700', marginBottom: 6 },
-  lineupSubLabel: { color: theme.colors.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 4 },
-  checklistRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5 },
-  checkboxBox: { width: 16, height: 16, borderRadius: 3, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
-  checkboxBoxChecked: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
-  checklistName: { color: theme.colors.textMuted, fontSize: 13, flex: 1 },
-  checklistNameChecked: { color: theme.colors.text, fontWeight: '600' },
   // Mismo ancho que el campo de código que tiene justo encima, para que los dos
   // formen una columna. Sin esto el botón se encogía al texto (el contenedor centra
   // sus hijos) y "Unirme" quedaba pegado a los bordes.

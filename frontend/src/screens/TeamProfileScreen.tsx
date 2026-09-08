@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
+  Image,
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
@@ -16,7 +17,7 @@ import Toast from 'react-native-toast-message';
 import { theme } from '../theme/theme';
 import { CommentsHeader } from '../components/CommentsHeader';
 import { SectionHeading } from '../components/SectionHeading';
-import { pb } from '../services/pocketbase';
+import { pb, getFileUrl } from '../services/pocketbase';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../types/navigation';
 import { withMinimumDelay } from '../utils/refresh';
@@ -231,6 +232,44 @@ export const TeamProfileScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
       </TouchableOpacity>
 
+      {/* Foto de equipo — solo si el equipo cargó una */}
+      {!!teamUser?.teamPhoto && (
+        <View style={styles.teamPhotoSection}>
+          <Image
+            source={{ uri: getFileUrl(teamUser, teamUser.teamPhoto) }}
+            style={styles.teamPhotoImg}
+            resizeMode="cover"
+          />
+        </View>
+      )}
+
+      {/* Sección del DT — va arriba del plantel, en su propio lugar, y solo si el
+          equipo lo cargó (un equipo admite uno solo). */}
+      {rosterCoaches.length > 0 && (
+        <View style={styles.section}>
+          <SectionHeading title="Cuerpo técnico" />
+          {rosterCoaches.map((coach, idx) => {
+            const linkedUserId = coach.user;
+            return (
+              <TouchableOpacity
+                key={coach.id}
+                style={[styles.playerRow, idx === rosterCoaches.length - 1 && styles.playerRowLast]}
+                activeOpacity={linkedUserId ? 0.7 : 1}
+                disabled={!linkedUserId}
+                onPress={() => linkedUserId && navigation.push('UserProfile', { userId: linkedUserId })}
+              >
+                <PlayerAvatar player={coach} size={32} />
+                <View style={styles.playerNameRow}>
+                  <Text style={styles.playerName} numberOfLines={1}>{coach.name}</Text>
+                  <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>DT</Text></View>
+                </View>
+                {!!linkedUserId && <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
       {/* Sección de Jugadores */}
       <View style={styles.section}>
         <SectionHeading title="Jugadores" />
@@ -251,10 +290,12 @@ export const TeamProfileScreen: React.FC<Props> = ({ route, navigation }) => {
                 onPress={() => linkedUserId && navigation.push('UserProfile', { userId: linkedUserId })}
               >
                 <PlayerAvatar player={player} size={32} />
-                <Text style={styles.playerName}>{player.name}</Text>
-                {!!player.isCaptain && (
-                  <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>C</Text></View>
-                )}
+                <View style={styles.playerNameRow}>
+                  <Text style={styles.playerName} numberOfLines={1}>{player.name}</Text>
+                  {!!player.isCaptain && (
+                    <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>C</Text></View>
+                  )}
+                </View>
                 {goals > 0 && <Text style={styles.playerGoals}>{goals} {goals === 1 ? 'gol' : 'goles'}</Text>}
                 {!!linkedUserId && <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />}
               </TouchableOpacity>
@@ -262,33 +303,6 @@ export const TeamProfileScreen: React.FC<Props> = ({ route, navigation }) => {
           })
         )}
       </View>
-
-      {/* Sección de Cuerpo técnico — solo si el equipo cargó a alguien (admite cualquier
-          cantidad de personas; a lo más una puede tener la insignia "DT") */}
-      {rosterCoaches.length > 0 && (
-        <View style={styles.section}>
-          <SectionHeading title="Cuerpo técnico" />
-          {rosterCoaches.map((coach, idx) => {
-            const linkedUserId = coach.user;
-            return (
-              <TouchableOpacity
-                key={coach.id}
-                style={[styles.playerRow, idx === rosterCoaches.length - 1 && styles.playerRowLast]}
-                activeOpacity={linkedUserId ? 0.7 : 1}
-                disabled={!linkedUserId}
-                onPress={() => linkedUserId && navigation.push('UserProfile', { userId: linkedUserId })}
-              >
-                <PlayerAvatar player={coach} size={32} />
-                <Text style={styles.playerName}>{coach.name}</Text>
-                {!!coach.isDT && (
-                  <View style={styles.roleBadge}><Text style={styles.roleBadgeText}>DT</Text></View>
-                )}
-                {!!linkedUserId && <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
 
       {/* Sección de Partidos */}
       <View style={styles.section}>
@@ -394,6 +408,17 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 
+  teamPhotoSection: {
+    marginTop: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  teamPhotoImg: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#161616',
+  },
+
   // Lista de jugadores
   // Filas compactas: el marginTop por fila sumado al paddingVertical hacía que cada
   // jugador ocupara casi el doble de lo necesario en un roster de 15 personas.
@@ -408,8 +433,18 @@ const styles = StyleSheet.create({
   playerRowLast: {
     borderBottomWidth: 0,
   },
-  playerName: {
+  // Envuelve nombre + chip (C/DT) para que el chip quede pegado al nombre — si
+  // playerName tuviera flex:1 directo en playerRow, el chip quedaría empujado al
+  // otro extremo de la fila (junto a goles/chevron) en vez de al lado del nombre.
+  playerNameRow: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+  },
+  playerName: {
+    flexShrink: 1,
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',

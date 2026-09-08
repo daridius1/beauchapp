@@ -295,6 +295,10 @@ ${CALENDAR_CSS}
         <div class="card">
             <h2 style="margin-top:0;">Agregar partidos</h2>
             <p class="hint">Elige los equipos de la liga que van a jugar y corre el algoritmo. Cada sugerencia se acepta o descarta individualmente.</p>
+            <label style="display:flex; align-items:center; gap:6px; margin-bottom:8px; font-size:13px;">
+                <input type="checkbox" id="selectAllStageTeamsCheck" checked>
+                Seleccionar todos / ninguno
+            </label>
             <div id="stageTeamsList"></div>
 
             <h2 style="font-size:14px; margin:22px 0 6px;">Horarios permitidos</h2>
@@ -1063,7 +1067,7 @@ ${API_CALL_FN}
             document.getElementById("allowedGridWrap").innerHTML = '<p class="hint">Cargando...</p>';
             document.getElementById("leagueGridWrap").innerHTML = '<p class="hint">Cargando...</p>';
             loadCalendar();
-            loadStageMatches();
+            loadStageMatches(false);
             loadDifficultySummary();
             window.scrollTo(0, 0);
         }
@@ -1113,9 +1117,11 @@ ${API_CALL_FN}
 
         function renderStageTeamOptions() {
             const wrap = document.getElementById("stageTeamsList");
+            const selectAllCheck = document.getElementById("selectAllStageTeamsCheck");
             wrap.innerHTML = "";
             if (!activeStage) return;
             const participantes = stageParticipants();
+            selectAllCheck.checked = true;
             if (!participantes.length) {
                 wrap.innerHTML = '<p class="hint">Marca primero los participantes de esta etapa.</p>';
                 return;
@@ -1155,6 +1161,10 @@ ${API_CALL_FN}
             });
             if (selectB.options.length > 1) selectB.selectedIndex = 1;
         }
+
+        document.getElementById("selectAllStageTeamsCheck").addEventListener("change", (ev) => {
+            document.querySelectorAll(".stage-team-check").forEach((cb) => { cb.checked = ev.target.checked; });
+        });
 
         function populateHourSelect(select, defaultHour) {
             select.innerHTML = "";
@@ -1385,6 +1395,11 @@ ${API_CALL_FN}
             cancelled: "Cancelado",
         };
 
+        // Orden de los desplegables de "Partidos": lo que hay que agendar/arbitrar
+        // primero, arriba. Solo "Por jugar" arranca abierto — los demás se consultan
+        // de vez en cuando y antes empujaban la lista completa fuera de la pantalla.
+        const STAGE_MATCH_GROUP_ORDER = ["confirmed", "suspended", "played", "cancelled"];
+
         // --- Disponibilidad de un equipo ---
         //
         // Los mismos bloques de siempre, pintados con la escala 1-5 que marcó el equipo.
@@ -1471,10 +1486,9 @@ ${API_CALL_FN}
             return el;
         }
 
-        // El código de arbitraje se comparte por WhatsApp con el árbitro de turno, así
-        // que copiarlo es lo que el admin viene a hacer con él. La API de portapapeles
-        // solo existe en contexto seguro (https o localhost); si se entra por IP de la
-        // red, se cae al textarea + execCommand, que sigue andando ahí.
+        // La API de portapapeles solo existe en contexto seguro (https o localhost); si
+        // se entra por IP de la red, se cae al textarea + execCommand, que sigue
+        // andando ahí.
         function copyToClipboard(text) {
             if (navigator.clipboard && window.isSecureContext) {
                 return navigator.clipboard.writeText(text);
@@ -1494,42 +1508,12 @@ ${API_CALL_FN}
             });
         }
 
-        function codeChip(code) {
-            const el = document.createElement("span");
-            el.className = "fact";
-            el.appendChild(document.createTextNode("Código para arbitrar "));
-            const strong = document.createElement("strong");
-            strong.textContent = code;
-            el.appendChild(strong);
-
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "copy-btn";
-            btn.title = "Copiar el código";
-            btn.textContent = "Copiar";
-            btn.addEventListener("click", async () => {
-                try {
-                    await copyToClipboard(code);
-                    btn.textContent = "Copiado";
-                    btn.classList.add("copied");
-                } catch (err) {
-                    btn.textContent = "No se pudo";
-                }
-                setTimeout(() => {
-                    btn.textContent = "Copiar";
-                    btn.classList.remove("copied");
-                }, 1600);
-            });
-            el.appendChild(btn);
-            return el;
-        }
-
-        // Mismo patrón que codeChip, para un link que ya trae el código incluido —
-        // quien lo recibe entra directo a arbitrar sin tipear nada.
+        // Un link que ya trae el token incluido — quien lo recibe entra directo, sin
+        // tipear nada.
         function linkChip(url, label) {
             const el = document.createElement("span");
             el.className = "fact";
-            el.appendChild(document.createTextNode(label || "Link para arbitrar"));
+            el.appendChild(document.createTextNode(label || "Link"));
 
             const btn = document.createElement("button");
             btn.type = "button";
@@ -1551,6 +1535,29 @@ ${API_CALL_FN}
             });
             el.appendChild(btn);
             return el;
+        }
+
+        // Botón para generar (o regenerar) el link de un solo uso que el árbitro usa
+        // para registrar el resultado después del partido (match_result.pb.js). Uno
+        // nuevo invalida cualquiera anterior — por eso "generar otro" avisa antes de
+        // partidos ya jugados, donde regenerar significa pedir una corrección.
+        function resultLinkButton(m) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "btn btn-sm btn-secondary";
+            btn.textContent = m.resultLink ? "Generar otro link" : "Generar link para el árbitro";
+            btn.addEventListener("click", async () => {
+                if (m.resultLink && !confirm("Esto invalida el link anterior. ¿Generar uno nuevo?")) return;
+                btn.disabled = true;
+                try {
+                    await apiCall("/api/liga/matches/generate-result-link", "POST", { matchId: m.id });
+                    loadStageMatches();
+                } catch (err) {
+                    showError(currentError(), err.message);
+                    btn.disabled = false;
+                }
+            });
+            return btn;
         }
 
         // Botón que abre el contacto privado de un equipo (WhatsApp/Telegram/
@@ -1821,16 +1828,27 @@ ${API_CALL_FN}
             return wrap;
         }
 
-        async function loadStageMatches() {
+        // preserveScroll=false solo al abrir una etapa (showStage ya deja el scroll
+        // arriba a propósito); cualquier otra llamada — guardar árbitros, generar un
+        // link, suspender/eliminar un partido — recarga esta lista para reflejar el
+        // cambio, y ahí sí hay que devolver al admin a donde estaba trabajando.
+        async function loadStageMatches(preserveScroll) {
             if (!activeStage) return;
             const list = document.getElementById("stageMatchesList");
-            list.innerHTML = '<p class="hint">Cargando...</p>';
+            // Reemplazar todo el HTML de golpe (o vaciarlo primero) hace que la página
+            // se achique y el navegador ajuste el scroll al tope — desde ahí no vuelve
+            // solo. Se recuerda dónde estaba parado el admin (y qué grupos tenía
+            // desplegados a mano) para dejarlo tal cual quedó.
+            const scrollY = preserveScroll === false ? null : window.scrollY;
+            const openGroups = {};
+            list.querySelectorAll("details[data-status]").forEach((d) => { openGroups[d.dataset.status] = d.open; });
+            if (!list.children.length) list.innerHTML = '<p class="hint">Cargando...</p>';
+
             let data;
             try {
                 data = await apiCall("/api/liga/matches?stageId=" + activeStage.id, "GET");
             } catch (err) { showError(currentError(), err.message); return; }
 
-            list.innerHTML = "";
             if (!data.matches.length) {
                 list.innerHTML = '<p class="hint">Todavía no hay partidos en esta etapa. Agenda uno desde "Agendar partidos".</p>';
                 return;
@@ -1838,8 +1856,10 @@ ${API_CALL_FN}
 
             // El índice de cada partido es su posición acá, y es el que se pinta en la
             // celda del calendario. La lista viene ordenada por bloque desde el servidor,
-            // así que el orden de los números sigue al del calendario.
+            // así que el orden de los números sigue al del calendario — se conserva
+            // aunque las tarjetas terminen repartidas en distintos grupos desplegables.
             matchIndexByBlock = {};
+            const groupCards = {};
             data.matches.forEach((m, i) => {
                 const label = String(i + 1);
                 if (m.blockCode) matchIndexByBlock[m.blockCode] = label;
@@ -1861,22 +1881,20 @@ ${API_CALL_FN}
                 facts.className = "match-card-facts";
                 if (m.status === "played") {
                     facts.appendChild(factChip("Resultado:", (m.scoreA || 0) + " - " + (m.scoreB || 0)));
-                    // Mismo flujo de arbitraje, en modo "enmienda": matchWriteDecision (ver
-                    // lib/matchEvents.js) deja entrar sin código a la propia liga cuando el
-                    // partido ya está 'played', así que este link reabre el informe oficial
-                    // para corregir un error de arbitraje. Si hay Beaumarket de por medio, la
-                    // reversión/repago del mercado ya la hace el propio endpoint de eventos al
-                    // detectar que cambió el ganador (ver match_arbitration.pb.js) — no hace
-                    // falta nada especial acá.
-                    if (m.arbitrateUrl) facts.appendChild(linkChip(m.arbitrateUrl, "Corregir informe (error de arbitraje)"));
+                    if (m.resultLink) facts.appendChild(linkChip(m.resultLink, "Link para corregir el resultado"));
                 } else if (m.status === "confirmed") {
-                    // El código es lo que habilita a arbitrar: es el dato que el admin
-                    // viene a buscar a esta lista. El link ya lo trae incluido, para
-                    // compartir de una sola vez.
-                    facts.appendChild(codeChip(m.code));
-                    if (m.arbitrateUrl) facts.appendChild(linkChip(m.arbitrateUrl));
+                    if (m.resultLink) facts.appendChild(linkChip(m.resultLink, "Link para el árbitro"));
                 }
                 if (facts.childNodes.length) card.appendChild(facts);
+
+                // Generar/regenerar el link de un solo uso para registrar el resultado
+                // (match_result.pb.js) — reemplaza al código+link de arbitraje en vivo,
+                // en el mismo lugar donde antes vivían. Uno nuevo invalida cualquiera
+                // anterior, así que sirve igual para la primera carga (confirmed) que
+                // para pedir una corrección sobre un resultado ya cargado (played).
+                if (m.status === "confirmed" || m.status === "played") {
+                    card.appendChild(resultLinkButton(m));
+                }
 
                 const contactsRow = document.createElement("div");
                 const contactBtnA = teamContactButton(m.teamAName, m.teamAContact);
@@ -1963,10 +1981,28 @@ ${API_CALL_FN}
                     card.appendChild(actions);
                 }
 
-                list.appendChild(card);
+                (groupCards[m.status] || (groupCards[m.status] = [])).push(card);
             });
 
+            const frag = document.createDocumentFragment();
+            STAGE_MATCH_GROUP_ORDER.forEach((status) => {
+                const cards = groupCards[status];
+                if (!cards || !cards.length) return;
+                const details = document.createElement("details");
+                details.className = "card-collapsible";
+                details.dataset.status = status;
+                details.style.marginBottom = "14px";
+                details.open = status in openGroups ? openGroups[status] : status === "confirmed";
+                const summary = document.createElement("summary");
+                summary.textContent = (STATUS_LABELS[status] || status) + " (" + cards.length + ")";
+                details.appendChild(summary);
+                cards.forEach((c) => details.appendChild(c));
+                frag.appendChild(details);
+            });
+            list.replaceChildren(frag);
+
             renderLeagueGrid();
+            if (scrollY !== null) window.scrollTo(0, scrollY);
         }
 
         // Dificultad acumulada de rivales, EN ESTA ETAPA (no toda la liga — cada etapa
@@ -2562,8 +2598,10 @@ ${API_CALL_FN}
             }
 
             editingEventsMatch = m;
-            editRosterA = data.rosterA || [];
-            editRosterB = data.rosterB || [];
+            // /api/public/match ahora también trae al DT (para la vista de partido) —
+            // acá solo interesan jugadores, un DT no anota gol/tarjeta/penal.
+            editRosterA = (data.rosterA || []).filter((p) => p.role !== "coach");
+            editRosterB = (data.rosterB || []).filter((p) => p.role !== "coach");
 
             document.getElementById("editEventsSubtitle").textContent =
                 m.teamAName + " vs " + m.teamBName + " — " + formatBlockLabel(m.blockCode);
@@ -3212,6 +3250,18 @@ routerAdd("GET", "/api/liga/matches", (e) => {
             }
         }
 
+        // El link de resultado (resultToken, ver match_result.pb.js) es igual de "hidden"
+        // que el viejo código de arbitraje — nulo si nunca se generó, si ya se usó
+        // (queda vacío al enviarse) o si venció, para que el panel sepa si mostrar el
+        // link vigente o el botón para generar uno.
+        function resultLinkFor(m) {
+            const token = m.getString("resultToken");
+            if (!token) return null;
+            const expiresAt = new Date(m.getString("resultTokenExpiresAt") || "");
+            if (isNaN(expiresAt.getTime()) || expiresAt < new Date()) return null;
+            return `${baseUrl}/registrar-resultado?token=${token}`;
+        }
+
         // Contacto privado de administración de un equipo (nunca el perfil social,
         // ver migración 1788000000) — null si no cargó ninguno.
         function teamContact(teamId) {
@@ -3275,15 +3325,17 @@ routerAdd("GET", "/api/liga/matches", (e) => {
                     status: m.getString("status"),
                     scoreA: m.getInt("scoreA"),
                     scoreB: m.getInt("scoreB"),
+                    // El arbitraje en vivo (código de 6 caracteres, LeagueMatchArbitratorScreen)
+                    // queda archivado — ya no se expone acá. Lo que reemplaza esta lectura es
+                    // resultLink: el link de un solo uso para registrar el resultado después
+                    // del partido (ver match_result.pb.js). Solo viaja si hay un token vigente
+                    // — nulo si nunca se generó, si ya se usó, o si venció.
+                    resultLink: resultLinkFor(m),
+                    // code ya no se muestra en el panel (arbitraje en vivo archivado), pero
+                    // sigue viajando: "Editar eventos" (más abajo) lo manda tal cual en el
+                    // body de POST /api/league-matches/events, que lo exige no-vacío aunque
+                    // en modo enmienda no lo valide contra nada (ver matchWriteDecision).
                     code: m.getString("code"),
-                    // También para 'played': matchWriteDecision (lib/matchEvents.js) deja
-                    // entrar sin código a la propia liga sobre un partido ya jugado, para
-                    // corregir el informe oficial (enmienda) — ver LeagueMatchArbitratorScreen
-                    // (isAmend) en el frontend. El código va igual en la URL por si alguien
-                    // más sin sesión de liga necesita abrirla.
-                    arbitrateUrl: (m.getString("status") === "confirmed" || m.getString("status") === "played")
-                        ? `${baseUrl}/partidos/${m.id}/arbitrar?code=${m.getString("code")}`
-                        : null,
                     refereeTeams,
                     refereeTeamNames: refereeTeams.map(teamDisplay),
                     reportStatus: reportStatusFor(m.id),

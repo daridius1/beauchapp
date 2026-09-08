@@ -18,6 +18,8 @@ export interface User {
   avatar?: string;
   matchAlias?: string;
   matchPhoto?: string;
+  teamPhoto?: string;
+  teamColor?: string;
   collectionId: string;
   type: 'student' | 'organization';
   subtype?: 'center' | 'team' | 'community' | 'band' | 'organization';

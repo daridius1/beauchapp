@@ -4,7 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { theme } from '../theme/theme';
 import { RootStackParamList } from '../types/navigation';
 import { withMinimumDelay } from '../utils/refresh';
-import { summarizeEvents, computeLiveElapsedMs, computeLiveStatus, MatchEvent } from '../utils/matchEvents';
+import { summarizeEvents, computeLiveElapsedMs, computeLiveStatus, rosterToLineupEntries, MatchEvent } from '../utils/matchEvents';
 import { PublicShell } from '../components/PublicShell';
 import { matchDisplayName } from '../components/leagues/TeamCrest';
 import { formatBlockCode } from '../utils/blockCode';
@@ -18,9 +18,10 @@ import { publicLeagueService, PublicMatchData, PublicMatchBeaumarket } from '../
 type Props = NativeStackScreenProps<RootStackParamList, 'PublicMatch'>;
 
 // Un partido visto sin cuenta. Misma información que la vista normal salvo los
-// comentarios: solo el marcador, las estadísticas, la cronología y la convocatoria.
-// El botón de arbitrar sigue estando — pide el código del partido, que es la
-// autorización real.
+// comentarios: solo el marcador, las estadísticas, la cronología y el plantel.
+// El arbitraje en vivo (LeagueMatchArbitratorScreen) queda archivado: el resultado
+// ahora lo carga el árbitro después del partido, con el link de un solo uso que la
+// liga le manda (ver match_result.pb.js) — no hay ningún botón acá que lleve a eso.
 export const PublicMatchScreen: React.FC<Props> = ({ route, navigation }) => {
   const { matchId } = route.params;
   const [data, setData] = useState<PublicMatchData | null>(null);
@@ -95,12 +96,6 @@ export const PublicMatchScreen: React.FC<Props> = ({ route, navigation }) => {
             formattedDate={formatBlockCode(match.blockCode)}
             onPressTeamA={match.expand?.teamA?.id ? () => navigation.navigate('PublicTeam', { teamId: match.expand!.teamA!.id }) : undefined}
             onPressTeamB={match.expand?.teamB?.id ? () => navigation.navigate('PublicTeam', { teamId: match.expand!.teamB!.id }) : undefined}
-            // Arbitrar no necesita cuenta: lo que se pide es el código del partido.
-            onPressArbitrate={
-              match.status === 'confirmed' || match.status === 'played'
-                ? () => navigation.navigate('LeagueMatchArbitrator', { matchId })
-                : undefined
-            }
           />
 
           {beaumarket?.hasMarket && (
@@ -118,15 +113,6 @@ export const PublicMatchScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.sectionHeader}>Cronología</Text>
               <LeagueMatchTimeline events={events} teamAName={teamAName} teamBName={teamBName} />
 
-              <Text style={styles.sectionHeader}>Convocatoria</Text>
-              <LeagueMatchLineups
-                lineupA={summary.lineupA}
-                lineupB={summary.lineupB}
-                teamAName={teamAName}
-                teamBName={teamBName}
-                events={events}
-              />
-
               {isPlayed && !!report?.notes && (
                 <>
                   <Text style={styles.sectionHeader}>Informe del árbitro</Text>
@@ -135,6 +121,19 @@ export const PublicMatchScreen: React.FC<Props> = ({ route, navigation }) => {
               )}
             </View>
           )}
+
+          {/* Plantel: siempre visible, aunque el partido solo esté agendado — ya no
+              hay convocatoria, el plantel completo de cada equipo cuenta como disponible. */}
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>Plantel</Text>
+            <LeagueMatchLineups
+              rosterA={rosterToLineupEntries(data?.rosterA || [])}
+              rosterB={rosterToLineupEntries(data?.rosterB || [])}
+              teamAName={teamAName}
+              teamBName={teamBName}
+              events={events}
+            />
+          </View>
         </>
       )}
     </PublicShell>

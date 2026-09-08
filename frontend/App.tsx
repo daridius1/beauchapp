@@ -64,6 +64,8 @@ import { BeaumarketDetailScreen } from './src/screens/BeaumarketDetailScreen';
 import { TeamScheduleScreen } from './src/screens/TeamScheduleScreen';
 import { LeaguesListScreen } from './src/screens/LeaguesListScreen';
 import { LeagueDetailScreen } from './src/screens/LeagueDetailScreen';
+import { AlbumsListScreen } from './src/screens/AlbumsListScreen';
+import { LeagueAlbumScreen } from './src/screens/LeagueAlbumScreen';
 import { LeagueMatchDetailScreen } from './src/screens/LeagueMatchDetailScreen';
 import { LeagueMatchArbitratorScreen } from './src/screens/LeagueMatchArbitratorScreen';
 import { TeamProfileScreen } from './src/screens/TeamProfileScreen';
@@ -354,6 +356,8 @@ function AppContent() {
       case 'TeamSchedule': return 'Horarios';
       case 'LeaguesList': return 'Ligas';
       case 'LeagueDetail': return params?.name || 'Liga';
+      case 'AlbumsList': return 'Álbumes';
+      case 'LeagueAlbum': return params?.name || 'Álbum';
       case 'LeagueMatchDetail': return 'Partido';
       case 'LeagueMatchArbitrator': return 'Arbitrar';
       case 'TeamProfile': return 'Equipo';
@@ -408,13 +412,15 @@ function AppContent() {
       navigationRef.navigate('LeaguesList' as never);
     } else if (['LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'Polla', 'PollaMatch', 'PollaUserBets'].includes(currentRouteName)) {
       navigationRef.navigate('LeaguesList' as never);
+    } else if (currentRouteName === 'LeagueAlbum') {
+      navigationRef.navigate('AlbumsList' as never);
     } else if (['ProblemsList', 'Reviews'].includes(currentRouteName)) {
       navigationRef.navigate('Academico' as never);
     } else if (currentRouteName === 'NoticiaDetail') {
       navigationRef.navigate('NoticiasList' as never);
     } else if (['LeaguesList', 'TeamSchedule', 'NoticiasList'].includes(currentRouteName)) {
       navigationRef.navigate('Deportes' as never);
-    } else if (['LaddersList', 'Beaudle', 'Beaumarket', 'PollasList'].includes(currentRouteName)) {
+    } else if (['LaddersList', 'Beaudle', 'Beaumarket', 'PollasList', 'AlbumsList'].includes(currentRouteName)) {
       navigationRef.navigate('Juegos' as never);
     } else if (['Marketplace', 'Directory', 'Activities'].includes(currentRouteName)) {
       navigationRef.navigate('Comunidad' as never);
@@ -524,6 +530,7 @@ function AppContent() {
                 TeamSchedule: 'horarios',
                 LeaguesList: 'ligas',
                 LeagueDetail: 'ligas/:leagueId',
+                LeagueAlbum: 'album/:albumId',
                 LeagueMatchDetail: 'partidos/:matchId',
                 TeamProfile: 'ligas/equipo/:teamId',
                 PublicLeagues: 'ligas-publicas',
@@ -532,6 +539,7 @@ function AppContent() {
                 PublicTeam: 'ligas-publicas/equipo/:teamId',
                 NoticiasList: 'deportes/noticias',
                 NoticiaDetail: 'deportes/noticias/:newsId',
+                AlbumsList: 'albumes',
                 PollasList: 'beaupolla',
                 Polla: 'beaupolla/:leagueId',
                 PollaMatch: 'beaupolla/:leagueId/partido/:matchId',
@@ -575,7 +583,7 @@ function AppContent() {
                     title={getScreenTitle(currentRouteName, currentRouteParams)} 
                     onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
                     onBack={showBackButton ? handleBack : undefined}
-                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Mascotas', 'Musica', 'Peliculas', 'Videojuegos', 'Libros', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'TeamSchedule', 'LeaguesList', 'LeagueDetail', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'NoticiasList', 'PollasList', 'Polla', 'PollaMatch', 'PollaUserBets'].includes(currentRouteName) ? () => {
+                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Mascotas', 'Musica', 'Peliculas', 'Videojuegos', 'Libros', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'TeamSchedule', 'LeaguesList', 'LeagueDetail', 'AlbumsList', 'LeagueAlbum', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'NoticiasList', 'PollasList', 'Polla', 'PollaMatch', 'PollaUserBets'].includes(currentRouteName) ? () => {
                       DeviceEventEmitter.emit('onGlobalRefresh');
                     } : undefined}
                     hasUnreadNotifications={hasUnreadNotifications}
@@ -639,6 +647,8 @@ function AppContent() {
                       <Stack.Screen name="TeamSchedule" component={TeamScheduleScreen} />
                       <Stack.Screen name="LeaguesList" component={LeaguesListScreen} />
                       <Stack.Screen name="LeagueDetail" component={LeagueDetailScreen} />
+                      <Stack.Screen name="AlbumsList" component={AlbumsListScreen} />
+                      <Stack.Screen name="LeagueAlbum" component={LeagueAlbumScreen} />
                       <Stack.Screen name="LeagueMatchDetail" component={LeagueMatchDetailScreen} />
                       <Stack.Screen name="LeagueMatchArbitrator" component={LeagueMatchArbitratorScreen} />
                       <Stack.Screen name="TeamProfile" component={TeamProfileScreen} />

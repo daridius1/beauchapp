@@ -97,8 +97,20 @@ routerAdd("GET", "/api/public/liga", (e) => {
             });
         }
 
+        // El álbum de figuritas no pertenece 1:1 a una liga (uno puede abarcar varias,
+        // ver admin_album.pb.js) — se resuelve acá vía album_leagues, con el filtro
+        // dereferenciando la relación (`album.enabled`) en vez de una consulta aparte.
+        let albumId = null;
+        try {
+            const albumLeagueRow = $app.findFirstRecordByFilter(
+                "album_leagues", "league = {:l} && album.enabled = true", { l: leagueId }
+            );
+            if (albumLeagueRow) albumId = albumLeagueRow.getString("album");
+        } catch (err) { /* sin álbum activo para esta liga */ }
+
         return e.json(200, {
             league: publicAccount(league),
+            albumId: albumId,
             bio: league.getString("bio"),
             stages: stages.map((s) => ({
                 id: s.id,
@@ -167,18 +179,27 @@ routerAdd("GET", "/api/public/match", (e) => {
             stageName = "";
         }
 
-        // Planteles de ambos equipos: la vista de arbitraje los necesita para la
-        // convocatoria, y arbitrar no exige sesión.
+        // Planteles de ambos equipos: la vista de partido los muestra completos y la de
+        // arbitraje los necesita para elegir goleador — arbitrar no exige sesión.
         // collectionId real (no el nombre "team_players"): la foto a tamaño completo
         // arma la URL de R2 con este campo, y el nombre de la colección no sirve para
         // eso (mismo bug que tenía publicAccount con "users" vs "_pb_users_auth_").
         const teamPlayersCollectionId = $app.findCollectionByNameOrId("team_players").id;
-        // Solo jugadores son convocables — un DT no se marca gol/tarjeta/penal.
+        // Jugadores + el DT del equipo, si tiene uno. Se manda `role` para que el
+        // cliente sepa distinguirlos: la vista de partido pinta al DT con su insignia,
+        // pero el selector de gol/tarjeta/penal del arbitraje lo excluye (un DT no anota).
         function rosterOf(teamId) {
             if (!teamId) return [];
             return $app
-                .findRecordsByFilter("team_players", "team = {:t} && deleted = false && role = 'player'", "name", 100, 0, { t: teamId })
-                .map((p) => ({ id: p.id, collectionId: teamPlayersCollectionId, name: p.getString("name"), photo: p.getString("photo") }));
+                .findRecordsByFilter("team_players", "team = {:t} && deleted = false", "name", 100, 0, { t: teamId })
+                .map((p) => ({
+                    id: p.id,
+                    collectionId: teamPlayersCollectionId,
+                    name: p.getString("name"),
+                    photo: p.getString("photo"),
+                    role: p.getString("role"),
+                    isCaptain: p.getBool("isCaptain"),
+                }));
         }
 
         return e.json(200, {
@@ -330,7 +351,6 @@ routerAdd("GET", "/api/public/team", (e) => {
                 collectionId: teamPlayersCollectionId,
                 name: p.getString("name"),
                 photo: p.getString("photo"),
-                isDT: p.getBool("isDT"),
             })),
             matches: matches.map((m) => publicMatch(m, teamById)),
         });
