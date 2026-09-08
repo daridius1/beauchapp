@@ -78,19 +78,40 @@ const GRID_COLUMNS = 3;
 
 // Grosor del margen blanco alrededor del recorte/foto de cada lámina — el "cartón" de
 // una lámina de álbum real, que separa la imagen del borde recortado de la carta.
-const CARD_MARGIN = 6;
+// Antes era un número fijo (6px): en una lámina chica ese margen se volvía un borde
+// grueso en proporción. Un % fijo del ancho puro tampoco sirve: en una lámina GRANDE
+// (colWidth real en pantallas anchas suele superar bastante los ~98px de referencia) el
+// margen terminaba más grueso que el de siempre, que es justo lo que se pedía evitar —
+// "delgado" quiere decir nunca más grueso que el de referencia, no "6px cada vez más
+// grandes cuanto más grande la lámina". Por eso cardMarginFor tiene un TOPE en 6 (el
+// valor de siempre) además del piso (CARD_MARGIN_MIN): solo se achica para láminas más
+// chicas que la referencia, nunca crece más allá de eso.
+// Bajado de 2 a 1: en una lámina chica de verdad, 2px ya se sentía como un piso "que no
+// terminaba de achicarse" — 1 sigue siendo visible (el "cartón" no desaparece del todo)
+// pero se nota más delgado.
+const CARD_MARGIN_MIN = 1;
+const CARD_MARGIN_MAX = 6;
+const CARD_MARGIN_RATIO = CARD_MARGIN_MAX / CARD_WIDTH;
+function cardMarginFor(cardWidth: number): number {
+  return Math.max(CARD_MARGIN_MIN, Math.min(CARD_MARGIN_MAX, Math.round(cardWidth * CARD_MARGIN_RATIO)));
+}
 
 // paddingHorizontal de los rectángulos de nombre (cardTopNameRect/cardBottomNameRect)
 // — separado a una constante porque TeamTopRow/PlayerBottomRow también lo necesitan en
 // JS, para saber cuánto ancho le queda al texto antes de decidir el tamaño de letra.
 const NAME_CHIP_PADDING_H = 8;
 // paddingVertical de esos mismos rectángulos — misma razón que la de arriba: hace
-// falta en JS para saber cuánto ALTO le queda al texto (ver fitFontSizeToRow), ahora
-// que esas 2 filas tienen alto fijo (CARD_EDGE_ROW_HEIGHT) en vez de crecer solas.
-// Subido de 4 a 6 (y CARD_EDGE_ROW_HEIGHT de 34 a 40 para compensarlo, ver su
-// comentario) — con 4 el texto de 2 líneas quedaba pegado al borde de arriba/abajo del
-// rectángulo.
-const ROW_NAME_PADDING_V = 6;
+// falta en JS para saber cuánto ALTO le queda al texto (ver fitFontSizeToRow). Antes
+// era un número fijo (6, subido de 4 porque con 4 el texto de 2 líneas quedaba pegado
+// al borde de arriba/abajo) que asumía el también-fijo CARD_EDGE_ROW_HEIGHT=40 de
+// entonces — ahora que ese alto escala con la lámina (cardEdgeRowHeightFor), un padding
+// fijo de 6 en una fila ya chica de por sí (ver su comentario) le dejaba cada vez menos
+// aire relativo al texto, así que ROW_NAME_PADDING_RATIO lo calcula proporcional al
+// alto real de la fila (misma proporción 6/40 de siempre) en vez de un número fijo.
+const ROW_NAME_PADDING_RATIO = 6 / 40;
+function rowNamePaddingFor(edgeRowHeight: number): number {
+  return edgeRowHeight * ROW_NAME_PADDING_RATIO;
+}
 // Separación entre el borde de la lámina y el nombre del equipo de la lámina de
 // escudo (CrestTeamName, el único que no va pegado al borde) — misma razón que la
 // constante de arriba: la necesita en JS.
@@ -146,22 +167,54 @@ const CREST_TEAM_NAME_AVAILABLE_HEIGHT = CREST_FRAME_TOP - CREST_TEAM_NAME_TOP -
 // (ver comentario de arriba) el interlineado real de Oswald-Bold en 2 líneas resultó
 // más alto que la aproximación estándar.
 const CREST_TEAM_NAME_LINE_HEIGHT_RATIO = 1.3;
-// Alto FIJO de las 2 filas pegadas a los bordes de una lámina de jugador/DT — arriba
+// Alto de las 2 filas pegadas a los bordes de una lámina de jugador/DT — arriba
 // (TeamTopRow: escudo — nombre del equipo) y abajo (PlayerBottomRow: nombre del
 // jugador — posición/DT), ambas con el mismo alto por simetría. Escudo/nombre/posición
-// miden siempre esto, sin importar cuántas líneas termine usando el texto de al lado.
-// Se probó derivarlo del fontSize elegido (más alto con 2 líneas), pero el ancho de una
-// lámina en la grilla puede ser bastante angosto — un cuadrado así de "ancho como su
-// alto" le comía casi todo el ancho a la lámina y no dejaba nada para el rectángulo de
-// al lado. Fijo evita ese problema de raíz: los cuadrados nunca dependen de cuánto
-// texto tenga el rectángulo vecino. Subido de 34 a 40 junto con ROW_NAME_PADDING_V
-// (4→6): con 34 el alto disponible para el texto (34 - 2×4 = 26) quedaba por debajo de
-// lo que necesita un nombre de 2 líneas incluso al fontSize mínimo (2 × 8 ×
-// ROW_TEXT_LINE_HEIGHT_RATIO ≈ 27.2), así que fitFontSizeToRow nunca encontraba un
-// tamaño válido y caía al fallback de NAME_CHIP_MIN_FONT_SIZE de todos modos — con el
-// mismo resultado apretado que se estaba reportando. 40 - 2×6 = 28 alcanza para ese
-// peor caso.
-const CARD_EDGE_ROW_HEIGHT = 40;
+// miden siempre esto, sin importar cuántas líneas termine usando el texto de al lado —
+// esa parte sigue "fija" a propósito: se probó derivarlo del fontSize elegido (más alto
+// con 2 líneas), pero el ancho de una lámina en la grilla puede ser bastante angosto —
+// un cuadrado así de "ancho como su alto" le comía casi todo el ancho a la lámina y no
+// dejaba nada para el rectángulo de al lado. Lo que sí dejó de ser fijo es el NÚMERO:
+// antes era un px fijo (40) para toda lámina sea cual sea su tamaño — se veía bien en el
+// tamaño de referencia, pero como el ancho real de columna cambia con la pantalla
+// (colWidth en TeamAlbumPage), en una lámina chica ese mismo alto se comía más de un
+// cuarto de la carta entera y en una grande quedaba chico. Ahora es una fracción (1/8)
+// del alto REAL de la carta (cardEdgeRowHeightFor), así el cuadrado se sigue achicando
+// junto con la lámina en vez de "aplanarse" en un piso alto apenas la pantalla es un
+// poco angosta — el piso (CARD_EDGE_ROW_HEIGHT_MIN) solo evita que el cuadrado quede
+// MÁS BAJO que el texto mínimo que tiene que mostrar (rowNamePaddingFor ya escala
+// también, ver su comentario): con el padding proporcional (30% del alto de la fila
+// entre los 2 lados), el mínimo en el que un nombre de 1 línea todavía entra al fontSize
+// mínimo (NAME_CHIP_MIN_FONT_SIZE) sin desbordar es
+// 8 × ROW_TEXT_LINE_HEIGHT_RATIO / (0.7 × 0.9) ≈ 21.6 — 22 redondeando para arriba.
+const CARD_EDGE_ROW_RATIO = 1 / 8;
+const CARD_EDGE_ROW_HEIGHT_MIN = 22;
+function cardEdgeRowHeightFor(cardHeight: number): number {
+  return Math.max(CARD_EDGE_ROW_HEIGHT_MIN, cardHeight * CARD_EDGE_ROW_RATIO);
+}
+// El cuadrado de posición/DT (cardBottomSquare), el de escudo (cardTopSquare) y el de
+// categoría (PhotoPairCornerBadge) miden edgeRowHeight × edgeRowHeight — un cuadrado
+// perfecto que escala con la lámina. Pero el padding interno (3, fijo) y el fontSize del
+// texto que llevan adentro (cardBadgeText: posición, DT, MAS/FEM/MIX) NO escalaban con
+// ese cuadrado — a valores chicos de edgeRowHeight, un padding de 3 y una letra de 12
+// (ambos pensados para el cuadrado de 40 de siempre) ya no entraban: el texto se veía
+// más grande que su propio cuadrado. cardBadgePaddingFor/cardBadgeFontSizeFor son la
+// misma idea que cardMarginFor: un tope en el valor de siempre (nunca más grande) y
+// una escala proporcional a edgeRowHeight por debajo de eso.
+const CARD_BADGE_PADDING_MAX = 3;
+const CARD_BADGE_PADDING_RATIO = CARD_BADGE_PADDING_MAX / 40;
+function cardBadgePaddingFor(edgeRowHeight: number): number {
+  return Math.min(CARD_BADGE_PADDING_MAX, edgeRowHeight * CARD_BADGE_PADDING_RATIO);
+}
+const CARD_BADGE_FONT_MAX = 12;
+const CARD_BADGE_FONT_RATIO = CARD_BADGE_FONT_MAX / 40;
+// El piso (ABSOLUTE_MIN_FONT_SIZE) se define más abajo en el archivo (junto al resto de
+// las constantes de ajuste de texto) — se referencia acá adentro de la función, no en
+// una constante de módulo, para no depender del orden de declaración entre los 2
+// bloques.
+function cardBadgeFontSizeFor(edgeRowHeight: number): number {
+  return Math.max(ABSOLUTE_MIN_FONT_SIZE, Math.min(CARD_BADGE_FONT_MAX, edgeRowHeight * CARD_BADGE_FONT_RATIO));
+}
 // Alto real de un bloque de 2 líneas de cardTopNameText/cardBottomNameText, medido con
 // getBoundingClientRect en la lámina real (no una aproximación de manual) — nunca fue
 // un valor único y estable: midiendo "EPSILON - CHELA" con distintos fontSize, el
@@ -244,8 +297,40 @@ const TEXT_WRAP_SAFETY_RATIO = 0.85;
 // fitCrestTeamNameFontSize — mismo espíritu que TEXT_WRAP_SAFETY_RATIO pero para
 // arriba/abajo en vez de los costados: sin él, un bloque de texto que calzaba justo al
 // límite calculado terminaba pegado al borde del rectángulo (lo que se reportó como
-// "muy justo" en Randalltussi/Quesos Cumei) en vez de dejarlo con aire real.
-const TEXT_HEIGHT_SAFETY_RATIO = 0.9;
+// "muy justo" en Randalltussi/Quesos Cumei) en vez de dejarlo con aire real. Bajado de
+// 0.9 a 0.85 cuando el alto de fila empezó a escalar con el tamaño de la lámina
+// (cardEdgeRowHeightFor): un 10% de aire ya alcanzaba en píxeles reales cuando la fila
+// medía 40 fijo, pero en una lámina chica esos mismos 10% son un par de píxeles nomás —
+// justo lo que se reportó como "nombres de 2 líneas pegados al margen". (Se probó 0.82
+// primero; ver ABSOLUTE_MIN_FONT_SIZE sobre por qué se subió un poco.)
+const TEXT_HEIGHT_SAFETY_RATIO = 0.85;
+// Piso ABSOLUTO de legibilidad — más chico que NAME_CHIP_MIN_FONT_SIZE, que es el piso
+// "normal" que prueba el loop de abajo. Antes, cuando NINGÚN tamaño (ni siquiera
+// NAME_CHIP_MIN_FONT_SIZE) hacía entrar el bloque de texto en el alto disponible, la
+// función igual devolvía NAME_CHIP_MIN_FONT_SIZE a ciegas — un nombre de 2 líneas en una
+// fila angosta de verdad terminaba desbordando igual, pegado a los bordes, en vez de
+// seguir achicándose. Ese caso extremo cae a heightBoundFontSize (ver abajo), que SIGUE
+// bajando el tamaño hasta que el bloque entre, con este piso como único límite.
+// Se probó primero en 5: technically preciso (nunca desborda), pero un nombre de 1
+// línea que a 513px de ancho todavía entraba entero (letra grande, gobernada por
+// ancho) pasaba a necesitar 2 líneas a 512px (un solo píxel menos) y el tamaño de letra
+// se desplomaba de golpe hasta ese piso — un salto mucho más notorio que la diferencia
+// real de espacio disponible entre esos 2 anchos. Subido a 7 (bastante más cerca de
+// NAME_CHIP_MIN_FONT_SIZE) para que ese salto de 1-a-2-líneas sea de verdad chico en vez
+// de caer a una letra "de emergencia" — a cambio, un nombre de 2 líneas en una fila
+// MUY angosta puede desbordar un poco (no tanto como con el viejo piso de 8, pero ya no
+// cero como con 5): el balance elegido prioriza que el tamaño de letra cambie suave al
+// redimensionar por sobre que nunca haya ni un pixel de desborde en el peor caso.
+const ABSOLUTE_MIN_FONT_SIZE = 7;
+// Tamaño de letra que hace entrar EXACTO un bloque de NAME_CHIP_MAX_LINES líneas en
+// `availableHeight` — el cálculo inverso del chequeo de alto que hacen
+// fitFontSizeToRow/fitCrestTeamNameFontSize, usado como fallback de ambas cuando el
+// loop no encuentra ningún tamaño que además entre de ANCHO: en ese caso ya no importa
+// el ancho (la palabra más larga de por sí no entra en 1 línea a ningún tamaño legible),
+// así que el único límite que queda es el alto.
+function heightBoundFontSize(availableHeight: number, lineHeightRatio: number): number {
+  return (availableHeight * TEXT_HEIGHT_SAFETY_RATIO) / (NAME_CHIP_MAX_LINES * lineHeightRatio);
+}
 
 // Cuántas líneas ocuparía `words` (ya separado por espacios) envuelto a `availableWidth`
 // con este `fontSize` — simula el wrap real palabra por palabra (no solo "ancho total /
@@ -293,11 +378,11 @@ function fitCrestTeamNameFontSize(words: string[], availableWidth: number): numb
     if (lines > NAME_CHIP_MAX_LINES) continue;
     if (lines * fontSize * CREST_TEAM_NAME_LINE_HEIGHT_RATIO <= CREST_TEAM_NAME_AVAILABLE_HEIGHT * TEXT_HEIGHT_SAFETY_RATIO) return fontSize;
   }
-  return NAME_CHIP_MIN_FONT_SIZE;
+  return Math.max(ABSOLUTE_MIN_FONT_SIZE, Math.min(NAME_CHIP_MIN_FONT_SIZE, heightBoundFontSize(CREST_TEAM_NAME_AVAILABLE_HEIGHT, CREST_TEAM_NAME_LINE_HEIGHT_RATIO)));
 }
 
-// Tamaño de letra para TeamTopRow/PlayerBottomRow: esas 2 filas tienen un alto FIJO
-// (CARD_EDGE_ROW_HEIGHT, ver su comentario) — así que hace falta el mismo chequeo de
+// Tamaño de letra para TeamTopRow/PlayerBottomRow: esas 2 filas tienen un alto fijo
+// para esa lámina (edgeRowHeight, ver cardEdgeRowHeightFor) — así que hace falta el mismo chequeo de
 // alto que fitCrestTeamNameFontSize (¿entra el BLOQUE de texto, líneas × alto de línea,
 // en `availableHeight`?), no solo el de ancho. Sin esto, un nombre de equipo corto que
 // mide bien de ANCHO a letra grande podía terminar más alto que la fila y desbordar el
@@ -308,7 +393,7 @@ function fitFontSizeToRow(words: string[], availableWidth: number, availableHeig
     if (lines > NAME_CHIP_MAX_LINES) continue;
     if (lines * fontSize * ROW_TEXT_LINE_HEIGHT_RATIO <= availableHeight * TEXT_HEIGHT_SAFETY_RATIO) return fontSize;
   }
-  return NAME_CHIP_MIN_FONT_SIZE;
+  return Math.max(ABSOLUTE_MIN_FONT_SIZE, Math.min(NAME_CHIP_MIN_FONT_SIZE, heightBoundFontSize(availableHeight, ROW_TEXT_LINE_HEIGHT_RATIO)));
 }
 
 // Miniatura de DT/jugador — "300x300" es el thumb más grande ya declarado en
@@ -604,10 +689,10 @@ type StickerStatus = 'glued' | 'unowned' | 'pegable';
 // aparte) porque a este tamaño (adentro de cardBottomSquare, ~28px) un ícono de
 // verdad-armband no se leería mejor que el color + la letra, que es como de verdad se
 // identifica a un capitán en una camiseta.
-function CaptainArmband() {
+function CaptainArmband({ edgeRowHeight }: { edgeRowHeight: number }) {
   return (
     <View style={styles.captainArmband}>
-      <Text style={styles.captainArmbandText}>C</Text>
+      <Text style={[styles.captainArmbandText, { fontSize: cardBadgeFontSizeFor(edgeRowHeight) }]}>C</Text>
     </View>
   );
 }
@@ -615,12 +700,14 @@ function CaptainArmband() {
 function PlayerBottomRow({
   name,
   cardWidth,
+  edgeRowHeight,
   photoPair,
   badgeText,
   isCaptain,
 }: {
   name: string;
   cardWidth: number;
+  edgeRowHeight: number;
   photoPair?: PhotoPairCrop;
   badgeText?: string;
   // Reemplaza el cuadrado de posición por la banda de capitán (ver CaptainArmband) —
@@ -631,22 +718,29 @@ function PlayerBottomRow({
   const upper = name.toUpperCase();
   const words = upper.split(/\s+/).filter(Boolean);
   const boxWidth = photoPair ? photoPair.cropFullWidth : cardWidth;
-  const reserved = photoPair ? 0 : CARD_EDGE_ROW_HEIGHT + BADGE_NAME_GAP;
+  const reserved = photoPair ? 0 : edgeRowHeight + BADGE_NAME_GAP;
   const availableWidth = boxWidth - reserved - NAME_CHIP_PADDING_H * 2;
-  const availableHeight = CARD_EDGE_ROW_HEIGHT - ROW_NAME_PADDING_V * 2;
+  const rowPaddingV = rowNamePaddingFor(edgeRowHeight);
+  const availableHeight = edgeRowHeight - rowPaddingV * 2;
   const fontSize = fitFontSizeToRow(words, availableWidth, availableHeight, NAME_CHIP_FONT_SIZE);
-  const rowStyle = photoPair
-    ? [styles.cardBottomRow, { left: -photoPair.cropOffset, right: undefined, width: photoPair.cropFullWidth }]
-    : styles.cardBottomRow;
+  const rowStyle = [
+    styles.cardBottomRow,
+    { height: edgeRowHeight },
+    photoPair ? { left: -photoPair.cropOffset, right: undefined, width: photoPair.cropFullWidth } : null,
+  ];
 
   return (
     <View style={rowStyle} pointerEvents="none">
-      <View style={styles.cardBottomNameRect}>
+      <View style={[styles.cardBottomNameRect, { paddingVertical: rowPaddingV }]}>
         <Text style={[styles.cardBottomNameText, { fontSize }]} numberOfLines={NAME_CHIP_MAX_LINES}>{upper}</Text>
       </View>
       {!photoPair && (
-        <View style={[styles.cardBottomSquare, { width: CARD_EDGE_ROW_HEIGHT }]}>
-          {isCaptain ? <CaptainArmband /> : <Text style={styles.cardBadgeText}>{badgeText || '-'}</Text>}
+        <View style={[styles.cardBottomSquare, { width: edgeRowHeight, padding: cardBadgePaddingFor(edgeRowHeight) }]}>
+          {isCaptain ? (
+            <CaptainArmband edgeRowHeight={edgeRowHeight} />
+          ) : (
+            <Text style={[styles.cardBadgeText, { fontSize: cardBadgeFontSizeFor(edgeRowHeight) }]}>{badgeText || '-'}</Text>
+          )}
         </View>
       )}
     </View>
@@ -673,9 +767,8 @@ function CrestTeamName({ name, cardWidth }: { name: string; cardWidth: number })
 }
 
 // Fila de arriba de la lámina de jugador/DT: escudo — nombre del equipo, pegados al
-// techo de la carta, en una única fila flex (cardTopRow) del alto FIJO
-// CARD_EDGE_ROW_HEIGHT (ver su comentario sobre por qué es fijo y no depende del
-// texto). El nombre (cardTopNameRect) es un `flex: 1` que se queda con todo el ancho
+// techo de la carta, en una única fila flex (cardTopRow) de alto fijo para esa lámina
+// (edgeRowHeight, ver cardEdgeRowHeightFor — no depende del texto). El nombre (cardTopNameRect) es un `flex: 1` que se queda con todo el ancho
 // que sobra si no hay escudo. El tamaño de letra se recalcula con fitFontSizeToRow
 // partiendo de TEAM_NAME_BAR_MAX_FONT_SIZE: nombres cortos quedan grandes, largos se
 // achican y si hace falta pasan a una 2da línea — nunca se recorta ni desborda el alto
@@ -683,26 +776,29 @@ function CrestTeamName({ name, cardWidth }: { name: string; cardWidth: number })
 function TeamTopRow({
   name,
   cardWidth,
+  edgeRowHeight,
   crestUri,
 }: {
   name: string;
   cardWidth: number;
+  edgeRowHeight: number;
   crestUri?: string | null;
 }) {
   const upper = name.toUpperCase();
   const words = upper.split(/\s+/).filter(Boolean);
-  const reserved = crestUri ? CARD_EDGE_ROW_HEIGHT + BADGE_NAME_GAP : 0;
+  const reserved = crestUri ? edgeRowHeight + BADGE_NAME_GAP : 0;
   const availableWidth = cardWidth - reserved - NAME_CHIP_PADDING_H * 2;
-  const availableHeight = CARD_EDGE_ROW_HEIGHT - ROW_NAME_PADDING_V * 2;
+  const rowPaddingV = rowNamePaddingFor(edgeRowHeight);
+  const availableHeight = edgeRowHeight - rowPaddingV * 2;
   const fontSize = fitFontSizeToRow(words, availableWidth, availableHeight, TEAM_NAME_BAR_MAX_FONT_SIZE);
   return (
-    <View style={[styles.cardTopRow, { height: CARD_EDGE_ROW_HEIGHT }]} pointerEvents="none">
+    <View style={[styles.cardTopRow, { height: edgeRowHeight }]} pointerEvents="none">
       {!!crestUri && (
-        <View style={[styles.cardTopSquare, { width: CARD_EDGE_ROW_HEIGHT }]}>
+        <View style={[styles.cardTopSquare, { width: edgeRowHeight, padding: cardBadgePaddingFor(edgeRowHeight) }]}>
           <Image source={{ uri: crestUri }} style={styles.cardCrestBadgeImage} resizeMode="contain" />
         </View>
       )}
-      <View style={styles.cardTopNameRect}>
+      <View style={[styles.cardTopNameRect, { paddingVertical: rowPaddingV }]}>
         <Text style={[styles.cardTopNameText, { fontSize }]} numberOfLines={NAME_CHIP_MAX_LINES}>{upper}</Text>
       </View>
     </View>
@@ -723,10 +819,12 @@ function TeamTopRow({
 // criterio que el cuadrado de posición de PlayerBottomRow, que nunca desaparece).
 function PhotoPairCornerBadge({
   side,
+  edgeRowHeight,
   crestUri,
   categoryLabel,
 }: {
   side: 'left' | 'right';
+  edgeRowHeight: number;
   crestUri?: string | null;
   categoryLabel?: string;
 }) {
@@ -735,7 +833,7 @@ function PhotoPairCornerBadge({
     <View
       style={[
         styles.cardTopSquare,
-        { width: CARD_EDGE_ROW_HEIGHT, height: CARD_EDGE_ROW_HEIGHT },
+        { width: edgeRowHeight, height: edgeRowHeight, padding: cardBadgePaddingFor(edgeRowHeight) },
         side === 'left' ? styles.photoPairCornerLeft : styles.photoPairCornerRight,
       ]}
       pointerEvents="none"
@@ -743,7 +841,7 @@ function PhotoPairCornerBadge({
       {side === 'left' ? (
         <Image source={{ uri: crestUri! }} style={styles.cardCrestBadgeImage} resizeMode="contain" />
       ) : (
-        <Text style={styles.cardBadgeText}>{categoryLabel || '-'}</Text>
+        <Text style={[styles.cardBadgeText, { fontSize: cardBadgeFontSizeFor(edgeRowHeight) }]}>{categoryLabel || '-'}</Text>
       )}
     </View>
   );
@@ -821,6 +919,36 @@ function StickerCard({
   // todos los llamadores reales pasan un objeto plano con `width` numérico (ver el
   // comentario de abajo), pero por las dudas cae a CARD_WIDTH si alguna vez no es así.
   const cardWidthNum = typeof (sizeStyle as ViewStyle)?.width === 'number' ? ((sizeStyle as ViewStyle).width as number) : CARD_WIDTH;
+  // Mismo criterio que cardWidthNum, pero de alto — de acá sale el alto REAL de los
+  // cuadrados/rectángulos de borde (ver cardEdgeRowHeightFor) para que escalen con el
+  // tamaño real de la lámina en vez de un px fijo (ver su comentario).
+  const cardHeightNum = typeof (sizeStyle as ViewStyle)?.height === 'number' ? ((sizeStyle as ViewStyle).height as number) : CARD_HEIGHT;
+  const cardMargin = cardMarginFor(cardWidthNum);
+  const edgeRowHeight = cardEdgeRowHeightFor(cardHeightNum);
+  // El padding del "cartón" blanco se calcula ACÁ, en un solo objeto, y no se reparte
+  // entre este valor dinámico y las clases estáticas cardUnowned/cardCrestGlued/
+  // cardPairLeft/cardPairRight que existían antes: React Native Web resuelve un objeto
+  // de estilo "fresco" (uno nuevo en cada render, como éste, en vez de un objeto ya
+  // registrado con StyleSheet.create) aplicándolo como estilo INLINE de verdad, que en
+  // CSS le gana a CUALQUIER clase sin importar el orden en el array de `style` — así
+  // que un `paddingRight: 0` de una clase estática nunca lograba pisar a un
+  // `padding: cardMargin` inline puesto ANTES en el array (quedaba la costura entre las
+  // 2 mitades del plantel con el margen de las 2, en vez de tocarse sin borde). Calcular
+  // acá los 4 lados a mano evita mezclar una clase estática con un valor dinámico para
+  // la MISMA propiedad.
+  const isPairLeft = !!photoPair && !photoPair.standalone && photoPair.side === 'left';
+  const isPairRight = !!photoPair && !photoPair.standalone && photoPair.side === 'right';
+  // Sin "cartón" (padding 0) en los mismos 2 casos que antes cubrían cardUnowned/
+  // cardCrestGlued: no la tenés / la tenés suelta (hueco gris sin marco) y el escudo
+  // pegado (la textura prismática ocupa también ese margen).
+  const hasCarton = status !== 'unowned' && status !== 'pegable' && !(placeholderIcon === 'shield' && status === 'glued');
+  const cardPaddingStyle: ViewStyle = !hasCarton
+    ? { padding: 0 }
+    : isPairLeft
+    ? { paddingTop: cardMargin, paddingRight: 0, paddingBottom: cardMargin, paddingLeft: cardMargin }
+    : isPairRight
+    ? { paddingTop: cardMargin, paddingRight: cardMargin, paddingBottom: cardMargin, paddingLeft: 0 }
+    : { padding: cardMargin };
 
   // El tamaño SIEMPRE va en un wrapper de afuera sin flex propio (cardShadowWrap) —
   // nunca directo en `styles.card`, que trae `flex: 1` pensado para rellenar ESE
@@ -841,9 +969,9 @@ function StickerCard({
         onPress={onPreview}
         style={[
           styles.card,
+          cardPaddingStyle,
           (status === 'unowned' || status === 'pegable') && styles.cardUnowned,
           placeholderIcon === 'shield' && status === 'glued' && styles.cardCrestGlued,
-          photoPair && !photoPair.standalone && (photoPair.side === 'left' ? styles.cardPairLeft : styles.cardPairRight),
         ]}
       >
         <View style={styles.cardInner}>
@@ -959,7 +1087,7 @@ function StickerCard({
               {!!teamName && (placeholderIcon === 'shield' ? (
                 <CrestTeamName name={teamName} cardWidth={cardWidthNum} />
               ) : (
-                <TeamTopRow name={teamName} cardWidth={cardWidthNum} crestUri={teamCrestUri} />
+                <TeamTopRow name={teamName} cardWidth={cardWidthNum} edgeRowHeight={edgeRowHeight} crestUri={teamCrestUri} />
               ))}
 
               {/* La lámina de plantel no lleva teamName (su nombre va abajo, ver el
@@ -967,7 +1095,7 @@ function StickerCard({
                   cuadrados de esquina (escudo/categoría) van acá, uno por mitad, ver
                   PhotoPairCornerBadge. */}
               {!!photoPair && (
-                <PhotoPairCornerBadge side={photoPair.side} crestUri={teamCrestUri} categoryLabel={categoryLabel} />
+                <PhotoPairCornerBadge side={photoPair.side} edgeRowHeight={edgeRowHeight} crestUri={teamCrestUri} categoryLabel={categoryLabel} />
               )}
 
               {/* La fila de abajo se salta solo si hideBottomChip lo pide (el escudo,
@@ -979,6 +1107,7 @@ function StickerCard({
                 <PlayerBottomRow
                   name={name}
                   cardWidth={cardWidthNum}
+                  edgeRowHeight={edgeRowHeight}
                   photoPair={photoPair}
                   badgeText={badgeText}
                   isCaptain={isCaptain}
@@ -1117,7 +1246,7 @@ function slotToPreview(slot: StickerSlot, photoPair?: PhotoPairCrop): PreviewSti
 // renderizar la lámina (PREVIEW_CARD_WIDTH en el modal grande) o el recorte queda
 // corrido/mal escalado.
 function standalonePairCrop(side: 'left' | 'right', cardWidth: number): PhotoPairCrop {
-  const innerWidth = cardWidth - CARD_MARGIN * 2;
+  const innerWidth = cardWidth - cardMarginFor(cardWidth) * 2;
   return { side, standalone: true, cropOffset: side === 'left' ? 0 : innerWidth, cropFullWidth: innerWidth * 2 };
 }
 
@@ -1394,7 +1523,7 @@ function TeamAlbumPage({
   // desaparece, se reparte como espacio vacío a los 2 lados del par (ver el wrapper
   // centrado más abajo), no como láminas más anchas.
   const photoPairCrop = (side: 'left' | 'right'): PhotoPairCrop => {
-    const innerWidth = colWidth - CARD_MARGIN;
+    const innerWidth = colWidth - cardMarginFor(colWidth);
     const combinedWidth = innerWidth * 2;
     return { side, cropFullWidth: combinedWidth, cropOffset: side === 'left' ? 0 : innerWidth };
   };
@@ -1674,14 +1803,22 @@ function AlbumLaminasView({
             {buyingKind === 'beaudle-bonus' ? (
               <ActivityIndicator size="small" color={theme.colors.background} />
             ) : (
-              <Text style={styles.buyBtnText}>
-                Sobre bono por el Beaudle de hoy{' '}
-                {data.beaudleBonusOpened
-                  ? '(0/1 hoy)'
-                  : data.beaudleDoneToday
-                  ? '(1/1 hoy)'
-                  : '(completa el Beaudle de hoy)'}
-              </Text>
+              // 2 líneas (título + estado) en vez de una sola frase larga: de corrido,
+              // "Sobre bono por el Beaudle de hoy (completa el Beaudle de hoy)" no
+              // entraba en pantallas angostas y quedaba partida en un punto cualquiera
+              // — acá cada mitad tiene su propio ancho para envolver como corresponda,
+              // y el estado se distingue del título por ser más chico/atenuado en vez
+              // de competir con él por el mismo tamaño de letra.
+              <View style={styles.buyBtnTextStack}>
+                <Text style={styles.buyBtnText} numberOfLines={2}>Sobre bono por el Beaudle de hoy</Text>
+                <Text style={styles.buyBtnSubtext} numberOfLines={1}>
+                  {data.beaudleBonusOpened
+                    ? '0/1 hoy'
+                    : data.beaudleDoneToday
+                    ? '1/1 hoy'
+                    : 'Completa el Beaudle de hoy'}
+                </Text>
+              </View>
             )}
           </TouchableOpacity>
           <TouchableOpacity
@@ -2287,7 +2424,7 @@ export const LeagueAlbumScreen: React.FC<Props> = ({ route }) => {
               // blanco de un lado (acá no hay una mitad al lado que lo compense).
               const photoHalfCrop: PhotoPairCrop | undefined = isPhotoHalf
                 ? (() => {
-                    const innerWidth = REVEAL_CARD_WIDTH - CARD_MARGIN * 2;
+                    const innerWidth = REVEAL_CARD_WIDTH - cardMarginFor(REVEAL_CARD_WIDTH) * 2;
                     const side = d.special === 'photo-left' ? 'left' : 'right';
                     return { side, standalone: true, cropOffset: side === 'left' ? 0 : innerWidth, cropFullWidth: innerWidth * 2 };
                   })()
@@ -2594,36 +2731,33 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  // El "cartón" de la lámina: blanco, esquinas RECTAS (sin curva) — el padding es
-  // justamente el margen grueso que separa la foto del recorte de la carta, como en
-  // una lámina de álbum física.
+  // El "cartón" de la lámina: blanco, esquinas RECTAS (sin curva) — el padding
+  // (cardMarginFor, inline en StickerCard porque depende del ancho real de cada
+  // lámina) es justamente el margen que separa la foto del recorte de la carta, como
+  // en una lámina de álbum física.
   card: {
     flex: 1,
     borderRadius: 0,
     overflow: 'hidden',
     backgroundColor: '#ffffff',
-    padding: CARD_MARGIN,
   },
   // Sin el "cartón" blanco: una lámina que no tenés no es una foto con marco, es
   // directamente el hueco gris (cardEmpty) — el margen/fondo blanco es exclusivo de
-  // las láminas que sí están pegadas o para pegar.
+  // las láminas que sí están pegadas o para pegar. El padding (0 en este caso) NO va
+  // acá — ver cardPaddingStyle en StickerCard, que calcula el padding entero (incluida
+  // la excepción de este caso) en un solo objeto inline para no repartirlo entre una
+  // clase estática y un valor dinámico (ver su comentario grande).
   cardUnowned: {
     backgroundColor: 'transparent',
-    padding: 0,
   },
   // El escudo (glued) tampoco lleva el "cartón" blanco: la textura prismática
-  // (PRISMATIC_TEXTURE) ocupa también ese margen, así que acá el padding/fondo blanco
-  // se saca entero — a diferencia del resto de las láminas, donde ese margen SÍ es
-  // blanco y separado de la textura de cardInner.
+  // (PRISMATIC_TEXTURE) ocupa también ese margen, así que acá el fondo blanco se saca
+  // entero — a diferencia del resto de las láminas, donde ese margen SÍ es blanco y
+  // separado de la textura de cardInner. El padding, igual que en cardUnowned, se
+  // calcula en cardPaddingStyle (StickerCard), no acá.
   cardCrestGlued: {
-    padding: 0,
     backgroundColor: 'transparent',
   },
-  // Las 2 mitades del plantel "de lado" (ver StickerCard/photoPair): cada una se salta
-  // el margen del lado que toca a su par, para que las 2 láminas puestas juntas no
-  // tengan un margen doble ahí — la foto de cada mitad llega justo hasta ese borde.
-  cardPairLeft: { paddingRight: 0 },
-  cardPairRight: { paddingLeft: 0 },
   // La "foto impresa": esquinas rectas (sin suavizar) a propósito — el margen blanco de
   // afuera es lo redondeado, la imagen en sí siempre es un rectángulo recto.
   cardInner: {
@@ -2685,8 +2819,9 @@ const styles = StyleSheet.create({
   },
   // Fila de arriba de la lámina de jugador/DT — ver el comentario grande de
   // TeamTopRow: escudo (cuadrado) + nombre del equipo (rectángulo), pegados al techo.
-  // El alto es CARD_EDGE_ROW_HEIGHT, fijo — pasado inline junto con el ancho del
-  // cuadrado; el rectángulo del nombre (cardTopNameRect) lo hereda solo, por stretch.
+  // El alto (edgeRowHeight, ver cardEdgeRowHeightFor) es fijo para esa lámina — pasado
+  // inline junto con el ancho del cuadrado; el rectángulo del nombre (cardTopNameRect)
+  // lo hereda solo, por stretch.
   cardTopRow: {
     position: 'absolute',
     top: 0,
@@ -2697,7 +2832,7 @@ const styles = StyleSheet.create({
   },
   // Escudo (arriba) y posición/DT (abajo, cardBottomSquare) comparten este estilo:
   // cuadrado negro sólido (el ancho real lo pone TeamTopRow/PlayerBottomRow inline con
-  // CARD_EDGE_ROW_HEIGHT, el alto lo hereda de su fila por stretch), esquinas de arriba
+  // edgeRowHeight, el alto lo hereda de su fila por stretch), esquinas de arriba
   // en punta (calzan con el techo recto de la lámina) y de abajo redondeadas.
   cardTopSquare: {
     backgroundColor: '#000000',
@@ -2706,7 +2841,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 3,
+    // padding no va acá: depende del alto real del cuadrado (cardBadgePaddingFor), se
+    // aplica inline en cada lugar que usa este estilo (TeamTopRow/PhotoPairCornerBadge).
   },
   cardCrestBadgeImage: { width: '100%', height: '100%' },
   cardBadgeText: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
@@ -2741,7 +2877,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: NAME_CHIP_PADDING_H,
-    paddingVertical: ROW_NAME_PADDING_V,
+    // paddingVertical no va acá: depende del alto real de la fila (rowNamePaddingFor),
+    // se aplica inline en TeamTopRow/PlayerBottomRow.
   },
   cardTopNameText: {
     color: '#ffffff',
@@ -2753,14 +2890,14 @@ const styles = StyleSheet.create({
   },
   // Fila de abajo de la lámina de jugador/DT — ver el comentario grande de
   // PlayerBottomRow: nombre del jugador (rectángulo) + posición/DT (cuadrado, siempre
-  // presente salvo en el plantel), pegados al piso. Mismo alto fijo que cardTopRow
-  // (CARD_EDGE_ROW_HEIGHT) por simetría.
+  // presente salvo en el plantel), pegados al piso. Mismo alto que cardTopRow
+  // (edgeRowHeight, inline en PlayerBottomRow/TeamTopRow porque depende del alto real
+  // de cada lámina — ver cardEdgeRowHeightFor) por simetría.
   cardBottomRow: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: CARD_EDGE_ROW_HEIGHT,
     flexDirection: 'row',
     gap: BADGE_NAME_GAP,
   },
@@ -2774,7 +2911,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 3,
+    // padding inline en PlayerBottomRow — mismo motivo que cardTopSquare.
   },
   // Nombre del jugador: el rectángulo que se queda con todo el ancho que sobra a la
   // izquierda del cuadrado de posición — mismo criterio de esquinas que
@@ -2787,7 +2924,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: NAME_CHIP_PADDING_H,
-    paddingVertical: ROW_NAME_PADDING_V,
+    // paddingVertical no va acá: depende del alto real de la fila (rowNamePaddingFor),
+    // se aplica inline en TeamTopRow/PlayerBottomRow.
   },
   cardBottomNameText: {
     color: '#ffffff',
@@ -2837,6 +2975,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     borderRadius: 6,
     paddingVertical: 14,
+    paddingHorizontal: theme.spacing.md,
     alignItems: 'center',
   },
   // El bono del Beaudle usa el color de acento en vez del primary de los otros 2 —
@@ -2844,7 +2983,12 @@ const styles = StyleSheet.create({
   // aparece cuando de verdad hay uno disponible, ver AlbumLaminasView.
   buyBtnBonus: { backgroundColor: theme.colors.accent },
   buyBtnDisabled: { opacity: 0.4 },
-  buyBtnText: { color: theme.colors.background, fontSize: 14, fontWeight: '800' },
+  buyBtnText: { color: theme.colors.background, fontSize: 14, fontWeight: '800', textAlign: 'center' },
+  // Título + estado del sobre bono, apiladas en vez de una sola frase larga (ver el
+  // comentario en AlbumLaminasView) — gap chico porque son 2 líneas de un mismo
+  // mensaje, no 2 elementos independientes.
+  buyBtnTextStack: { alignItems: 'center', gap: 2 },
+  buyBtnSubtext: { color: theme.colors.background, fontSize: 12, fontWeight: '600', opacity: 0.85, textAlign: 'center' },
 
   laminasContainer: { flex: 1 },
   laminasContent: { padding: theme.spacing.md, paddingBottom: 40, gap: 10, maxWidth: 700, alignSelf: 'center', width: '100%' },
