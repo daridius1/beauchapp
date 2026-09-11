@@ -48,6 +48,41 @@ function finalPayout(stakeAmount, outcomePool, totalPool) {
     return Math.floor(payoutForStake(stakeAmount, outcomePool, totalPool));
 }
 
+// Instante (ms) de closesAt tal como lo devuelve PocketBase, o null si está vacío o no
+// se puede leer. OJO con el formato: un campo date se lee como "2026-09-11 13:50:00.000Z"
+// (con ESPACIO), no como el ISO de toISOString() ("2026-09-11T13:50:00.000Z", con T).
+// Comparar esos dos como texto da cualquier cosa, porque ' ' < 'T': desde las 00:00 UTC
+// del día del cierre, todo mercado de ese día ya parecía vencido. Ese bug cerraba los
+// mercados de partidos a las 21:00 de la noche anterior (hora de Chile). Por eso acá
+// siempre se compara como número.
+function closesAtMs(closesAt) {
+    const raw = String(closesAt || "").trim();
+    if (!raw) return null;
+    const ms = new Date(raw.replace(" ", "T")).getTime();
+    return isNaN(ms) ? null : ms;
+}
+
+// ¿Ya se cumplió el cierre automático? Un mercado sin fecha (los manuales antiguos) nunca
+// cierra solo — al revés que en la Beaupolla, donde la falta de fecha se lee como
+// cerrado: acá un mercado sin closesAt es un caso válido, no un dato faltante.
+function isPastClose(closesAt, nowMs) {
+    const ms = closesAtMs(closesAt);
+    if (ms === null) return false;
+    return (nowMs === undefined ? Date.now() : nowMs) >= ms;
+}
+
+// ¿Hay que reabrir el mercado de un partido al reagendarlo? Si la hora original pasó sin
+// que se jugara, el cron ya lo cerró; cuando se mueve a una hora futura y el partido sigue
+// por jugarse, se reabre. Un mercado resolved/cancelled es definitivo, y uno cuyo cierre
+// ya pasó está bien cerrado. (Suspender no pasa por acá: cancela y reembolsa, ver
+// POST /api/liga/matches/suspend.)
+function shouldReopenMatchMarket(marketStatus, matchStatus, closesAt, nowMs) {
+    return marketStatus === "closed"
+        && matchStatus === "confirmed"
+        && closesAtMs(closesAt) !== null
+        && !isPastClose(closesAt, nowMs);
+}
+
 // bets: [{ outcomeIndex, amountDelta, createdAtMs }], YA ordenadas cronológicamente
 // (ascendente) por quien llama. rangeStartMs/rangeEndMs delimitan el eje X (creación del
 // mercado -> ahora, o -> cuándo se cerró/resolvió/canceló, si ya terminó). La cantidad de
@@ -84,4 +119,5 @@ function computePoolHistory(bets, outcomeCount, rangeStartMs, rangeEndMs, maxPoi
 module.exports = {
     MIN_OUTCOMES, MAX_OUTCOMES, MAX_CHART_POINTS, MIN_CHART_POINTS,
     poolPercentages, payoutForStake, finalPayout, computePoolHistory,
+    closesAtMs, isPastClose, shouldReopenMatchMarket,
 };

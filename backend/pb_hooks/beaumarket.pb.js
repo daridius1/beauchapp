@@ -60,9 +60,13 @@ cronAdd("credit_daily_beautokens", "5 4 * * *", () => {
 // empuja hacia "closed" en una dirección.
 cronAdd("beaumarket_autoclose", "*/5 * * * *", () => {
     try {
-        const now = new Date().toISOString();
+        // @now, y no un toISOString() armado acá: la columna guarda "2026-09-11 13:50:00.000Z"
+        // (con espacio) y el filtro compara texto. Contra "2026-09-11T00:00:00.000Z" (con T)
+        // el espacio siempre pierde, así que desde las 00:00 UTC del día del cierre (21:00
+        // en Chile, la noche anterior) se cerraban todos los mercados de ese día. @now sale
+        // en el mismo formato que la columna. Ver closesAtMs en lib/beaumarket.js.
         const dueMarkets = $app.findRecordsByFilter(
-            "beaumarkets", "status = 'open' && closesAt != '' && closesAt <= {:now}", "", 200, 0, { now }
+            "beaumarkets", "status = 'open' && closesAt != '' && closesAt <= @now", "", 200, 0
         );
         dueMarkets.forEach((market) => {
             try {
@@ -216,6 +220,7 @@ routerAdd("GET", "/api/beaumarket/markets", (e) => {
 // exactamente el monto pedido.
 routerAdd("POST", "/api/beaumarket/bet", (e) => {
     try {
+        const { isPastClose } = require(`${__hooks}/lib/beaumarket.js`);
         const body = e.requestInfo().body || {};
         const marketId = String(body.marketId || "");
         const outcomeIndex = Number.isInteger(body.outcomeIndex) ? body.outcomeIndex : -1;
@@ -227,8 +232,9 @@ routerAdd("POST", "/api/beaumarket/bet", (e) => {
 
         $app.runInTransaction((txApp) => {
             const market = txApp.findRecordById("beaumarkets", marketId);
-            const closesAt = market.getString("closesAt");
-            if (market.getString("status") !== "open" || (closesAt && closesAt <= new Date().toISOString())) {
+            // Como número, no como texto: mismo bug de formato que tenía el cron (ver
+            // closesAtMs en lib/beaumarket.js).
+            if (market.getString("status") !== "open" || isPastClose(market.getString("closesAt"))) {
                 throw new BadRequestError("Este mercado no está abierto para apostar.");
             }
 

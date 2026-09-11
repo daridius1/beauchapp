@@ -3,7 +3,55 @@ const assert = require('node:assert/strict');
 const {
     MIN_OUTCOMES, MAX_OUTCOMES, MAX_CHART_POINTS, MIN_CHART_POINTS,
     poolPercentages, payoutForStake, finalPayout, computePoolHistory,
+    closesAtMs, isPastClose, shouldReopenMatchMarket,
 } = require('../beaumarket.js');
+
+// --- Cierre automático ---------------------------------------------------------
+
+test('closesAtMs: el formato de PocketBase (con espacio) y el ISO (con T) son el mismo instante', () => {
+    assert.equal(closesAtMs('2026-09-11 13:50:00.000Z'), Date.UTC(2026, 8, 11, 13, 50));
+    assert.equal(closesAtMs('2026-09-11T13:50:00.000Z'), Date.UTC(2026, 8, 11, 13, 50));
+});
+
+test('closesAtMs: vacío o ilegible no da instante', () => {
+    assert.equal(closesAtMs(''), null);
+    assert.equal(closesAtMs(null), null);
+    assert.equal(closesAtMs('no-es-una-fecha'), null);
+});
+
+test('isPastClose: a las 00:00 UTC del día del partido el mercado sigue abierto (bug de prod)', () => {
+    // Caso real: partido a las 11:00 de Chile, cierre 13:50 UTC. Comparado como texto
+    // contra toISOString() daba "vencido" desde la medianoche UTC.
+    const closesAt = '2026-09-11 13:50:00.000Z';
+    const medianocheUtc = Date.UTC(2026, 8, 11, 0, 0, 0);
+    assert.equal(closesAt <= new Date(medianocheUtc).toISOString(), true); // el bug, documentado
+    assert.equal(isPastClose(closesAt, medianocheUtc), false);
+    assert.equal(isPastClose(closesAt, Date.UTC(2026, 8, 11, 13, 49)), false);
+    assert.equal(isPastClose(closesAt, Date.UTC(2026, 8, 11, 13, 50)), true);
+});
+
+test('isPastClose: un mercado sin fecha de cierre nunca cierra solo', () => {
+    assert.equal(isPastClose('', Date.now()), false);
+    assert.equal(isPastClose(null, Date.now()), false);
+});
+
+test('shouldReopenMatchMarket: reabre un cerrado cuyo partido vuelve a estar por jugarse', () => {
+    const now = Date.UTC(2026, 8, 10, 12, 0);
+    const futuro = '2026-09-11 13:50:00.000Z';
+    assert.equal(shouldReopenMatchMarket('closed', 'confirmed', futuro, now), true);
+});
+
+test('shouldReopenMatchMarket: no reabre con el partido suspendido, el cierre vencido o un estado final', () => {
+    const now = Date.UTC(2026, 8, 10, 12, 0);
+    const futuro = '2026-09-11 13:50:00.000Z';
+    const pasado = '2026-09-09 13:50:00.000Z';
+    assert.equal(shouldReopenMatchMarket('closed', 'suspended', futuro, now), false);
+    assert.equal(shouldReopenMatchMarket('closed', 'confirmed', pasado, now), false);
+    assert.equal(shouldReopenMatchMarket('closed', 'confirmed', '', now), false);
+    assert.equal(shouldReopenMatchMarket('resolved', 'confirmed', futuro, now), false);
+    assert.equal(shouldReopenMatchMarket('cancelled', 'confirmed', futuro, now), false);
+    assert.equal(shouldReopenMatchMarket('open', 'confirmed', futuro, now), false);
+});
 
 test('constantes de rango de resultados', () => {
     assert.equal(MIN_OUTCOMES, 2);

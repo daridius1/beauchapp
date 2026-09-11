@@ -1926,7 +1926,12 @@ ${API_CALL_FN}
                     btn.textContent = m.status === "confirmed" ? "Suspender" : "Reactivar";
                     btn.addEventListener("click", async () => {
                         const verb = m.status === "confirmed" ? "suspender" : "reactivar";
-                        if (!confirm("¿" + verb.charAt(0).toUpperCase() + verb.slice(1) + " este partido?")) return;
+                        // Suspender cancela el mercado y devuelve lo apostado (ver
+                        // POST /api/liga/matches/suspend): se avisa porque no se deshace.
+                        const marketNote = m.status === "confirmed" && m.beaumarketMarket
+                            ? " Se cancelará su mercado de Beaumarket y se devolverá lo apostado. Si lo reagendas, tendrás que activarle uno nuevo."
+                            : "";
+                        if (!confirm("¿" + verb.charAt(0).toUpperCase() + verb.slice(1) + " este partido?" + marketNote)) return;
                         btn.disabled = true;
                         try {
                             await apiCall(
@@ -3374,27 +3379,56 @@ routerAdd("POST", "/api/liga/matches/suspend", (e) => {
             throw new BadRequestError("Solo se puede suspender un partido que esté por jugar.");
         }
 
-        match.set("status", "suspended");
-        $app.save(match);
-
-        // Si tiene mercado automático de Beaumarket, se cierra (no se cancela/reembolsa):
-        // un partido suspendido puede reagendarse más tarde, así que no hace falta
-        // deshacer nada todavía — solo dejar de aceptar apuestas nuevas sobre un
-        // horario que por ahora no va a ocurrir.
-        const marketId = match.getString("beaumarketMarket");
-        if (marketId) {
-            try {
-                const market = $app.findRecordById("beaumarkets", marketId);
-                if (market.getString("status") === "open") {
-                    market.set("status", "closed");
-                    $app.save(market);
-                }
-            } catch (err) {
-                // El mercado pudo haberse borrado a mano — no bloquea la suspensión.
+        // Suspender devuelve lo apostado en Beaumarket. Antes el mercado solo se cerraba y
+        // los ℬ quedaban congelados sin fecha: un partido suspendido puede no jugarse
+        // nunca, y mientras tanto quien apostó no puede usar esa plata. Ahora el mercado se
+        // cancela con el mismo reembolso 1:1 que POST /api/liga/matches/delete, y además se
+        // desvincula del partido: si se reagenda, la liga le activa uno nuevo desde el
+        // panel (POST /api/liga/matches/enable-beaumarket exige que no tenga mercado).
+        // Todo en una transacción: o se suspende con el reembolso completo, o no pasa nada.
+        let refundedAmount = 0;
+        $app.runInTransaction((txApp) => {
+            const txMatch = txApp.findRecordById("league_matches", matchId);
+            if (txMatch.getString("status") !== "confirmed") {
+                throw new BadRequestError("Solo se puede suspender un partido que esté por jugar.");
             }
-        }
 
-        return e.json(200, { success: true });
+            const marketId = txMatch.getString("beaumarketMarket");
+            if (marketId) {
+                let market = null;
+                try {
+                    market = txApp.findRecordById("beaumarkets", marketId);
+                } catch (err) {
+                    // El mercado pudo haberse borrado a mano — no bloquea la suspensión.
+                }
+                const marketStatus = market ? market.getString("status") : "";
+                if (marketStatus === "open" || marketStatus === "closed") {
+                    const positions = txApp.findRecordsByFilter(
+                        "beaumarket_positions", "market = {:m}", "", 0, 0, { m: marketId }
+                    );
+                    positions.forEach((pos) => {
+                        const amount = pos.getInt("amount");
+                        if (amount > 0) {
+                            txApp.db()
+                                .newQuery("UPDATE users SET beautokens = COALESCE(beautokens, 0) + {:amt} WHERE id = {:id}")
+                                .bind({ amt: amount, id: pos.getString("user") })
+                                .execute();
+                            refundedAmount += amount;
+                        }
+                    });
+                    market.set("status", "cancelled");
+                    txApp.save(market);
+                }
+                // Uno ya resuelto (no debería existir en un partido por jugar) se deja
+                // vinculado: ya pagó, y soltarlo escondería ese pago de la vista del partido.
+                if (marketStatus !== "resolved") txMatch.set("beaumarketMarket", "");
+            }
+
+            txMatch.set("status", "suspended");
+            txApp.save(txMatch);
+        });
+
+        return e.json(200, { success: true, refundedAmount });
     } catch (err) {
         console.error("[league.pb.js] Error en POST /api/liga/matches/suspend:", err);
         return e.json(400, { error: (err && err.message) || "No se pudo suspender el partido." });
@@ -3422,7 +3456,6 @@ routerAdd("POST", "/api/liga/matches/reactivate", (e) => {
         if (match.getString("status") !== "suspended") {
             throw new BadRequestError("Este partido no está suspendido.");
         }
-
         match.set("status", "confirmed");
         $app.save(match);
 
@@ -3515,6 +3548,7 @@ routerAdd("POST", "/api/liga/matches/update", (e) => {
         }
         const { windowBlockCodes, windowBlockRange, pastBlockCodes, computeValidBlocks } = require(`${__hooks}/lib/teamSchedule.js`);
         const { bettingCloseTimeFromBlock } = require(`${__hooks}/lib/polla.js`);
+        const { shouldReopenMatchMarket } = require(`${__hooks}/lib/beaumarket.js`);
 
         const body = e.requestInfo().body || {};
         const matchId = String(body.matchId || "");
@@ -3597,14 +3631,17 @@ routerAdd("POST", "/api/liga/matches/update", (e) => {
         const closesAt = bettingCloseTimeFromBlock(block);
         if (closesAt) match.set("bettingClosesAt", closesAt);
 
-        // Si tiene mercado automático de Beaumarket todavía abierto, se actualiza para
-        // que refleje el horario y los equipos nuevos — uno cerrado (partido suspendido)
-        // se deja tal cual, mismo criterio que /suspend: no se reabre solo.
+        // Si tiene mercado de Beaumarket todavía sin resolver, se actualiza para que
+        // refleje el horario y los equipos nuevos. Si estaba cerrado porque la hora
+        // original pasó sin que se jugara, y se reagenda a una hora futura, además se
+        // reabre. resolved/cancelled no se tocan. (Un partido suspendido ya no tiene
+        // mercado: suspender lo cancela, reembolsa y desvincula, ver /suspend.)
         const marketId = match.getString("beaumarketMarket");
         if (marketId) {
             try {
                 const market = $app.findRecordById("beaumarkets", marketId);
-                if (market.getString("status") === "open") {
+                const marketStatus = market.getString("status");
+                if (marketStatus === "open" || marketStatus === "closed") {
                     const nameOf = (id) => {
                         try {
                             const t = $app.findRecordById("users", id);
@@ -3616,6 +3653,9 @@ routerAdd("POST", "/api/liga/matches/update", (e) => {
                     market.set("title", teamAName + " vs " + teamBName);
                     market.set("outcomes", JSON.stringify(["Gana " + teamAName, "Empate", "Gana " + teamBName]));
                     if (closesAt) market.set("closesAt", closesAt);
+                    if (shouldReopenMatchMarket(marketStatus, match.getString("status"), closesAt || market.getString("closesAt"))) {
+                        market.set("status", "open");
+                    }
                     $app.save(market);
                 }
             } catch (err) {
