@@ -12,6 +12,7 @@ import { PostCard } from '../components/PostCard';
 import { TargetPreview } from '../components/TargetPreview';
 import { MentionTextInput } from '../components/MentionTextInput';
 import { PollComposer, isValidPoll } from '../components/PollComposer';
+import { SpotifyComposer } from '../components/SpotifyComposer';
 import { withMinimumDelay } from '../utils/refresh';
 import Toast from 'react-native-toast-message';
 
@@ -29,6 +30,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   // Target pre-seleccionado para citar
   const [quotedTarget, setQuotedTarget] = useState<{ targetType: string; targetId: string; targetMeta: any } | null>(null);
   const [pollOptions, setPollOptions] = useState<string[] | null>(null);
+  const [spotifyTrackId, setSpotifyTrackId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -243,7 +245,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const handlePost = async () => {
-    if ((!content.trim() && !photo && !quotedTarget) || !user) return;
+    if ((!content.trim() && !photo && !quotedTarget && !spotifyTrackId) || !user) return;
     setPosting(true);
     try {
       let finalTags = [...tags];
@@ -269,6 +271,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       if (isValidPoll(pollOptions)) {
         postData.pollOptions = (pollOptions as string[]).map((o) => o.trim()).filter(Boolean);
       }
+      if (spotifyTrackId) postData.spotifyTrackId = spotifyTrackId;
 
       if (quotedTarget) {
         postData.actionType = 'quote';
@@ -284,6 +287,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       setPhoto(null);
       setQuotedTarget(null);
       setPollOptions(null);
+      setSpotifyTrackId(null);
       fetchPosts(1, false);
     } catch (err) {
       console.error(err);
@@ -528,6 +532,14 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               />
             )}
 
+            {spotifyTrackId !== null && (
+              <SpotifyComposer
+                trackId={spotifyTrackId}
+                onChange={setSpotifyTrackId}
+                onRemove={() => setSpotifyTrackId(null)}
+              />
+            )}
+
             {photoPreview && (
               <View style={styles.previewContainer}>
                 <Image source={{ uri: photoPreview }} style={styles.previewImage} resizeMode="cover" />
@@ -571,9 +583,15 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                   <Feather name="bar-chart-2" size={20} color={pollOptions ? theme.colors.primary : theme.colors.textMuted} />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.postBtn, ((!content.trim() && !photo && !quotedTarget) || posting) && styles.postBtnDisabled]}
+                  style={styles.pollToggleBtn}
+                  onPress={() => setSpotifyTrackId(spotifyTrackId !== null ? null : '')}
+                >
+                  <Feather name="music" size={20} color={spotifyTrackId !== null ? theme.colors.primary : theme.colors.textMuted} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.postBtn, ((!content.trim() && !photo && !quotedTarget && !spotifyTrackId) || posting) && styles.postBtnDisabled]}
                   onPress={handlePost}
-                  disabled={(!content.trim() && !photo && !quotedTarget) || posting}
+                  disabled={(!content.trim() && !photo && !quotedTarget && !spotifyTrackId) || posting}
                 >
                 <Text style={styles.postBtnText}>{posting ? '...' : 'Publicar'}</Text>
                 </TouchableOpacity>

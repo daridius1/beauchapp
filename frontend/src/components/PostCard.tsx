@@ -14,6 +14,7 @@ import { ContentActionsMenu, ContentAction } from './ContentActionsMenu';
 import { ReportModal } from './ReportModal';
 import { LinkConfirmModal } from './LinkConfirmModal';
 import { PollView } from './PollView';
+import { SpotifyEmbed } from './SpotifyEmbed';
 
 export interface PostCardProps {
   post: any;
@@ -391,6 +392,13 @@ export const PostCard: React.FC<PostCardProps> = ({
           <PollView post={post} currentUser={currentUser} />
         )}
 
+        {/* Canción de Spotify */}
+        {!isDeleted && !!post.spotifyTrackId && (
+          <View style={styles.spotifyWrapper}>
+            <SpotifyEmbed key={post.spotifyTrackId} trackId={post.spotifyTrackId} compact />
+          </View>
+        )}
+
         {/* Tags (solo se muestran en publicaciones o citas principales, no en respuestas ni comentarios) */}
         {!isDeleted && post.actionType !== 'reply' && post.actionType !== 'comment' && !post.replyTo && post.tags && post.tags.length > 0 && (
           <View style={styles.tagsRow}>
@@ -538,6 +546,9 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 240,
     borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.sm,
+  },
+  spotifyWrapper: {
     marginBottom: theme.spacing.sm,
   },
   tagsRow: { 
