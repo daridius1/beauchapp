@@ -76,6 +76,10 @@ export interface LeagueMatch {
    *  10 minutos antes del bloque agendado, o el momento en que el partido arranca
    *  en la vista de arbitraje — lo que ocurra primero. Ver lib/polla.js. */
   bettingClosesAt?: string;
+  /** Hasta 2 equipos de la MISMA etapa (nunca teamA/teamB) con el compromiso de
+   *  arbitrar este partido — ver 1788000000_add_referee_teams_and_difficulty_to_league.js.
+   *  Distinto de match_reports.referee (quién efectivamente tocó los botones). */
+  refereeTeams?: string[];
   deleted?: boolean;
   created: string;
   updated: string;
@@ -123,6 +127,11 @@ export interface MatchReport {
   /** Última corrección hecha sobre un informe ya oficial, y por quién. */
   amendedBy?: string;
   amendedAt?: string;
+  /** Historial completo de envíos hechos por un equipo árbitro desde la app (POST
+   *  /api/league-matches/team-result) — a diferencia de amendedBy/amendedAt, que solo
+   *  guardan el último, esto acumula uno por cada envío de cada uno de los hasta 2
+   *  equipos asignados, para poder rastrear un error a quién lo cargó. */
+  refereeTeamLog?: { team: string; at: string }[];
   deleted?: boolean;
   created: string;
   updated: string;

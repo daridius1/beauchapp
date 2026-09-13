@@ -72,6 +72,19 @@ export const leagueService = {
     await pb.send('/api/league-matches/notes', { method: 'POST', body: { matchId, code, notes } });
   },
 
+  /**
+   * Carga/corrige el resultado como el equipo asignado a arbitrar, con la sesión propia
+   * — sin token ni código (ver POST /api/league-matches/team-result en
+   * match_result.pb.js). Mismo formato simple que el link de la liga: solo goles y
+   * tarjetas, sin autogol ni minuto, sobrescribe el informe completo en vez de fusionar.
+   */
+  async submitTeamResult(matchId: string, events: MatchEvent[], notes: string): Promise<{ scoreA: number; scoreB: number }> {
+    return await pb.send('/api/league-matches/team-result', {
+      method: 'POST',
+      body: { matchId, events, notes },
+    });
+  },
+
   /** Cierra el partido y hace oficial el marcador. Solo durante el partido en vivo. */
   async submitMatch(matchId: string, code: string): Promise<{ scoreA: number; scoreB: number }> {
     return await pb.send('/api/league-matches/submit', { method: 'POST', body: { matchId, code } });

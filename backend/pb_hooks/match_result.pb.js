@@ -35,6 +35,19 @@
 // jugador — un autogol es exactamente eso, un gol sin jugador en la sección del equipo
 // que se benefició. `ownGoal` sigue viajando en el evento (siempre `false`, lib/matchEvents.js
 // lo sigue exigiendo) pero ya no es una opción visible.
+//
+// SEGUNDA VÍA, la misma pantalla: POST /api/league-matches/team-result, al final de este
+// archivo. La liga sigue pudiendo generar el link de arriba, pero un equipo de los
+// asignados a arbitrar (league_matches.refereeTeams, hasta 2 por partido — nunca los que
+// juegan el partido) puede cargar el mismo formulario directo desde la app, con su propia
+// sesión, sin token ni código: la cuenta autenticada ES la autorización (ver
+// teamRefereeDecision en lib/matchResult.js). Mismo formato de datos (goles/tarjetas,
+// sin autogol ni minuto) y mismo criterio de sobrescritura total que el link — la
+// diferencia es solo CÓMO se autoriza, no qué se guarda. Como acá sí hay una identidad
+// real (a diferencia del link, anónimo), cada envío queda anotado en
+// match_reports.refereeTeamLog — un historial completo (no solo el último, a diferencia
+// de amendedBy/amendedAt) para poder responder "¿qué equipo cargó este dato?" si alguno
+// de los dos se equivoca.
 // ---------------------------------------------------------------------------------
 
 // La liga pide el link desde /admin/liga, autenticada como cuenta de liga.
@@ -596,3 +609,169 @@ routerAdd("POST", "/api/public/match-result", (e) => {
         return e.json(400, { error: (err && err.message) || "No se pudo guardar el resultado." });
     }
 });
+
+// Carga/corrección del resultado por el equipo asignado a arbitrar, con su propia
+// sesión — ver el comentario de cabecera del archivo ("SEGUNDA VÍA"). Requiere cuenta
+// (a diferencia del link, que es anónimo por diseño): la autorización es estar en
+// league_matches.refereeTeams, no un token. Duplica buena parte de la transacción de
+// POST /api/public/match-result (marcador + Beaumarket) a propósito, mismo criterio que
+// ya usa el resto del arbitraje: cada routerAdd corre en su propia VM (ver la nota de
+// cabecera de match_arbitration.pb.js), así que no hay forma de compartir esa lógica sin
+// pasarla a un lib/*.js con $app — y eso rompería el poder testear ese lib sin PocketBase.
+routerAdd("POST", "/api/league-matches/team-result", (e) => {
+    try {
+        const { isValidEvent, summarizeEvents } = require(`${__hooks}/lib/matchEvents.js`);
+        const { teamRefereeDecision } = require(`${__hooks}/lib/matchResult.js`);
+        const { isBettingClosed } = require(`${__hooks}/lib/polla.js`);
+
+        const body = e.requestInfo().body || {};
+        const matchId = String(body.matchId || "");
+        const events = Array.isArray(body.events) ? body.events : [];
+        const notes = String(body.notes || "");
+        if (!matchId) throw new BadRequestError("Falta matchId.");
+
+        let match;
+        try {
+            match = $app.findRecordById("league_matches", matchId);
+        } catch (err) {
+            throw new BadRequestError("El partido indicado no existe.");
+        }
+
+        const decision = teamRefereeDecision(
+            { refereeTeams: match.get("refereeTeams") || [], status: match.getString("status") },
+            e.auth.id
+        );
+        // Respuesta directa, no BadRequestError: mismo motivo que en
+        // match_arbitration.pb.js — no hace falta un `reason` de máquina acá, alcanza
+        // con el mensaje.
+        if (!decision.ok) return e.json(400, { error: decision.error });
+
+        // Este formulario solo registra goles y tarjetas — nada de reloj, convocatoria
+        // ni penales, igual que el link (ver comentario de cabecera del archivo).
+        const ALLOWED_TYPES = new Set(["goal", "yellow_card", "red_card"]);
+        for (const ev of events) {
+            if (!ev || !ALLOWED_TYPES.has(ev.type)) {
+                throw new BadRequestError("Este formulario solo admite goles y tarjetas.");
+            }
+            if (!isValidEvent(ev)) throw new BadRequestError("Hay un evento con formato inválido.");
+        }
+        const summary = summarizeEvents(events);
+        const wasPlayed = match.getString("status") === "played";
+
+        $app.runInTransaction((txApp) => {
+            let report;
+            try {
+                report = txApp.findFirstRecordByFilter("match_reports", "match = {:match} && deleted = false", { match: matchId });
+            } catch (err) {
+                const coll = txApp.findCollectionByNameOrId("match_reports");
+                report = new Record(coll);
+                report.set("match", matchId);
+                report.set("referee", e.auth.id);
+            }
+            report.set("events", events);
+            report.set("status", "approved");
+            report.set("notes", notes);
+
+            // Historial completo de envíos por equipo — ver el comentario de cabecera
+            // del archivo sobre por qué esto es un arreglo y no un solo campo como
+            // amendedBy/amendedAt. .get() sobre JSON no devuelve el valor parseado
+            // dentro de un hook de registro, hay que pasar por getString()+JSON.parse()
+            // (mismo caveat que `events` en match_arbitration.pb.js).
+            let refereeTeamLog = [];
+            try {
+                refereeTeamLog = JSON.parse(report.getString("refereeTeamLog") || "[]");
+            } catch (pErr) {
+                refereeTeamLog = [];
+            }
+            refereeTeamLog.push({ team: e.auth.id, at: new Date().toISOString() });
+            report.set("refereeTeamLog", refereeTeamLog);
+
+            txApp.save(report);
+
+            const txMatch = txApp.findRecordById("league_matches", matchId);
+            txMatch.set("scoreA", summary.scoreA);
+            txMatch.set("scoreB", summary.scoreB);
+            txMatch.set("status", "played");
+            // Si la liga había generado un link para este partido, queda invalidado: el
+            // resultado ya se cargó por acá, un envío posterior por el link viejo no
+            // debería poder pisarlo sin que la liga vuelva a generar uno nuevo a propósito.
+            txMatch.set("resultToken", "");
+            txMatch.set("resultTokenExpiresAt", "");
+            if (!isBettingClosed(txMatch.getString("bettingClosesAt"))) {
+                txMatch.set("bettingClosesAt", new Date().toISOString());
+            }
+            txApp.save(txMatch);
+
+            const marketId = txMatch.getString("beaumarketMarket");
+            if (!marketId) return;
+            let market;
+            try {
+                market = txApp.findRecordById("beaumarkets", marketId);
+            } catch (err) {
+                return;
+            }
+            const { finalPayout } = require(`${__hooks}/lib/beaumarket.js`);
+            const winningOutcomeIndex = summary.scoreA > summary.scoreB ? 0 : summary.scoreA < summary.scoreB ? 2 : 1;
+            const marketStatus = market.getString("status");
+
+            if (wasPlayed && marketStatus === "resolved") {
+                // Corrección de un resultado ya pagado: revierte el pago viejo y aplica
+                // el nuevo. Ver el comentario largo equivalente en
+                // match_arbitration.pb.js sobre por qué la reversión es exacta.
+                const oldWinningIndex = market.getInt("winningOutcomeIndex");
+                if (oldWinningIndex === winningOutcomeIndex) return;
+
+                const pool = JSON.parse(market.getString("pool") || "[]");
+                const totalPool = pool.reduce((a, c) => a + c, 0);
+                function settle(outcomeIndex, sign) {
+                    const outcomePool = pool[outcomeIndex] || 0;
+                    const positions = txApp.findRecordsByFilter(
+                        "beaumarket_positions", "market = {:m} && outcomeIndex = {:o}", "", 0, 0,
+                        { m: marketId, o: outcomeIndex }
+                    );
+                    positions.forEach((pos) => {
+                        const amount = pos.getInt("amount");
+                        const payout = finalPayout(amount, outcomePool, totalPool);
+                        if (payout > 0) {
+                            txApp.db()
+                                .newQuery("UPDATE users SET beautokens = COALESCE(beautokens, 0) + {:amt} WHERE id = {:id}")
+                                .bind({ amt: sign * payout, id: pos.getString("user") })
+                                .execute();
+                        }
+                    });
+                }
+                settle(oldWinningIndex, -1);
+                settle(winningOutcomeIndex, 1);
+                market.set("winningOutcomeIndex", winningOutcomeIndex);
+                txApp.save(market);
+            } else if (!wasPlayed && (marketStatus === "open" || marketStatus === "closed")) {
+                // Primera carga del resultado: resuelve el mercado.
+                const pool = JSON.parse(market.getString("pool") || "[]");
+                const totalPool = pool.reduce((a, c) => a + c, 0);
+                const winnerPool = pool[winningOutcomeIndex] || 0;
+                const positions = txApp.findRecordsByFilter(
+                    "beaumarket_positions", "market = {:m} && outcomeIndex = {:o}", "", 0, 0,
+                    { m: marketId, o: winningOutcomeIndex }
+                );
+                positions.forEach((pos) => {
+                    const amount = pos.getInt("amount");
+                    const payout = finalPayout(amount, winnerPool, totalPool);
+                    if (payout > 0) {
+                        txApp.db()
+                            .newQuery("UPDATE users SET beautokens = COALESCE(beautokens, 0) + {:amt} WHERE id = {:id}")
+                            .bind({ amt: payout, id: pos.getString("user") })
+                            .execute();
+                    }
+                });
+                market.set("status", "resolved");
+                market.set("winningOutcomeIndex", winningOutcomeIndex);
+                txApp.save(market);
+            }
+        });
+
+        return e.json(200, { success: true, scoreA: summary.scoreA, scoreB: summary.scoreB });
+    } catch (err) {
+        console.error("[match_result.pb.js] Error en POST /api/league-matches/team-result:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo guardar el resultado." });
+    }
+}, $apis.requireAuth("users"));

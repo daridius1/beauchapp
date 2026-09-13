@@ -69,6 +69,7 @@ import { AlbumsListScreen } from './src/screens/AlbumsListScreen';
 import { LeagueAlbumScreen } from './src/screens/LeagueAlbumScreen';
 import { LeagueMatchDetailScreen } from './src/screens/LeagueMatchDetailScreen';
 import { LeagueMatchArbitratorScreen } from './src/screens/LeagueMatchArbitratorScreen';
+import { LeagueMatchTeamResultScreen } from './src/screens/LeagueMatchTeamResultScreen';
 import { TeamProfileScreen } from './src/screens/TeamProfileScreen';
 import { NoticiasListScreen } from './src/screens/NoticiasListScreen';
 import { NoticiaDetailScreen } from './src/screens/NoticiaDetailScreen';
@@ -362,6 +363,7 @@ function AppContent() {
       case 'LeagueAlbum': return params?.name || 'Álbum';
       case 'LeagueMatchDetail': return 'Partido';
       case 'LeagueMatchArbitrator': return 'Arbitrar';
+      case 'LeagueMatchTeamResult': return 'Cargar resultado';
       case 'TeamProfile': return 'Equipo';
       case 'PollasList': return 'Beaupolla';
       case 'Polla': return 'Beaupolla';
@@ -412,7 +414,7 @@ function AppContent() {
       navigationRef.navigate('Beaudle' as never);
     } else if (currentRouteName === 'LeagueDetail') {
       navigationRef.navigate('LeaguesList' as never);
-    } else if (['LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'Polla', 'PollaMatch', 'PollaUserBets'].includes(currentRouteName)) {
+    } else if (['LeagueMatchDetail', 'LeagueMatchArbitrator', 'LeagueMatchTeamResult', 'TeamProfile', 'Polla', 'PollaMatch', 'PollaUserBets'].includes(currentRouteName)) {
       navigationRef.navigate('LeaguesList' as never);
     } else if (currentRouteName === 'LeagueAlbum') {
       navigationRef.navigate('AlbumsList' as never);
@@ -548,6 +550,7 @@ function AppContent() {
                 PollaMatch: 'beaupolla/:leagueId/partido/:matchId',
                 PollaUserBets: 'beaupolla/:leagueId/jugador/:userId',
                 LeagueMatchArbitrator: 'partidos/:matchId/arbitrar',
+                LeagueMatchTeamResult: 'partidos/:matchId/resultado',
               }
             }
           }}
@@ -655,6 +658,7 @@ function AppContent() {
                       <Stack.Screen name="LeagueAlbum" component={LeagueAlbumScreen} />
                       <Stack.Screen name="LeagueMatchDetail" component={LeagueMatchDetailScreen} />
                       <Stack.Screen name="LeagueMatchArbitrator" component={LeagueMatchArbitratorScreen} />
+                      <Stack.Screen name="LeagueMatchTeamResult" component={LeagueMatchTeamResultScreen} />
                       <Stack.Screen name="TeamProfile" component={TeamProfileScreen} />
                       <Stack.Screen name="NoticiasList" component={NoticiasListScreen} />
                       <Stack.Screen name="NoticiaDetail" component={NoticiaDetailScreen} />

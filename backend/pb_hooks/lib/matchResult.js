@@ -42,8 +42,31 @@ function resultTokenDecision(match, providedToken) {
     return { ok: true, error: "" };
 }
 
+// Autorización del flujo IN-APP (POST /api/league-matches/team-result): a diferencia
+// del link de un solo uso, acá no hay token — la propia sesión ya prueba quién es. Basta
+// con que la cuenta autenticada esté entre los `refereeTeams` que la liga le asignó a
+// ESTE partido (hasta 2, ver 1788000000_add_referee_teams_and_difficulty_to_league.js) y
+// que el partido siga admitiendo un resultado: 'confirmed' es la primera carga,
+// 'played' es una corrección (mismo criterio que resultTokenDecision, que tampoco
+// distingue una cosa de otra — el formulario siempre puede precargarse con lo ya
+// guardado). `match` es un objeto plano {refereeTeams, status}, nunca un Record.
+function teamRefereeDecision(match, teamId) {
+    const refereeTeams = Array.isArray(match && match.refereeTeams) ? match.refereeTeams : [];
+    if (!teamId || !refereeTeams.includes(teamId)) {
+        return { ok: false, error: "Tu equipo no está asignado a arbitrar este partido." };
+    }
+
+    const status = (match && match.status) || "";
+    if (status !== "confirmed" && status !== "played") {
+        return { ok: false, error: "Este partido no admite cargar un resultado." };
+    }
+
+    return { ok: true, error: "" };
+}
+
 module.exports = {
     TOKEN_LENGTH,
     TOKEN_TTL_DAYS,
     resultTokenDecision,
+    teamRefereeDecision,
 };

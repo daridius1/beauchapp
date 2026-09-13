@@ -170,11 +170,12 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
           <Text style={styles.dateText}>{formattedDate}</Text>
         </View>
 
-        {/* El arbitraje en vivo queda archivado (ver LeagueMatchArbitratorScreen): ya
-            nadie pasa onPressArbitrate, así que este botón no se renderiza — el
-            resultado ahora se registra con el link de un solo uso que la liga le manda
-            al árbitro después del partido (match_result.pb.js). Se deja el prop y el
-            botón acá, no borrados, por si algo lo vuelve a usar. */}
+        {/* El arbitraje EN VIVO con reloj queda archivado (ver LeagueMatchArbitratorScreen)
+            — ya nadie navega ahí. Este botón resucitó para una cosa distinta: el equipo
+            asignado a arbitrar (league_matches.refereeTeams) carga el resultado directo
+            desde la app, con su propia sesión (ver LeagueMatchTeamResultScreen y
+            match_result.pb.js). LeagueMatchDetailScreen solo pasa onPressArbitrate
+            cuando la cuenta logueada es uno de esos equipos. */}
         {onPressArbitrate && (
           <TouchableOpacity style={styles.arbitrateBtn} onPress={onPressArbitrate} activeOpacity={0.7}>
             <Feather name="user-check" size={12} color="#000000" style={{ marginRight: 5 }} />
