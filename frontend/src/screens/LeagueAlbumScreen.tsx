@@ -16,6 +16,7 @@ import {
   Easing,
   Platform,
   DeviceEventEmitter,
+  TextInput,
 } from 'react-native';
 import { Image as CachedImage } from 'expo-image';
 import { useFocusEffect } from '@react-navigation/native';
@@ -34,9 +35,13 @@ import {
   AlbumPlayer,
   DrawnSticker,
   BuyPackResult,
+  TradeList,
+  TradeProposal,
+  TradeCounterparty,
 } from '../services/albumService';
 import { withMinimumDelay } from '../utils/refresh';
 import { TeamCrest } from '../components/leagues/TeamCrest';
+import { Avatar } from '../components/Avatar';
 import {
   getTeamColor,
   getAlbumPalette,
@@ -661,8 +666,8 @@ function VanishingStripesBackground({ uid, tones }: { uid: string; tones: Vanish
 // de sus <RadialGradient>/<LinearGradient> no pueden repetirse.
 //
 // 3 estados, nunca una cantidad de copias (eso vive en la vista Láminas, no acá):
-// `glued` (pegada — se ve la foto, sin más) / `unowned` (no la tenés — hueco gris con
-// el código de la figurita que falta, sin marco) / `pegable` (la tenés suelta — se ve
+// `glued` (pegada — se ve la foto, sin más) / `unowned` (no la tienes — hueco gris con
+// el código de la figurita que falta, sin marco) / `pegable` (la tienes suelta — se ve
 // el MISMO hueco gris que `unowned`, no la foto: ya no hace falta mostrarla para saber
 // qué va ahí, y así el gesto de pegar se siente igual de "misterioso" que abrir un
 // sobre de verdad. Se distingue de `unowned` por un brillo animado en el marco
@@ -939,7 +944,7 @@ function StickerCard({
   const isPairLeft = !!photoPair && !photoPair.standalone && photoPair.side === 'left';
   const isPairRight = !!photoPair && !photoPair.standalone && photoPair.side === 'right';
   // Sin "cartón" (padding 0) en los mismos 2 casos que antes cubrían cardUnowned/
-  // cardCrestGlued: no la tenés / la tenés suelta (hueco gris sin marco) y el escudo
+  // cardCrestGlued: no la tienes / la tienes suelta (hueco gris sin marco) y el escudo
   // pegado (la textura prismática ocupa también ese margen).
   const hasCarton = status !== 'unowned' && status !== 'pegable' && !(placeholderIcon === 'shield' && status === 'glued');
   const cardPaddingStyle: ViewStyle = !hasCarton
@@ -980,11 +985,11 @@ function StickerCard({
               <Text style={styles.cardNameEmpty} numberOfLines={1}>{code}</Text>
             </View>
           ) : status === 'pegable' ? (
-            // La tenés suelta, pero acá se ve igual que el hueco vacío (cardEmpty) en
+            // La tienes suelta, pero acá se ve igual que el hueco vacío (cardEmpty) en
             // vez de la foto — ya no hace falta mostrarla para saber "qué va acá", con
-            // el álbum entero ya identificás la lámina por dónde está. El brillo del
+            // el álbum entero ya identificas la lámina por dónde está. El brillo del
             // marco (pegablePulse, un único loop por página — ver TeamAlbumPage) es lo
-            // que distingue esto de un hueco realmente vacío: "esta sí la tenés, tocá
+            // que distingue esto de un hueco realmente vacío: "esta sí la tienes, toca
             // para pegarla" — un solo toque en cualquier parte de la lámina, sin el
             // botón "Pegar" aparte de antes.
             <TouchableOpacity activeOpacity={0.75} onPress={onPegar} style={styles.cardEmpty}>
@@ -1250,7 +1255,7 @@ function standalonePairCrop(side: 'left' | 'right', cardWidth: number): PhotoPai
   return { side, standalone: true, cropOffset: side === 'left' ? 0 : innerWidth, cropFullWidth: innerWidth * 2 };
 }
 
-// pegada (glued) / no la tenés (unowned) / suelta lista para pegar (pegable) — nunca
+// pegada (glued) / no la tienes (unowned) / suelta lista para pegar (pegable) — nunca
 // se deriva de esto cuántas copias de más hay, esa cuenta vive solo en la vista
 // Láminas (looseCount, ver backend/pb_hooks/lib/album.js).
 function stickerStatus(count: number, pasted: boolean): StickerStatus {
@@ -1741,6 +1746,426 @@ function buildLooseItems(data: AlbumData): LooseItem[] {
   return items;
 }
 
+// ─────────────────────────────── Intercambios ───────────────────────────────
+// Tres pasos, espejo del backend (ver el comentario grande al inicio de
+// backend/pb_hooks/album_trades.pb.js):
+//
+//   1. Eliges láminas TUYAS y a quién ofrecérselas.       → pending
+//   2. La otra persona elige qué darte a cambio.          → countered
+//   3. Miras lo que puso y confirmas (o lo descartas).    → se mueven las láminas
+//
+// Nadie ve el inventario del otro, y no hace falta: como solo se ofrece de lo propio,
+// alcanza con que cada uno mire sus repetidas. Lo único que cruza es, al armar la
+// contraoferta, cuáles de las tuyas le faltan a quien te ofreció — para no devolverle
+// algo que ya tiene. Elegir sigue siendo a mano en los dos lados: la gracia es que haya
+// dos personas decidiendo, no un botón de "cambiar todas mis repetidas".
+
+// Espejo de MAX_TRADE_STICKERS en backend/pb_hooks/lib/album.js — acá solo para no
+// dejar armar una selección que el backend va a rechazar igual.
+const TRADE_MAX_STICKERS = 10;
+
+const TRADE_CARD_WIDTH = 74;
+const TRADE_CARD_HEIGHT = Math.round((TRADE_CARD_WIDTH * CARD_HEIGHT) / CARD_WIDTH);
+
+// Cualquier código del álbum → su lámina ya resuelta (nombre, foto, equipo, colores),
+// reusando el mismo buildTeamSlots que arma la grilla. Es lo que deja que el backend
+// mande solo códigos crudos: la tabla completa ya está cargada acá.
+function buildCodeIndex(data: AlbumData): Record<string, StickerSlot> {
+  const index: Record<string, StickerSlot> = {};
+  data.teams.forEach((t) => {
+    buildTeamSlots(t).forEach((slot) => {
+      if (slot.code) index[slot.code] = slot;
+    });
+  });
+  return index;
+}
+
+// Una oferta pintada como lo que es: las láminas puestas sobre la mesa. Van en
+// `status="glued"` siempre — acá no se está mostrando si la tienes o no, se está
+// mostrando qué se ofrece, y una lámina en gris de "no la tienes" diría otra cosa. Los
+// códigos vienen repetidos cuando son varias copias de la misma figurita, de ahí el
+// índice en la key.
+function TradeOfferStrip({
+  codes,
+  codeIndex,
+  onPreview,
+}: {
+  codes: string[];
+  codeIndex: Record<string, StickerSlot>;
+  onPreview: (sticker: PreviewSticker) => void;
+}) {
+  if (codes.length === 0) return null;
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tradeStrip}>
+      {codes.map((code, i) => {
+        const slot = codeIndex[code];
+        // Un código que no está en el índice es una lámina de un equipo que salió del
+        // álbum después de que se armó la propuesta. Se muestra el número pelado en vez
+        // de esconderla: la oferta sigue siendo de N láminas y la cuenta tiene que dar.
+        if (!slot) {
+          return (
+            <View key={`${code}-${i}`} style={styles.tradeCardUnknown}>
+              <Text style={styles.tradeCardUnknownText}>{code}</Text>
+            </View>
+          );
+        }
+        const photoPair = slot.photoPairSide ? standalonePairCrop(slot.photoPairSide, TRADE_CARD_WIDTH) : undefined;
+        return (
+          <StickerCard
+            key={`${code}-${i}`}
+            uid={`trade-${code}-${i}`}
+            {...slot}
+            status="glued"
+            photoPair={photoPair}
+            onPreview={() => onPreview(slotToPreview(slot, slot.photoPairSide ? standalonePairCrop(slot.photoPairSide, PREVIEW_CARD_WIDTH) : undefined))}
+            style={{ width: TRADE_CARD_WIDTH, height: TRADE_CARD_HEIGHT }}
+          />
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+// Selector de láminas propias. Los pasos 1 y 2 son la misma pantalla con dos
+// diferencias: el paso 2 exige una cantidad EXACTA (la misma que te ofrecieron) y sabe
+// cuáles le faltan a la otra persona, así que las muestra primero y marcadas. El paso 1
+// no tiene a quién mirarle nada todavía, así que solo pone un tope.
+//
+// La cantidad se elige con −/+ y no con un tildado: ofrecer dos copias de la misma
+// figurita es legítimo cuando te salieron tres, y un tilde no sabe decir "dos".
+function StickerPickerModal({
+  visible,
+  items,
+  title,
+  subtitle,
+  requiredCount,
+  wantedCodes,
+  submitting,
+  submitLabel,
+  onCancel,
+  onSubmit,
+}: {
+  visible: boolean;
+  items: LooseItem[];
+  title: string;
+  subtitle: string;
+  // Solo el paso 2: hay que poner exactamente esta cantidad, ni una más ni una menos.
+  requiredCount?: number;
+  // Solo el paso 2: códigos que a la otra persona le FALTAN. null mientras se están
+  // cargando, undefined en el paso 1 (no hay otra persona todavía).
+  wantedCodes?: Set<string> | null;
+  submitting: boolean;
+  submitLabel: string;
+  onCancel: () => void;
+  onSubmit: (codes: string[]) => void;
+}) {
+  const [picked, setPicked] = useState<Record<string, number>>({});
+  // Cada vez que se abre arranca en cero: el modal se reusa para propuestas distintas
+  // y arrastrar la selección anterior mandaría láminas que nadie eligió esta vez.
+  useEffect(() => {
+    if (visible) setPicked({});
+  }, [visible]);
+
+  const total = Object.values(picked).reduce((a, b) => a + b, 0);
+  const max = requiredCount ?? TRADE_MAX_STICKERS;
+  const enough = requiredCount !== undefined ? total === requiredCount : total > 0;
+
+  // Las que le faltan a la otra persona primero: son las únicas que hacen que el
+  // intercambio le sirva, y así no hay que buscarlas entre todas. Dentro de cada grupo
+  // se respeta el orden del inventario (por equipo y número), que es el del álbum.
+  const ordered = useMemo(() => {
+    if (!wantedCodes) return items;
+    const wanted = items.filter((i) => wantedCodes.has(i.code));
+    const rest = items.filter((i) => !wantedCodes.has(i.code));
+    return [...wanted, ...rest];
+  }, [items, wantedCodes]);
+
+  const bump = (item: LooseItem, delta: number) => {
+    setPicked((prev) => {
+      const actual = prev[item.code] || 0;
+      const siguiente = Math.min(Math.max(actual + delta, 0), item.loose);
+      if (delta > 0 && total >= max) return prev;
+      const next = { ...prev };
+      if (siguiente === 0) delete next[item.code];
+      else next[item.code] = siguiente;
+      return next;
+    });
+  };
+
+  // Código repetido tantas veces como copias se eligieron: así viaja la oferta.
+  const submit = () => {
+    const codes: string[] = [];
+    Object.keys(picked).forEach((code) => {
+      for (let i = 0; i < picked[code]; i++) codes.push(code);
+    });
+    onSubmit(codes);
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalBox, styles.tradeModalBox]}>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <Text style={styles.tradeModalSubtitle}>{subtitle}</Text>
+          <Text style={[styles.tradeCounter, enough && styles.tradeCounterOk]}>
+            {total}/{max} elegidas
+          </Text>
+
+          {wantedCodes === null && (
+            <Text style={styles.tradeHintLoading}>Viendo cuáles le faltan…</Text>
+          )}
+
+          {ordered.length === 0 ? (
+            <Text style={styles.laminasEmptyText}>No tienes láminas sueltas para ofrecer.</Text>
+          ) : (
+            <ScrollView style={styles.tradePickerList}>
+              {ordered.map((item) => {
+                const cantidad = picked[item.code] || 0;
+                const leFalta = wantedCodes ? wantedCodes.has(item.code) : false;
+                return (
+                  <View key={item.code} style={[styles.tradePickRow, cantidad > 0 && styles.tradePickRowActive]}>
+                    <View style={styles.looseInfo}>
+                      <Text style={styles.looseCode}>{item.code}</Text>
+                      <Text style={styles.looseName} numberOfLines={1}>{item.name}</Text>
+                      <Text style={styles.looseTeam} numberOfLines={1}>{item.teamName}</Text>
+                      {leFalta ? (
+                        <Text style={styles.tradeWantedTag}>Le falta</Text>
+                      ) : (
+                        <Text style={styles.looseCount}>{item.loose} sin pegar</Text>
+                      )}
+                    </View>
+                    <View style={styles.tradeStepper}>
+                      <TouchableOpacity
+                        style={[styles.tradeStepBtn, cantidad === 0 && styles.tradeStepBtnDisabled]}
+                        disabled={cantidad === 0}
+                        onPress={() => bump(item, -1)}
+                      >
+                        <Feather name="minus" size={14} color={theme.colors.text} />
+                      </TouchableOpacity>
+                      <Text style={styles.tradeStepCount}>{cantidad}</Text>
+                      <TouchableOpacity
+                        style={[styles.tradeStepBtn, (cantidad >= item.loose || total >= max) && styles.tradeStepBtnDisabled]}
+                        disabled={cantidad >= item.loose || total >= max}
+                        onPress={() => bump(item, 1)}
+                      >
+                        <Feather name="plus" size={14} color={theme.colors.text} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          <View style={styles.tradeModalActions}>
+            <TouchableOpacity style={[styles.looseActionBtn, styles.looseActionBtnOutline]} onPress={onCancel} disabled={submitting}>
+              <Text style={[styles.looseActionBtnText, styles.looseActionBtnOutlineText]}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.looseActionBtn, (!enough || submitting) && styles.buyBtnDisabled]}
+              disabled={!enough || submitting}
+              onPress={submit}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color={theme.colors.background} />
+              ) : (
+                <Text style={styles.looseActionBtnText}>{submitLabel}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// A quién ofrecerle. Búsqueda por nombre o usuario, no una lista de "gente que juega al
+// álbum": esa lista no existe sin exponer quién colecciona qué. La listRule de `users`
+// ya deja afuera a quien bloqueó o fue bloqueado, así que no hace falta filtrarlo acá.
+function PersonPickerModal({
+  visible,
+  submitting,
+  onCancel,
+  onPick,
+}: {
+  visible: boolean;
+  submitting: boolean;
+  onCancel: () => void;
+  onPick: (person: TradeCounterparty) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<TradeCounterparty[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setQuery('');
+      setResults([]);
+      return;
+    }
+  }, [visible]);
+
+  // 300ms de espera antes de buscar: sin esto cada tecla es una query contra `users`, y
+  // el servidor es un Atom con 2 GB (PRINCIPLES.md §1).
+  useEffect(() => {
+    if (!visible) return;
+    const limpio = query.trim();
+    if (limpio.length < 2) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    let vigente = true;
+    const t = setTimeout(async () => {
+      try {
+        const found = await albumService.searchTradePartners(limpio);
+        if (vigente) setResults(found);
+      } catch (err) {
+        if (vigente) setResults([]);
+      } finally {
+        if (vigente) setSearching(false);
+      }
+    }, 300);
+    return () => {
+      vigente = false;
+      clearTimeout(t);
+    };
+  }, [query, visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalBox, styles.tradeModalBox]}>
+          <Text style={styles.modalTitle}>¿A quién se lo ofreces?</Text>
+          <TextInput
+            style={styles.tradeSearchInput}
+            placeholder="Buscar por nombre o usuario"
+            placeholderTextColor={theme.colors.textMuted}
+            value={query}
+            onChangeText={setQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {searching ? (
+            <ActivityIndicator style={{ marginVertical: theme.spacing.md }} color={theme.colors.text} />
+          ) : query.trim().length < 2 ? (
+            <Text style={styles.laminasEmptyText}>Escribe al menos 2 letras.</Text>
+          ) : results.length === 0 ? (
+            <Text style={styles.laminasEmptyText}>Nadie con ese nombre.</Text>
+          ) : (
+            <ScrollView style={styles.tradePickerList}>
+              {results.map((p) => (
+                <TouchableOpacity
+                  key={p.id}
+                  style={styles.tradePersonRow}
+                  disabled={submitting}
+                  onPress={() => onPick(p)}
+                >
+                  <Avatar user={p} size={34} />
+                  <View style={styles.looseInfo}>
+                    <Text style={styles.looseName} numberOfLines={1}>{p.name}</Text>
+                    {!!p.username && <Text style={styles.looseTeam} numberOfLines={1}>@{p.username}</Text>}
+                  </View>
+                  <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+          <View style={styles.tradeModalActions}>
+            <TouchableOpacity style={[styles.looseActionBtn, styles.looseActionBtnOutline]} onPress={onCancel} disabled={submitting}>
+              <Text style={[styles.looseActionBtnText, styles.looseActionBtnOutlineText]}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// Una propuesta en la lista. El mismo componente sirve para las dos direcciones porque
+// lo único que cambia es de quién es cada pila de láminas y qué botones tocan — y eso
+// sale de `direction` + `status`, no de dos componentes casi iguales.
+function TradeCard({
+  trade,
+  direction,
+  codeIndex,
+  busy,
+  onPreview,
+  onCounter,
+  onConfirm,
+  onCancel,
+}: {
+  trade: TradeProposal;
+  direction: 'incoming' | 'outgoing';
+  codeIndex: Record<string, StickerSlot>;
+  busy: boolean;
+  onPreview: (sticker: PreviewSticker) => void;
+  onCounter: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const quien = trade.counterparty?.name || 'Alguien';
+  const esperandome = (direction === 'incoming' && trade.status === 'pending')
+    || (direction === 'outgoing' && trade.status === 'countered');
+
+  return (
+    <View style={[styles.tradeCard, esperandome && styles.tradeCardWaiting]}>
+      <View style={styles.tradeCardHeader}>
+        <Avatar user={trade.counterparty} size={30} />
+        <View style={styles.looseInfo}>
+          <Text style={styles.looseName} numberOfLines={1}>{quien}</Text>
+          <Text style={styles.looseTeam} numberOfLines={1}>
+            {direction === 'incoming'
+              ? trade.status === 'pending'
+                ? `Te ofrece ${trade.offerCodes.length === 1 ? 'una lámina' : `${trade.offerCodes.length} láminas`}`
+                : 'Esperando que confirme'
+              : trade.status === 'pending'
+              ? 'Esperando su respuesta'
+              : 'Te respondió — decide tú'}
+          </Text>
+        </View>
+      </View>
+
+      <Text style={styles.tradeSideLabel}>{direction === 'incoming' ? 'Te da' : 'Das'}</Text>
+      <TradeOfferStrip codes={trade.offerCodes} codeIndex={codeIndex} onPreview={onPreview} />
+
+      {trade.counterCodes.length > 0 && (
+        <>
+          <Text style={styles.tradeSideLabel}>{direction === 'incoming' ? 'Das' : 'Te da'}</Text>
+          <TradeOfferStrip codes={trade.counterCodes} codeIndex={codeIndex} onPreview={onPreview} />
+        </>
+      )}
+
+      <View style={styles.tradeCardActions}>
+        {busy ? (
+          <ActivityIndicator size="small" color={theme.colors.text} />
+        ) : (
+          <>
+            {direction === 'incoming' && trade.status === 'pending' && (
+              <TouchableOpacity style={styles.looseActionBtn} onPress={onCounter}>
+                <Feather name="repeat" size={14} color={theme.colors.background} />
+                <Text style={styles.looseActionBtnText}>Elegir qué darle</Text>
+              </TouchableOpacity>
+            )}
+            {direction === 'outgoing' && trade.status === 'countered' && (
+              <TouchableOpacity style={styles.looseActionBtn} onPress={onConfirm}>
+                <Feather name="check" size={14} color={theme.colors.background} />
+                <Text style={styles.looseActionBtnText}>Confirmar</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={[styles.looseActionBtn, styles.looseActionBtnOutline]} onPress={onCancel}>
+              <Text style={[styles.looseActionBtnText, styles.looseActionBtnOutlineText]}>
+                {direction === 'incoming' && trade.status === 'pending' ? 'Rechazar' : 'Descartar'}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
 // Vista "Láminas": todo lo que el usuario tiene SIN pegar (incluye copias de más de
 // algo que ya está pegado) + comprar sobres. A diferencia de la vista Álbum, acá SÍ se
 // muestra cuánto sobra de cada una — es justamente el inventario de intercambio, hoy
@@ -1755,6 +2180,14 @@ function AlbumLaminasView({
   onPreview,
   onGoToPage,
   onBack,
+  codeIndex,
+  trades,
+  tradesLoading,
+  tradeBusyId,
+  onProponer,
+  onCounter,
+  onConfirm,
+  onCancelTrade,
 }: {
   data: AlbumData;
   loggedIn: boolean;
@@ -1765,8 +2198,32 @@ function AlbumLaminasView({
   onPreview: (sticker: PreviewSticker) => void;
   onGoToPage: (code: string) => void;
   onBack: () => void;
+  codeIndex: Record<string, StickerSlot>;
+  // null mientras no se pidieron todavía (la lista se carga recién al entrar acá, no
+  // en cada apertura del álbum — ver fetchTrades).
+  trades: TradeList | null;
+  tradesLoading: boolean;
+  tradeBusyId: string | null;
+  onProponer: () => void;
+  onCounter: (trade: TradeProposal) => void;
+  onConfirm: (trade: TradeProposal) => void;
+  onCancelTrade: (trade: TradeProposal) => void;
 }) {
   const looseItems = useMemo(() => buildLooseItems(data), [data]);
+  // Las dos direcciones en una sola lista, no dos secciones: lo que importa para saber
+  // qué hacer no es quién empezó el intercambio sino de quién es el turno, y eso ya lo
+  // dice cada tarjeta. Las que esperan algo mío van arriba.
+  const abiertos = useMemo(() => {
+    if (!trades) return [];
+    const todos = [
+      ...trades.incoming.map((trade) => ({ trade, direction: 'incoming' as const })),
+      ...trades.outgoing.map((trade) => ({ trade, direction: 'outgoing' as const })),
+    ];
+    const meToca = (t: { trade: TradeProposal; direction: 'incoming' | 'outgoing' }) =>
+      (t.direction === 'incoming' && t.trade.status === 'pending')
+      || (t.direction === 'outgoing' && t.trade.status === 'countered');
+    return todos.sort((a, b) => Number(meToca(b)) - Number(meToca(a)));
+  }, [trades]);
   const buying = buyingKind !== null;
   const freeAvailable = (data.freeRemaining ?? 0) > 0;
   const boughtAvailable = (data.boughtRemaining ?? 0) > 0;
@@ -1852,9 +2309,49 @@ function AlbumLaminasView({
         </View>
       )}
 
+      {loggedIn && (
+        <>
+          <View style={styles.tradeSectionHeader}>
+            <Text style={styles.laminasSectionTitle}>Intercambios</Text>
+            <TouchableOpacity
+              style={[styles.looseActionBtn, looseItems.length === 0 && styles.buyBtnDisabled]}
+              disabled={looseItems.length === 0}
+              onPress={onProponer}
+            >
+              <Feather name="repeat" size={14} color={theme.colors.background} />
+              <Text style={styles.looseActionBtnText}>Proponer</Text>
+            </TouchableOpacity>
+          </View>
+
+          {tradesLoading && trades === null ? (
+            <ActivityIndicator style={{ marginVertical: theme.spacing.md }} color={theme.colors.text} />
+          ) : abiertos.length === 0 ? (
+            <Text style={styles.laminasEmptyText}>
+              {looseItems.length === 0
+                ? 'Cuando te sobren láminas vas a poder ofrecérselas a alguien.'
+                : 'No tienes intercambios abiertos. Elige láminas que te sobren y ofrécelas a alguien.'}
+            </Text>
+          ) : (
+            abiertos.map(({ trade, direction }) => (
+              <TradeCard
+                key={trade.id}
+                trade={trade}
+                direction={direction}
+                codeIndex={codeIndex}
+                busy={tradeBusyId === trade.id}
+                onPreview={onPreview}
+                onCounter={() => onCounter(trade)}
+                onConfirm={() => onConfirm(trade)}
+                onCancel={() => onCancelTrade(trade)}
+              />
+            ))
+          )}
+        </>
+      )}
+
       <Text style={styles.laminasSectionTitle}>Tus láminas sin pegar</Text>
       {looseItems.length === 0 ? (
-        <Text style={styles.laminasEmptyText}>No tenés láminas sueltas por ahora.</Text>
+        <Text style={styles.laminasEmptyText}>No tienes láminas sueltas por ahora.</Text>
       ) : (
         // Toda la fila abre el preview en grande (ver el modal de previsualización en
         // LeagueAlbumScreen) — sin miniatura propia acá (se sacó la StickerCard chica
@@ -1926,7 +2423,7 @@ export const LeagueAlbumScreen: React.FC<Props> = ({ route }) => {
   // una válida y exitosa por su cuenta: no se ve como un error, se ve como si un solo
   // toque hubiera pegado dos láminas. `pegable` no tiene ningún feedback inmediato
   // (ver el comentario grande sobre StickerStatus) que le avise al usuario "ya
-  // registré tu toque, esperá" — con la vista quieta es fácil tocar una lámina
+  // registré tu toque, espera" — con la vista quieta es fácil tocar una lámina
   // vecina de más, pensando que la primera no hizo nada.
   const [pastingCode, setPastingCode] = useState<string | null>(null);
   const [reveal, setReveal] = useState<BuyPackResult | null>(null);
@@ -1938,6 +2435,34 @@ export const LeagueAlbumScreen: React.FC<Props> = ({ route }) => {
   // pegado todavía + intercambios — nunca al mismo tiempo, por eso un solo toggle en
   // vez de mostrar ambas secciones apiladas.
   const [view, setView] = useState<'album' | 'laminas'>('album');
+  // Intercambios abiertos. Se piden recién al entrar a la vista Láminas, no junto con
+  // el álbum: la mayoría de las visitas es a mirar el libro y GET /api/album ya es la
+  // request cara de esta pantalla (PRINCIPLES.md §1). `null` = todavía no se pidieron.
+  const [trades, setTrades] = useState<TradeList | null>(null);
+  const [tradesLoading, setTradesLoading] = useState(false);
+  // Propuesta con una acción en vuelo (confirmar/rechazar/cancelar) — para que su
+  // tarjeta muestre el spinner en vez de aceptar un segundo toque.
+  const [tradeBusyId, setTradeBusyId] = useState<string | null>(null);
+  // Armado de una propuesta, en dos pasos: primero las láminas, después la persona.
+  // `picker` es el paso 1 (o el armado de una contraoferta, que es el mismo selector
+  // con una cantidad exacta y la pista de qué le falta al otro); `pendingOffer` guarda
+  // lo elegido mientras se elige a quién ofrecérselo.
+  const [picker, setPicker] = useState<
+    | { mode: 'propose' }
+    | { mode: 'counter'; trade: TradeProposal; wantedCodes: Set<string> | null }
+    | null
+  >(null);
+  const [pendingOffer, setPendingOffer] = useState<string[] | null>(null);
+  const [tradeSubmitting, setTradeSubmitting] = useState(false);
+  // El Modal de React Native se desvanece al cerrar y sigue montado durante esa
+  // animación (~1s acá). Si su contenido leyera `picker` directamente, en ese último
+  // segundo mostraría el texto del OTRO modo — `picker` ya es null, así que
+  // "¿Qué le das a cambio?" se convertía en "¿Qué ofreces?" a la vista del usuario,
+  // justo después de haber mandado la contraoferta. Se recuerda el último valor no
+  // nulo SOLO para pintar; lo que se manda sigue saliendo de `picker`.
+  const lastPickerRef = useRef(picker);
+  if (picker) lastPickerRef.current = picker;
+  const pickerShown = picker ?? lastPickerRef.current;
   // Lámina en previsualización grande — se abre al tocar una lámina `glued` de la
   // grilla o una fila de la vista Láminas (ver StickerCard/AlbumLaminasView), null
   // cuando el modal está cerrado.
@@ -1994,6 +2519,12 @@ export const LeagueAlbumScreen: React.FC<Props> = ({ route }) => {
   // Código de figurita → índice de página del álbum donde se pega — para el botón "Ir
   // a la página" de la vista Láminas (ver handleGoToPage). Escudo/plantel/jugador/DT
   // todos tienen su código en `cards` de alguna página `team` (nunca en la portada).
+  // Cualquier código → su lámina resuelta, para pintar las ofertas de un intercambio
+  // (que llegan del backend como códigos pelados, ver albumService).
+  const codeIndex = useMemo(() => (data ? buildCodeIndex(data) : {}), [data]);
+  // Mismo inventario que muestra la vista Láminas, acá para los selectores de
+  // intercambio (se arma del `data` ya cargado, no cuesta una request).
+  const looseItems = useMemo(() => (data ? buildLooseItems(data) : []), [data]);
   const codeToPageIndex = useMemo(() => {
     const map: Record<string, number> = {};
     albumPages.forEach((p, idx) => {
@@ -2064,6 +2595,120 @@ export const LeagueAlbumScreen: React.FC<Props> = ({ route }) => {
       Toast.show({ type: 'error', text1: err?.data?.error || err?.message || 'No se pudo pegar la figurita.' });
     } finally {
       setPastingCode(null);
+    }
+  };
+
+  const fetchTrades = useCallback(async () => {
+    if (!user) return;
+    setTradesLoading(true);
+    try {
+      setTrades(await albumService.getTrades(albumId));
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: err?.data?.error || err?.message || 'No se pudieron cargar los intercambios.' });
+    } finally {
+      setTradesLoading(false);
+    }
+  }, [albumId, user]);
+
+  // Los intercambios se cargan al entrar a la vista Láminas y no antes (ver el
+  // comentario de `trades`). Al volver a entrar se recargan: alguien pudo responder una
+  // propuesta mientras tanto.
+  useEffect(() => {
+    if (view === 'laminas') fetchTrades();
+  }, [view, fetchTrades]);
+
+  // Paso 1: elegir qué ofrecer. La persona se elige después — al revés (persona y
+  // después láminas) habría que volver atrás cada vez que uno se da cuenta de que no
+  // tiene nada que ofrecerle.
+  const handleProponer = () => {
+    setPendingOffer(null);
+    setPicker({ mode: 'propose' });
+  };
+
+  // Paso 2: responder una propuesta recibida. Se abre el selector de una y se pide
+  // aparte qué tiene ya la otra persona — el modal muestra "Viendo cuáles le faltan…"
+  // mientras tanto en vez de hacer esperar frente a una pantalla vacía, porque elegir
+  // sin la pista igual es válido (solo menos útil).
+  const handleCounter = async (trade: TradeProposal) => {
+    setPicker({ mode: 'counter', trade, wantedCodes: null });
+    try {
+      const { ownedCodes } = await albumService.getCounterpartyStock(trade.id);
+      const tiene = new Set(ownedCodes);
+      const faltan = new Set(Object.keys(codeIndex).filter((c) => !tiene.has(c)));
+      setPicker((prev) => (prev && prev.mode === 'counter' && prev.trade.id === trade.id ? { ...prev, wantedCodes: faltan } : prev));
+    } catch (err) {
+      // Sin la pista se puede elegir igual: se deja el set vacío para que el modal
+      // deje de decir que la está buscando.
+      setPicker((prev) => (prev && prev.mode === 'counter' && prev.trade.id === trade.id ? { ...prev, wantedCodes: new Set<string>() } : prev));
+    }
+  };
+
+  // Salida del selector de láminas: en una propuesta nueva pasa a elegir persona; en
+  // una contraoferta ya está todo y se manda.
+  const handlePickerSubmit = async (codes: string[]) => {
+    if (!picker) return;
+    if (picker.mode === 'propose') {
+      setPendingOffer(codes);
+      setPicker(null);
+      return;
+    }
+    setTradeSubmitting(true);
+    try {
+      await albumService.counterTrade(picker.trade.id, codes);
+      setPicker(null);
+      Toast.show({ type: 'success', text1: 'Listo — falta que confirme.' });
+      await fetchTrades();
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: err?.data?.error || err?.message || 'No se pudo responder la propuesta.' });
+    } finally {
+      setTradeSubmitting(false);
+    }
+  };
+
+  const handlePickPerson = async (person: TradeCounterparty) => {
+    if (!pendingOffer) return;
+    setTradeSubmitting(true);
+    try {
+      await albumService.proposeTrade(albumId, person.id, pendingOffer);
+      setPendingOffer(null);
+      Toast.show({ type: 'success', text1: `Propuesta enviada a ${person.name}.` });
+      await fetchTrades();
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: err?.data?.error || err?.message || 'No se pudo enviar la propuesta.' });
+    } finally {
+      setTradeSubmitting(false);
+    }
+  };
+
+  // Paso 3. Es el único momento en que se mueven láminas, así que refresca también el
+  // álbum, no solo la lista de intercambios.
+  const handleConfirmTrade = async (trade: TradeProposal) => {
+    if (tradeBusyId) return;
+    setTradeBusyId(trade.id);
+    try {
+      await albumService.confirmTrade(trade.id);
+      Toast.show({ type: 'success', text1: '¡Intercambio hecho!' });
+      await Promise.all([fetchTrades(), fetchData(true)]);
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: err?.data?.error || err?.message || 'No se pudo confirmar el intercambio.' });
+      await fetchTrades();
+    } finally {
+      setTradeBusyId(null);
+    }
+  };
+
+  // Rechazar, cancelar y descartar son lo mismo del lado del backend (borrar la
+  // propuesta) — ver POST /api/album/trades/cancel.
+  const handleCancelTrade = async (trade: TradeProposal) => {
+    if (tradeBusyId) return;
+    setTradeBusyId(trade.id);
+    try {
+      await albumService.cancelTrade(trade.id);
+      await fetchTrades();
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: err?.data?.error || err?.message || 'No se pudo cerrar el intercambio.' });
+    } finally {
+      setTradeBusyId(null);
     }
   };
 
@@ -2234,6 +2879,14 @@ export const LeagueAlbumScreen: React.FC<Props> = ({ route }) => {
           onPreview={setPreview}
           onGoToPage={handleGoToPage}
           onBack={() => setView('album')}
+          codeIndex={codeIndex}
+          trades={trades}
+          tradesLoading={tradesLoading}
+          tradeBusyId={tradeBusyId}
+          onProponer={handleProponer}
+          onCounter={handleCounter}
+          onConfirm={handleConfirmTrade}
+          onCancelTrade={handleCancelTrade}
         />
       ) : (
         <View
@@ -2343,6 +2996,30 @@ export const LeagueAlbumScreen: React.FC<Props> = ({ route }) => {
           </TouchableOpacity>
         </View>
       )}
+
+      <StickerPickerModal
+        visible={picker !== null}
+        items={looseItems}
+        title={pickerShown?.mode === 'counter' ? '¿Qué le das a cambio?' : '¿Qué ofreces?'}
+        subtitle={
+          pickerShown?.mode === 'counter'
+            ? `${pickerShown.trade.counterparty?.name || 'Esa persona'} te ofrece ${pickerShown.trade.offerCodes.length === 1 ? 'una lámina' : `${pickerShown.trade.offerCodes.length} láminas`}. Elige la misma cantidad de las tuyas.`
+            : `Elige hasta ${TRADE_MAX_STICKERS} láminas que te sobren. Después eliges a quién ofrecérselas, y esa persona decide qué darte a cambio.`
+        }
+        requiredCount={pickerShown?.mode === 'counter' ? pickerShown.trade.offerCodes.length : undefined}
+        wantedCodes={pickerShown?.mode === 'counter' ? pickerShown.wantedCodes : undefined}
+        submitting={tradeSubmitting}
+        submitLabel={pickerShown?.mode === 'counter' ? 'Ofrecer' : 'Elegir persona'}
+        onCancel={() => setPicker(null)}
+        onSubmit={handlePickerSubmit}
+      />
+
+      <PersonPickerModal
+        visible={pendingOffer !== null}
+        submitting={tradeSubmitting}
+        onCancel={() => setPendingOffer(null)}
+        onPick={handlePickPerson}
+      />
 
       <Modal visible={pageJumpOpen} transparent animationType="fade" onRequestClose={() => setPageJumpOpen(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setPageJumpOpen(false)}>
@@ -2741,7 +3418,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#ffffff',
   },
-  // Sin el "cartón" blanco: una lámina que no tenés no es una foto con marco, es
+  // Sin el "cartón" blanco: una lámina que no tienes no es una foto con marco, es
   // directamente el hueco gris (cardEmpty) — el margen/fondo blanco es exclusivo de
   // las láminas que sí están pegadas o para pegar. El padding (0 en este caso) NO va
   // acá — ver cardPaddingStyle en StickerCard, que calcula el padding entero (incluida
@@ -3032,6 +3709,89 @@ const styles = StyleSheet.create({
   looseActionBtnOutline: { backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.colors.border },
   looseActionBtnText: { color: theme.colors.background, fontSize: 12, fontWeight: '700' },
   looseActionBtnOutlineText: { color: theme.colors.text },
+
+  tradeSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  tradeCard: {
+    backgroundColor: theme.colors.cardBg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 10,
+    padding: 10,
+    gap: 6,
+  },
+  // Borde claro en las que esperan una decisión mía: en una lista mezclada de ida y
+  // vuelta es lo único que distingue "te toca" de "espera" sin leer cada tarjeta.
+  tradeCardWaiting: { borderColor: theme.colors.text },
+  tradeCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  tradeSideLabel: { color: theme.colors.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
+  tradeStrip: { gap: 6, paddingVertical: 2 },
+  tradeCardUnknown: {
+    width: TRADE_CARD_WIDTH,
+    height: TRADE_CARD_HEIGHT,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tradeCardUnknownText: { color: theme.colors.textMuted, fontSize: 12, fontWeight: '700' },
+  tradeCardActions: { flexDirection: 'row', gap: 8, marginTop: 2 },
+
+  // maxWidth junto al alignSelf:'center' de modalBox: sin esto la caja se encoge al
+  // ancho del texto más largo, y las filas del selector quedan apretadas en pc.
+  tradeModalBox: { width: '100%', maxWidth: 520 },
+  tradeModalSubtitle: { color: theme.colors.textMuted, fontSize: 13, marginBottom: 8 },
+  tradeCounter: { color: theme.colors.textMuted, fontSize: 12, fontWeight: '800', marginBottom: 6 },
+  tradeCounterOk: { color: theme.colors.text },
+  tradeHintLoading: { color: theme.colors.textMuted, fontSize: 12, fontStyle: 'italic', marginBottom: 6 },
+  tradePickerList: { maxHeight: 360 },
+  tradePickRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 6,
+  },
+  tradePickRowActive: { borderColor: theme.colors.text },
+  tradeWantedTag: { color: theme.colors.text, fontSize: 12, fontWeight: '800', marginTop: 2 },
+  tradeStepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  tradeStepBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tradeStepBtnDisabled: { opacity: 0.3 },
+  tradeStepCount: { color: theme.colors.text, fontSize: 14, fontWeight: '800', minWidth: 16, textAlign: 'center' },
+  tradeModalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: theme.spacing.md },
+  tradeSearchInput: {
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: theme.colors.text,
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  tradePersonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 6,
+  },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: theme.spacing.lg },
   // alignSelf: 'center' a propósito — sin esto el `alignItems: 'stretch'` default de

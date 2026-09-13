@@ -4,6 +4,7 @@ const {
     PACK_SIZE, PACK_PRICE, FREE_PACKS_PER_DAY, BOUGHT_PACKS_PER_DAY, pickPack, stickerCode, looseCount,
     SLOT_CREST, SLOT_TEAM_PHOTO_LEFT, SLOT_TEAM_PHOTO_RIGHT, SLOT_DT, SLOT_CAPTAIN, FIRST_PLAYER_SLOT,
     CATEGORY_VALUES,
+    MAX_TRADE_STICKERS, MAX_PENDING_TRADES, countCodes, normalizeTradeCodes, uncoveredCodes,
 } = require("../album.js");
 
 test("PACK_SIZE, PACK_PRICE y los cupos diarios son los valores acordados", () => {
@@ -101,4 +102,60 @@ test("looseCount: sin copias, nada suelto (pegada o no)", () => {
 
 test("CATEGORY_VALUES: siempre masculina/femenina/mixta, nada más", () => {
     assert.deepEqual(CATEGORY_VALUES, ["masc", "fem", "mixto"]);
+});
+
+test("countCodes: cuenta repetidas dentro de la misma oferta", () => {
+    assert.deepEqual(countCodes(["0113", "0113", "0200"]), { "0113": 2, "0200": 1 });
+});
+
+test("countCodes: lista vacía o ausente no cuenta nada", () => {
+    assert.deepEqual(countCodes([]), {});
+    assert.deepEqual(countCodes(undefined), {});
+});
+
+test("normalizeTradeCodes: rechaza lo que no es una lista", () => {
+    assert.ok(normalizeTradeCodes("0113").error);
+    assert.ok(normalizeTradeCodes(null).error);
+});
+
+test("normalizeTradeCodes: rechaza una oferta vacía (también si son todos espacios)", () => {
+    assert.ok(normalizeTradeCodes([]).error);
+    assert.ok(normalizeTradeCodes(["", "  "]).error);
+});
+
+test("normalizeTradeCodes: rechaza códigos con formato inválido", () => {
+    assert.ok(normalizeTradeCodes(["113"]).error);
+    assert.ok(normalizeTradeCodes(["01134"]).error);
+    assert.ok(normalizeTradeCodes(["0113", "ab12"]).error);
+});
+
+test("normalizeTradeCodes: conserva las repetidas (la cantidad es parte de la oferta)", () => {
+    assert.deepEqual(normalizeTradeCodes(["0113", "0113"]).codes, ["0113", "0113"]);
+});
+
+test("normalizeTradeCodes: recorta espacios alrededor del código", () => {
+    assert.deepEqual(normalizeTradeCodes([" 0113 "]).codes, ["0113"]);
+});
+
+test("normalizeTradeCodes: acepta justo el tope y rechaza uno más", () => {
+    const enElTope = Array(MAX_TRADE_STICKERS).fill("0113");
+    assert.deepEqual(normalizeTradeCodes(enElTope).codes.length, MAX_TRADE_STICKERS);
+    assert.ok(normalizeTradeCodes([...enElTope, "0113"]).error);
+});
+
+test("uncoveredCodes: inventario suficiente no deja nada descubierto", () => {
+    assert.deepEqual(uncoveredCodes(["0113", "0200"], { "0113": 1, "0200": 3 }), []);
+});
+
+test("uncoveredCodes: ofrecer dos copias exige dos sueltas, no una", () => {
+    assert.deepEqual(uncoveredCodes(["0113", "0113"], { "0113": 1 }), ["0113"]);
+    assert.deepEqual(uncoveredCodes(["0113", "0113"], { "0113": 2 }), []);
+});
+
+test("uncoveredCodes: un código que no está en el inventario queda descubierto", () => {
+    assert.deepEqual(uncoveredCodes(["0113"], {}), ["0113"]);
+});
+
+test("MAX_PENDING_TRADES es un tope finito (el servidor es un Atom con 2 GB)", () => {
+    assert.ok(MAX_PENDING_TRADES > 0 && MAX_PENDING_TRADES <= 100);
 });

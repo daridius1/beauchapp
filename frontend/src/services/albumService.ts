@@ -127,10 +127,19 @@ export interface BuyPackResult {
   beautokens: number;
 }
 
-// Un intercambio 1x1: `offerCode` es la lámina suelta que el proponente ofrece,
-// `requestCode` la que pide a cambio. El backend NO resuelve nombre/foto/equipo de
-// esos códigos (ver album_trades.pb.js) — la pantalla los cruza contra el `AlbumData`
-// que ya tiene cargado, así que acá solo viajan los códigos crudos + la contraparte.
+// Una propuesta de intercambio. `offerCodes` son las láminas que puso quien propuso;
+// `counterCodes` las que eligió la otra persona, vacío hasta que responde. Los códigos
+// van repetidos cuando se ofrecen varias copias de la misma figurita — la cantidad es
+// parte de la oferta.
+//
+// El backend NO resuelve nombre/foto/equipo de esos códigos (ver album_trades.pb.js):
+// la pantalla los cruza contra el `AlbumData` que ya tiene cargado, así que acá solo
+// viajan los códigos crudos + la contraparte.
+//
+//   pending   → falta que la otra persona elija qué dar
+//   countered → ya eligió, falta que quien propuso confirme
+//
+// `accepted` no aparece nunca en esta lista: el backend solo devuelve las abiertas.
 export interface TradeCounterparty {
   id: string;
   collectionId: string;
@@ -139,10 +148,13 @@ export interface TradeCounterparty {
   avatar?: string;
 }
 
+export type TradeStatus = 'pending' | 'countered';
+
 export interface TradeProposal {
   id: string;
-  offerCode: string;
-  requestCode: string;
+  status: TradeStatus;
+  offerCodes: string[];
+  counterCodes: string[];
   created: string;
   counterparty: TradeCounterparty | null;
 }
@@ -169,15 +181,51 @@ export const albumService = {
     return await pb.send('/api/album/trades', { method: 'GET', query: { albumId } });
   },
 
-  async proposeTrade(albumId: string, toUserId: string, offerCode: string, requestCode: string): Promise<{ success: boolean; tradeId: string }> {
-    return await pb.send('/api/album/trades', { method: 'POST', body: { albumId, toUserId, offerCode, requestCode } });
+  // Solo se ofrece; no se pide nada puntual a cambio (ver el comentario grande al
+  // inicio de backend/pb_hooks/album_trades.pb.js). `offerCodes` lleva el código
+  // repetido tantas veces como copias de esa figurita se ofrezcan.
+  async proposeTrade(albumId: string, toUserId: string, offerCodes: string[]): Promise<{ success: boolean; tradeId: string }> {
+    return await pb.send('/api/album/trades', { method: 'POST', body: { albumId, toUserId, offerCodes } });
   },
 
-  async respondTrade(tradeId: string, decision: 'accept' | 'reject'): Promise<{ success: boolean }> {
-    return await pb.send('/api/album/trades/respond', { method: 'POST', body: { tradeId, decision } });
+  // Códigos que la OTRA parte YA tiene en el álbum. Se pide al abrir el armado de la
+  // contraoferta, para marcar cuáles de las propias le faltan y no devolverle algo que
+  // ya tiene. El complemento (lo que le falta) lo saca la pantalla sola, que ya conoce
+  // el checklist completo.
+  async getCounterpartyStock(tradeId: string): Promise<{ ownedCodes: string[] }> {
+    return await pb.send('/api/album/trades/counterparty-stock', { method: 'GET', query: { tradeId } });
   },
 
+  // Responder una propuesta recibida con exactamente la misma cantidad de láminas.
+  async counterTrade(tradeId: string, counterCodes: string[]): Promise<{ success: boolean }> {
+    return await pb.send('/api/album/trades/counter', { method: 'POST', body: { tradeId, counterCodes } });
+  },
+
+  // Último paso, solo para quien propuso: acá recién se mueven las láminas.
+  async confirmTrade(tradeId: string): Promise<{ success: boolean }> {
+    return await pb.send('/api/album/trades/confirm', { method: 'POST', body: { tradeId } });
+  },
+
+  // Cancelar, rechazar o desistir — las tres son lo mismo (borrar la propuesta) y las
+  // pueden hacer las dos partes mientras no esté confirmada.
   async cancelTrade(tradeId: string): Promise<{ success: boolean }> {
     return await pb.send('/api/album/trades/cancel', { method: 'POST', body: { tradeId } });
+  },
+
+  // Personas a las que proponerles un intercambio. Sin filtrar por `type`: las cuentas
+  // de equipo también abren sobres y coleccionan, y el backend acepta una propuesta a
+  // cualquier cuenta — el buscador tiene que ofrecer exactamente a quien se le puede
+  // proponer, no menos. La listRule de `users` ya excluye a quien bloqueó o fue
+  // bloqueado, así que eso no hace falta filtrarlo acá (y el backend lo revalida igual
+  // al proponer).
+  async searchTradePartners(query: string): Promise<TradeCounterparty[]> {
+    const clean = query.trim().toLowerCase();
+    if (!clean) return [];
+    const res = await pb.collection('users').getList<any>(1, 20, {
+      filter: `name ~ "${clean}" || username ~ "${clean}"`,
+      sort: 'name',
+      fields: 'id,collectionId,name,username,avatar',
+    });
+    return res.items as TradeCounterparty[];
   },
 };

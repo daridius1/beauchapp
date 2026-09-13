@@ -232,3 +232,11 @@ específicamente para agentes de IA.
 
 Y una regla del propio proyecto que conviene respetar: **el código y los comentarios están en
 español**, y los comentarios explican *por qué*, no *qué*.
+
+**El español es de Chile, nunca argentino.** Nada de voseo (`vos`, `tenés`, `podés`, `sos`,
+imperativos como `mirá`/`cerrá`/`elegí`) ni modismos rioplatenses (`che`, `boludo`, etc.), ni
+en comentarios ni en texto de cara al usuario. Se usa `tú`/`usted` según corresponda al resto
+de la pantalla o mensaje, con las conjugaciones estándar (`tienes`, `puedes`, `eres`, `mira`,
+`cierra`, `elige`). Esto se coló en la feature del álbum de figuritas
+(`album_trades.pb.js`, `album.pb.js`, `LeagueAlbumScreen.tsx`) y se corrigió, pero conviene
+revisar cualquier texto nuevo antes de darlo por bueno.

@@ -157,7 +157,7 @@ routerAdd("GET", "/api/album", (e) => {
 
         // `pasted` viaja junto con `count` desde las mismas filas — GET /api/album es
         // la única fuente de verdad de "qué código está pegado" para el frontend, que
-        // la usa tanto para las 3 estados de la vista Álbum (pegada/no tenés/pegable)
+        // la usa tanto para las 3 estados de la vista Álbum (pegada/no la tienes/pegable)
         // como para calcular láminas sueltas (looseCount) en la vista Láminas, sin
         // pedirle nada más al backend.
         const countByCode = {};
@@ -669,7 +669,7 @@ routerAdd("POST", "/api/album/paste", (e) => {
                 { a: albumId, u: e.auth.id, c: code }
             );
         } catch (err) {
-            throw new BadRequestError("No tenés esa figurita.");
+            throw new BadRequestError("No tienes esa figurita.");
         }
 
         if (!sticker.getBool("pasted")) {

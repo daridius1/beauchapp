@@ -68,8 +68,50 @@ function looseCount(count, pasted) {
     return Math.max(0, count - (pasted ? 1 : 0));
 }
 
+// Intercambios (album_trades.pb.js): tope de láminas por lado de una propuesta y de
+// propuestas pendientes que un usuario puede tener abiertas a la vez. Las láminas
+// ofrecidas NO se reservan mientras la propuesta está pendiente — quien ofrece puede
+// tener la misma repetida comprometida en varias propuestas, y la primera que se
+// confirme gana (el confirm revalida ambos lados dentro de la transacción). El tope de
+// pendientes es lo único que impide que eso escale a cientos de filas muertas, y de
+// paso es el freno anti-spam: el servidor es un Atom con 2 GB (PRINCIPLES.md §1).
+const MAX_TRADE_STICKERS = 10;
+const MAX_PENDING_TRADES = 20;
+
+// Cuántas veces aparece cada código en una lista. Ofrecer dos copias de la misma
+// figurita es legítimo (son repetidas), así que la lista lleva el código repetido y
+// todo lo que valide contra el inventario tiene que mirar la cuenta, no la presencia.
+function countCodes(codes) {
+    const counts = {};
+    (codes || []).forEach((code) => {
+        counts[code] = (counts[code] || 0) + 1;
+    });
+    return counts;
+}
+
+// Normaliza lo que llega por la API a una lista de códigos usable, o tira el motivo
+// por el que no lo es. Devuelve la lista tal cual (con repetidas), no un set: la
+// cantidad es parte de la oferta.
+function normalizeTradeCodes(raw, max = MAX_TRADE_STICKERS) {
+    if (!Array.isArray(raw)) return { error: "Hay que elegir al menos una lámina." };
+    const codes = raw.map((c) => String(c || "").trim()).filter((c) => c.length > 0);
+    if (codes.length === 0) return { error: "Hay que elegir al menos una lámina." };
+    if (codes.length > max) return { error: `No se pueden intercambiar más de ${max} láminas por lado.` };
+    if (codes.some((c) => !/^\d{4}$/.test(c))) return { error: "Alguna de las láminas elegidas no es válida." };
+    return { codes };
+}
+
+// Códigos que el inventario `looseByCode` (código → copias sueltas) no alcanza a
+// cubrir, contando repetidas: ofrecer dos copias de la misma lámina exige 2 sueltas.
+// Devuelve los códigos que fallan para poder decir cuál, no solo que algo falló.
+function uncoveredCodes(codes, looseByCode) {
+    const need = countCodes(codes);
+    return Object.keys(need).filter((code) => (looseByCode[code] || 0) < need[code]);
+}
+
 module.exports = {
     PACK_SIZE, PACK_PRICE, FREE_PACKS_PER_DAY, BOUGHT_PACKS_PER_DAY, pickPack, stickerCode, looseCount,
     SLOT_CREST, SLOT_TEAM_PHOTO_LEFT, SLOT_TEAM_PHOTO_RIGHT, SLOT_DT, SLOT_CAPTAIN, FIRST_PLAYER_SLOT,
     CATEGORY_VALUES,
+    MAX_TRADE_STICKERS, MAX_PENDING_TRADES, countCodes, normalizeTradeCodes, uncoveredCodes,
 };
