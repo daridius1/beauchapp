@@ -80,25 +80,34 @@ const GRID_CARD_ASPECT = 0.72;
 const GRID_GAP = 10;
 // Columnas fijas de la grilla (3 de ancho x 2 de alto = CARDS_PER_PAGE).
 const GRID_COLUMNS = 3;
+// Ancho útil de una página de álbum en un teléfono normal. El banner de equipo se
+// dibujó originalmente para esta escala; usarlo como referencia hace que no quede
+// desproporcionadamente pequeño en una página ancha ni demasiado pesado en una chica.
+const ALBUM_CONTENT_REFERENCE_WIDTH = 343;
+
+// Todas las medidas propias de una lámina salen de esta escala. La grilla, el sobre y
+// la previsualización pueden mostrar la misma lámina a tamaños distintos, pero no son
+// diseños distintos: al reducirse, borde, esquinas, badges, tipografía y separaciones
+// se reducen en la misma razón que el ancho. La lámina de previsualización es la
+// maqueta de referencia: es el tamaño grande cuyas proporciones se quieren conservar.
+function cardScaleFor(cardWidth: number): number {
+  return cardWidth / PREVIEW_CARD_WIDTH;
+}
+function scaleCardValue(cardWidth: number, value: number): number {
+  return value * cardScaleFor(cardWidth);
+}
 
 // Grosor del margen blanco alrededor del recorte/foto de cada lámina — el "cartón" de
 // una lámina de álbum real, que separa la imagen del borde recortado de la carta.
 // Antes era un número fijo (6px): en una lámina chica ese margen se volvía un borde
 // grueso en proporción. Un % fijo del ancho puro tampoco sirve: en una lámina GRANDE
 // (colWidth real en pantallas anchas suele superar bastante los ~98px de referencia) el
-// margen terminaba más grueso que el de siempre, que es justo lo que se pedía evitar —
-// "delgado" quiere decir nunca más grueso que el de referencia, no "6px cada vez más
-// grandes cuanto más grande la lámina". Por eso cardMarginFor tiene un TOPE en 6 (el
-// valor de siempre) además del piso (CARD_MARGIN_MIN): solo se achica para láminas más
-// chicas que la referencia, nunca crece más allá de eso.
-// Bajado de 2 a 1: en una lámina chica de verdad, 2px ya se sentía como un piso "que no
-// terminaba de achicarse" — 1 sigue siendo visible (el "cartón" no desaparece del todo)
-// pero se nota más delgado.
-const CARD_MARGIN_MIN = 1;
-const CARD_MARGIN_MAX = 6;
-const CARD_MARGIN_RATIO = CARD_MARGIN_MAX / CARD_WIDTH;
+// margen terminaba más grueso que el de siempre. Ya no hay pisos ni topes en píxeles:
+// ambos deformaban la lámina chica. El borde conserva exactamente la proporción de la
+// maqueta grande, incluida cuando el álbum se ve en una pantalla baja.
+const CARD_MARGIN = 6;
 function cardMarginFor(cardWidth: number): number {
-  return Math.max(CARD_MARGIN_MIN, Math.min(CARD_MARGIN_MAX, Math.round(cardWidth * CARD_MARGIN_RATIO)));
+  return scaleCardValue(cardWidth, CARD_MARGIN);
 }
 
 // paddingHorizontal de los rectángulos de nombre (cardTopNameRect/cardBottomNameRect)
@@ -108,7 +117,7 @@ const NAME_CHIP_PADDING_H = 8;
 // paddingVertical de esos mismos rectángulos — misma razón que la de arriba: hace
 // falta en JS para saber cuánto ALTO le queda al texto (ver fitFontSizeToRow). Antes
 // era un número fijo (6, subido de 4 porque con 4 el texto de 2 líneas quedaba pegado
-// al borde de arriba/abajo) que asumía el también-fijo CARD_EDGE_ROW_HEIGHT=40 de
+// al borde de arriba/abajo) que asumía una fila de borde fija de 40 px en
 // entonces — ahora que ese alto escala con la lámina (cardEdgeRowHeightFor), un padding
 // fijo de 6 en una fila ya chica de por sí (ver su comentario) le dejaba cada vez menos
 // aire relativo al texto, así que ROW_NAME_PADDING_RATIO lo calcula proporcional al
@@ -140,7 +149,7 @@ const NAME_CHIP_LETTER_SPACING = 0.2;
 // — y usa el mismo fitFontSizeToRow para agrandarla al máximo que entre en 2 líneas
 // (nombres cortos quedan grandes) o achicarla hasta NAME_CHIP_MIN_FONT_SIZE si hace
 // falta (nombres largos, siempre sin recortar). Probado en 20 primero (quedaba un
-// escudo enorme, ver CARD_EDGE_ROW_HEIGHT) y en 14 después (quedaba chico); 17 es el
+// escudo enorme) y en 14 después (quedaba chico); 17 es el
 // punto medio entre esos dos.
 const TEAM_NAME_BAR_MAX_FONT_SIZE = 17;
 // El nombre de equipo de la lámina de ESCUDO (CrestTeamName) flota solo, de punta a
@@ -172,53 +181,26 @@ const CREST_TEAM_NAME_AVAILABLE_HEIGHT = CREST_FRAME_TOP - CREST_TEAM_NAME_TOP -
 // (ver comentario de arriba) el interlineado real de Oswald-Bold en 2 líneas resultó
 // más alto que la aproximación estándar.
 const CREST_TEAM_NAME_LINE_HEIGHT_RATIO = 1.3;
-// Alto de las 2 filas pegadas a los bordes de una lámina de jugador/DT — arriba
-// (TeamTopRow: escudo — nombre del equipo) y abajo (PlayerBottomRow: nombre del
-// jugador — posición/DT), ambas con el mismo alto por simetría. Escudo/nombre/posición
-// miden siempre esto, sin importar cuántas líneas termine usando el texto de al lado —
-// esa parte sigue "fija" a propósito: se probó derivarlo del fontSize elegido (más alto
-// con 2 líneas), pero el ancho de una lámina en la grilla puede ser bastante angosto —
-// un cuadrado así de "ancho como su alto" le comía casi todo el ancho a la lámina y no
-// dejaba nada para el rectángulo de al lado. Lo que sí dejó de ser fijo es el NÚMERO:
-// antes era un px fijo (40) para toda lámina sea cual sea su tamaño — se veía bien en el
-// tamaño de referencia, pero como el ancho real de columna cambia con la pantalla
-// (colWidth en TeamAlbumPage), en una lámina chica ese mismo alto se comía más de un
-// cuarto de la carta entera y en una grande quedaba chico. Ahora es una fracción (1/8)
-// del alto REAL de la carta (cardEdgeRowHeightFor), así el cuadrado se sigue achicando
-// junto con la lámina en vez de "aplanarse" en un piso alto apenas la pantalla es un
-// poco angosta — el piso (CARD_EDGE_ROW_HEIGHT_MIN) solo evita que el cuadrado quede
-// MÁS BAJO que el texto mínimo que tiene que mostrar (rowNamePaddingFor ya escala
-// también, ver su comentario): con el padding proporcional (30% del alto de la fila
-// entre los 2 lados), el mínimo en el que un nombre de 1 línea todavía entra al fontSize
-// mínimo (NAME_CHIP_MIN_FONT_SIZE) sin desbordar es
-// 8 × ROW_TEXT_LINE_HEIGHT_RATIO / (0.7 × 0.9) ≈ 21.6 — 22 redondeando para arriba.
+// Alto de las dos filas pegadas a los bordes de una lámina de jugador/DT. La maqueta
+// de referencia usa un octavo del alto; desde ahí se escala con la misma razón que el
+// resto de la lámina. No tiene piso: un mínimo fijo haría que el badge y los
+// rectángulos de nombre recuperaran grosor relativo en una lámina chica.
 const CARD_EDGE_ROW_RATIO = 1 / 8;
-const CARD_EDGE_ROW_HEIGHT_MIN = 22;
 function cardEdgeRowHeightFor(cardHeight: number): number {
-  return Math.max(CARD_EDGE_ROW_HEIGHT_MIN, cardHeight * CARD_EDGE_ROW_RATIO);
+  return cardHeight * CARD_EDGE_ROW_RATIO;
 }
 // El cuadrado de posición/DT (cardBottomSquare), el de escudo (cardTopSquare) y el de
 // categoría (PhotoPairCornerBadge) miden edgeRowHeight × edgeRowHeight — un cuadrado
-// perfecto que escala con la lámina. Pero el padding interno (3, fijo) y el fontSize del
-// texto que llevan adentro (cardBadgeText: posición, DT, MAS/FEM/MIX) NO escalaban con
-// ese cuadrado — a valores chicos de edgeRowHeight, un padding de 3 y una letra de 12
-// (ambos pensados para el cuadrado de 40 de siempre) ya no entraban: el texto se veía
-// más grande que su propio cuadrado. cardBadgePaddingFor/cardBadgeFontSizeFor son la
-// misma idea que cardMarginFor: un tope en el valor de siempre (nunca más grande) y
-// una escala proporcional a edgeRowHeight por debajo de eso.
-const CARD_BADGE_PADDING_MAX = 3;
-const CARD_BADGE_PADDING_RATIO = CARD_BADGE_PADDING_MAX / 40;
-function cardBadgePaddingFor(edgeRowHeight: number): number {
-  return Math.min(CARD_BADGE_PADDING_MAX, edgeRowHeight * CARD_BADGE_PADDING_RATIO);
+// perfecto que escala con la lámina. Su padding y su texto salen de la misma escala:
+// dejarlos en píxeles fijos era lo que hacía que se vieran gruesos cuando el álbum se
+// achicaba.
+const CARD_BADGE_PADDING = 3;
+function cardBadgePaddingFor(cardWidth: number): number {
+  return scaleCardValue(cardWidth, CARD_BADGE_PADDING);
 }
-const CARD_BADGE_FONT_MAX = 12;
-const CARD_BADGE_FONT_RATIO = CARD_BADGE_FONT_MAX / 40;
-// El piso (ABSOLUTE_MIN_FONT_SIZE) se define más abajo en el archivo (junto al resto de
-// las constantes de ajuste de texto) — se referencia acá adentro de la función, no en
-// una constante de módulo, para no depender del orden de declaración entre los 2
-// bloques.
-function cardBadgeFontSizeFor(edgeRowHeight: number): number {
-  return Math.max(ABSOLUTE_MIN_FONT_SIZE, Math.min(CARD_BADGE_FONT_MAX, edgeRowHeight * CARD_BADGE_FONT_RATIO));
+const CARD_BADGE_FONT_SIZE = 12;
+function cardBadgeFontSizeFor(cardWidth: number): number {
+  return scaleCardValue(cardWidth, CARD_BADGE_FONT_SIZE);
 }
 // Alto real de un bloque de 2 líneas de cardTopNameText/cardBottomNameText, medido con
 // getBoundingClientRect en la lámina real (no una aproximación de manual) — nunca fue
@@ -279,11 +261,10 @@ function measureRawTextWidth(text: string, fontSize: number): number {
   return _measureCanvasCtx.measureText(text).width;
 }
 
-function measureTextAtSize(text: string, fontSize: number): number {
-  // letterSpacing no es parte de la métrica de measureText, y no se escala junto al
-  // fontSize (nameChipText tampoco lo hace) — se suma fijo, a mano (N-1 espacios
-  // entre N caracteres).
-  return measureRawTextWidth(text, fontSize) + NAME_CHIP_LETTER_SPACING * Math.max(0, text.length - 1);
+function measureTextAtSize(text: string, fontSize: number, letterSpacing = NAME_CHIP_LETTER_SPACING): number {
+  // letterSpacing no es parte de la métrica de measureText. Se suma a mano (N-1
+  // espacios entre N caracteres), con la escala que recibe el Text real.
+  return measureRawTextWidth(text, fontSize) + letterSpacing * Math.max(0, text.length - 1);
 }
 
 // Margen de seguridad sobre TODO ancho usado para decidir wrap (countWrappedLines,
@@ -352,13 +333,13 @@ function heightBoundFontSize(availableHeight: number, lineHeightRatio: number): 
 // `safeWidth` (TEXT_WRAP_SAFETY_RATIO), no `availableWidth` a secas — ver su
 // comentario: el canvas puede decir "entra" un par de píxeles antes de que entre de
 // verdad.
-function countWrappedLines(words: string[], availableWidth: number, fontSize: number): number {
+function countWrappedLines(words: string[], availableWidth: number, fontSize: number, letterSpacing: number): number {
   const safeWidth = availableWidth * TEXT_WRAP_SAFETY_RATIO;
-  const spaceWidth = measureTextAtSize(' ', fontSize);
+  const spaceWidth = measureTextAtSize(' ', fontSize, letterSpacing);
   let lines = 1;
   let currentWidth = 0;
   for (const word of words) {
-    const wordWidth = measureTextAtSize(word, fontSize);
+    const wordWidth = measureTextAtSize(word, fontSize, letterSpacing);
     if (wordWidth > safeWidth) return Infinity;
     const nextWidth = currentWidth === 0 ? wordWidth : currentWidth + spaceWidth + wordWidth;
     if (nextWidth > safeWidth && currentWidth > 0) {
@@ -377,13 +358,16 @@ function countWrappedLines(words: string[], availableWidth: number, fontSize: nu
 // lo que cabe verticalmente y pisa el escudo, aunque de ancho cada línea entre
 // perfecto. Mismo chequeo de alto que fitFontSizeToRow (ver más abajo), pero con el
 // alto disponible calculado distinto (acá no es una fila de alto fijo).
-function fitCrestTeamNameFontSize(words: string[], availableWidth: number): number {
-  for (let fontSize = CREST_TEAM_NAME_MAX_FONT_SIZE; fontSize > NAME_CHIP_MIN_FONT_SIZE; fontSize -= 1) {
-    const lines = countWrappedLines(words, availableWidth, fontSize);
+function fitCrestTeamNameFontSize(words: string[], availableWidth: number, scale: number): number {
+  const maxFontSize = CREST_TEAM_NAME_MAX_FONT_SIZE * scale;
+  const minFontSize = NAME_CHIP_MIN_FONT_SIZE * scale;
+  const availableHeight = CREST_TEAM_NAME_AVAILABLE_HEIGHT * scale;
+  for (let fontSize = maxFontSize; fontSize > minFontSize; fontSize -= scale) {
+    const lines = countWrappedLines(words, availableWidth, fontSize, NAME_CHIP_LETTER_SPACING * scale);
     if (lines > NAME_CHIP_MAX_LINES) continue;
-    if (lines * fontSize * CREST_TEAM_NAME_LINE_HEIGHT_RATIO <= CREST_TEAM_NAME_AVAILABLE_HEIGHT * TEXT_HEIGHT_SAFETY_RATIO) return fontSize;
+    if (lines * fontSize * CREST_TEAM_NAME_LINE_HEIGHT_RATIO <= availableHeight * TEXT_HEIGHT_SAFETY_RATIO) return fontSize;
   }
-  return Math.max(ABSOLUTE_MIN_FONT_SIZE, Math.min(NAME_CHIP_MIN_FONT_SIZE, heightBoundFontSize(CREST_TEAM_NAME_AVAILABLE_HEIGHT, CREST_TEAM_NAME_LINE_HEIGHT_RATIO)));
+  return Math.max(ABSOLUTE_MIN_FONT_SIZE * scale, Math.min(minFontSize, heightBoundFontSize(availableHeight, CREST_TEAM_NAME_LINE_HEIGHT_RATIO)));
 }
 
 // Tamaño de letra para TeamTopRow/PlayerBottomRow: esas 2 filas tienen un alto fijo
@@ -392,13 +376,14 @@ function fitCrestTeamNameFontSize(words: string[], availableWidth: number): numb
 // en `availableHeight`?), no solo el de ancho. Sin esto, un nombre de equipo corto que
 // mide bien de ANCHO a letra grande podía terminar más alto que la fila y desbordar el
 // rectángulo negro, aunque ninguna línea se recortara.
-function fitFontSizeToRow(words: string[], availableWidth: number, availableHeight: number, maxFontSize: number): number {
-  for (let fontSize = maxFontSize; fontSize > NAME_CHIP_MIN_FONT_SIZE; fontSize -= 1) {
-    const lines = countWrappedLines(words, availableWidth, fontSize);
+function fitFontSizeToRow(words: string[], availableWidth: number, availableHeight: number, maxFontSize: number, scale: number): number {
+  const minFontSize = NAME_CHIP_MIN_FONT_SIZE * scale;
+  for (let fontSize = maxFontSize * scale; fontSize > minFontSize; fontSize -= scale) {
+    const lines = countWrappedLines(words, availableWidth, fontSize, NAME_CHIP_LETTER_SPACING * scale);
     if (lines > NAME_CHIP_MAX_LINES) continue;
     if (lines * fontSize * ROW_TEXT_LINE_HEIGHT_RATIO <= availableHeight * TEXT_HEIGHT_SAFETY_RATIO) return fontSize;
   }
-  return Math.max(ABSOLUTE_MIN_FONT_SIZE, Math.min(NAME_CHIP_MIN_FONT_SIZE, heightBoundFontSize(availableHeight, ROW_TEXT_LINE_HEIGHT_RATIO)));
+  return Math.max(ABSOLUTE_MIN_FONT_SIZE * scale, Math.min(minFontSize, heightBoundFontSize(availableHeight, ROW_TEXT_LINE_HEIGHT_RATIO)));
 }
 
 // Miniatura de DT/jugador — "300x300" es el thumb más grande ya declarado en
@@ -695,9 +680,10 @@ type StickerStatus = 'glued' | 'unowned' | 'pegable';
 // verdad-armband no se leería mejor que el color + la letra, que es como de verdad se
 // identifica a un capitán en una camiseta.
 function CaptainArmband({ edgeRowHeight }: { edgeRowHeight: number }) {
+  const scale = edgeRowHeight / (PREVIEW_CARD_HEIGHT * CARD_EDGE_ROW_RATIO);
   return (
-    <View style={styles.captainArmband}>
-      <Text style={[styles.captainArmbandText, { fontSize: cardBadgeFontSizeFor(edgeRowHeight) }]}>C</Text>
+    <View style={[styles.captainArmband, { borderRadius: 3 * scale, borderWidth: scale }]}>
+      <Text style={[styles.captainArmbandText, { fontSize: CARD_BADGE_FONT_SIZE * scale }]}>C</Text>
     </View>
   );
 }
@@ -720,31 +706,32 @@ function PlayerBottomRow({
   // acá (sigue en team_players para quien la necesite).
   isCaptain?: boolean;
 }) {
+  const scale = cardScaleFor(cardWidth);
   const upper = name.toUpperCase();
   const words = upper.split(/\s+/).filter(Boolean);
   const boxWidth = photoPair ? photoPair.cropFullWidth : cardWidth;
-  const reserved = photoPair ? 0 : edgeRowHeight + BADGE_NAME_GAP;
-  const availableWidth = boxWidth - reserved - NAME_CHIP_PADDING_H * 2;
+  const reserved = photoPair ? 0 : edgeRowHeight + scaleCardValue(cardWidth, BADGE_NAME_GAP);
+  const availableWidth = boxWidth - reserved - scaleCardValue(cardWidth, NAME_CHIP_PADDING_H) * 2;
   const rowPaddingV = rowNamePaddingFor(edgeRowHeight);
   const availableHeight = edgeRowHeight - rowPaddingV * 2;
-  const fontSize = fitFontSizeToRow(words, availableWidth, availableHeight, NAME_CHIP_FONT_SIZE);
+  const fontSize = fitFontSizeToRow(words, availableWidth, availableHeight, NAME_CHIP_FONT_SIZE, scale);
   const rowStyle = [
     styles.cardBottomRow,
-    { height: edgeRowHeight },
+    { height: edgeRowHeight, gap: scaleCardValue(cardWidth, BADGE_NAME_GAP) },
     photoPair ? { left: -photoPair.cropOffset, right: undefined, width: photoPair.cropFullWidth } : null,
   ];
 
   return (
     <View style={rowStyle} pointerEvents="none">
-      <View style={[styles.cardBottomNameRect, { paddingVertical: rowPaddingV }]}>
-        <Text style={[styles.cardBottomNameText, { fontSize }]} numberOfLines={NAME_CHIP_MAX_LINES}>{upper}</Text>
+      <View style={[styles.cardBottomNameRect, { paddingVertical: rowPaddingV, paddingHorizontal: scaleCardValue(cardWidth, NAME_CHIP_PADDING_H), borderTopLeftRadius: scaleCardValue(cardWidth, 10), borderTopRightRadius: scaleCardValue(cardWidth, 10) }]}>
+        <Text style={[styles.cardBottomNameText, { fontSize, letterSpacing: scaleCardValue(cardWidth, NAME_CHIP_LETTER_SPACING) }]} numberOfLines={NAME_CHIP_MAX_LINES}>{upper}</Text>
       </View>
       {!photoPair && (
-        <View style={[styles.cardBottomSquare, { width: edgeRowHeight, padding: cardBadgePaddingFor(edgeRowHeight) }]}>
+        <View style={[styles.cardBottomSquare, { width: edgeRowHeight, padding: cardBadgePaddingFor(cardWidth), borderTopLeftRadius: scaleCardValue(cardWidth, 10), borderTopRightRadius: scaleCardValue(cardWidth, 10) }]}>
           {isCaptain ? (
             <CaptainArmband edgeRowHeight={edgeRowHeight} />
           ) : (
-            <Text style={[styles.cardBadgeText, { fontSize: cardBadgeFontSizeFor(edgeRowHeight) }]}>{badgeText || '-'}</Text>
+            <Text style={[styles.cardBadgeText, { fontSize: cardBadgeFontSizeFor(cardWidth) }]}>{badgeText || '-'}</Text>
           )}
         </View>
       )}
@@ -762,11 +749,11 @@ function PlayerBottomRow({
 function CrestTeamName({ name, cardWidth }: { name: string; cardWidth: number }) {
   const upper = name.toUpperCase();
   const words = upper.split(/\s+/).filter(Boolean);
-  const availableWidth = cardWidth - NAME_CHIP_WRAP_INSET * 2;
-  const fontSize = fitCrestTeamNameFontSize(words, availableWidth);
+  const availableWidth = cardWidth - scaleCardValue(cardWidth, NAME_CHIP_WRAP_INSET) * 2;
+  const fontSize = fitCrestTeamNameFontSize(words, availableWidth, cardScaleFor(cardWidth));
   return (
-    <View style={styles.crestTeamNameWrap} pointerEvents="none">
-      <Text style={[styles.crestTeamNameText, { fontSize }]} numberOfLines={NAME_CHIP_MAX_LINES}>{upper}</Text>
+    <View style={[styles.crestTeamNameWrap, { top: scaleCardValue(cardWidth, CREST_TEAM_NAME_TOP) }]} pointerEvents="none">
+      <Text style={[styles.crestTeamNameText, { fontSize, letterSpacing: scaleCardValue(cardWidth, NAME_CHIP_LETTER_SPACING + 0.3), textShadowOffset: { width: 0, height: scaleCardValue(cardWidth, 1) }, textShadowRadius: scaleCardValue(cardWidth, 3) }]} numberOfLines={NAME_CHIP_MAX_LINES}>{upper}</Text>
     </View>
   );
 }
@@ -789,22 +776,23 @@ function TeamTopRow({
   edgeRowHeight: number;
   crestUri?: string | null;
 }) {
+  const scale = cardScaleFor(cardWidth);
   const upper = name.toUpperCase();
   const words = upper.split(/\s+/).filter(Boolean);
-  const reserved = crestUri ? edgeRowHeight + BADGE_NAME_GAP : 0;
-  const availableWidth = cardWidth - reserved - NAME_CHIP_PADDING_H * 2;
+  const reserved = crestUri ? edgeRowHeight + scaleCardValue(cardWidth, BADGE_NAME_GAP) : 0;
+  const availableWidth = cardWidth - reserved - scaleCardValue(cardWidth, NAME_CHIP_PADDING_H) * 2;
   const rowPaddingV = rowNamePaddingFor(edgeRowHeight);
   const availableHeight = edgeRowHeight - rowPaddingV * 2;
-  const fontSize = fitFontSizeToRow(words, availableWidth, availableHeight, TEAM_NAME_BAR_MAX_FONT_SIZE);
+  const fontSize = fitFontSizeToRow(words, availableWidth, availableHeight, TEAM_NAME_BAR_MAX_FONT_SIZE, scale);
   return (
-    <View style={[styles.cardTopRow, { height: edgeRowHeight }]} pointerEvents="none">
+    <View style={[styles.cardTopRow, { height: edgeRowHeight, gap: scaleCardValue(cardWidth, BADGE_NAME_GAP) }]} pointerEvents="none">
       {!!crestUri && (
-        <View style={[styles.cardTopSquare, { width: edgeRowHeight, padding: cardBadgePaddingFor(edgeRowHeight) }]}>
+        <View style={[styles.cardTopSquare, { width: edgeRowHeight, padding: cardBadgePaddingFor(cardWidth), borderBottomLeftRadius: scaleCardValue(cardWidth, 10), borderBottomRightRadius: scaleCardValue(cardWidth, 10) }]}>
           <Image source={{ uri: crestUri }} style={styles.cardCrestBadgeImage} resizeMode="contain" />
         </View>
       )}
-      <View style={[styles.cardTopNameRect, { paddingVertical: rowPaddingV }]}>
-        <Text style={[styles.cardTopNameText, { fontSize }]} numberOfLines={NAME_CHIP_MAX_LINES}>{upper}</Text>
+      <View style={[styles.cardTopNameRect, { paddingVertical: rowPaddingV, paddingHorizontal: scaleCardValue(cardWidth, NAME_CHIP_PADDING_H), borderBottomLeftRadius: scaleCardValue(cardWidth, 10), borderBottomRightRadius: scaleCardValue(cardWidth, 10) }]}>
+        <Text style={[styles.cardTopNameText, { fontSize, letterSpacing: scaleCardValue(cardWidth, NAME_CHIP_LETTER_SPACING) }]} numberOfLines={NAME_CHIP_MAX_LINES}>{upper}</Text>
       </View>
     </View>
   );
@@ -824,11 +812,13 @@ function TeamTopRow({
 // criterio que el cuadrado de posición de PlayerBottomRow, que nunca desaparece).
 function PhotoPairCornerBadge({
   side,
+  cardWidth,
   edgeRowHeight,
   crestUri,
   categoryLabel,
 }: {
   side: 'left' | 'right';
+  cardWidth: number;
   edgeRowHeight: number;
   crestUri?: string | null;
   categoryLabel?: string;
@@ -838,7 +828,7 @@ function PhotoPairCornerBadge({
     <View
       style={[
         styles.cardTopSquare,
-        { width: edgeRowHeight, height: edgeRowHeight, padding: cardBadgePaddingFor(edgeRowHeight) },
+        { width: edgeRowHeight, height: edgeRowHeight, padding: cardBadgePaddingFor(cardWidth), borderBottomLeftRadius: scaleCardValue(cardWidth, 10), borderBottomRightRadius: scaleCardValue(cardWidth, 10) },
         side === 'left' ? styles.photoPairCornerLeft : styles.photoPairCornerRight,
       ]}
       pointerEvents="none"
@@ -846,7 +836,7 @@ function PhotoPairCornerBadge({
       {side === 'left' ? (
         <Image source={{ uri: crestUri! }} style={styles.cardCrestBadgeImage} resizeMode="contain" />
       ) : (
-        <Text style={[styles.cardBadgeText, { fontSize: cardBadgeFontSizeFor(edgeRowHeight) }]}>{categoryLabel || '-'}</Text>
+        <Text style={[styles.cardBadgeText, { fontSize: cardBadgeFontSizeFor(cardWidth) }]}>{categoryLabel || '-'}</Text>
       )}
     </View>
   );
@@ -921,14 +911,13 @@ function StickerCard({
 }) {
   const sizeStyle = style || { width: CARD_WIDTH, height: CARD_HEIGHT };
   // TeamTopRow/PlayerBottomRow necesitan el ancho en un número, no en un StyleProp —
-  // todos los llamadores reales pasan un objeto plano con `width` numérico (ver el
-  // comentario de abajo), pero por las dudas cae a CARD_WIDTH si alguna vez no es así.
-  const cardWidthNum = typeof (sizeStyle as ViewStyle)?.width === 'number' ? ((sizeStyle as ViewStyle).width as number) : CARD_WIDTH;
-  // Mismo criterio que cardWidthNum, pero de alto — de acá sale el alto REAL de los
-  // cuadrados/rectángulos de borde (ver cardEdgeRowHeightFor) para que escalen con el
-  // tamaño real de la lámina en vez de un px fijo (ver su comentario).
-  const cardHeightNum = typeof (sizeStyle as ViewStyle)?.height === 'number' ? ((sizeStyle as ViewStyle).height as number) : CARD_HEIGHT;
+  // los modales usan estilos registrados por StyleSheet y la grilla objetos planos;
+  // flatten los deja en la misma forma antes de medirlos. Sin esto, el tamaño grande
+  // del modal caía silenciosamente al fallback y no compartía la escala de la grilla.
+  const resolvedSizeStyle = (StyleSheet.flatten(sizeStyle) || {}) as ViewStyle;
+  const cardWidthNum = typeof resolvedSizeStyle.width === 'number' ? resolvedSizeStyle.width : CARD_WIDTH;
   const cardMargin = cardMarginFor(cardWidthNum);
+  const cardHeightNum = typeof resolvedSizeStyle.height === 'number' ? resolvedSizeStyle.height : CARD_HEIGHT;
   const edgeRowHeight = cardEdgeRowHeightFor(cardHeightNum);
   // El padding del "cartón" blanco se calcula ACÁ, en un solo objeto, y no se reparte
   // entre este valor dinámico y las clases estáticas cardUnowned/cardCrestGlued/
@@ -962,7 +951,11 @@ function StickerCard({
   // terminaría con un tamaño distinto al de sus hermanas — por eso los 3 estados
   // comparten exactamente la misma cadena de wrappers.
   return (
-    <View style={[styles.cardShadowWrap, sizeStyle]}>
+    <View style={[styles.cardShadowWrap, sizeStyle, {
+      shadowOffset: { width: 0, height: scaleCardValue(cardWidthNum, 3) },
+      shadowRadius: scaleCardValue(cardWidthNum, 4),
+      elevation: scaleCardValue(cardWidthNum, 4),
+    }]}>
       {/* TouchableOpacity siempre (nunca un View condicional): `disabled` sin
           `onPreview` la deja pasar el toque de largo, como si fuera un View — así una
           StickerCard glued SIN onPreview (el sobre de "Tu sobre", que ya trae su
@@ -981,8 +974,8 @@ function StickerCard({
       >
         <View style={styles.cardInner}>
           {status === 'unowned' ? (
-            <View style={styles.cardEmpty}>
-              <Text style={styles.cardNameEmpty} numberOfLines={1}>{code}</Text>
+            <View style={[styles.cardEmpty, { gap: scaleCardValue(cardWidthNum, 6) }]}>
+              <Text style={[styles.cardNameEmpty, { fontSize: scaleCardValue(cardWidthNum, 15) }]} numberOfLines={1}>{code}</Text>
             </View>
           ) : status === 'pegable' ? (
             // La tienes suelta, pero acá se ve igual que el hueco vacío (cardEmpty) en
@@ -992,18 +985,18 @@ function StickerCard({
             // que distingue esto de un hueco realmente vacío: "esta sí la tienes, toca
             // para pegarla" — un solo toque en cualquier parte de la lámina, sin el
             // botón "Pegar" aparte de antes.
-            <TouchableOpacity activeOpacity={0.75} onPress={onPegar} style={styles.cardEmpty}>
+            <TouchableOpacity activeOpacity={0.75} onPress={onPegar} style={[styles.cardEmpty, { gap: scaleCardValue(cardWidthNum, 6) }]}>
               {!!pegablePulse && (
                 <Animated.View
                   pointerEvents="none"
                   style={[
                     styles.cardPegableGlow,
-                    { opacity: pegablePulse.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.85] }) },
+                    { opacity: pegablePulse.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.85] }), borderWidth: scaleCardValue(cardWidthNum, 2) },
                   ]}
                 />
               )}
-              <Feather name="plus-circle" size={26} color={theme.colors.primary} />
-              <Text style={styles.cardNameEmpty} numberOfLines={1}>{code}</Text>
+              <Feather name="plus-circle" size={scaleCardValue(cardWidthNum, 26)} color={theme.colors.primary} />
+              <Text style={[styles.cardNameEmpty, { fontSize: scaleCardValue(cardWidthNum, 15) }]} numberOfLines={1}>{code}</Text>
             </TouchableOpacity>
           ) : (
             <>
@@ -1071,8 +1064,8 @@ function StickerCard({
                 // arriba/abajo, en vez de la foto rellenando el marco entero.
                 if (placeholderIcon === 'user' || placeholderIcon === 'clipboard') {
                   return (
-                    <View style={styles.personPhotoFrame}>
-                      <View style={styles.personPhotoInner}>{image}</View>
+                    <View style={[styles.personPhotoFrame, { top: scaleCardValue(cardWidthNum, 10), left: scaleCardValue(cardWidthNum, 10), right: scaleCardValue(cardWidthNum, 10), bottom: scaleCardValue(cardWidthNum, 10) }]}>
+                      <View style={[styles.personPhotoInner, { borderRadius: scaleCardValue(cardWidthNum, 24) }]}>{image}</View>
                     </View>
                   );
                 }
@@ -1081,7 +1074,7 @@ function StickerCard({
                 // lámina, y sin este margen el arte del escudo podía llegar hasta el
                 // borde y cruzarse con el chip.
                 if (placeholderIcon === 'shield') {
-                  return <View style={styles.crestFrame}>{image}</View>;
+                  return <View style={[styles.crestFrame, { top: scaleCardValue(cardWidthNum, CREST_FRAME_TOP), left: scaleCardValue(cardWidthNum, 10), right: scaleCardValue(cardWidthNum, 10), bottom: scaleCardValue(cardWidthNum, 10) }]}>{image}</View>;
                 }
                 return image;
               })()}
@@ -1100,7 +1093,7 @@ function StickerCard({
                   cuadrados de esquina (escudo/categoría) van acá, uno por mitad, ver
                   PhotoPairCornerBadge. */}
               {!!photoPair && (
-                <PhotoPairCornerBadge side={photoPair.side} edgeRowHeight={edgeRowHeight} crestUri={teamCrestUri} categoryLabel={categoryLabel} />
+                <PhotoPairCornerBadge side={photoPair.side} cardWidth={cardWidthNum} edgeRowHeight={edgeRowHeight} crestUri={teamCrestUri} categoryLabel={categoryLabel} />
               )}
 
               {/* La fila de abajo se salta solo si hideBottomChip lo pide (el escudo,
@@ -1521,6 +1514,10 @@ function TeamAlbumPage({
   const [gridWidth, setGridWidth] = useState(0);
   const colWidth = gridWidth > 0 ? (gridWidth - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS : 0;
   const rowHeight = colWidth > 0 ? colWidth / GRID_CARD_ASPECT : 0;
+  // El banner pertenece a la página, no a una lámina individual. Se escala con el
+  // ancho útil que comparte con la grilla para conservar su jerarquía visual respecto
+  // del álbum completo.
+  const albumContentScale = gridWidth > 0 ? gridWidth / ALBUM_CONTENT_REFERENCE_WIDTH : 1;
 
   // Las 2 mitades del plantel miden EXACTAMENTE lo mismo que cualquier otra lámina
   // (colWidth) — nada se agranda. Lo que cambia es que se DESPLAZAN al centro para
@@ -1560,17 +1557,23 @@ function TeamAlbumPage({
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} colors={[theme.colors.primary]} />}
       >
-        <View style={[styles.teamHeader, { backgroundColor: color.value }]}>
-          <TeamCrest team={crestData} size={64} />
+        <View style={[styles.teamHeader, {
+          backgroundColor: color.value,
+          gap: 10 * albumContentScale,
+          borderRadius: 8 * albumContentScale,
+          padding: theme.spacing.sm * albumContentScale,
+          marginBottom: theme.spacing.md * albumContentScale,
+        }]}>
+          <TeamCrest team={crestData} size={64 * albumContentScale} />
           <View style={{ flex: 1 }}>
             {/* Sin numberOfLines a propósito (ver el mismo chip en StickerCard): el
                 nombre del equipo no se recorta nunca, pasa a una 2da línea si hace
                 falta. */}
-            <Text style={[styles.teamHeaderName, { color: color.textOn }]}>{t.team.name.toUpperCase()}</Text>
+            <Text style={[styles.teamHeaderName, { color: color.textOn, fontSize: 22 * albumContentScale }]}>{t.team.name.toUpperCase()}</Text>
           </View>
         </View>
 
-        <View style={styles.fixedGrid} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
+        <View style={[styles.fixedGrid, { marginTop: theme.spacing.md * albumContentScale }]} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
           {colWidth > 0 && (() => {
             // Las 2 mitades del plantel se envuelven juntas en un solo hijo de la
             // grilla, del mismo ancho total que ocuparían 2 láminas + 1 gap de siempre
@@ -1578,13 +1581,22 @@ function TeamAlbumPage({
             // gap propio y centradas: se tocan en el medio y el espacio que dejan de
             // usar ahí se reparte como espacio vacío a los 2 lados del par, no como
             // láminas más anchas (las 2 miden colWidth, igual que cualquier otra).
-            const elements: React.ReactNode[] = [];
+            const rows: React.ReactNode[][] = [[]];
+            let occupiedColumns = 0;
+            const addToRow = (element: React.ReactNode, columns: number) => {
+              if (occupiedColumns + columns > GRID_COLUMNS) {
+                rows.push([]);
+                occupiedColumns = 0;
+              }
+              rows[rows.length - 1].push(element);
+              occupiedColumns += columns;
+            };
             let i = 0;
             while (i < cards.length) {
               const slot = cards[i];
               const next = cards[i + 1];
               if (slot.photoPairSide === 'left' && next?.photoPairSide === 'right') {
-                elements.push(
+                addToRow(
                   <View key={i} style={{ flexDirection: 'row', justifyContent: 'center', width: colWidth * 2 + GRID_GAP }}>
                     <StickerCard
                       uid={`${t.team.id}-${i}`}
@@ -1605,11 +1617,13 @@ function TeamAlbumPage({
                       style={{ width: colWidth, height: rowHeight }}
                     />
                   </View>
+                  ,
+                  2
                 );
                 i += 2;
                 continue;
               }
-              elements.push(
+              addToRow(
                 <StickerCard
                   key={i}
                   uid={`${t.team.id}-${i}`}
@@ -1618,11 +1632,14 @@ function TeamAlbumPage({
                   onPreview={slot.status === 'glued' ? () => onPreview(slotToPreview(slot)) : undefined}
                   pegablePulse={pegablePulse}
                   style={{ width: colWidth, height: rowHeight }}
-                />
+                />,
+                1
               );
               i++;
             }
-            return elements;
+            return rows.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.fixedGridRow}>{row}</View>
+            ));
           })()}
         </View>
       </ScrollView>
@@ -2469,18 +2486,11 @@ export const LeagueAlbumScreen: React.FC<Props> = ({ route }) => {
   const [preview, setPreview] = useState<PreviewSticker | null>(null);
 
   const [pageWidth, setPageWidth] = useState(0);
-  // Espacio total disponible para el libro + el botón "Mis láminas" de abajo (mide un
-  // wrapper que envuelve a ambos) y el alto real de ese botón (mide el botón mismo,
-  // con su propio texto/ícono) — de acá sale `pageSide`, el lado de la página fija 4:5
-  // que entra sin recortarse ni empujar nada hacia arriba, sea cual sea el alto de la
-  // ventana/dispositivo.
-  const [albumBodySize, setAlbumBodySize] = useState({ width: 0, height: 0 });
-  const [shortcutBtnHeight, setShortcutBtnHeight] = useState(0);
-  // Igual que shortcutBtnHeight: el alto real de la barra Anterior/Siguiente/página
-  // (pageNavBar), para descontarlo también del espacio disponible para el libro (ver
-  // pageSide más abajo) — si no, la barra empuja el libro fuera de la pantalla en vez
-  // de quedar siempre visible debajo.
-  const [navBarHeight, setNavBarHeight] = useState(0);
+  // La página se dimensiona solamente con el ancho disponible. Antes el alto de la
+  // ventana también podía encogerla: en equipos bajos las tres láminas se reducían
+  // innecesariamente y sus detalles dejaban de verse proporcionados. Si el libro no
+  // cabe verticalmente, el contenedor exterior se desplaza; la página no se deforma.
+  const [albumBodyWidth, setAlbumBodyWidth] = useState(0);
   const [pageJumpOpen, setPageJumpOpen] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
   // La página a la que se está pasando: mientras no sea null hay una transición en
@@ -2838,19 +2848,9 @@ export const LeagueAlbumScreen: React.FC<Props> = ({ route }) => {
   const hasTeams = data.teams.length > 0;
   const palette = getAlbumPalette(data.album.palette);
 
-  // Lado de la página (width === height/1.25, proporción 4:5): el menor entre "todo el
-  // ancho disponible" y "todo el alto disponible dividido en la misma proporción" — así
-  // nunca se recorta ni empuja el botón de abajo fuera de la pantalla, sea la ventana
-  // angosta y alta (manda el ancho) o ancha y baja (manda el alto). Antes de medir nada
-  // (primer render) se usa el ancho crudo como respaldo, vía aspectRatio en el estilo.
-  const SHORTCUT_BTN_MARGIN = theme.spacing.sm + theme.spacing.md; // marginTop + marginBottom de laminasShortcutBtn
-  const NAV_BAR_MARGIN = theme.spacing.sm; // marginTop de pageNavBar
-  const availableForPage = shortcutBtnHeight > 0
-    ? albumBodySize.height - shortcutBtnHeight - SHORTCUT_BTN_MARGIN - navBarHeight - NAV_BAR_MARGIN
-    : albumBodySize.height;
-  const pageSide = albumBodySize.width > 0 && availableForPage > 0
-    ? Math.min(albumBodySize.width, availableForPage * (4 / 5))
-    : 0;
+  // Lado de la página (width === height/1.25, proporción 4:5): todo el ancho del
+  // contenedor. El alto nunca participa de este cálculo.
+  const pageSide = albumBodyWidth;
 
   const renderPageAt = (idx: number) => {
     const p = albumPages[idx];
@@ -2889,9 +2889,11 @@ export const LeagueAlbumScreen: React.FC<Props> = ({ route }) => {
           onCancelTrade={handleCancelTrade}
         />
       ) : (
-        <View
+        <ScrollView
           style={styles.albumBodyWrap}
-          onLayout={(e) => setAlbumBodySize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+          contentContainerStyle={styles.albumBodyContent}
+          onLayout={(e) => setAlbumBodyWidth(e.nativeEvent.layout.width)}
+          showsVerticalScrollIndicator={false}
         >
           <View
             style={[styles.pagerWrap, pageSide > 0 && { width: pageSide, height: pageSide * (5 / 4) }]}
@@ -2955,7 +2957,6 @@ export const LeagueAlbumScreen: React.FC<Props> = ({ route }) => {
               pasar página por página para llegar a un equipo en particular es lento. */}
           <View
             style={[styles.pageNavBar, pageSide > 0 && { width: pageSide }]}
-            onLayout={(e) => setNavBarHeight(e.nativeEvent.layout.height)}
           >
             <TouchableOpacity
               style={styles.pageNavBtn}
@@ -2989,12 +2990,11 @@ export const LeagueAlbumScreen: React.FC<Props> = ({ route }) => {
           <TouchableOpacity
             style={[styles.laminasShortcutBtn, pageSide > 0 && { width: pageSide }]}
             onPress={() => setView('laminas')}
-            onLayout={(e) => setShortcutBtnHeight(e.nativeEvent.layout.height)}
           >
             <Feather name="layers" size={16} color={theme.colors.background} />
             <Text style={styles.laminasShortcutBtnText}>Mis láminas</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       )}
 
       <StickerPickerModal
@@ -3241,15 +3241,11 @@ const styles = StyleSheet.create({
   // una carta rectangular que se saca de un mazo — un marco alrededor rompía esa
   // ilusión, se sentía como mirar el paginado a través de una ventana en vez de ver la
   // carta anterior deslizarse entera fuera de la pantalla.
-  // Contenedor que mide el espacio real disponible (ancho Y alto) para el libro + el
-  // botón de abajo — hace falta el alto además del ancho porque la proporción fija de
-  // la página (4:5, ver pagerWrap) tiene que caber sin recortarse ni empujar el header
-  // de la pantalla hacia arriba en ventanas bajas (ver cálculo de `pageSide` en el
-  // componente).
-  // `flex-start` (default) a propósito: el libro arranca pegado arriba, sin espacio
-  // vacío antes — si algo sobra (página angosta en una ventana muy alta) queda abajo,
-  // después del botón "Mis láminas", nunca antes del libro.
+  // Si una ventana es baja, este ScrollView deja que el libro conserve el ancho y se
+  // pueda recorrer hacia abajo. La versión anterior encogía la página para evitar
+  // scroll vertical, rompiendo la escala relativa de las láminas.
   albumBodyWrap: { flex: 1, width: '100%' },
+  albumBodyContent: { width: '100%' },
   // Proporción fija de página de álbum real (4 de ancho por 5 de alto). El tamaño
   // exacto (width/height en px) lo calcula el componente a partir de albumBodyWrap —
   // acá solo quedan valores de respaldo para el primer render, antes de medir nada.
@@ -3388,13 +3384,22 @@ const styles = StyleSheet.create({
   // ya es fija y proporcional, ver pageSide) — un tope acá desacoplaría una de la otra
   // en pantallas donde la página queda más ancha que ese tope.
   fixedGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: 'column',
     justifyContent: 'center',
     gap: GRID_GAP,
     width: '100%',
     alignSelf: 'center',
     marginTop: theme.spacing.md,
+  },
+  // Cada página se arma explícitamente en dos filas de tres columnas. Depender del
+  // wrap de flex para una grilla que debe ser rígida dejaba que los redondeos de px en
+  // algunos anchos mandaran una lámina a una tercera fila.
+  fixedGridRow: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    justifyContent: 'center',
+    gap: GRID_GAP,
+    width: '100%',
   },
 
   // Sombra en un wrapper aparte (nunca en la misma View que recorta con
