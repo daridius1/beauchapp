@@ -159,7 +159,11 @@ export const LeagueMatchTeamResultScreen: React.FC<Props> = ({ route, navigation
       });
       const result = await leagueService.submitTeamResult(matchId, events, notes);
       Toast.show({ type: 'success', text1: 'Resultado guardado', text2: `${result.scoreA} - ${result.scoreB}` });
-      navigation.goBack();
+      // La pantalla también se abre desde el deep link /partidos/:matchId/resultado.
+      // Ahí no necesariamente hay historial al cual volver, así que el resultado no
+      // debe dejar al equipo atrapado en este formulario ya enviado.
+      if (navigation.canGoBack()) navigation.goBack();
+      else navigation.replace('LeagueMatchDetail', { matchId });
     } catch (err: any) {
       console.error('Error guardando resultado como equipo árbitro:', err);
       Toast.show({ type: 'error', text1: 'No se pudo guardar', text2: err?.data?.error || err?.message || '' });

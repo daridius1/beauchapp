@@ -621,7 +621,7 @@ routerAdd("POST", "/api/public/match-result", (e) => {
 routerAdd("POST", "/api/league-matches/team-result", (e) => {
     try {
         const { isValidEvent, summarizeEvents } = require(`${__hooks}/lib/matchEvents.js`);
-        const { teamRefereeDecision } = require(`${__hooks}/lib/matchResult.js`);
+        const { teamRefereeDecision, appendRefereeTeamLog } = require(`${__hooks}/lib/matchResult.js`);
         const { isBettingClosed } = require(`${__hooks}/lib/polla.js`);
 
         const body = e.requestInfo().body || {};
@@ -677,14 +677,10 @@ routerAdd("POST", "/api/league-matches/team-result", (e) => {
             // amendedBy/amendedAt. .get() sobre JSON no devuelve el valor parseado
             // dentro de un hook de registro, hay que pasar por getString()+JSON.parse()
             // (mismo caveat que `events` en match_arbitration.pb.js).
-            let refereeTeamLog = [];
-            try {
-                refereeTeamLog = JSON.parse(report.getString("refereeTeamLog") || "[]");
-            } catch (pErr) {
-                refereeTeamLog = [];
-            }
-            refereeTeamLog.push({ team: e.auth.id, at: new Date().toISOString() });
-            report.set("refereeTeamLog", refereeTeamLog);
+            report.set(
+                "refereeTeamLog",
+                appendRefereeTeamLog(report.getString("refereeTeamLog"), e.auth.id, new Date().toISOString())
+            );
 
             txApp.save(report);
 

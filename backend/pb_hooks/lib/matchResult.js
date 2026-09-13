@@ -64,9 +64,26 @@ function teamRefereeDecision(match, teamId) {
     return { ok: true, error: "" };
 }
 
+// Los JSONField opcionales de PocketBase parten como `null` (no como "[]"). Al
+// agregar la primera entrada no basta con que JSON.parse no lance: JSON.parse("null")
+// devuelve null de forma válida, pero no admite push(). Esta función deja el historial
+// siempre como arreglo y conserva solo un valor previo que realmente lo sea.
+function appendRefereeTeamLog(rawLog, teamId, at) {
+    let log = [];
+    try {
+        const parsed = JSON.parse(rawLog || "[]");
+        if (Array.isArray(parsed)) log = parsed;
+    } catch (err) {
+        log = [];
+    }
+    log.push({ team: teamId, at });
+    return log;
+}
+
 module.exports = {
     TOKEN_LENGTH,
     TOKEN_TTL_DAYS,
     resultTokenDecision,
     teamRefereeDecision,
+    appendRefereeTeamLog,
 };

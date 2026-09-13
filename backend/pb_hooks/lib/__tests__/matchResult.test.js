@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { resultTokenDecision, teamRefereeDecision } = require("../matchResult.js");
+const { resultTokenDecision, teamRefereeDecision, appendRefereeTeamLog } = require("../matchResult.js");
 
 function futureIso(days) {
     return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
@@ -67,4 +67,22 @@ test("teamRefereeDecision: sin teamId se rechaza", () => {
 test("teamRefereeDecision: partido cancelado se rechaza aunque el equipo esté asignado", () => {
     const match = { refereeTeams: ["teamX"], status: "cancelled" };
     assert.equal(teamRefereeDecision(match, "teamX").ok, false);
+});
+
+test("appendRefereeTeamLog: un JSONField nuevo con null empieza un arreglo", () => {
+    assert.deepEqual(
+        appendRefereeTeamLog("null", "teamX", "2026-09-13T00:00:00.000Z"),
+        [{ team: "teamX", at: "2026-09-13T00:00:00.000Z" }]
+    );
+});
+
+test("appendRefereeTeamLog: conserva envíos previos y agrega el nuevo", () => {
+    const previous = JSON.stringify([{ team: "teamX", at: "2026-09-12T00:00:00.000Z" }]);
+    assert.deepEqual(
+        appendRefereeTeamLog(previous, "teamY", "2026-09-13T00:00:00.000Z"),
+        [
+            { team: "teamX", at: "2026-09-12T00:00:00.000Z" },
+            { team: "teamY", at: "2026-09-13T00:00:00.000Z" },
+        ]
+    );
 });
