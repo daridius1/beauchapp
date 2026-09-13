@@ -50,6 +50,7 @@ import { PeliculasScreen } from './src/screens/PeliculasScreen';
 import { VideojuegosScreen } from './src/screens/VideojuegosScreen';
 import { BooksScreen } from './src/screens/BooksScreen';
 import { AcademicoScreen } from './src/screens/AcademicoScreen';
+import { CampusMapScreen } from './src/screens/CampusMapScreen';
 import { DeportesScreen } from './src/screens/DeportesScreen';
 import { JuegosScreen } from './src/screens/JuegosScreen';
 import { ReviewsScreen } from './src/screens/ReviewsScreen';
@@ -307,6 +308,7 @@ function AppContent() {
       case 'Bands': return 'Bandas';
       case 'Comunidad': return 'Comunidad';
       case 'Academico': return 'Académico';
+      case 'CampusMap': return 'Mapa del Campus';
       case 'Deportes': return 'Deportes';
       case 'Juegos': return 'Juegos';
       case 'Settings': return 'Ajustes';
@@ -483,6 +485,7 @@ function AppContent() {
                 Libros: 'conoce-beauchef/libros',
                 Comunidad: 'comunidad',
                 Academico: 'academico',
+                CampusMap: 'academico/mapa',
                 Deportes: 'deportes',
                 Juegos: 'juegos',
                 PostDetail: 'posts/:postId',
@@ -603,6 +606,7 @@ function AppContent() {
                       <Stack.Screen name="Libros" component={BooksScreen} />
                       <Stack.Screen name="Comunidad" component={ComunidadScreen} />
                       <Stack.Screen name="Academico" component={AcademicoScreen} />
+                      <Stack.Screen name="CampusMap" component={CampusMapScreen} />
                       <Stack.Screen name="Deportes" component={DeportesScreen} />
                       <Stack.Screen name="Juegos" component={JuegosScreen} />
                       <Stack.Screen name="Students" component={ProfilesListScreen} />

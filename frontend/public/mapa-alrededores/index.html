@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Alrededores de Beauchef</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
+<style>
+  html, body, #map { height: 100%; margin: 0; padding: 0; background: #14171f; }
+  .maplibregl-ctrl-attrib { font-size: 9px; background: rgba(10,10,10,0.7) !important; color: #999 !important; }
+  .maplibregl-ctrl-attrib a { color: #ccc !important; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
+<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+<script>
+  // Página estática (no depende de props): igual espíritu que el HTML de Leaflet que
+  // reemplaza, pero con vector tiles propios en vez de reinventar el estilo de calles a
+  // mano. Se sirve como archivo real (no como srcDoc/baseUrl:'about:blank') porque MapLibre
+  // carga su script desde un CDN y parsea tiles en Web Workers — eso no arranca dentro de
+  // HTML inyectado inline, sin importar el sandbox del iframe/WebView (probado: con srcDoc
+  // nunca carga, con src/uri sí).
+  //
+  // El style.json y el .pmtiles (2.8 MB) viven en R2 (mismo bucket que las imágenes,
+  // dominio images.daridius.cl), no en este servidor: son estáticos, cambian poco, y así no
+  // le pegan al ancho de banda de subida del Atom en cada visita — mismo criterio que las
+  // fotos (ver PRINCIPLES.md §2). Esta página en sí (liviana, unos KB) sí se sirve desde
+  // pb_public como cualquier otro estático del frontend.
+  var protocol = new pmtiles.Protocol();
+  maplibregl.addProtocol('pmtiles', protocol.tile);
+
+  var CENTER = [-70.6623, -33.4577]; // [lng, lat] — Facultad de Ciencias Físicas y Matemáticas
+
+  // Los alrededores de verdad (1500 m desde CENTER), no el bbox completo del extracto de
+  // beauchef.pmtiles (ese tiene margen extra a propósito, para que al acercarse al borde
+  // de estos límites no se vea el vacío de "no hay más tiles"). Números fijos en vez de
+  // calculados en runtime porque CENTER no cambia.
+  var BOUNDS = [
+    [-70.67846, -33.47118], // suroeste
+    [-70.64614, -33.44423], // noreste
+  ];
+
+  var map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://images.daridius.cl/static/mapa-alrededores/style.json',
+    center: CENTER,
+    zoom: 16,
+    minZoom: 14,
+    maxZoom: 19,
+    maxBounds: BOUNDS,
+    attributionControl: { compact: true },
+  });
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+
+  // El contenedor puede no tener su tamaño final todavía cuando se crea el mapa (el
+  // WebView/iframe recién está aplicando el layout) — sin este resize, MapLibre calcula
+  // qué tiles pedir usando un tamaño angosto y se queda pegado mostrando solo esa esquina.
+  setTimeout(function () { map.resize(); }, 200);
+  window.addEventListener('resize', function () { map.resize(); });
+
+  map.on('error', function (e) {
+    console.error('maplibre error', e);
+  });
+</script>
+</body>
+</html>

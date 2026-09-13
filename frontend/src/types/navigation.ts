@@ -27,6 +27,7 @@ export type RootStackParamList = {
   Libros: undefined;
   Comunidad: undefined;
   Academico: undefined;
+  CampusMap: undefined;
   Deportes: undefined;
   Juegos: undefined;
   Students: undefined;
