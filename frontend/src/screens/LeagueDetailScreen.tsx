@@ -32,7 +32,7 @@ import { TeamCrest, matchDisplayName } from '../components/leagues/TeamCrest';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueDetail'>;
 
-type TabType = 'matches' | 'standings' | 'scorers' | 'teams';
+type TabType = 'matches' | 'standings' | 'scorers' | 'teams' | 'arbitrations';
 
 // blockCode = "YYYY-MM-DD-HH" — usado solo para ordenar por cercanía a hoy, no para
 // mostrarse (el formato de fecha visible vive en LeagueMatchRow/LeagueMatchDetailScreen).
@@ -279,6 +279,20 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   // Todos los partidos, sin filtrar — primero en vivo, luego pendientes, luego jugados.
   const filteredMatches = useMemo(() => sortMatchesForDisplay(matches), [matches, sortMatchesForDisplay]);
 
+  // No hace falta una segunda petición: esta misma vista ya trae los partidos de la
+  // liga. Un arbitraje pendiente es la primera carga de un partido confirmed, o una
+  // única corrección que la liga abrió sobre uno played. Solo la propia cuenta de equipo
+  // puede ver esta pestaña, y solo mientras realmente tenga algo que hacer.
+  const pendingRefereeMatches = useMemo(() => {
+    if (!user || user.type !== 'organization' || user.subtype !== 'team') return [];
+    return sortMatchesForDisplay(
+      matches.filter((m) => {
+        const isReferee = (m.refereeTeams || []).includes(user.id);
+        return isReferee && (m.status === 'confirmed' || (m.status === 'played' && m.refereeResultReopen));
+      })
+    );
+  }, [matches, sortMatchesForDisplay, user]);
+
   const stageIdOf = useCallback((m: LeagueMatchRowData) => m.expand?.stage?.id || (m as any).stage, []);
 
   // Tabla de goleadores — se deriva de las bitácoras de arbitraje que ya están
@@ -402,7 +416,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       </View>
 
       {/* Selector de Pestañas Planas */}
-      <View style={styles.tabBar}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
         <TouchableOpacity
           style={[styles.tabItem, activeTab === 'matches' && styles.tabItemActive]}
           onPress={() => setActiveTab('matches')}
@@ -411,6 +425,17 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             Partidos
           </Text>
         </TouchableOpacity>
+
+        {pendingRefereeMatches.length > 0 && (
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === 'arbitrations' && styles.tabItemActive]}
+            onPress={() => setActiveTab('arbitrations')}
+          >
+            <Text style={[styles.tabText, activeTab === 'arbitrations' && styles.tabTextActive]}>
+              Arbitrajes ({pendingRefereeMatches.length})
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={[styles.tabItem, activeTab === 'standings' && styles.tabItemActive]}
@@ -438,7 +463,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             Equipos
           </Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       {/* CONTENIDO SEGÚN PESTAÑA */}
 
@@ -450,6 +475,20 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             matches={filteredMatches}
             liveInfoByMatch={liveInfoByMatch}
             emptyText="No hay partidos con los filtros seleccionados."
+            onPressMatch={(matchId) => navigation.push('LeagueMatchDetail', { matchId })}
+          />
+        </View>
+      )}
+
+      {/* Arbitrajes pendientes de ESTA cuenta en esta liga. Si la lista desaparece al
+          guardar, la pestaña también desaparece al volver porque el permiso compartido
+          ya fue consumido. */}
+      {activeTab === 'arbitrations' && (
+        <View style={styles.tabContent}>
+          <PagedMatchList
+            matches={pendingRefereeMatches}
+            liveInfoByMatch={liveInfoByMatch}
+            emptyText="No tienes arbitrajes pendientes en esta liga."
             onPressMatch={(matchId) => navigation.push('LeagueMatchDetail', { matchId })}
           />
         </View>

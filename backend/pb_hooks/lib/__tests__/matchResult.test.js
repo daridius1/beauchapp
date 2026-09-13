@@ -44,9 +44,14 @@ test("teamRefereeDecision: equipo asignado y partido 'confirmed' pasa", () => {
     assert.equal(teamRefereeDecision(match, "teamX").ok, true);
 });
 
-test("teamRefereeDecision: equipo asignado y partido 'played' (corrección) pasa", () => {
-    const match = { refereeTeams: ["teamX", "teamY"], status: "played" };
+test("teamRefereeDecision: corrección habilitada de partido 'played' pasa", () => {
+    const match = { refereeTeams: ["teamX", "teamY"], status: "played", refereeResultReopen: true };
     assert.equal(teamRefereeDecision(match, "teamY").ok, true);
+});
+
+test("teamRefereeDecision: partido 'played' bloqueado rechaza aunque el equipo esté asignado", () => {
+    const match = { refereeTeams: ["teamX"], status: "played", refereeResultReopen: false };
+    assert.equal(teamRefereeDecision(match, "teamX").ok, false);
 });
 
 test("teamRefereeDecision: equipo no asignado se rechaza", () => {

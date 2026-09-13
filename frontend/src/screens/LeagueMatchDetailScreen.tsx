@@ -345,10 +345,12 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
   const isLive = !!liveInfo;
   // El equipo asignado a arbitrar este partido (league_matches.refereeTeams, hasta 2,
   // nunca los que juegan) puede cargar el resultado directo desde su propia cuenta —
-  // ver LeagueMatchTeamResultScreen. 'played' también cuenta: es la corrección de un
-  // resultado ya cargado, mismo criterio que admite el link que genera la liga.
+  // ver LeagueMatchTeamResultScreen. Después de la primera carga queda bloqueado:
+  // un partido played solo recupera el acceso cuando la liga habilita una corrección.
   const isRefereeTeam = !!user && (match.refereeTeams || []).includes(user.id);
-  const canLoadResult = isRefereeTeam && (match.status === 'confirmed' || isPlayed);
+  const canLoadResult = isRefereeTeam && (
+    match.status === 'confirmed' || (isPlayed && match.refereeResultReopen)
+  );
   // Mientras el partido está en vivo, los eventos vienen del informe en progreso
   // (todavía no aprobado) — es la misma fuente que ya se usa para el marcador en vivo,
   // así que mostrar la cronología acá no es más que reusar `reportEvents` en vez de

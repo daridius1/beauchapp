@@ -55,6 +55,7 @@ export const LeagueMatchTeamResultScreen: React.FC<Props> = ({ route, navigation
   const [rows, setRows] = useState<ResultRow[]>([]);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
 
   const [pendingRow, setPendingRow] = useState<{ team: Team; type: RowType } | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<LineupEntry | null>(null);
@@ -121,7 +122,9 @@ export const LeagueMatchTeamResultScreen: React.FC<Props> = ({ route, navigation
   );
 
   const isAuthorized = !!user && !!match?.refereeTeams?.includes(user.id);
-  const canSubmit = !!match && (match.status === 'confirmed' || match.status === 'played');
+  // El primer resultado se puede cargar mientras está confirmed. Una vez played, los
+  // dos equipos árbitro quedan bloqueados hasta que la liga abra UNA corrección.
+  const canSubmit = !!match && (match.status === 'confirmed' || (match.status === 'played' && match.refereeResultReopen));
 
   const teamAName = matchDisplayName(match?.expand?.teamA, 'Equipo A');
   const teamBName = matchDisplayName(match?.expand?.teamB, 'Equipo B');
@@ -150,6 +153,7 @@ export const LeagueMatchTeamResultScreen: React.FC<Props> = ({ route, navigation
 
   const handleSubmit = async () => {
     if (submitting) return;
+    setConfirmingSubmit(false);
     setSubmitting(true);
     try {
       const events: MatchEvent[] = rows.map((r) => {
@@ -196,7 +200,7 @@ export const LeagueMatchTeamResultScreen: React.FC<Props> = ({ route, navigation
         <Text style={styles.emptySub}>
           {!isAuthorized
             ? 'Tu equipo no está asignado a arbitrar este partido.'
-            : 'Este partido ya no admite cargar un resultado.'}
+            : 'El resultado ya está bloqueado. La liga debe habilitar una corrección para poder modificarlo.'}
         </Text>
       </View>
     );
@@ -273,7 +277,7 @@ export const LeagueMatchTeamResultScreen: React.FC<Props> = ({ route, navigation
 
       <TouchableOpacity
         style={[styles.submitBtn, submitting && styles.btnDisabled]}
-        onPress={handleSubmit}
+        onPress={() => setConfirmingSubmit(true)}
         disabled={submitting}
       >
         <Text style={styles.submitBtnText}>{submitting ? 'Guardando...' : 'Guardar resultado'}</Text>
@@ -346,6 +350,31 @@ export const LeagueMatchTeamResultScreen: React.FC<Props> = ({ route, navigation
           </View>
         </View>
       </Modal>
+
+      {/* El permiso es compartido por ambos equipos árbitro. Esta advertencia evita que
+          se guarde un marcador de prueba por accidente: después, solo la liga puede
+          habilitar otra corrección puntual. */}
+      <Modal visible={confirmingSubmit} transparent animationType="fade" onRequestClose={() => setConfirmingSubmit(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalTitleRow}>
+              <Feather name="alert-triangle" size={20} color={theme.colors.primary} />
+              <Text style={styles.modalTitle}>¿Guardar resultado?</Text>
+            </View>
+            <Text style={styles.modalWarningText}>
+              Este envío bloqueará el marcador para ambos equipos árbitro. Solo la liga podrá habilitar una nueva corrección.
+            </Text>
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setConfirmingSubmit(false)} disabled={submitting}>
+                <Text style={styles.modalCancelBtnText}>Volver</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalConfirmBtn, submitting && styles.btnDisabled]} onPress={handleSubmit} disabled={submitting}>
+                <Text style={styles.modalConfirmBtnText}>{submitting ? 'Guardando...' : 'Guardar y bloquear'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -381,6 +410,7 @@ const styles = StyleSheet.create({
   modalTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   modalTitle: { color: theme.colors.text, fontSize: 17, fontWeight: '800' },
   modalSubTitle: { color: theme.colors.textMuted, fontSize: 13, marginTop: 2, marginBottom: 12 },
+  modalWarningText: { color: theme.colors.textMuted, fontSize: 14, lineHeight: 20, marginTop: 12 },
   modalPlayerListLabel: { color: theme.colors.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 6 },
   modalPlayerScroll: { maxHeight: 260 },
   modalPlayerScrollContent: { gap: 4 },

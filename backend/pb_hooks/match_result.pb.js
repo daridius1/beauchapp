@@ -227,7 +227,7 @@ routerAdd("GET", "/registrar-resultado", (e) => {
 <body>
     <div class="wrap">
         <h1 id="matchTitle"></h1>
-        <p class="subtitle">Registrá el resultado de este partido. Este enlace se puede usar una sola vez.</p>
+        <p class="subtitle">Registra el resultado de este partido. Este enlace se puede usar una sola vez.</p>
 
         <div class="alert-danger" id="formError"></div>
 
@@ -524,6 +524,10 @@ routerAdd("POST", "/api/public/match-result", (e) => {
             txMatch.set("scoreA", summary.scoreA);
             txMatch.set("scoreB", summary.scoreB);
             txMatch.set("status", "played");
+            // Un resultado por link también consume cualquier corrección que la liga
+            // hubiera abierto para los equipos árbitro: ambas vías representan el mismo
+            // permiso de modificar el marcador, no dos permisos paralelos.
+            txMatch.set("refereeResultReopen", false);
             // Uso único: el link que se acaba de usar queda muerto, mismo patrón que
             // registrationToken en auth.pb.js.
             txMatch.set("resultToken", "");
@@ -637,15 +641,6 @@ routerAdd("POST", "/api/league-matches/team-result", (e) => {
             throw new BadRequestError("El partido indicado no existe.");
         }
 
-        const decision = teamRefereeDecision(
-            { refereeTeams: match.get("refereeTeams") || [], status: match.getString("status") },
-            e.auth.id
-        );
-        // Respuesta directa, no BadRequestError: mismo motivo que en
-        // match_arbitration.pb.js — no hace falta un `reason` de máquina acá, alcanza
-        // con el mensaje.
-        if (!decision.ok) return e.json(400, { error: decision.error });
-
         // Este formulario solo registra goles y tarjetas — nada de reloj, convocatoria
         // ni penales, igual que el link (ver comentario de cabecera del archivo).
         const ALLOWED_TYPES = new Set(["goal", "yellow_card", "red_card"]);
@@ -656,9 +651,23 @@ routerAdd("POST", "/api/league-matches/team-result", (e) => {
             if (!isValidEvent(ev)) throw new BadRequestError("Hay un evento con formato inválido.");
         }
         const summary = summarizeEvents(events);
-        const wasPlayed = match.getString("status") === "played";
 
         $app.runInTransaction((txApp) => {
+            // La decisión se evalúa dentro de la transacción y sobre la versión recién
+            // leída. Si los dos árbitros envían simultáneamente, el primero consume la
+            // habilitación y el segundo ve refereeResultReopen=false al llegar acá.
+            const txMatch = txApp.findRecordById("league_matches", matchId);
+            const decision = teamRefereeDecision(
+                {
+                    refereeTeams: txMatch.get("refereeTeams") || [],
+                    status: txMatch.getString("status"),
+                    refereeResultReopen: txMatch.getBool("refereeResultReopen"),
+                },
+                e.auth.id
+            );
+            if (!decision.ok) throw new BadRequestError(decision.error);
+            const wasPlayed = txMatch.getString("status") === "played";
+
             let report;
             try {
                 report = txApp.findFirstRecordByFilter("match_reports", "match = {:match} && deleted = false", { match: matchId });
@@ -684,10 +693,12 @@ routerAdd("POST", "/api/league-matches/team-result", (e) => {
 
             txApp.save(report);
 
-            const txMatch = txApp.findRecordById("league_matches", matchId);
             txMatch.set("scoreA", summary.scoreA);
             txMatch.set("scoreB", summary.scoreB);
             txMatch.set("status", "played");
+            // Esta es la única escritura permitida por la habilitación vigente. Desde
+            // ahora ambos equipos quedan bloqueados hasta una nueva acción de la liga.
+            txMatch.set("refereeResultReopen", false);
             // Si la liga había generado un link para este partido, queda invalidado: el
             // resultado ya se cargó por acá, un envío posterior por el link viejo no
             // debería poder pisarlo sin que la liga vuelva a generar uno nuevo a propósito.

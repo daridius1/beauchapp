@@ -46,10 +46,11 @@ function resultTokenDecision(match, providedToken) {
 // del link de un solo uso, acá no hay token — la propia sesión ya prueba quién es. Basta
 // con que la cuenta autenticada esté entre los `refereeTeams` que la liga le asignó a
 // ESTE partido (hasta 2, ver 1788000000_add_referee_teams_and_difficulty_to_league.js) y
-// que el partido siga admitiendo un resultado: 'confirmed' es la primera carga,
-// 'played' es una corrección (mismo criterio que resultTokenDecision, que tampoco
-// distingue una cosa de otra — el formulario siempre puede precargarse con lo ya
-// guardado). `match` es un objeto plano {refereeTeams, status}, nunca un Record.
+// que el partido siga admitiendo un resultado. 'confirmed' es la primera y única
+// carga; un 'played' necesita que la liga haya habilitado explícitamente UNA corrección
+// compartida (refereeResultReopen). El handler repite esta decisión DENTRO de su
+// transacción: así dos equipos árbitro no pueden gastar esa misma habilitación a la vez.
+// `match` es un objeto plano, nunca un Record.
 function teamRefereeDecision(match, teamId) {
     const refereeTeams = Array.isArray(match && match.refereeTeams) ? match.refereeTeams : [];
     if (!teamId || !refereeTeams.includes(teamId)) {
@@ -57,11 +58,10 @@ function teamRefereeDecision(match, teamId) {
     }
 
     const status = (match && match.status) || "";
-    if (status !== "confirmed" && status !== "played") {
-        return { ok: false, error: "Este partido no admite cargar un resultado." };
-    }
+    if (status === "confirmed") return { ok: true, error: "" };
+    if (status === "played" && match && match.refereeResultReopen === true) return { ok: true, error: "" };
 
-    return { ok: true, error: "" };
+    return { ok: false, error: "El resultado ya está bloqueado. Pídele a la liga que habilite una corrección." };
 }
 
 // Los JSONField opcionales de PocketBase parten como `null` (no como "[]"). Al

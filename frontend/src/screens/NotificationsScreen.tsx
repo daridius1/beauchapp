@@ -93,6 +93,8 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       navigation.navigate('PostDetail', { postId: item.relatedId });
     } else if (item.type === 'ladder_match' && item.relatedId) {
       navigation.navigate('LadderMatchDetail', { matchId: item.relatedId });
+    } else if ((item.type === 'league_referee_result' || item.type === 'league_referee_assignment') && item.relatedId) {
+      navigation.navigate('LeagueMatchDetail', { matchId: item.relatedId });
     } else if ((item.type === 'activity' || item.type === 'new_activity') && item.relatedId) {
       navigation.navigate('ActivityDetail', { activityId: item.relatedId });
     } else if (item.type === 'org_invite' && item.relatedId) {

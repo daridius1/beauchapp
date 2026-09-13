@@ -286,7 +286,7 @@ ${CALENDAR_CSS}
             <p class="hint" style="margin-top:0;margin-bottom:12px;">
                 Cuánta dificultad de rival ha enfrentado cada equipo EN ESTA ETAPA — se
                 usa para que el algoritmo de sugerencia vaya emparejando rivales de nivel
-                parecido a lo largo del campeonato. Cargá la nota de dificultad (1-10) de
+                parecido a lo largo del campeonato. Carga la nota de dificultad (1-10) de
                 cada equipo desde "Equipos de la liga" para que esto tenga datos.
             </p>
             <div id="difficultySummaryList"><p class="hint">Cargando...</p></div>
@@ -1910,6 +1910,30 @@ ${API_CALL_FN}
                 if (m.status === "played") {
                     const playedActions = document.createElement("div");
                     playedActions.className = "match-actions";
+
+                    // El resultado in-app se bloquea después de cada envío. La liga
+                    // puede abrir UNA corrección compartida para sus dos equipos
+                    // árbitro; mientras nadie la use, el botón queda informado y no
+                    // permite crear permisos duplicados ni enviar avisos repetidos.
+                    if ((m.refereeTeams || []).length) {
+                        const reopenBtn = document.createElement("button");
+                        reopenBtn.className = "btn btn-sm " + (m.refereeResultReopen ? "btn-secondary" : "btn-accept");
+                        reopenBtn.textContent = m.refereeResultReopen ? "Corrección habilitada" : "Habilitar 1 corrección";
+                        reopenBtn.disabled = !!m.refereeResultReopen;
+                        reopenBtn.title = m.refereeResultReopen
+                            ? "Un equipo árbitro todavía puede usar esta corrección."
+                            : "Permite un solo envío más desde cualquiera de los equipos árbitro.";
+                        reopenBtn.addEventListener("click", async () => {
+                            if (!confirm("Se habilitará una única corrección para " + (m.refereeTeamNames || []).join(" y ") + ". El primer equipo que guarde el resultado consumirá el permiso. ¿Continuar?")) return;
+                            reopenBtn.disabled = true;
+                            try {
+                                await apiCall("/api/liga/matches/enable-referee-result", "POST", { matchId: m.id });
+                                loadStageMatches();
+                            } catch (err) { showError(currentError(), err.message); reopenBtn.disabled = false; }
+                        });
+                        playedActions.appendChild(reopenBtn);
+                    }
+
                     const editEventsBtn = document.createElement("button");
                     editEventsBtn.className = "btn btn-sm btn-secondary";
                     editEventsBtn.textContent = "Editar eventos";
@@ -3343,6 +3367,10 @@ routerAdd("GET", "/api/liga/matches", (e) => {
                     code: m.getString("code"),
                     refereeTeams,
                     refereeTeamNames: refereeTeams.map(teamDisplay),
+                    // Solo importa en un partido ya finalizado: confirmed siempre
+                    // admite su primera carga; played necesita que la liga haya abierto
+                    // esta única corrección compartida entre ambos árbitros.
+                    refereeResultReopen: m.getBool("refereeResultReopen"),
                     reportStatus: reportStatusFor(m.id),
                     beaumarketMarket: m.getString("beaumarketMarket") || null,
                 };
@@ -3459,10 +3487,112 @@ routerAdd("POST", "/api/liga/matches/reactivate", (e) => {
         match.set("status", "confirmed");
         $app.save(match);
 
+        // Al reactivar, los equipos árbitro recuperan la primera carga del resultado.
+        // El aviso les permite llegar directo al partido, además de que reaparece en
+        // la pestaña Arbitrajes de la liga.
+        const refereeTeams = match.get("refereeTeams") || [];
+        if (refereeTeams.length) {
+            try {
+                const teamName = (id) => {
+                    try {
+                        const team = $app.findRecordById("users", id);
+                        return team.getString("name") || team.getString("username") || "Equipo";
+                    } catch (err) { return "Equipo"; }
+                };
+                const notifCollection = $app.findCollectionByNameOrId("notifications");
+                const bodyText = "La liga reactivó " +
+                    teamName(match.getString("teamA")) + " vs " + teamName(match.getString("teamB")) + ".";
+                refereeTeams.forEach((teamId) => {
+                    const notif = new Record(notifCollection);
+                    notif.set("user", teamId);
+                    notif.set("sender", e.auth.id);
+                    notif.set("type", "league_referee_assignment");
+                    notif.set("title", "Arbitraje pendiente");
+                    notif.set("body", bodyText);
+                    notif.set("read", false);
+                    notif.set("relatedId", matchId);
+                    $app.save(notif);
+                });
+            } catch (notifErr) {
+                console.error("[league.pb.js] No se pudo notificar la reactivación del partido:", notifErr);
+            }
+        }
+
         return e.json(200, { success: true });
     } catch (err) {
         console.error("[league.pb.js] Error en POST /api/liga/matches/reactivate:", err);
         return e.json(400, { error: (err && err.message) || "No se pudo reactivar el partido." });
+    }
+}, $apis.requireAuth("users"));
+
+// Abre UNA corrección del marcador para los equipos árbitro de un partido finalizado.
+// No cambia el estado del partido ni genera un link: la siguiente carga desde la app
+// consume refereeResultReopen y vuelve a cerrarlo para ambos equipos a la vez.
+routerAdd("POST", "/api/liga/matches/enable-referee-result", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+        const matchId = String((e.requestInfo().body || {}).matchId || "");
+        if (!matchId) throw new BadRequestError("Falta matchId.");
+
+        let match;
+        try {
+            match = $app.findRecordById("league_matches", matchId);
+        } catch (err) {
+            throw new BadRequestError("El partido indicado no existe.");
+        }
+        if (match.getString("league") !== e.auth.id) {
+            throw new BadRequestError("Ese partido no pertenece a tu liga.");
+        }
+        if (match.getString("status") !== "played") {
+            throw new BadRequestError("Solo se puede habilitar una corrección en un partido finalizado.");
+        }
+        const refereeTeams = match.get("refereeTeams") || [];
+        if (!refereeTeams.length) {
+            throw new BadRequestError("Este partido no tiene equipos árbitro asignados.");
+        }
+        if (match.getBool("refereeResultReopen")) {
+            throw new BadRequestError("Ya hay una corrección habilitada. Espera a que uno de los árbitros la use.");
+        }
+
+        match.set("refereeResultReopen", true);
+        $app.save(match);
+
+        // Es un permiso accionable, no solo informativo: cada equipo asignado recibe
+        // su propio aviso y al tocarlo llega al detalle del partido. Si una notificación
+        // falla, el permiso ya otorgado se conserva; no corresponde quitárselo a ambos
+        // equipos por un problema secundario de mensajería.
+        try {
+            const teamName = (id) => {
+                try {
+                    const team = $app.findRecordById("users", id);
+                    return team.getString("name") || team.getString("username") || "Equipo";
+                } catch (err) { return "Equipo"; }
+            };
+            const notifCollection = $app.findCollectionByNameOrId("notifications");
+            const title = "Corrección de resultado habilitada";
+            const body = "La liga habilitó una única corrección para " +
+                teamName(match.getString("teamA")) + " vs " + teamName(match.getString("teamB")) + ".";
+            refereeTeams.forEach((teamId) => {
+                const notif = new Record(notifCollection);
+                notif.set("user", teamId);
+                notif.set("sender", e.auth.id);
+                notif.set("type", "league_referee_result");
+                notif.set("title", title);
+                notif.set("body", body);
+                notif.set("read", false);
+                notif.set("relatedId", matchId);
+                $app.save(notif);
+            });
+        } catch (notifErr) {
+            console.error("[league.pb.js] No se pudo notificar la corrección de resultado:", notifErr);
+        }
+
+        return e.json(200, { success: true });
+    } catch (err) {
+        console.error("[league.pb.js] Error en POST /api/liga/matches/enable-referee-result:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudo habilitar la corrección." });
     }
 }, $apis.requireAuth("users"));
 
@@ -3802,8 +3932,44 @@ routerAdd("POST", "/api/liga/matches/set-referees", (e) => {
             }
         }
 
+        const previousRefereeTeamIds = (match.get("refereeTeams") || []).map(String);
         match.set("refereeTeams", refereeTeamIds);
         $app.save(match);
+
+        // Solo se avisa a los equipos recién agregados y cuando efectivamente tienen
+        // algo que cargar. Reasignar el mismo árbitro no debe llenar su bandeja de
+        // avisos, ni corresponde alertar por un partido played que sigue bloqueado.
+        const resultIsEditable = match.getString("status") === "confirmed" ||
+            (match.getString("status") === "played" && match.getBool("refereeResultReopen"));
+        if (resultIsEditable) {
+            const newlyAssigned = refereeTeamIds.filter((id) => !previousRefereeTeamIds.includes(id));
+            if (newlyAssigned.length) {
+                try {
+                    const teamName = (id) => {
+                        try {
+                            const team = $app.findRecordById("users", id);
+                            return team.getString("name") || team.getString("username") || "Equipo";
+                        } catch (err) { return "Equipo"; }
+                    };
+                    const notifCollection = $app.findCollectionByNameOrId("notifications");
+                    const bodyText = "Tu equipo fue asignado a arbitrar " +
+                        teamName(match.getString("teamA")) + " vs " + teamName(match.getString("teamB")) + ".";
+                    newlyAssigned.forEach((teamId) => {
+                        const notif = new Record(notifCollection);
+                        notif.set("user", teamId);
+                        notif.set("sender", e.auth.id);
+                        notif.set("type", "league_referee_assignment");
+                        notif.set("title", "Arbitraje pendiente");
+                        notif.set("body", bodyText);
+                        notif.set("read", false);
+                        notif.set("relatedId", matchId);
+                        $app.save(notif);
+                    });
+                } catch (notifErr) {
+                    console.error("[league.pb.js] No se pudo notificar la asignación de árbitros:", notifErr);
+                }
+            }
+        }
 
         return e.json(200, { success: true });
     } catch (err) {
@@ -4332,6 +4498,35 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
         }
 
         $app.save(record);
+
+        // Los árbitros elegidos automáticamente tienen el mismo deber pendiente que
+        // los asignados a mano: se les avisa una sola vez, al crear este partido.
+        const automaticReferees = record.get("refereeTeams") || [];
+        if (automaticReferees.length) {
+            try {
+                const nameOf = (id) => {
+                    try {
+                        const team = $app.findRecordById("users", id);
+                        return team.getString("name") || team.getString("username") || "Equipo";
+                    } catch (err) { return "Equipo"; }
+                };
+                const notifCollection = $app.findCollectionByNameOrId("notifications");
+                const bodyText = "Tu equipo fue asignado a arbitrar " + nameOf(teamA) + " vs " + nameOf(teamB) + ".";
+                automaticReferees.forEach((teamId) => {
+                    const notif = new Record(notifCollection);
+                    notif.set("user", teamId);
+                    notif.set("sender", e.auth.id);
+                    notif.set("type", "league_referee_assignment");
+                    notif.set("title", "Arbitraje pendiente");
+                    notif.set("body", bodyText);
+                    notif.set("read", false);
+                    notif.set("relatedId", record.id);
+                    $app.save(notif);
+                });
+            } catch (notifErr) {
+                console.error("[league.pb.js] No se pudo notificar la asignación automática de árbitros:", notifErr);
+            }
+        }
 
         return e.json(200, { success: true, id: record.id });
     } catch (err) {

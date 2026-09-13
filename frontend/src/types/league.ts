@@ -80,6 +80,9 @@ export interface LeagueMatch {
    *  arbitrar este partido — ver 1788000000_add_referee_teams_and_difficulty_to_league.js.
    *  Distinto de match_reports.referee (quién efectivamente tocó los botones). */
   refereeTeams?: string[];
+  /** Corrección única habilitada por la liga para un resultado ya finalizado. El
+   *  siguiente envío de CUALQUIERA de los equipos árbitro la consume y vuelve a false. */
+  refereeResultReopen?: boolean;
   deleted?: boolean;
   created: string;
   updated: string;

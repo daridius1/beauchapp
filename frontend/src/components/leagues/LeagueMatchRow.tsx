@@ -20,6 +20,8 @@ export interface LeagueMatchRowData {
   status: 'confirmed' | 'played' | 'cancelled' | 'suspended';
   blockCode: string;
   stage?: string;
+  refereeTeams?: string[];
+  refereeResultReopen?: boolean;
   expand?: {
     teamA?: TeamData;
     teamB?: TeamData;
