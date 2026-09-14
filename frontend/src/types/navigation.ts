@@ -1,3 +1,5 @@
+import type { PostLocation } from './postLocation';
+
 export type RootStackParamList = {
   Home: { initialFilterTag?: string; initialPostTags?: string[]; quoteTargetType?: string; quoteTargetId?: string; quoteTargetMeta?: any } | undefined;
   Login: undefined;
@@ -27,7 +29,7 @@ export type RootStackParamList = {
   Libros: undefined;
   Comunidad: undefined;
   Academico: undefined;
-  CampusMap: undefined;
+  CampusMap: { picker?: boolean; location?: PostLocation } | undefined;
   Deportes: undefined;
   Juegos: undefined;
   Students: undefined;

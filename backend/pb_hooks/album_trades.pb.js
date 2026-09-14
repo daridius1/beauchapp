@@ -123,7 +123,7 @@ routerAdd("POST", "/api/album/trades", (e) => {
             notif.set("sender", e.auth.id);
             notif.set("type", "trade_proposed");
             notif.set("title", "Nueva propuesta de intercambio");
-            notif.set("body", `${fromName} te ofrece ${cuantas} del álbum. Elegí qué darle a cambio.`);
+            notif.set("body", `${fromName} te ofrece ${cuantas} del álbum. Elige qué darle a cambio.`);
             notif.set("read", false);
             notif.set("relatedId", albumId);
             $app.save(notif);
@@ -274,7 +274,7 @@ routerAdd("POST", "/api/album/trades/counter", (e) => {
             notif.set("sender", e.auth.id);
             notif.set("type", "trade_countered");
             notif.set("title", "Te respondieron un intercambio");
-            notif.set("body", `${fromName} eligió qué darte a cambio. Confirmá si te sirve.`);
+            notif.set("body", `${fromName} eligió qué darte a cambio. Confirma si te sirve.`);
             notif.set("read", false);
             notif.set("relatedId", trade.getString("album"));
             $app.save(notif);

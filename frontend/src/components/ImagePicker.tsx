@@ -7,6 +7,7 @@ import { Feather } from '@expo/vector-icons';
 interface Props {
   onImageReady: (file: File | null) => void;
   value?: File | null;
+  variant?: 'icon' | 'menu';
   // JPEG es el default (liviano, para fotos normales tipo posts/comentarios). PNG es
   // para casos que necesitan mantener transparencia (ej. foto de jugador con fondo
   // transparente) — a diferencia de WebP, PocketBase sí sabe generar thumbnails a
@@ -16,7 +17,7 @@ interface Props {
   cropToSquare?: boolean;
 }
 
-export const ImagePicker: React.FC<Props> = ({ onImageReady, value, format = 'image/jpeg', cropToSquare = false }) => {
+export const ImagePicker: React.FC<Props> = ({ onImageReady, value, variant = 'icon', format = 'image/jpeg', cropToSquare = false }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -69,7 +70,7 @@ export const ImagePicker: React.FC<Props> = ({ onImageReady, value, format = 'im
   }
 
   return (
-    <View style={styles.container}>
+    <View style={variant === 'menu' ? styles.menuContainer : styles.container}>
       <input
         type="file"
         accept="image/*"
@@ -79,14 +80,17 @@ export const ImagePicker: React.FC<Props> = ({ onImageReady, value, format = 'im
       />
       
       <TouchableOpacity
-        style={[styles.attachButton, !!value && { opacity: 0.3 } ]}
+        style={[variant === 'menu' ? styles.menuItem : styles.attachButton, !!value && { opacity: 0.3 }]}
         onPress={() => fileInputRef.current?.click()}
         disabled={isCompressing || !!value}
       >
         {isCompressing ? (
           <ActivityIndicator size="small" color={theme.colors.text} />
         ) : (
-          <Feather name="image" size={22} color={theme.colors.textMuted} />
+          <>
+            <Feather name="image" size={variant === 'menu' ? 18 : 22} color={theme.colors.textMuted} />
+            {variant === 'menu' && <Text style={styles.menuLabel}>Foto</Text>}
+          </>
         )}
       </TouchableOpacity>
 
@@ -100,11 +104,25 @@ const styles = StyleSheet.create({
     marginVertical: 0,
     marginRight: 12,
   },
+  menuContainer: {
+    marginVertical: 0,
+  },
   attachButton: {
     padding: 8,
     borderRadius: 8,
     alignSelf: 'center',
     justifyContent: 'center',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  menuLabel: {
+    color: theme.colors.text,
+    fontSize: 14,
   },
   errorText: {
     color: '#ff4444',

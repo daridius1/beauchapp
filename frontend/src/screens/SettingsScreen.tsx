@@ -13,6 +13,7 @@ import { User } from '../context/AuthContext';
 import { UserSelectorModal } from '../components/UserSelectorModal';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
+import { pushNotificationService } from '../services/pushNotifications';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
@@ -38,12 +39,38 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const [studentSearchResults, setStudentSearchResults] = useState<User[]>([]);
   const [searchingStudents, setSearchingStudents] = useState(false);
   const [showUserSelectorModal, setShowUserSelectorModal] = useState(false);
+  const [pushStatus, setPushStatus] = useState<'unsupported' | 'needs-install' | 'unavailable' | 'denied' | 'disabled' | 'enabled' | null>(null);
+  const [savingPush, setSavingPush] = useState(false);
 
   useEffect(() => {
     if (user?.type === 'organization') {
       loadMembers();
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    pushNotificationService.getStatus().then(setPushStatus).catch(() => setPushStatus('unsupported'));
+  }, []);
+
+  const handlePushToggle = async () => {
+    setSavingPush(true);
+    try {
+      if (pushStatus === 'enabled') {
+        await pushNotificationService.disable();
+        setPushStatus('disabled');
+        return;
+      }
+      const nextStatus = await pushNotificationService.enable();
+      setPushStatus(nextStatus);
+      if (nextStatus === 'enabled') {
+        Toast.show({ type: 'success', text1: 'Notificaciones activadas', text2: 'Te avisaremos aunque Beauchapp esté cerrada.' });
+      }
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'No se pudieron activar', text2: err?.data?.error || err?.message || 'Inténtalo de nuevo.' });
+    } finally {
+      setSavingPush(false);
+    }
+  };
 
   const loadMembers = async () => {
     if (!user || user.type !== 'organization') return;
@@ -205,6 +232,42 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
           <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
+        </TouchableOpacity>
+      </View>
+
+      <Text style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>Notificaciones</Text>
+
+      <View style={styles.optionCard}>
+        <TouchableOpacity
+          style={styles.optionHeader}
+          onPress={handlePushToggle}
+          activeOpacity={0.7}
+          disabled={savingPush || pushStatus === 'unsupported' || pushStatus === 'unavailable' || pushStatus === 'denied' || pushStatus === 'needs-install'}
+        >
+          <View style={styles.optionTitleRow}>
+            <Feather name="bell" size={20} color={theme.colors.primary} style={styles.optionIcon} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.optionTitle}>Notificaciones del sistema</Text>
+              <Text style={styles.optionSubtitle}>
+                {pushStatus === 'enabled' && 'Recibirás avisos aunque Beauchapp esté cerrada.'}
+                {pushStatus === 'disabled' && 'Actívalas para recibir avisos fuera de la aplicación.'}
+                {pushStatus === 'needs-install' && 'En iPhone o iPad, instala Beauchapp en la pantalla de inicio primero.'}
+                {pushStatus === 'denied' && 'El permiso está bloqueado en los ajustes del navegador o del sistema.'}
+                {pushStatus === 'unsupported' && 'Este navegador no admite notificaciones web.'}
+                {pushStatus === 'unavailable' && 'Esta función estará disponible pronto.'}
+                {pushStatus === null && 'Comprobando disponibilidad…'}
+              </Text>
+            </View>
+          </View>
+          {savingPush || pushStatus === null ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          ) : (
+            <Feather
+              name={pushStatus === 'enabled' ? 'check-square' : 'square'}
+              size={22}
+              color={pushStatus === 'enabled' ? theme.colors.primary : theme.colors.textMuted}
+            />
+          )}
         </TouchableOpacity>
       </View>
 

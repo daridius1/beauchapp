@@ -15,6 +15,7 @@ import { PollComposer, isValidPoll } from '../components/PollComposer';
 import { SpotifyComposer } from '../components/SpotifyComposer';
 import { withMinimumDelay } from '../utils/refresh';
 import Toast from 'react-native-toast-message';
+import { PostLocation } from '../types/postLocation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -31,6 +32,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [quotedTarget, setQuotedTarget] = useState<{ targetType: string; targetId: string; targetMeta: any } | null>(null);
   const [pollOptions, setPollOptions] = useState<string[] | null>(null);
   const [spotifyTrackId, setSpotifyTrackId] = useState<string | null>(null);
+  const [postLocation, setPostLocation] = useState<PostLocation | null>(null);
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -50,6 +53,15 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('onScrollToTop', () => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    });
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('postLocationSelected', (location: PostLocation) => {
+      setPostLocation(location);
+      setAttachmentMenuOpen(false);
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     });
     return () => sub.remove();
@@ -245,7 +257,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const handlePost = async () => {
-    if ((!content.trim() && !photo && !quotedTarget && !spotifyTrackId) || !user) return;
+    const hasAttachment = !!photo || !!quotedTarget || !!spotifyTrackId || !!postLocation || isValidPoll(pollOptions);
+    if ((!content.trim() && !hasAttachment) || !user) return;
     setPosting(true);
     try {
       let finalTags = [...tags];
@@ -272,6 +285,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         postData.pollOptions = (pollOptions as string[]).map((o) => o.trim()).filter(Boolean);
       }
       if (spotifyTrackId) postData.spotifyTrackId = spotifyTrackId;
+      if (postLocation) postData.location = postLocation;
 
       if (quotedTarget) {
         postData.actionType = 'quote';
@@ -288,6 +302,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       setQuotedTarget(null);
       setPollOptions(null);
       setSpotifyTrackId(null);
+      setPostLocation(null);
+      setAttachmentMenuOpen(false);
       fetchPosts(1, false);
     } catch (err) {
       console.error(err);
@@ -540,6 +556,19 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               />
             )}
 
+            {postLocation && (
+              <View style={styles.locationAttachment}>
+                <Feather name="map-pin" size={16} color={theme.colors.primary} />
+                <View style={styles.locationAttachmentText}>
+                  <Text style={styles.locationAttachmentName}>{postLocation.name}</Text>
+                  <Text style={styles.locationAttachmentCategory}>{postLocation.category}</Text>
+                </View>
+                <TouchableOpacity onPress={() => setPostLocation(null)} style={styles.locationRemoveButton}>
+                  <Feather name="x" size={16} color={theme.colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            )}
+
             {photoPreview && (
               <View style={styles.previewContainer}>
                 <Image source={{ uri: photoPreview }} style={styles.previewImage} resizeMode="cover" />
@@ -575,23 +604,55 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                 </View>
               </View>
               <View style={styles.footerActions}>
-                <ImagePicker onImageReady={(f) => setPhoto(f)} value={photo} />
+                {attachmentMenuOpen && (
+                  <View style={styles.attachmentMenu}>
+                    <ImagePicker
+                      variant="menu"
+                      onImageReady={(file) => {
+                        setPhoto(file);
+                        if (file) setAttachmentMenuOpen(false);
+                      }}
+                      value={photo}
+                    />
+                    <TouchableOpacity
+                      style={styles.attachmentMenuItem}
+                      onPress={() => {
+                        setPollOptions(pollOptions ? null : ['', '']);
+                        setAttachmentMenuOpen(false);
+                      }}
+                    >
+                      <Feather name="bar-chart-2" size={18} color={theme.colors.textMuted} />
+                      <Text style={styles.attachmentMenuText}>Encuesta</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.attachmentMenuItem}
+                      onPress={() => {
+                        setSpotifyTrackId(spotifyTrackId !== null ? null : '');
+                        setAttachmentMenuOpen(false);
+                      }}
+                    >
+                      <Feather name="music" size={18} color={theme.colors.textMuted} />
+                      <Text style={styles.attachmentMenuText}>Canción</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.attachmentMenuItem}
+                      onPress={() => navigation.navigate('CampusMap', { picker: true })}
+                    >
+                      <Feather name="map-pin" size={18} color={theme.colors.textMuted} />
+                      <Text style={styles.attachmentMenuText}>Ubicación</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
                 <TouchableOpacity
                   style={styles.pollToggleBtn}
-                  onPress={() => setPollOptions(pollOptions ? null : ['', ''])}
+                  onPress={() => setAttachmentMenuOpen(!attachmentMenuOpen)}
                 >
-                  <Feather name="bar-chart-2" size={20} color={pollOptions ? theme.colors.primary : theme.colors.textMuted} />
+                  <Feather name="more-horizontal" size={22} color={attachmentMenuOpen ? theme.colors.primary : theme.colors.textMuted} />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.pollToggleBtn}
-                  onPress={() => setSpotifyTrackId(spotifyTrackId !== null ? null : '')}
-                >
-                  <Feather name="music" size={20} color={spotifyTrackId !== null ? theme.colors.primary : theme.colors.textMuted} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.postBtn, ((!content.trim() && !photo && !quotedTarget && !spotifyTrackId) || posting) && styles.postBtnDisabled]}
+                  style={[styles.postBtn, ((!content.trim() && !photo && !quotedTarget && !spotifyTrackId && !postLocation && !isValidPoll(pollOptions)) || posting) && styles.postBtnDisabled]}
                   onPress={handlePost}
-                  disabled={(!content.trim() && !photo && !quotedTarget && !spotifyTrackId) || posting}
+                  disabled={(!content.trim() && !photo && !quotedTarget && !spotifyTrackId && !postLocation && !isValidPoll(pollOptions)) || posting}
                 >
                 <Text style={styles.postBtnText}>{posting ? '...' : 'Publicar'}</Text>
                 </TouchableOpacity>
@@ -761,6 +822,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     backgroundColor: theme.colors.cardBg,
+    position: 'relative',
+    zIndex: 10,
+    overflow: 'visible',
   },
   quotedAttachmentCard: {
     backgroundColor: '#0a0a0a',
@@ -784,6 +848,34 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.primary,
   },
+  locationAttachment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0a0a0a',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  locationAttachmentText: {
+    flex: 1,
+    marginLeft: theme.spacing.sm,
+  },
+  locationAttachmentName: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  locationAttachmentCategory: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  locationRemoveButton: {
+    padding: 4,
+  },
   composeRow: {
     flexDirection: 'row',
     marginBottom: theme.spacing.sm,
@@ -803,6 +895,29 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(51, 65, 85, 0.3)',
     paddingTop: theme.spacing.sm,
+  },
+  attachmentMenu: {
+    position: 'absolute',
+    right: 0,
+    top: 44,
+    zIndex: 30,
+    minWidth: 170,
+    backgroundColor: theme.colors.cardBg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.sm,
+  },
+  attachmentMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  attachmentMenuText: {
+    color: theme.colors.text,
+    fontSize: 14,
   },
   tagsInputContainer: {
     flex: 1,
@@ -918,6 +1033,9 @@ const styles = StyleSheet.create({
   footerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    position: 'relative',
+    zIndex: 20,
+    overflow: 'visible',
   },
   pollToggleBtn: {
     padding: 8,

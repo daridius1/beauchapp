@@ -27,6 +27,7 @@ import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import { TinderScreen } from './src/screens/TinderScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { notificationService } from './src/services/notifications';
+import { pushNotificationService } from './src/services/pushNotifications';
 import { LaddersListScreen } from './src/screens/LaddersListScreen';
 import { LadderDetailScreen } from './src/screens/LadderDetailScreen';
 import { LadderMatchArbitratorScreen } from './src/screens/LadderMatchArbitratorScreen';
@@ -208,6 +209,7 @@ function AppContent() {
     try {
       const count = await notificationService.getUnreadCount(user.id);
       setHasUnreadNotifications(count > 0);
+      pushNotificationService.setBadge(count);
     } catch (err) {
       console.warn('Error checking unread notifications:', err);
     }
@@ -244,6 +246,14 @@ function AppContent() {
       }
     };
   }, [checkUnreadNotifications]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      pushNotificationService.registerServiceWorker().catch((err) => {
+        console.warn('No se pudo registrar el service worker de notificaciones:', err);
+      });
+    }
+  }, []);
 
   // Inyección global de Scroll Defensivo, Safe Area Insets iOS, Título Web e Ícono PWA para Web/Safari/Chrome
   useEffect(() => {
@@ -309,7 +319,7 @@ function AppContent() {
       case 'Bands': return 'Bandas';
       case 'Comunidad': return 'Comunidad';
       case 'Academico': return 'Académico';
-      case 'CampusMap': return 'Mapa del Campus';
+      case 'CampusMap': return params?.picker ? 'Elegir ubicación' : params?.location ? 'Ubicación' : 'Mapa';
       case 'Deportes': return 'Deportes';
       case 'Juegos': return 'Juegos';
       case 'Settings': return 'Ajustes';
@@ -390,8 +400,10 @@ function AppContent() {
     }
   };
 
-  const TOP_LEVEL_SCREENS = ['Home', 'Comunidad', 'ConoceBeauchef', 'Academico', 'Deportes', 'Juegos'];
-  const showBackButton = !TOP_LEVEL_SCREENS.includes(currentRouteName);
+  const TOP_LEVEL_SCREENS = ['Home', 'Comunidad', 'ConoceBeauchef', 'Academico', 'CampusMap', 'Deportes', 'Juegos'];
+  const isAuxiliaryMap = currentRouteName === 'CampusMap'
+    && (!!currentRouteParams?.picker || !!currentRouteParams?.location);
+  const showBackButton = isAuxiliaryMap || !TOP_LEVEL_SCREENS.includes(currentRouteName);
 
   const handleBack = () => {
     // 1. Si hay historial real en la pila de navegación, volvemos limpiamente hacia atrás
@@ -573,7 +585,7 @@ function AppContent() {
             {user ? (
               <View style={{ flex: 1, flexDirection: 'row' }}>
                 <AnnouncementModal />
-                {isDesktop && (
+                {isDesktop && !isAuxiliaryMap && (
                   <Sidebar 
                     activeScreen={currentRouteName} 
                     onNavigate={(screen) => {
@@ -587,7 +599,7 @@ function AppContent() {
                 <View style={{ flex: 1, flexDirection: 'column' }}>
                   <Header 
                     title={getScreenTitle(currentRouteName, currentRouteParams)} 
-                    onToggleSidebar={isDesktop ? undefined : () => setIsSidebarOpen(true)} 
+                    onToggleSidebar={isDesktop || isAuxiliaryMap ? undefined : () => setIsSidebarOpen(true)}
                     onBack={showBackButton ? handleBack : undefined}
                     onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Mascotas', 'Musica', 'Peliculas', 'Videojuegos', 'Libros', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'TeamSchedule', 'LeaguesList', 'LeagueDetail', 'AlbumsList', 'LeagueAlbum', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'NoticiasList', 'PollasList', 'Polla', 'PollaMatch', 'PollaUserBets'].includes(currentRouteName) ? () => {
                       DeviceEventEmitter.emit('onGlobalRefresh');
@@ -671,7 +683,7 @@ function AppContent() {
                   </View>
                 </View>
 
-                {!isDesktop && (
+                {!isDesktop && !isAuxiliaryMap && (
                   <Sidebar 
                     isOpen={isSidebarOpen} 
                     onClose={() => setIsSidebarOpen(false)} 

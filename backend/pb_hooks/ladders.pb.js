@@ -37,7 +37,10 @@ onRecordAfterCreateSuccess((e) => {
                         const notif = new Record(notifColl);
                         notif.set("user", userId);
                         notif.set("sender", arbiterId);
-                        notif.set("type", "ladder_confirmation");
+                        // Es el único productor de esta notificación. Antes el cliente
+                        // creaba otra fila equivalente, lo que duplicaba el aviso y dejaba
+                        // una variante sin ruta en la PWA.
+                        notif.set("type", "ladder_match");
                         notif.set("title", "Confirma tu partido de " + ladderName);
                         notif.set("body", "@" + arbiterUsername + " registró: Rojo " + scoreRed + " - " + scoreBlue + " Azul.");
                         notif.set("read", false);

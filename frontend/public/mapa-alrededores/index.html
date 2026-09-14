@@ -31,7 +31,11 @@
   var protocol = new pmtiles.Protocol();
   maplibregl.addProtocol('pmtiles', protocol.tile);
 
-  var CENTER = [-70.6623, -33.4577]; // [lng, lat] — Facultad de Ciencias Físicas y Matemáticas
+  var SEARCH_PARAMS = new URLSearchParams(window.location.search);
+  var PICKER_MODE = SEARCH_PARAMS.get('picker') === '1';
+  var INITIAL_LNG = Number(SEARCH_PARAMS.get('lng'));
+  var INITIAL_LAT = Number(SEARCH_PARAMS.get('lat'));
+  var HAS_INITIAL_LOCATION = Number.isFinite(INITIAL_LNG) && Number.isFinite(INITIAL_LAT);
 
   // Los alrededores de verdad (1500 m desde CENTER), no el bbox completo del extracto de
   // beauchef.pmtiles (ese tiene margen extra a propósito, para que al acercarse al borde
@@ -41,12 +45,18 @@
     [-70.67846, -33.47118], // suroeste
     [-70.64614, -33.44423], // noreste
   ];
+  // El punto de partida es el centro geométrico de los alrededores disponibles: Beauchef
+  // queda justo al medio del mapa en vez de depender de una coordenada duplicada a mano.
+  var CENTER = [
+    (BOUNDS[0][0] + BOUNDS[1][0]) / 2,
+    (BOUNDS[0][1] + BOUNDS[1][1]) / 2,
+  ];
 
   var map = new maplibregl.Map({
     container: 'map',
     style: 'https://images.daridius.cl/static/mapa-alrededores/style.json',
-    center: CENTER,
-    zoom: 16,
+    center: HAS_INITIAL_LOCATION ? [INITIAL_LNG, INITIAL_LAT] : CENTER,
+    zoom: HAS_INITIAL_LOCATION ? 18 : 16,
     minZoom: 14,
     maxZoom: 19,
     maxBounds: BOUNDS,
@@ -63,6 +73,36 @@
   map.on('error', function (e) {
     console.error('maplibre error', e);
   });
+
+  // En modo selector se deja una marca sobre el punto elegido y se comunica al padre.
+  // La etiqueta incluye coordenadas porque el mapa permite elegir cualquier lugar, no
+  // solo edificios con nombre propio.
+  var selectedMarker = HAS_INITIAL_LOCATION
+    ? new maplibregl.Marker({ color: '#4f46e5' }).setLngLat([INITIAL_LNG, INITIAL_LAT]).addTo(map)
+    : null;
+  if (PICKER_MODE) {
+    map.on('click', function (event) {
+      var lng = Number(event.lngLat.lng.toFixed(6));
+      var lat = Number(event.lngLat.lat.toFixed(6));
+      if (!selectedMarker) selectedMarker = new maplibregl.Marker({ color: '#4f46e5' });
+      selectedMarker.setLngLat([lng, lat]).addTo(map);
+      var message = {
+        type: 'beauchapp-location',
+        location: {
+          source: 'surroundings',
+          name: Math.abs(lat).toFixed(6) + '° S, ' + Math.abs(lng).toFixed(6) + '° O',
+          category: 'Alrededores de Beauchef',
+          latitude: lat,
+          longitude: lng
+        }
+      };
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify(message));
+      } else {
+        window.parent.postMessage(message, '*');
+      }
+    });
+  }
 </script>
 </body>
 </html>

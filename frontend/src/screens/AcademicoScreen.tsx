@@ -4,13 +4,10 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { theme } from '../theme/theme';
 import { Feather } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Academico'>;
 
 export const AcademicoScreen: React.FC<Props> = ({ navigation }) => {
-  const { developerMode } = useAuth();
-
   const apps = [
     {
       id: 'ProblemsList',
@@ -24,18 +21,6 @@ export const AcademicoScreen: React.FC<Props> = ({ navigation }) => {
       icon: 'star',
       screen: 'Reviews',
     },
-    // Todavía no está terminado (mapa de alrededores en pausa) — visible solo en modo
-    // desarrollador hasta que se lance.
-    ...(developerMode
-      ? [
-          {
-            id: 'CampusMap',
-            title: 'Mapa del Campus',
-            icon: 'map',
-            screen: 'CampusMap',
-          },
-        ]
-      : []),
   ];
 
   return (

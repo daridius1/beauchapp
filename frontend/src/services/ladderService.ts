@@ -120,23 +120,6 @@ export const ladderService = {
 
     const record = await pb.collection('ladder_matches').create<LadderMatch>(payload);
 
-    // Notificar a todos los jugadores involucrados (excepto al árbitro que lo creó)
-    const allPlayers = [...new Set([...data.teamRed, ...data.teamBlue])].filter((id) => id !== user.id);
-    for (const recipientId of allPlayers) {
-      try {
-        await pb.collection('notifications').create({
-          user: recipientId,
-          sender: user.id,
-          type: 'ladder_match',
-          title: 'Resultado de partido propuesto',
-          body: `Se propuso un resultado (${data.scoreRed} - ${data.scoreBlue}). Toca para revisar y responder.`,
-          relatedId: record.id,
-        });
-      } catch (err) {
-        console.error('Error creating match notification:', err);
-      }
-    }
-
     return record;
   },
 

@@ -145,6 +145,11 @@ export const PostCard: React.FC<PostCardProps> = ({
     });
   };
 
+  const handleLocationPress = (event: any) => {
+    if (event.stopPropagation) event.stopPropagation();
+    navigation.navigate('CampusMap', { location: post.location });
+  };
+
   const renderContent = (contentStr: string) => {
     if (!contentStr) return null;
     const parts = contentStr.split(/(@[a-zA-Z0-9_.-]+|https?:\/\/[^\s]+)/g);
@@ -361,6 +366,17 @@ export const PostCard: React.FC<PostCardProps> = ({
           </Text>
         )}
 
+        {!isDeleted && post.location?.name && (
+          <TouchableOpacity style={styles.locationCard} onPress={handleLocationPress} activeOpacity={0.7}>
+            <Feather name="map-pin" size={15} color={theme.colors.primary} />
+            <View style={styles.locationText}>
+              <Text style={styles.locationName}>{post.location.name}</Text>
+              <Text style={styles.locationCategory}>{post.location.category}</Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
+          </TouchableOpacity>
+        )}
+
         {/* Adjunto de foto */}
         {!isDeleted && !!post.photo && (
           <TouchableOpacity
@@ -529,6 +545,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     marginBottom: theme.spacing.sm,
+  },
+  locationCard: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderLeftWidth: 2,
+    borderLeftColor: theme.colors.primary,
+    paddingLeft: theme.spacing.sm,
+    paddingRight: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    marginBottom: theme.spacing.md,
+  },
+  locationText: {
+    marginLeft: theme.spacing.sm,
+    flex: 1,
+    paddingRight: theme.spacing.sm,
+  },
+  locationName: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  locationCategory: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    marginTop: 1,
   },
   mentionText: {
     color: '#CCCCCC',

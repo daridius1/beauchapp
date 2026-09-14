@@ -36,6 +36,35 @@ onRecordAfterCreateSuccess((e) => {
     }
 }, "organization_members");
 
+// Una organización puede volver a invitar a alguien que había rechazado o fue retirado.
+// addMember reutiliza esa fila y la pasa a pending, por lo que el hook de creación no
+// corre otra vez; sin este caso la persona nunca se enteraba de la nueva invitación.
+onRecordAfterUpdateSuccess((e) => {
+    try {
+        const member = e.record;
+        const before = member.original();
+        if (member.getString("status") !== "pending" || before.getString("status") === "pending") return;
+
+        const userId = member.getString("user");
+        const orgId = member.getString("organization");
+        const org = $app.findRecordById("users", orgId);
+        const orgName = org.getString("name") || org.getString("username") || "Una organización";
+
+        const notifCollection = $app.findCollectionByNameOrId("notifications");
+        const notif = new Record(notifCollection);
+        notif.set("user", userId);
+        notif.set("sender", orgId);
+        notif.set("type", "org_invite");
+        notif.set("title", "Invitación a una organización");
+        notif.set("body", orgName + " te invitó a unirte.");
+        notif.set("read", false);
+        notif.set("relatedId", orgId);
+        $app.save(notif);
+    } catch (err) {
+        console.error("[organizations.pb.js] Error creando notificación de reinvitación:", err.message || err);
+    }
+}, "organization_members");
+
 // Aceptar/rechazar una invitación pendiente — el propio estudiante invitado, autenticado
 // con su cuenta. Usa $app.save/$app.delete a propósito (evita el onRecordUpdateRequest
 // de auth.pb.js que bloquea a cualquier CLIENTE mover status a 'active' por la API

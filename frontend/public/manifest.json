@@ -1,6 +1,7 @@
 {
   "short_name": "Beauchapp",
   "name": "Beauchapp — Red Social FCFM",
+  "id": "/",
   "icons": [
     {
       "src": "/icon-192.png?v=2",

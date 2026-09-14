@@ -71,6 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
     { id: 'Comunidad', label: 'Comunidad' },
     { id: 'ConoceBeauchef', label: 'Conoce Beauchef' },
     { id: 'Academico', label: 'Académico' },
+    { id: 'CampusMap', label: 'Mapa' },
     { id: 'Deportes', label: 'Deportes' },
     { id: 'Juegos', label: 'Juegos' },
     // Instalar como PWA solo tiene sentido en el navegador y si todavía no está instalada

@@ -91,7 +91,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       navigation.navigate('Tinder', { initialTab: 'matches' });
     } else if ((item.type === 'mention' || item.type === 'reply') && item.relatedId) {
       navigation.navigate('PostDetail', { postId: item.relatedId });
-    } else if (item.type === 'ladder_match' && item.relatedId) {
+    } else if ((item.type === 'ladder_match' || item.type === 'ladder_confirmation') && item.relatedId) {
       navigation.navigate('LadderMatchDetail', { matchId: item.relatedId });
     } else if ((item.type === 'league_referee_result' || item.type === 'league_referee_assignment') && item.relatedId) {
       navigation.navigate('LeagueMatchDetail', { matchId: item.relatedId });
@@ -99,6 +99,8 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       navigation.navigate('ActivityDetail', { activityId: item.relatedId });
     } else if (item.type === 'org_invite' && item.relatedId) {
       navigation.navigate('UserProfile', { userId: item.relatedId });
+    } else if ((item.type === 'trade_proposed' || item.type === 'trade_countered' || item.type === 'trade_accepted') && item.relatedId) {
+      navigation.navigate('LeagueAlbum', { albumId: item.relatedId });
     }
   };
 
