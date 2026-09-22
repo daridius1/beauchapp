@@ -106,20 +106,22 @@ onRecordCreateRequest(validateAvailabilitySubmission, "horario_availability");
 onRecordUpdateRequest(validateAvailabilitySubmission, "horario_availability");
 
 // ---------------------------------------------------------------------------------
-// Administración (vista tipo /admin/generate-link y /admin/beaumarket, sin gate de
-// auth en el GET — la seguridad real vive en las rutas de acción, todas con
-// requireSuperuserAuth()). Sin concepto de "ronda": la ventana marcable es siempre la
-// misma regla relativa a hoy (ver teamSchedule.js). Acá solo se administran los
-// horarios en sí (bloqueados/ocupados) — agendar partidos se hace desde /admin/liga.
+// Administración delegada a la cuenta @cdi. El GET sigue siendo público porque solo
+// sirve el HTML; la seguridad real vive en la ruta de acción, que exige una sesión de
+// users y el id inmutable de esa organización. Sin concepto de "ronda": la ventana
+// marcable es siempre la misma regla relativa a hoy (ver teamSchedule.js). Acá solo se
+// administran los horarios en sí (bloqueados/ocupados) — agendar partidos se hace
+// desde /admin/liga.
 // ---------------------------------------------------------------------------------
 
 routerAdd("GET", "/admin/horarios", (e) => {
     const { PALETTE_CSS, clientCalendarFns, clientSessionGateFn, clientApiCallFn } = require(`${__hooks}/lib/adminUi.js`);
+    const { SCHEDULE_MANAGER_USER_ID } = require(`${__hooks}/lib/teamSchedule.js`);
     // Las etiquetas de día/mes y los helpers de la ventana vienen de lib/adminUi.js:
     // esta página y /admin/liga tienen que dibujar exactamente el mismo calendario.
     const CALENDAR_FNS = clientCalendarFns();
     const SESSION_GATE_FN = clientSessionGateFn();
-    const API_CALL_FN = clientApiCallFn("pb_auth");
+    const API_CALL_FN = clientApiCallFn("horarios_auth");
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="es">
@@ -206,8 +208,8 @@ routerAdd("GET", "/admin/horarios", (e) => {
             <p class="hint" id="checkingMsg">Verificando sesión…</p>
             <form id="loginForm" style="display:none;">
                 <div class="form-group">
-                    <label>Correo del Administrador</label>
-                    <input type="email" id="loginEmail" required>
+                    <label>Usuario o correo de CDI</label>
+                    <input type="text" id="loginIdentity" required>
                 </div>
                 <div class="form-group">
                     <label>Contraseña</label>
@@ -241,6 +243,7 @@ ${CALENDAR_FNS}
 ${SESSION_GATE_FN}
 
         let token = "";
+        const scheduleManagerUserId = "${SCHEDULE_MANAGER_USER_ID}";
 
         const loginPage = document.getElementById("loginPage");
         const panelPage = document.getElementById("panelPage");
@@ -252,7 +255,19 @@ ${SESSION_GATE_FN}
         function showError(el, msg) { el.textContent = msg; el.style.display = "block"; }
         function hideError(el) { el.style.display = "none"; }
 
-        function showPanel() { checkingMsg.style.display = "none"; loginPage.style.display = "none"; panelPage.style.display = "block"; loadBlockedGrid(); }
+        function showPanel(record) {
+            if (!record || record.id !== scheduleManagerUserId) {
+                token = "";
+                localStorage.removeItem("horarios_auth");
+                showLogin(false);
+                showError(loginError, "Esta cuenta no tiene permiso para administrar los horarios.");
+                return;
+            }
+            checkingMsg.style.display = "none";
+            loginPage.style.display = "none";
+            panelPage.style.display = "block";
+            loadBlockedGrid();
+        }
         function showLogin(hadStaleSession) {
             checkingMsg.style.display = "none";
             loginForm.style.display = "block";
@@ -264,23 +279,23 @@ ${SESSION_GATE_FN}
         document.getElementById("loginForm").addEventListener("submit", async (e) => {
             e.preventDefault();
             hideError(loginError);
-            const email = document.getElementById("loginEmail").value;
+            const identity = document.getElementById("loginIdentity").value;
             const password = document.getElementById("loginPassword").value;
             try {
-                const res = await fetch("/api/collections/_superusers/auth-with-password", {
+                const res = await fetch("/api/collections/users/auth-with-password", {
                     method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ identity: email, password: password })
+                    body: JSON.stringify({ identity: identity, password: password })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.message || "Credenciales incorrectas.");
                 token = data.token;
-                localStorage.setItem("pb_auth", JSON.stringify({ token, model: data.record }));
-                showPanel();
+                localStorage.setItem("horarios_auth", JSON.stringify({ token, model: data.record }));
+                showPanel(data.record);
             } catch (err) { showError(loginError, err.message); }
         });
 
         document.getElementById("logoutBtn").addEventListener("click", () => {
-            token = ""; localStorage.removeItem("pb_auth"); showLogin();
+            token = ""; localStorage.removeItem("horarios_auth"); showLogin();
         });
 
 ${API_CALL_FN}
@@ -368,9 +383,9 @@ ${API_CALL_FN}
         // qué mostrar — antes se confiaba en que un token presente en localStorage
         // seguía sirviendo, así que una sesión vencida mostraba el panel igual y recién
         // fallaba al primer POST.
-        gateSession("_superusers", "pb_auth", (freshToken) => {
+        gateSession("users", "horarios_auth", (freshToken, record) => {
             token = freshToken;
-            showPanel();
+            showPanel(record);
         }, (hadStaleSession) => showLogin(hadStaleSession));
     </script>
 </body>
@@ -381,6 +396,11 @@ ${API_CALL_FN}
 
 routerAdd("POST", "/api/admin/horarios/blocked/toggle", (e) => {
     try {
+        const { isScheduleManagerUserId } = require(`${__hooks}/lib/teamSchedule.js`);
+        if (!isScheduleManagerUserId(e.auth.id)) {
+            return e.json(403, { error: "Esta cuenta no tiene permiso para administrar los horarios." });
+        }
+
         const body = e.requestInfo().body || {};
         const blockCode = String(body.blockCode || "");
         if (!blockCode) throw new BadRequestError("Falta blockCode.");
@@ -406,7 +426,7 @@ routerAdd("POST", "/api/admin/horarios/blocked/toggle", (e) => {
         console.error("[team_schedule.pb.js] Error en POST /api/admin/horarios/blocked/toggle:", err);
         return e.json(400, { error: (err && err.message) || "No se pudo actualizar el bloque." });
     }
-}, $apis.requireSuperuserAuth());
+}, $apis.requireAuth("users"));
 
 // ---------------------------------------------------------------------------------
 // Disponibilidad de los integrantes de un equipo para un bloque puntual — un equipo
@@ -463,4 +483,3 @@ routerAdd("GET", "/api/team-schedule/roster-availability", (e) => {
         return e.json(400, { error: (err && err.message) || "No se pudo cargar la disponibilidad del equipo." });
     }
 }, $apis.requireAuth("users"));
-

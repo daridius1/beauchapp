@@ -1,8 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // ---------------------------------------------------------------------------------
-// Gestión de ligas — a diferencia de /admin/horarios (superusuario), esta herramienta
-// se autentica con la propia cuenta de organización de la liga (type=organization,
+// Gestión de ligas — igual que /admin/horarios desde que su administración se delegó
+// a CDI, esta herramienta se autentica con la propia cuenta de organización de la liga (type=organization,
 // subtype=league). No existe una colección "leagues" separada: la cuenta de usuario
 // ES la liga, así que cada ruta opera siempre sobre "mi propia liga" (e.auth.id), sin
 // necesidad de un parámetro leagueId ni de chequear ownership contra otro id.

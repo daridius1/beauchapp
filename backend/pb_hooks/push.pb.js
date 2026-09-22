@@ -64,6 +64,26 @@ routerAdd("POST", "/api/push/unsubscribe", (e) => {
     }
 }, $apis.requireAuth("users"));
 
+// Una suscripción del navegador puede sobrevivir a un cambio de cuenta. La pantalla
+// de Configuración solo debe mostrarla activa si pertenece a la sesión actual.
+routerAdd("GET", "/api/push/subscription-status", (e) => {
+    try {
+        const endpoint = String(e.request.url.query().get("endpoint") || "");
+        if (!endpoint) throw new BadRequestError("Falta la suscripción a consultar.");
+        let active = false;
+        try {
+            const subscription = $app.findFirstRecordByFilter(
+                "push_subscriptions", "endpoint = {:endpoint} && user = {:user} && disabled = false",
+                { endpoint: endpoint, user: e.auth.id }
+            );
+            active = !!subscription;
+        } catch (err) {}
+        return e.json(200, { active: active });
+    } catch (err) {
+        return e.json(400, { error: (err && err.message) || "No se pudo revisar la suscripción." });
+    }
+}, $apis.requireAuth("users"));
+
 // Cada notificación interna se vuelve elegible para push sin que sus productores tengan
 // que conocer dispositivos, preferencias ni VAPID. Si el dispatcher aún no está
 // configurado, no se acumula una cola que nadie puede entregar.
@@ -89,7 +109,8 @@ cronAdd("dispatch_web_push", "* * * * *", () => {
         if (type === "org_invite") return "/users/" + relatedId;
         if (type === "trade_proposed" || type === "trade_countered" || type === "trade_accepted") return "/album/" + relatedId;
         if (type === "match") return "/tinder?initialTab=matches";
-        if (type === "league_referee_result" || type === "league_referee_assignment") return "/partidos/" + relatedId;
+        if (type === "league_referee_result" || type === "league_referee_assignment" ||
+            type === "league_referee_member_result" || type === "league_referee_member_assignment") return "/partidos/" + relatedId;
         return "/notifications";
     };
     const dispatcherUrl = $os.getenv("PUSH_DISPATCH_URL");
@@ -103,8 +124,9 @@ cronAdd("dispatch_web_push", "* * * * *", () => {
         if (!jobs.length) return;
 
         const entries = [];
+        const processedJobs = [];
         const jobsWithoutDevices = [];
-        jobs.forEach((job) => {
+        for (const job of jobs) {
             try {
                 const notification = $app.findRecordById("notifications", job.getString("notification"));
                 const devices = $app.findRecordsByFilter(
@@ -113,8 +135,14 @@ cronAdd("dispatch_web_push", "* * * * *", () => {
                 );
                 if (!devices.length) {
                     jobsWithoutDevices.push(job);
-                    return;
+                    processedJobs.push(job);
+                    continue;
                 }
+                // Workers Free admite 50 solicitudes externas por invocación. Nunca
+                // dividir un trabajo entre lotes: su estado representa todos los
+                // dispositivos del aviso.
+                if (entries.length + devices.length > 50) break;
+                processedJobs.push(job);
                 devices.forEach((device) => entries.push({
                     outboxId: job.id,
                     subscriptionId: device.id,
@@ -131,8 +159,9 @@ cronAdd("dispatch_web_push", "* * * * *", () => {
             } catch (err) {
                 job.set("status", "discarded");
                 $app.save(job);
+                processedJobs.push(job);
             }
-        });
+        }
 
         jobsWithoutDevices.forEach((job) => {
             job.set("status", "discarded");
@@ -164,7 +193,7 @@ cronAdd("dispatch_web_push", "* * * * *", () => {
                 } catch (err) {}
             }
         });
-        jobs.forEach((job) => {
+        processedJobs.forEach((job) => {
             if (delivered.has(job.id)) {
                 job.set("status", "sent");
             } else if (job.getString("status") === "pending") {

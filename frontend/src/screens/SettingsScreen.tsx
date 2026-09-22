@@ -14,6 +14,7 @@ import { UserSelectorModal } from '../components/UserSelectorModal';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { pushNotificationService } from '../services/pushNotifications';
+import { useFocusEffect } from '@react-navigation/native';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
@@ -48,9 +49,13 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, [user?.id]);
 
-  useEffect(() => {
-    pushNotificationService.getStatus().then(setPushStatus).catch(() => setPushStatus('unsupported'));
-  }, []);
+  useFocusEffect(React.useCallback(() => {
+    let active = true;
+    pushNotificationService.getStatus()
+      .then((status) => { if (active) setPushStatus(status); })
+      .catch(() => { if (active) setPushStatus('unsupported'); });
+    return () => { active = false; };
+  }, [user?.id]));
 
   const handlePushToggle = async () => {
     setSavingPush(true);
@@ -251,7 +256,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.optionSubtitle}>
                 {pushStatus === 'enabled' && 'Recibirás avisos aunque Beauchapp esté cerrada.'}
                 {pushStatus === 'disabled' && 'Actívalas para recibir avisos fuera de la aplicación.'}
-                {pushStatus === 'needs-install' && 'En iPhone o iPad, instala Beauchapp en la pantalla de inicio primero.'}
+                {pushStatus === 'needs-install' && 'En iPhone o iPad, agrégala a la pantalla de inicio y ábrela desde su ícono para recibir avisos.'}
                 {pushStatus === 'denied' && 'El permiso está bloqueado en los ajustes del navegador o del sistema.'}
                 {pushStatus === 'unsupported' && 'Este navegador no admite notificaciones web.'}
                 {pushStatus === 'unavailable' && 'Esta función estará disponible pronto.'}

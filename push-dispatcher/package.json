@@ -1,0 +1,16 @@
+{
+  "name": "beauchapp-push-dispatcher",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "keys": "node scripts/generate-vapid.js",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@block65/webcrypto-web-push": "2.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "4.135.0"
+  }
+}

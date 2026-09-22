@@ -33,7 +33,17 @@ const {
     MAX_TEAMS,
     DIFFICULTY_WEIGHT,
     DEFAULT_TEMPERATURE,
+    SCHEDULE_MANAGER_USER_ID,
+    isScheduleManagerUserId,
 } = require("../teamSchedule.js");
+
+test("isScheduleManagerUserId: solo autoriza el id inmutable de @cdi", () => {
+    assert.equal(SCHEDULE_MANAGER_USER_ID, "76t7ac1g1vrrk00");
+    assert.equal(isScheduleManagerUserId(SCHEDULE_MANAGER_USER_ID), true);
+    assert.equal(isScheduleManagerUserId("cdi"), false);
+    assert.equal(isScheduleManagerUserId(""), false);
+    assert.equal(isScheduleManagerUserId(null), false);
+});
 
 // ---------------------------------------------------------------------------------
 // La ventana móvil y sus utilidades de fecha

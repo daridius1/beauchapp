@@ -1,5 +1,62 @@
 /// <reference path="../pb_data/types.d.ts" />
 
+// La asignación se dirige a la cuenta del equipo, que es la única autorizada para
+// cargar el resultado. Sus integrantes activos reciben una copia informativa con el
+// mismo enlace al partido; una invitación pendiente no da acceso a estos avisos.
+onRecordAfterCreateSuccess((e) => {
+    const source = e.record;
+    const type = source.getString("type");
+    if (type !== "league_referee_assignment" && type !== "league_referee_result") return;
+
+    try {
+        const teamId = source.getString("user");
+        const team = $app.findRecordById("users", teamId);
+        if (team.getString("type") !== "organization" || team.getString("subtype") !== "team") return;
+
+        const teamName = team.getString("name") || team.getString("username") || "tu equipo";
+        const originalBody = source.getString("body");
+        const body = type === "league_referee_assignment" && originalBody.indexOf("Tu equipo fue asignado a arbitrar ") === 0
+            ? "Tu equipo " + teamName + " debe arbitrar " + originalBody.slice("Tu equipo fue asignado a arbitrar ".length)
+            : "Tu equipo " + teamName + ": " + originalBody;
+        const notifications = $app.findCollectionByNameOrId("notifications");
+        const notified = new Set([teamId]);
+        const pageSize = 100;
+        let offset = 0;
+        while (true) {
+            const members = $app.findRecordsByFilter(
+                "organization_members",
+                "organization = {:team} && status = 'active'",
+                "created", pageSize, offset, { team: teamId }
+            );
+            members.forEach((member) => {
+                const userId = member.getString("user");
+                if (!userId || notified.has(userId)) return;
+                notified.add(userId);
+                try {
+                    const notification = new Record(notifications);
+                    notification.set("user", userId);
+                    notification.set("sender", source.getString("sender"));
+                    // Tipo separado para que una cuenta de organización invitada como
+                    // integrante no vuelva a repartir el aviso a sus propios miembros.
+                    notification.set("type", type === "league_referee_assignment"
+                        ? "league_referee_member_assignment" : "league_referee_member_result");
+                    notification.set("title", source.getString("title"));
+                    notification.set("body", body);
+                    notification.set("read", false);
+                    notification.set("relatedId", source.getString("relatedId"));
+                    $app.save(notification);
+                } catch (err) {
+                    console.error("[Notifications] No se pudo avisar a un integrante del equipo árbitro:", err);
+                }
+            });
+            if (members.length < pageSize) break;
+            offset += pageSize;
+        }
+    } catch (err) {
+        console.error("[Notifications] No se pudo avisar a los integrantes del equipo árbitro:", err);
+    }
+}, "notifications");
+
 // 17. Notificaciones: Auto-crear notificaciones cuando ocurre un match en Tinder Beauchef
 // (Queda async/onRecordAfterCreateSuccess a propósito: es puramente informativo y el match
 // en tinder_matches en sí ya se crea de forma síncrona en tinder.pb.js.)
@@ -86,6 +143,4 @@ onRecordAfterCreateSuccess((e) => {
         console.error("[Notifications] Error creating activity notifications:", err.message || err);
     }
 }, "activities");
-
-
 

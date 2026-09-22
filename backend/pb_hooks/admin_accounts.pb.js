@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Panel de administración para eliminar CUALQUIER cuenta (estudiante u organización).
-// Autenticado con superusuario real de PocketBase, mismo patrón que /admin/horarios y
+// Autenticado con superusuario real de PocketBase, mismo patrón que
 // /admin/reviews-import (gateSession("_superusers", ...) + $apis.requireSuperuserAuth()
 // en cada acción) — a diferencia de /admin/liga, que se autentica con la propia cuenta
 // de organización y NO sirve de plantilla acá.

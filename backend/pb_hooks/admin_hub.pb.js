@@ -1,10 +1,11 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Punto de entrada único para el administrador del sitio: enlaza a todas las
-// herramientas gateadas con superusuario real (no incluye /admin/liga ni
-// /admin/noticias, que se autentican con la cuenta propia de la organización, no con
-// un superusuario — ver adminUi.js). Sin lógica de negocio propia: cuando se agregue
-// una próxima herramienta admin-only, solo hace falta sumarle una tarjeta acá.
+// herramientas gateadas con superusuario real (no incluye /admin/liga,
+// /admin/noticias ni /admin/horarios, que se autentican con la cuenta propia de la
+// organización responsable, no con un superusuario — ver adminUi.js). Sin lógica de
+// negocio propia: cuando se agregue una próxima herramienta admin-only, solo hace
+// falta sumarle una tarjeta acá.
 
 routerAdd("GET", "/admin", (e) => {
     const { PALETTE_CSS, clientSessionGateFn } = require(`${__hooks}/lib/adminUi.js`);
@@ -14,7 +15,6 @@ routerAdd("GET", "/admin", (e) => {
         { href: "/admin/generate-link", title: "Generar enlace", desc: "Crear cuentas de organización (centro, equipo, liga, banda, comunidad)." },
         { href: "/admin/album", title: "Álbumes", desc: "Crear álbumes de figuritas y elegir qué ligas los componen." },
         { href: "/admin/cuentas", title: "Eliminar cuentas", desc: "Anonimizar una cuenta de estudiante u organización." },
-        { href: "/admin/horarios", title: "Horarios", desc: "Bloques de cancha cerrados u ocupados." },
         { href: "/admin/beaumarket", title: "Beaumarket", desc: "Crear y cerrar mercados de predicción manuales." },
         { href: "/admin/reviews-import", title: "Importar reseñas", desc: "Cargar reseñas de cursos/profesores en lote." },
     ];

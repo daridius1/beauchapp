@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { pb } from '../services/pocketbase';
 import { storage } from '../utils/storage';
 import { ConoceContact } from '../services/conoceContactService';
+import { pushNotificationService } from '../services/pushNotifications';
 
 // Se expande junto con el usuario (login, refresh periódico) para que el contacto de
 // "Conoce Beauchef" esté disponible desde el primer render de ConoceContactForm, sin un
@@ -157,9 +158,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const refreshInterval = setInterval(checkAuth, 10 * 60 * 1000);
 
     // Escuchar cambios en authStore (ej. logout en otra pestaña)
+    let previousUserId = pb.authStore.model?.id || '';
+    let previousToken = pb.authStore.token;
     const unsubscribe = pb.authStore.onChange((token, model) => {
+      const nextUserId = model?.id || '';
+      if (previousUserId && previousUserId !== nextUserId) {
+        void pushNotificationService.releaseOnLogout(previousToken).catch(() => {});
+      }
+      if (nextUserId && previousUserId !== nextUserId) {
+        void pushNotificationService.reconcileForCurrentUser().catch(() => {});
+      }
+      previousUserId = nextUserId;
+      previousToken = token;
       setUser(model as unknown as User);
     });
+    if (pb.authStore.isValid) {
+      void pushNotificationService.reconcileForCurrentUser().catch(() => {});
+    }
 
     return () => {
       clearInterval(refreshInterval);

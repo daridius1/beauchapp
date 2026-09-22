@@ -15,6 +15,8 @@ import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme/theme';
 import { Avatar } from '../components/Avatar';
 import { withMinimumDelay } from '../utils/refresh';
+import { storage } from '../utils/storage';
+import { pushNotificationService } from '../services/pushNotifications';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
@@ -27,6 +29,7 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
 
   const fetchNotifications = useCallback(async (isRefresh = false) => {
     if (!user) return;
@@ -34,6 +37,16 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const items = await notificationService.getNotifications(user.id);
       setNotifications(items);
+      const hasRefereeNotice = items.some((item) =>
+        (item.type === 'league_referee_assignment' || item.type === 'league_referee_member_assignment') && !item.read
+      );
+      if (hasRefereeNotice && storage.getItem(`referee_push_prompt_${user.id}`) !== 'dismissed') {
+        pushNotificationService.getStatus()
+          .then((status) => setShowPushPrompt(status === 'disabled' || status === 'needs-install'))
+          .catch(() => setShowPushPrompt(false));
+      } else {
+        setShowPushPrompt(false);
+      }
 
       // Marcar como leídas
       await notificationService.markAllAsRead(user.id);
@@ -86,6 +99,11 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  const dismissPushPrompt = () => {
+    if (user) storage.setItem(`referee_push_prompt_${user.id}`, 'dismissed');
+    setShowPushPrompt(false);
+  };
+
   const handleNotificationPress = (item: any) => {
     if (item.type === 'match') {
       navigation.navigate('Tinder', { initialTab: 'matches' });
@@ -93,7 +111,8 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       navigation.navigate('PostDetail', { postId: item.relatedId });
     } else if ((item.type === 'ladder_match' || item.type === 'ladder_confirmation') && item.relatedId) {
       navigation.navigate('LadderMatchDetail', { matchId: item.relatedId });
-    } else if ((item.type === 'league_referee_result' || item.type === 'league_referee_assignment') && item.relatedId) {
+    } else if ((item.type === 'league_referee_result' || item.type === 'league_referee_assignment' ||
+      item.type === 'league_referee_member_result' || item.type === 'league_referee_member_assignment') && item.relatedId) {
       navigation.navigate('LeagueMatchDetail', { matchId: item.relatedId });
     } else if ((item.type === 'activity' || item.type === 'new_activity') && item.relatedId) {
       navigation.navigate('ActivityDetail', { activityId: item.relatedId });
@@ -181,6 +200,20 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       ) : (
         <FlatList
           data={notifications}
+          ListHeaderComponent={showPushPrompt ? (
+            <View style={styles.pushPrompt}>
+              <View style={styles.pushPromptContent}>
+                <Text style={styles.pushPromptTitle}>Entérate de los próximos arbitrajes</Text>
+                <Text style={styles.pushPromptText}>Puedes activar avisos en este dispositivo para recibirlos aunque Beauchapp esté cerrada.</Text>
+                <TouchableOpacity onPress={() => { dismissPushPrompt(); navigation.navigate('Settings'); }}>
+                  <Text style={styles.pushPromptLink}>Ir a Configuración</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity onPress={dismissPushPrompt} accessibilityLabel="Cerrar sugerencia">
+                <Feather name="x" size={18} color={theme.colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          ) : null}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
@@ -211,6 +244,18 @@ export const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  pushPrompt: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  pushPromptContent: { flex: 1, paddingRight: theme.spacing.sm },
+  pushPromptTitle: { color: theme.colors.text, fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  pushPromptText: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 18, marginBottom: 8 },
+  pushPromptLink: { color: theme.colors.primary, fontSize: 13, fontWeight: '700' },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

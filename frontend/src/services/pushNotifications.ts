@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { pb } from './pocketbase';
+import { pb, POCKETBASE_URL } from './pocketbase';
 
 type PushStatus = 'unsupported' | 'needs-install' | 'unavailable' | 'denied' | 'disabled' | 'enabled';
 
@@ -41,18 +41,28 @@ export const pushNotificationService = {
     if (!isWeb() || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
       return 'unsupported';
     }
-    if (isIOS() && !isStandalone()) return 'needs-install';
     if (!VAPID_PUBLIC_KEY) return 'unavailable';
+    if (isIOS() && !isStandalone()) return 'needs-install';
     if (Notification.permission === 'denied') return 'denied';
     const registration = await this.registerServiceWorker();
     const subscription = await registration?.pushManager.getSubscription();
-    return subscription ? 'enabled' : 'disabled';
+    if (!subscription || !pb.authStore.isValid) return 'disabled';
+    const status = await pb.send('/api/push/subscription-status', {
+      method: 'GET',
+      query: { endpoint: subscription.endpoint },
+    });
+    return status.active ? 'enabled' : 'disabled';
   },
 
   async enable(): Promise<PushStatus> {
-    const before = await this.getStatus();
-    if (before === 'unsupported' || before === 'needs-install' || before === 'unavailable' || before === 'denied') return before;
+    if (!isWeb() || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      return 'unsupported';
+    }
+    if (!VAPID_PUBLIC_KEY) return 'unavailable';
+    if (isIOS() && !isStandalone()) return 'needs-install';
+    if (Notification.permission === 'denied') return 'denied';
 
+    // La solicitud debe seguir directamente al toque del botón, especialmente en iOS.
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return permission === 'denied' ? 'denied' : 'disabled';
 
@@ -73,8 +83,47 @@ export const pushNotificationService = {
     const registration = await this.registerServiceWorker();
     const subscription = await registration?.pushManager.getSubscription();
     if (!subscription) return;
-    await pb.send('/api/push/unsubscribe', { method: 'POST', body: { endpoint: subscription.endpoint } });
+    try {
+      await pb.send('/api/push/unsubscribe', { method: 'POST', body: { endpoint: subscription.endpoint } });
+    } catch (err) {
+      console.warn('No se pudo dar de baja la suscripción remota:', err);
+    }
     await subscription.unsubscribe();
+  },
+
+  async releaseOnLogout(token: string): Promise<void> {
+    if (!isWeb() || !('serviceWorker' in navigator)) return;
+    const registration = await this.registerServiceWorker();
+    const subscription = await registration?.pushManager.getSubscription();
+    if (!subscription) return;
+
+    // Aunque la baja remota falle, invalidar la suscripción del navegador evita que
+    // este dispositivo siga mostrando avisos de la cuenta que acaba de salir.
+    await subscription.unsubscribe();
+    if (!token) return;
+    try {
+      await fetch(`${POCKETBASE_URL}/api/push/unsubscribe`, {
+        method: 'POST',
+        headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: subscription.endpoint }),
+      });
+    } catch (err) {
+      console.warn('No se pudo dar de baja la suscripción remota:', err);
+    }
+  },
+
+  async reconcileForCurrentUser(): Promise<void> {
+    if (!isWeb() || !('serviceWorker' in navigator) || !pb.authStore.isValid) return;
+    const registration = await this.registerServiceWorker();
+    const subscription = await registration?.pushManager.getSubscription();
+    if (!subscription) return;
+    const status = await pb.send('/api/push/subscription-status', {
+      method: 'GET',
+      query: { endpoint: subscription.endpoint },
+    });
+    // Una instalación anterior puede haber dejado una suscripción asociada a otra
+    // cuenta. Se desactiva localmente antes de mostrar sus avisos a la sesión nueva.
+    if (!status.active) await subscription.unsubscribe();
   },
 
   setBadge(count: number) {

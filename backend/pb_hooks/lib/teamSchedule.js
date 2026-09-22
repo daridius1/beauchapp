@@ -9,6 +9,10 @@ const END_HOUR = 20; // último bloque: 20:00-21:00
 const DAYS_PER_WEEK = 7; // largo real de una semana calendario, para el offset entre semanas
 const WEEKDAYS_PER_WEEK = 5; // lunes a viernes — sábado/domingo quedan fuera de horarios
 const WEEKS_WINDOW = 3; // semana actual + 2 más
+// La administración de los bloques de cancha está delegada a la cuenta de
+// producción @cdi (Centro de Deportes de Ingeniería). Se usa el id inmutable y no el
+// username: la organización puede editar su perfil sin perder ni transferir el permiso.
+const SCHEDULE_MANAGER_USER_ID = "76t7ac1g1vrrk00";
 // Nota con la que se lee un bloque que un equipo no calificó. Es el MISMO valor con el
 // que la grilla del frontend (AvailabilityGrid/TeamScheduleScreen, defaultLevel =
 // MIN_LEVEL) llega precargada: si acá fuera más alto, un bloque que el equipo nunca vio
@@ -19,6 +23,10 @@ const WEEKS_WINDOW = 3; // semana actual + 2 más
 const DEFAULT_HAPPINESS_LEVEL = 1; // "Muy mala", igual que MIN_LEVEL en el frontend
 
 const EPS = 1e-9;
+
+function isScheduleManagerUserId(userId) {
+    return String(userId || "") === SCHEDULE_MANAGER_USER_ID;
+}
 
 function pad2(n) {
     return String(n).padStart(2, "0");
@@ -1281,6 +1289,8 @@ module.exports = {
     DAYS_PER_WEEK,
     WEEKDAYS_PER_WEEK,
     WEEKS_WINDOW,
+    SCHEDULE_MANAGER_USER_ID,
+    isScheduleManagerUserId,
     DEFAULT_HAPPINESS_LEVEL,
     formatDate,
     startOfWeek,
