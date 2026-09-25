@@ -91,7 +91,10 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
     
-    let identity = email.trim().toLowerCase();
+    let identity = email.trim();
+    if (identity.includes('@')) {
+      identity = identity.toLowerCase();
+    }
     
     if (isForgotPassword) {
       if (identity && !identity.includes('@')) {
