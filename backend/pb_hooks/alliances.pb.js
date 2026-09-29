@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Nikita Jump. La colección no expone reglas directas: la alianza solo se cambia por
-// esta API y el high score solo puede subir, garantías que se aplican en estas rutas.
+// esta API. Cada partida verificada suma al aporte total y el récord solo puede subir.
 
 routerAdd("GET", "/api/alliances/nikita", (e) => {
     try {
@@ -9,12 +9,13 @@ routerAdd("GET", "/api/alliances/nikita", (e) => {
         const { NIKITA_SKIN_PRICE } = require(`${__hooks}/lib/nikitaSkins.js`);
         const aggregateRows = arrayOf(new DynamicModel({ alliance: "", points: 0, players: 0 }));
         $app.db().newQuery(
-            "SELECT alliance, COALESCE(SUM(high_score), 0) AS points, COUNT(*) AS players " +
+            "SELECT alliance, COALESCE(SUM(total_score), 0) AS points, COUNT(*) AS players " +
             "FROM alliance_nikita_scores GROUP BY alliance"
         ).all(aggregateRows);
 
         let myAlliance = null;
         let myHighScore = 0;
+        let myTotalScore = 0;
         let selectedSkin = "";
         try {
             const mine = $app.findFirstRecordByFilter(
@@ -22,6 +23,7 @@ routerAdd("GET", "/api/alliances/nikita", (e) => {
             );
             myAlliance = mine.getString("alliance") || null;
             myHighScore = mine.getInt("high_score") || 0;
+            myTotalScore = mine.getInt("total_score") || 0;
             selectedSkin = mine.getString("selected_skin") || "";
         } catch (notFound) { /* todavía no elige alianza */ }
 
@@ -32,6 +34,7 @@ routerAdd("GET", "/api/alliances/nikita", (e) => {
         return e.json(200, {
             myAlliance,
             myHighScore,
+            myTotalScore,
             beautokens: e.auth.getInt("beautokens") || 0,
             ownedSkins,
             selectedSkin,
@@ -94,6 +97,7 @@ routerAdd("POST", "/api/alliances/alliance", (e) => {
         score.set("user", e.auth.id);
         score.set("alliance", alliance);
         score.set("high_score", 0);
+        score.set("total_score", 0);
         $app.save(score);
         return e.json(200, { alliance, highScore: 0 });
     } catch (err) {
@@ -347,6 +351,7 @@ routerAdd("POST", "/api/alliances/nikita/score", (e) => {
             const currentScore = $app.findRecordById("alliance_nikita_scores", mine.id);
             return e.json(200, {
                 highScore: currentScore.getInt("high_score") || 0,
+                totalScore: currentScore.getInt("total_score") || 0,
                 improved: false,
                 verifiedScore: redeemed[0].getInt("score") || 0,
                 reward: 0,
@@ -386,6 +391,8 @@ routerAdd("POST", "/api/alliances/nikita/score", (e) => {
 
         const reward = nikitaRewardForScore(simulated.score);
         let newBalance = 0;
+        let newHighScore = previous;
+        let newTotalScore = mine.getInt("total_score") || 0;
         try {
             $app.runInTransaction((txApp) => {
                 const duplicates = txApp.findRecordsByFilter(
@@ -400,10 +407,13 @@ routerAdd("POST", "/api/alliances/nikita/score", (e) => {
                 run.set("reward", reward);
                 txApp.save(run);
 
-                // La condición impide que dos envíos simultáneos hagan retroceder el récord.
+                // La partida suma exactamente una vez porque el runId se inserta en la
+                // misma transacción. MAX conserva el récord ante envíos simultáneos.
                 txApp.db().newQuery(
-                    "UPDATE alliance_nikita_scores SET high_score = {:score}, updated = {:updated} " +
-                    "WHERE id = {:id} AND high_score < {:score}"
+                    "UPDATE alliance_nikita_scores SET " +
+                    "high_score = MAX(high_score, {:score}), " +
+                    "total_score = COALESCE(total_score, 0) + {:score}, updated = {:updated} " +
+                    "WHERE id = {:id}"
                 ).bind({ score: simulated.score, updated: new DateTime().string(), id: mine.id }).execute();
                 if (reward > 0) {
                     txApp.db().newQuery(
@@ -411,6 +421,9 @@ routerAdd("POST", "/api/alliances/nikita/score", (e) => {
                     ).bind({ reward, user: e.auth.id }).execute();
                 }
                 newBalance = txApp.findRecordById("users", e.auth.id).getInt("beautokens") || 0;
+                const updatedScore = txApp.findRecordById("alliance_nikita_scores", mine.id);
+                newHighScore = updatedScore.getInt("high_score") || 0;
+                newTotalScore = updatedScore.getInt("total_score") || 0;
             });
         } catch (transactionError) {
             if (String(transactionError && (transactionError.message || transactionError)).includes("NIKITA_RUN_ALREADY_REDEEMED")) {
@@ -419,7 +432,8 @@ routerAdd("POST", "/api/alliances/nikita/score", (e) => {
             throw transactionError;
         }
         return e.json(200, {
-            highScore: Math.max(previous, simulated.score),
+            highScore: newHighScore,
+            totalScore: newTotalScore,
             improved: simulated.score > previous,
             verifiedScore: simulated.score,
             reward,

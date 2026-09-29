@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     MAX_TICKS,
+    nikitaScoreForDistance,
     createNikitaState,
     stepNikitaState,
     sanitizeReplay,
@@ -27,9 +28,17 @@ test('un replay determinista reproduce exactamente puntaje, duración y game ove
     assert.ok(state);
     assert.equal(state.finished, true);
     assert.equal(state.tick, 642);
-    assert.equal(state.score, 610);
+    assert.equal(state.score, 363);
     assert.equal(state.deathReason, 'fall');
     assert.equal(state.hits, 1);
+});
+
+test('el puntaje usa una curva n log n sobre la distancia', () => {
+    assert.equal(nikitaScoreForDistance(0), 0);
+    assert.equal(nikitaScoreForDistance(50), 283);
+    assert.equal(nikitaScoreForDistance(150), 1085);
+    assert.ok(nikitaScoreForDistance(300) > nikitaScoreForDistance(150) * 2);
+    assert.ok(nikitaScoreForDistance(300) < nikitaScoreForDistance(150) * 4);
 });
 
 test('la misma semilla y controles siempre producen el mismo estado', () => {

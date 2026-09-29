@@ -8,6 +8,12 @@ const NIKITA_MONSTER_HEIGHT = 17;
 export const NIKITA_CAMERA_ANCHOR_Y = 100;
 const FIXED_DT = 1 / NIKITA_TICK_RATE;
 
+// La curva n log n premia llegar más lejos sin dispararse como una cuadrática.
+export const nikitaScoreForDistance = (distance: number): number => {
+  const safeDistance = Math.max(0, Number(distance) || 0);
+  return Math.floor(safeDistance * Math.log(safeDistance + 1) / Math.LN2);
+};
+
 export type NikitaDirection = -1 | 0 | 1;
 export type NikitaReplayEvent = { t: number; d: NikitaDirection };
 export type NikitaPlatform = { id: number; x: number; y: number; width: number; remainingBounces: number };
@@ -548,7 +554,7 @@ export const stepNikitaState = (state: NikitaGameState, direction: NikitaDirecti
   updateMonsters(state, combatDifficultyFor(state));
   updatePickups(state);
   updateProjectiles(state);
-  state.score = Math.max(state.score, Math.floor(state.distance * 10));
+  state.score = Math.max(state.score, nikitaScoreForDistance(state.distance));
   state.tick += 1;
 
   if (!state.finished && y > NIKITA_GAME_HEIGHT + 4) {

@@ -11,6 +11,7 @@ export interface AllianceScoreRow {
 export interface NikitaJumpState {
   myAlliance: AllianceId | null;
   myHighScore: number;
+  myTotalScore: number;
   beautokens: number;
   ownedSkins: string[];
   selectedSkin: string;
@@ -29,6 +30,7 @@ export interface NikitaRunToken {
 
 export interface NikitaRunResult {
   highScore: number;
+  totalScore: number;
   improved: boolean;
   verifiedScore: number;
   reward: number;

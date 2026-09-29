@@ -19,6 +19,7 @@ import { AllianceId } from '../constants/alliances';
 import { AllianceNameText } from '../components/AllianceNameText';
 import {
   NIKITA_SKINS,
+  NIKITA_REWARD_MIN_SCORE,
   NIKITA_SKIN_PRICE,
   NIKITA_VANILLA_SKIN,
   nikitaSkinById,
@@ -194,6 +195,7 @@ export const NikitaJumpScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [myAlliance, setMyAlliance] = useState<AllianceId | null>(null);
   const [highScore, setHighScore] = useState(0);
+  const [totalScore, setTotalScore] = useState(0);
   const [beautokens, setBeautokens] = useState(0);
   const [ownedSkins, setOwnedSkins] = useState<string[]>([]);
   const [selectedSkin, setSelectedSkin] = useState('');
@@ -262,6 +264,7 @@ export const NikitaJumpScreen: React.FC = () => {
       const state = await withMinimumDelay(() => allianceService.getNikitaJump(), showLoader ? 400 : 0);
       setMyAlliance(state.myAlliance);
       setHighScore(state.myHighScore);
+      setTotalScore(state.myTotalScore);
       setBeautokens(state.beautokens);
       setOwnedSkins(state.ownedSkins);
       setSelectedSkin(state.selectedSkin);
@@ -399,6 +402,7 @@ export const NikitaJumpScreen: React.FC = () => {
         finalScore,
       );
       setHighScore(result.highScore);
+      setTotalScore(result.totalScore);
       setBeautokens(result.beautokens);
       setLastReward(result.reward);
       const state = await allianceService.getNikitaJump();
@@ -582,8 +586,9 @@ export const NikitaJumpScreen: React.FC = () => {
               <AllianceNameText alliance={myAlliance} style={[styles.metricValue, { color: ALLIANCE_COLORS[myAlliance] }]} />
             </View>
             <View style={styles.metricRight}>
-              <Text style={styles.metricLabel}>Tu récord</Text>
-              <Text style={styles.metricValue}>{highScore.toLocaleString('es-CL')}</Text>
+              <Text style={styles.metricLabel}>Tu aporte total</Text>
+              <Text style={styles.metricValue}>{totalScore.toLocaleString('es-CL')}</Text>
+              <Text style={styles.metricDetail}>Récord: {highScore.toLocaleString('es-CL')}</Text>
             </View>
           </View>
 
@@ -800,7 +805,9 @@ export const NikitaJumpScreen: React.FC = () => {
                   {gameOver && <Text style={styles.overlayScore}>{score.toLocaleString('es-CL')} puntos</Text>}
                   {gameOver && lastReward !== null && (
                     <Text style={styles.overlayReward}>
-                      {lastReward > 0 ? `+${lastReward} ℬ` : 'Las recompensas comienzan en 500 puntos'}
+                      {lastReward > 0
+                        ? `+${lastReward} ℬ`
+                        : `Las recompensas comienzan en ${NIKITA_REWARD_MIN_SCORE.toLocaleString('es-CL')} puntos`}
                     </Text>
                   )}
                   <TouchableOpacity style={styles.startButton} onPress={startGame} activeOpacity={0.8} disabled={startingGame}>
@@ -914,6 +921,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   metricRight: { alignItems: 'flex-end' },
+  metricDetail: { color: theme.colors.textMuted, fontSize: 12, marginTop: 2 },
   metricLabel: { color: theme.colors.textMuted, fontSize: 12, marginBottom: 3 },
   metricValue: { color: theme.colors.text, fontSize: 20, fontWeight: '800' },
   gameShell: { width: '100%', maxWidth: 420, marginBottom: theme.spacing.xl },

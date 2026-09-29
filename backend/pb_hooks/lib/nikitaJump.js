@@ -57,6 +57,13 @@ function rounded(value) {
     return Math.round(value * 1000000) / 1000000;
 }
 
+// La curva n log n hace que avanzar más sí valga progresivamente más, sin que
+// una partida excepcional crezca tan rápido como lo haría con una cuadrática.
+function nikitaScoreForDistance(distance) {
+    const safeDistance = Math.max(0, Number(distance) || 0);
+    return Math.floor(safeDistance * Math.log(safeDistance + 1) / Math.LN2);
+}
+
 function difficultyFor(state) {
     return Math.min(1, state.distance / 650);
 }
@@ -473,7 +480,7 @@ function stepNikitaState(state, direction) {
     updateMonsters(state, combatDifficultyFor(state));
     updatePickups(state);
     updateProjectiles(state);
-    state.score = Math.max(state.score, Math.floor(state.distance * 10));
+    state.score = Math.max(state.score, nikitaScoreForDistance(state.distance));
     state.tick += 1;
 
     if (!state.finished && y > GAME_HEIGHT + 4) {
@@ -527,6 +534,7 @@ module.exports = {
     GAME_HEIGHT,
     PLAYER_WIDTH,
     CAMERA_ANCHOR_Y,
+    nikitaScoreForDistance,
     initialPlatforms,
     createNikitaState,
     stepNikitaState,

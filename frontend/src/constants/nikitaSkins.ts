@@ -10,6 +10,7 @@ export interface NikitaSkin {
 }
 
 export const NIKITA_SKIN_PRICE = 50;
+export const NIKITA_REWARD_MIN_SCORE = 283;
 
 export const NIKITA_VANILLA_SKIN: NikitaSkin = {
   id: '',
