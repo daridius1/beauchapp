@@ -103,8 +103,10 @@ test('agrupa resultados de disciplinas y omite lugares inválidos', () => {
     ]);
 });
 
-test('solo las cuentas de organización con subtipo alliance administran las alianzas', () => {
-    assert.equal(isAllianceAdmin('organization', 'alliance'), true);
-    assert.equal(isAllianceAdmin('organization', 'center'), false);
-    assert.equal(isAllianceAdmin('student', 'alliance'), false);
+test('solo la cuenta center CEIuchile administra las alianzas', () => {
+    assert.equal(isAllianceAdmin('organization', 'center', 'CEIuchile'), true);
+    assert.equal(isAllianceAdmin('organization', 'center', 'ceiuchile'), true);
+    assert.equal(isAllianceAdmin('organization', 'center', 'otro-centro'), false);
+    assert.equal(isAllianceAdmin('organization', 'alliance', 'CEIuchile'), false);
+    assert.equal(isAllianceAdmin('student', 'center', 'CEIuchile'), false);
 });

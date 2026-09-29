@@ -113,8 +113,10 @@ function buildDisciplineList(rows) {
     }));
 }
 
-function isAllianceAdmin(type, subtype) {
-    return String(type || "") === "organization" && String(subtype || "") === "alliance";
+function isAllianceAdmin(type, subtype, username) {
+    return String(type || "") === "organization"
+        && String(subtype || "") === "center"
+        && String(username || "").toLowerCase() === "ceiuchile";
 }
 
 module.exports = {

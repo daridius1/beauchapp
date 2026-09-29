@@ -35,7 +35,9 @@ routerAdd("GET", "/api/alliances/disciplines", (e) => {
 routerAdd("POST", "/api/alliances/admin/disciplines", (e) => {
     try {
         const { isAllianceAdmin, sanitizeDisciplineName } = require(`${__hooks}/lib/alliances.js`);
-        if (!isAllianceAdmin(e.auth.getString("type"), e.auth.getString("subtype"))) {
+        if (!isAllianceAdmin(
+            e.auth.getString("type"), e.auth.getString("subtype"), e.auth.getString("username")
+        )) {
             return e.json(403, { error: "Esta cuenta no administra las alianzas." });
         }
 
@@ -66,7 +68,9 @@ routerAdd("POST", "/api/alliances/admin/disciplines", (e) => {
 routerAdd("POST", "/api/alliances/admin/disciplines/{disciplineId}/placements", (e) => {
     try {
         const { isAllianceAdmin, normalizePlacements } = require(`${__hooks}/lib/alliances.js`);
-        if (!isAllianceAdmin(e.auth.getString("type"), e.auth.getString("subtype"))) {
+        if (!isAllianceAdmin(
+            e.auth.getString("type"), e.auth.getString("subtype"), e.auth.getString("username")
+        )) {
             return e.json(403, { error: "Esta cuenta no administra las alianzas." });
         }
 
@@ -117,7 +121,9 @@ routerAdd("POST", "/api/alliances/admin/disciplines/{disciplineId}/placements", 
 routerAdd("POST", "/api/alliances/admin/disciplines/{disciplineId}/archive", (e) => {
     try {
         const { isAllianceAdmin } = require(`${__hooks}/lib/alliances.js`);
-        if (!isAllianceAdmin(e.auth.getString("type"), e.auth.getString("subtype"))) {
+        if (!isAllianceAdmin(
+            e.auth.getString("type"), e.auth.getString("subtype"), e.auth.getString("username")
+        )) {
             return e.json(403, { error: "Esta cuenta no administra las alianzas." });
         }
 
@@ -243,7 +249,10 @@ ${SESSION_GATE_FN}
 
         function showError(element, message) { element.textContent = message; element.style.display = "block"; }
         function hideError(element) { element.style.display = "none"; element.textContent = ""; }
-        function isCei(record) { return record && record.type === "organization" && record.subtype === "alliance"; }
+        function isCei(record) {
+            return record && record.type === "organization" && record.subtype === "center"
+                && String(record.username || "").toLowerCase() === "ceiuchile";
+        }
         function showLogin(hadStaleSession) {
             token = ""; loginPage.style.display = "block"; panelPage.style.display = "none";
             checkingMsg.style.display = "none"; loginForm.style.display = "block";
