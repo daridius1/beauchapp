@@ -133,6 +133,7 @@ routerAdd("GET", "/admin/liga", (e) => {
             border-radius: 10px; padding: 10px 14px; color: var(--text-color); font-size: 14px;
             outline: none; font-family: inherit; resize: vertical; min-height: 60px;
         }
+        #refereeMessageText { min-height: 300px; line-height: 1.45; }
         /* Una fila de gol/tarjeta/penal: equipo + jugador + lo específico del tipo +
            minuto opcional, todo en una línea que puede envolver en pantallas chicas. */
         .dynamic-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; }
@@ -241,6 +242,14 @@ ${CALENDAR_CSS}
             </p>
             <div id="rosterList"><p class="hint">Cargando...</p></div>
         </details>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Mensaje de arbitrajes</h2>
+                <button class="btn btn-sm" id="openRefereeMessageBtn">Generar mensaje</button>
+            </div>
+            <p class="hint">Prepara un mensaje con todos los partidos confirmados de la liga, sus horarios y los equipos que deben arbitrar.</p>
+        </div>
 
         <div class="card">
             <div class="card-header">
@@ -380,6 +389,21 @@ ${CALENDAR_CSS}
                 <button class="btn btn-sm" id="openRetroactiveBtn">Cargar partido jugado</button>
             </div>
             <div id="stageMatchesList"></div>
+        </div>
+    </div>
+
+    <!-- Mensaje global de arbitrajes: reúne los partidos confirmados de todas las
+         etapas para que el organizador no tenga que copiarlos uno por uno. -->
+    <div class="modal-backdrop" id="refereeMessageModal">
+        <div class="modal-box modal-box-lg">
+            <h2 style="margin-top:0;">Mensaje de arbitrajes pendientes</h2>
+            <p class="hint" style="margin-top:0;margin-bottom:12px;">Puedes editar el texto antes de copiarlo o abrir WhatsApp.</p>
+            <textarea id="refereeMessageText" aria-label="Mensaje de arbitrajes pendientes"></textarea>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary btn-sm" id="cancelRefereeMessageBtn">Cerrar</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="copyRefereeMessageBtn">Copiar mensaje</button>
+                <button type="button" class="btn btn-sm" id="shareRefereeMessageBtn">Abrir WhatsApp</button>
+            </div>
         </div>
     </div>
 
@@ -1507,6 +1531,79 @@ ${API_CALL_FN}
                 ok ? resolve() : reject(new Error("No se pudo copiar."));
             });
         }
+
+        function buildRefereeMessage(matches) {
+            const league = document.getElementById("leagueName").textContent || "Liga";
+            const lines = ["*Arbitrajes pendientes — " + league + "*"];
+            matches.forEach((m) => {
+                const referees = m.refereeTeamNames.length
+                    ? m.refereeTeamNames.join(" y ")
+                    : "SIN ASIGNAR";
+                lines.push(
+                    "",
+                    "*" + formatBlockLabel(m.blockCode) + "*",
+                    m.teamAName + " vs " + m.teamBName,
+                    "Arbitran: " + referees,
+                    "Etapa: " + m.stageName
+                );
+            });
+            return lines.join("\\n");
+        }
+
+        const refereeMessageModal = document.getElementById("refereeMessageModal");
+        const refereeMessageText = document.getElementById("refereeMessageText");
+        const copyRefereeMessageBtn = document.getElementById("copyRefereeMessageBtn");
+        const shareRefereeMessageBtn = document.getElementById("shareRefereeMessageBtn");
+
+        function closeRefereeMessage() { refereeMessageModal.classList.remove("open"); }
+
+        document.getElementById("openRefereeMessageBtn").addEventListener("click", async (e) => {
+            const btn = e.currentTarget;
+            hideError(panelError);
+            btn.disabled = true;
+            btn.textContent = "Cargando...";
+            try {
+                const data = await apiCall("/api/liga/pending-refereeing", "GET");
+                if (!data.matches.length) {
+                    showError(panelError, "No hay partidos confirmados con arbitrajes pendientes.");
+                    return;
+                }
+                refereeMessageText.value = buildRefereeMessage(data.matches);
+                copyRefereeMessageBtn.textContent = "Copiar mensaje";
+                refereeMessageModal.classList.add("open");
+                refereeMessageText.focus();
+                refereeMessageText.setSelectionRange(0, 0);
+            } catch (err) {
+                showError(panelError, err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Generar mensaje";
+            }
+        });
+
+        document.getElementById("cancelRefereeMessageBtn").addEventListener("click", closeRefereeMessage);
+        refereeMessageModal.addEventListener("click", (e) => {
+            if (e.target === refereeMessageModal) closeRefereeMessage();
+        });
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && refereeMessageModal.classList.contains("open")) closeRefereeMessage();
+        });
+
+        copyRefereeMessageBtn.addEventListener("click", async () => {
+            try {
+                await copyToClipboard(refereeMessageText.value);
+                copyRefereeMessageBtn.textContent = "Copiado";
+            } catch (err) {
+                copyRefereeMessageBtn.textContent = "No se pudo copiar";
+            }
+            setTimeout(() => { copyRefereeMessageBtn.textContent = "Copiar mensaje"; }, 1600);
+        });
+
+        shareRefereeMessageBtn.addEventListener("click", () => {
+            const message = refereeMessageText.value.trim();
+            if (!message) return;
+            window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
+        });
 
         // Un link que ya trae el token incluido — quien lo recibe entra directo, sin
         // tipear nada.
@@ -3240,6 +3337,74 @@ routerAdd("POST", "/api/liga/stages/reorder", (e) => {
     }
 }, $apis.requireAuth("users"));
 
+// Datos mínimos para el mensaje global de arbitrajes pendientes. Se consultan al
+// abrir el generador, no al cargar el panel, porque es una acción ocasional. Solo los
+// confirmed son pendientes: played ya terminó y suspended/cancelled no se arbitran.
+routerAdd("GET", "/api/liga/pending-refereeing", (e) => {
+    try {
+        if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
+            throw new BadRequestError("Esta cuenta no es una liga.");
+        }
+
+        const PAGE_SIZE = 200;
+        const matches = [];
+        let offset = 0;
+        while (true) {
+            const page = $app.findRecordsByFilter(
+                "league_matches",
+                "league = {:league} && deleted = false && status = 'confirmed'",
+                "blockCode,id",
+                PAGE_SIZE,
+                offset,
+                { league: e.auth.id }
+            );
+            matches.push(...page);
+            if (page.length < PAGE_SIZE) break;
+            offset += PAGE_SIZE;
+        }
+
+        const teamIds = new Set();
+        const stageIds = new Set();
+        matches.forEach((match) => {
+            teamIds.add(match.getString("teamA"));
+            teamIds.add(match.getString("teamB"));
+            (match.get("refereeTeams") || []).forEach((id) => teamIds.add(String(id)));
+            stageIds.add(match.getString("stage"));
+        });
+
+        const teamNames = {};
+        if (teamIds.size) {
+            $app.findRecordsByIds("users", Array.from(teamIds)).forEach((team) => {
+                teamNames[team.id] = team.getString("name") || team.getString("username") || team.id;
+            });
+        }
+        const stageNames = {};
+        if (stageIds.size) {
+            $app.findRecordsByIds("league_stages", Array.from(stageIds)).forEach((stage) => {
+                stageNames[stage.id] = stage.getString("name") || "Etapa";
+            });
+        }
+
+        const nameOf = (id) => teamNames[id] || id;
+        return e.json(200, {
+            matches: matches.map((match) => {
+                const refereeTeams = (match.get("refereeTeams") || []).map(String);
+                const stageId = match.getString("stage");
+                return {
+                    blockCode: match.getString("blockCode"),
+                    teamAName: nameOf(match.getString("teamA")),
+                    teamBName: nameOf(match.getString("teamB")),
+                    refereeTeamNames: refereeTeams.map(nameOf),
+                    stageName: stageNames[stageId] || "Etapa",
+                };
+            }),
+        });
+    } catch (err) {
+        console.error("[league.pb.js] Error en GET /api/liga/pending-refereeing:", err);
+        return e.json(400, { error: (err && err.message) || "No se pudieron cargar los arbitrajes pendientes." });
+    }
+}, $apis.requireAuth("users"));
+
 routerAdd("GET", "/api/liga/matches", (e) => {
     try {
         if (e.auth.getString("type") !== "organization" || e.auth.getString("subtype") !== "league") {
@@ -3311,11 +3476,11 @@ routerAdd("GET", "/api/liga/matches", (e) => {
         // Cuántos partidos ha arbitrado cada equipo hasta ahora — una sola consulta +
         // tally en JS (mismo patrón que ya usa avoidRematches con pairKey), no un
         // contador guardado: así una reasignación de árbitro nunca puede desincronizarse.
-        // status != 'cancelled' incluye confirmed/played/suspended — un partido
-        // suspendido sigue comprometido, solo está pausado.
+        // Solo confirmed/played cuentan: un partido suspendido no genera carga de
+        // arbitraje y, si se reactiva, volverá a entrar automáticamente al conteo.
         function computeRefereeCounts() {
             const rows = $app.findRecordsByFilter(
-                "league_matches", "league = {:league} && deleted = false && status != 'cancelled'",
+                "league_matches", "league = {:league} && deleted = false && (status = 'confirmed' || status = 'played')",
                 "", 0, 0, { league: e.auth.id }
             );
             const counts = {};
@@ -4482,13 +4647,13 @@ routerAdd("POST", "/api/liga/matches/accept", (e) => {
         }
 
         // Árbitros automáticos: entre los participantes de la etapa que no sean los dos
-        // que juegan, elige los 2 que menos han arbitrado hasta ahora. status !=
-        // 'cancelled': un partido cancelado no cuenta.
+        // que juegan, elige los 2 que menos han arbitrado hasta ahora. Solo se cuentan
+        // partidos confirmed/played: uno suspendido no genera carga de arbitraje.
         if (autoAssignReferees) {
             const { pickLeastBusyReferees } = require(`${__hooks}/lib/refereeAssignment.js`);
             const candidatePool = stageTeams;
             const refRows = $app.findRecordsByFilter(
-                "league_matches", "league = {:league} && deleted = false && status != 'cancelled'",
+                "league_matches", "league = {:league} && deleted = false && (status = 'confirmed' || status = 'played')",
                 "", 0, 0, { league: e.auth.id }
             );
             const countByTeam = {};

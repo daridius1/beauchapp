@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudioPlayer } from 'expo-audio';
 import { Feather } from '@expo/vector-icons';
+import { useIsFocused } from '@react-navigation/native';
 import {
   ActivityIndicator,
   DeviceEventEmitter,
@@ -189,6 +190,7 @@ const CalculusAreaTrail: React.FC<{ projectile: NikitaProjectile }> = ({ project
 };
 
 export const NikitaJumpScreen: React.FC = () => {
+  const isFocused = useIsFocused();
   const [loading, setLoading] = useState(true);
   const [myAlliance, setMyAlliance] = useState<AllianceId | null>(null);
   const [highScore, setHighScore] = useState(0);
@@ -228,7 +230,6 @@ export const NikitaJumpScreen: React.FC = () => {
   const lastFrameRef = useRef<number | null>(null);
   const accumulatorRef = useRef(0);
   const runningRef = useRef(false);
-  const highScoreRef = useRef(0);
   const gameBoardWidthRef = useRef(0);
 
   useEffect(() => {
@@ -253,8 +254,6 @@ export const NikitaJumpScreen: React.FC = () => {
     jumpPlayer.muted = effectsMuted;
     shotPlayer.muted = effectsMuted;
   }, [effectsMuted, jumpPlayer, shotPlayer]);
-
-  useEffect(() => { highScoreRef.current = highScore; }, [highScore]);
 
   const loadState = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true);
@@ -293,21 +292,90 @@ export const NikitaJumpScreen: React.FC = () => {
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const pressedDirections = new Set<string>();
+    const directionForKey = (key: string): NikitaDirection | null => {
+      if (key === 'arrowleft' || key === 'a') return -1;
+      if (key === 'arrowright' || key === 'd') return 1;
+      return null;
+    };
+    const remainingDirection = (): NikitaDirection => {
+      if (pressedDirections.has('arrowleft') || pressedDirections.has('a')) return -1;
+      if (pressedDirections.has('arrowright') || pressedDirections.has('d')) return 1;
+      return 0;
+    };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (runningRef.current && ['ArrowLeft', 'ArrowRight'].includes(event.key)) event.preventDefault();
-      if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') changeDirection(-1);
-      if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') changeDirection(1);
+      const key = event.key.toLowerCase();
+      const direction = directionForKey(key);
+      if (direction === null) return;
+      if (!runningRef.current || paused || !isFocused) return;
+      event.preventDefault();
+      pressedDirections.add(key);
+      changeDirection(direction);
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      if (['arrowleft', 'arrowright', 'a', 'd'].includes(event.key.toLowerCase())) changeDirection(0);
+      const key = event.key.toLowerCase();
+      if (directionForKey(key) === null) return;
+      pressedDirections.delete(key);
+      changeDirection(remainingDirection());
+    };
+    const releaseControls = () => {
+      pressedDirections.clear();
+      changeDirection(0);
+    };
+    const pauseWhenHidden = () => {
+      releaseControls();
+      if (!runningRef.current) return;
+      musicPlayer.pause();
+      setPaused(true);
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) pauseWhenHidden();
     };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', pauseWhenHidden);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', pauseWhenHidden);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      releaseControls();
     };
-  }, [changeDirection]);
+  }, [changeDirection, isFocused, musicPlayer, paused]);
+
+  useEffect(() => {
+    if (isFocused || !runningRef.current) return;
+    changeDirection(0);
+    musicPlayer.pause();
+    setPaused(true);
+  }, [changeDirection, isFocused, musicPlayer]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const styleId = 'nikita-jump-touch-guard';
+    if (document.getElementById(styleId)) return;
+    const style = document.createElement('style');
+    style.id = styleId;
+    // Safari necesita su propiedad específica para no ofrecer guardar/copiar una imagen
+    // durante un control sostenido. El resto evita selección, arrastre y gestos del navegador.
+    style.textContent = `
+      #nikita-jump-board,
+      #nikita-jump-board * {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      #nikita-jump-board {
+        touch-action: none;
+      }
+      #nikita-jump-board img {
+        -webkit-user-drag: none;
+        pointer-events: none;
+      }
+    `;
+    document.head.appendChild(style);
+  }, []);
 
   const finishGame = useCallback(async () => {
     if (!runningRef.current) return;
@@ -331,7 +399,6 @@ export const NikitaJumpScreen: React.FC = () => {
         finalScore,
       );
       setHighScore(result.highScore);
-      highScoreRef.current = result.highScore;
       setBeautokens(result.beautokens);
       setLastReward(result.reward);
       const state = await allianceService.getNikitaJump();
@@ -522,12 +589,17 @@ export const NikitaJumpScreen: React.FC = () => {
 
           <View style={styles.gameShell}>
             <Pressable
+              nativeID="nikita-jump-board"
               style={styles.gameBoard}
+              onLongPress={() => undefined}
+              {...(Platform.OS === 'web' ? {
+                onContextMenu: (event: { preventDefault: () => void }) => event.preventDefault(),
+              } as any : {})}
               onLayout={(event) => {
                 gameBoardWidthRef.current = event.nativeEvent.layout.width;
               }}
               onPressIn={(event) => {
-                if (!runningRef.current || gameBoardWidthRef.current <= 0) return;
+                if (!runningRef.current || paused || gameBoardWidthRef.current <= 0) return;
                 changeDirection(event.nativeEvent.locationX < gameBoardWidthRef.current / 2 ? -1 : 1);
               }}
               onPressOut={() => {
