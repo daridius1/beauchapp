@@ -57,7 +57,6 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [match, setMatch] = useState<any>(null);
-  const [approvedReport, setApprovedReport] = useState<any>(null);
   const [approvedEvents, setApprovedEvents] = useState<MatchEvent[]>([]);
   const [reportEvents, setReportEvents] = useState<MatchEvent[]>([]);
   const [comments, setComments] = useState<any[]>([]);
@@ -137,15 +136,12 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
               );
               setReportEvents(report.events || []);
               if (matchRecord.status === 'played' && report.status === 'approved') {
-                setApprovedReport(report);
                 setApprovedEvents(report.events || []);
               } else {
-                setApprovedReport(null);
                 setApprovedEvents([]);
               }
             } catch (err) {
               setReportEvents([]);
-              setApprovedReport(null);
               setApprovedEvents([]);
             }
           }
@@ -409,12 +405,6 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
           <Text style={styles.sectionHeader}>Cronología</Text>
           <LeagueMatchTimeline events={displayEvents} teamAName={teamAName} teamBName={teamBName} />
 
-          {isPlayed && !!approvedReport?.notes && (
-            <>
-              <Text style={styles.sectionHeader}>Informe del árbitro</Text>
-              <Text style={styles.refereeNotesText}>{approvedReport.notes}</Text>
-            </>
-          )}
         </View>
       )}
 
@@ -574,11 +564,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 12,
     textAlign: 'center',
-  },
-  refereeNotesText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    lineHeight: 19,
   },
   commentsSection: {
     marginTop: 8,

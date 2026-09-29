@@ -224,7 +224,7 @@ export const albumService = {
     const res = await pb.collection('users').getList<any>(1, 20, {
       filter: `name ~ "${clean}" || username ~ "${clean}"`,
       sort: 'name',
-      fields: 'id,collectionId,name,username,avatar',
+      fields: 'id,collectionId,name,username,avatar,alliance',
     });
     return res.items as TradeCounterparty[];
   },

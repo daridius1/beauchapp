@@ -54,6 +54,9 @@ import { AcademicoScreen } from './src/screens/AcademicoScreen';
 import { CampusMapScreen } from './src/screens/CampusMapScreen';
 import { DeportesScreen } from './src/screens/DeportesScreen';
 import { JuegosScreen } from './src/screens/JuegosScreen';
+import { AlliancesScreen } from './src/screens/AlliancesScreen';
+import { NikitaJumpScreen } from './src/screens/NikitaJumpScreen';
+import { AllianceProfessorsScreen } from './src/screens/AllianceProfessorsScreen';
 import { ReviewsScreen } from './src/screens/ReviewsScreen';
 import { CourseDetailScreen } from './src/screens/CourseDetailScreen';
 import { ProfessorDetailScreen } from './src/screens/ProfessorDetailScreen';
@@ -322,6 +325,9 @@ function AppContent() {
       case 'CampusMap': return params?.picker ? 'Elegir ubicación' : params?.location ? 'Ubicación' : 'Mapa';
       case 'Deportes': return 'Deportes';
       case 'Juegos': return 'Juegos';
+      case 'Alliances': return 'Alianzas';
+      case 'NikitaJump': return 'Nikita Jump';
+      case 'AllianceProfessors': return 'Cazaprofes';
       case 'Settings': return 'Ajustes';
       case 'EditProfile': return 'Editar Datos';
       case 'EditTeam': return 'Editar Equipo';
@@ -400,7 +406,7 @@ function AppContent() {
     }
   };
 
-  const TOP_LEVEL_SCREENS = ['Home', 'Comunidad', 'ConoceBeauchef', 'Academico', 'CampusMap', 'Deportes', 'Juegos'];
+  const TOP_LEVEL_SCREENS = ['Home', 'Comunidad', 'ConoceBeauchef', 'Academico', 'CampusMap', 'Deportes', 'Juegos', 'Alliances'];
   const isAuxiliaryMap = currentRouteName === 'CampusMap'
     && (!!currentRouteParams?.picker || !!currentRouteParams?.location);
   const showBackButton = isAuxiliaryMap || !TOP_LEVEL_SCREENS.includes(currentRouteName);
@@ -438,6 +444,8 @@ function AppContent() {
       navigationRef.navigate('Deportes' as never);
     } else if (['LaddersList', 'Beaudle', 'Beaumarket', 'PollasList', 'AlbumsList'].includes(currentRouteName)) {
       navigationRef.navigate('Juegos' as never);
+    } else if (['NikitaJump', 'AllianceProfessors'].includes(currentRouteName)) {
+      navigationRef.navigate('Alliances' as never);
     } else if (['Marketplace', 'Directory', 'Activities'].includes(currentRouteName)) {
       navigationRef.navigate('Comunidad' as never);
     } else if (['UserProfile', 'Students', 'Communities', 'Centers', 'Teams', 'Bands', 'FollowList'].includes(currentRouteName)) {
@@ -502,6 +510,9 @@ function AppContent() {
                 CampusMap: 'academico/mapa',
                 Deportes: 'deportes',
                 Juegos: 'juegos',
+                Alliances: 'alianzas',
+                NikitaJump: 'alianzas/nikita-jump',
+                AllianceProfessors: 'alianzas/cazaprofes',
                 PostDetail: 'posts/:postId',
                 UserProfile: 'users/:userId',
                 Students: 'students',
@@ -601,7 +612,7 @@ function AppContent() {
                     title={getScreenTitle(currentRouteName, currentRouteParams)} 
                     onToggleSidebar={isDesktop || isAuxiliaryMap ? undefined : () => setIsSidebarOpen(true)}
                     onBack={showBackButton ? handleBack : undefined}
-                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Mascotas', 'Musica', 'Peliculas', 'Videojuegos', 'Libros', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'TeamSchedule', 'LeaguesList', 'LeagueDetail', 'AlbumsList', 'LeagueAlbum', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'NoticiasList', 'PollasList', 'Polla', 'PollaMatch', 'PollaUserBets'].includes(currentRouteName) ? () => {
+                    onRefresh={['Home', 'ProblemsList', 'ProblemDetail', 'PostDetail', 'Notifications', 'Profile', 'UserProfile', 'Communities', 'Centers', 'Teams', 'Bands', 'Students', 'FollowList', 'LaddersList', 'LadderDetail', 'LadderMatchDetail', 'LadderPlayerProfile', 'Marketplace', 'MarketplaceItemDetail', 'SellerProfile', 'Tinder', 'Mascotas', 'Musica', 'Peliculas', 'Videojuegos', 'Libros', 'Activities', 'ActivityDetail', 'Reviews', 'CourseDetail', 'ProfessorDetail', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'TeamSchedule', 'LeaguesList', 'LeagueDetail', 'AlbumsList', 'LeagueAlbum', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'NoticiasList', 'PollasList', 'Polla', 'PollaMatch', 'PollaUserBets', 'Alliances', 'NikitaJump', 'AllianceProfessors'].includes(currentRouteName) ? () => {
                       DeviceEventEmitter.emit('onGlobalRefresh');
                     } : undefined}
                     hasUnreadNotifications={hasUnreadNotifications}
@@ -624,6 +635,9 @@ function AppContent() {
                       <Stack.Screen name="CampusMap" component={CampusMapScreen} />
                       <Stack.Screen name="Deportes" component={DeportesScreen} />
                       <Stack.Screen name="Juegos" component={JuegosScreen} />
+                      <Stack.Screen name="Alliances" component={AlliancesScreen} />
+                      <Stack.Screen name="NikitaJump" component={NikitaJumpScreen} />
+                      <Stack.Screen name="AllianceProfessors" component={AllianceProfessorsScreen} />
                       <Stack.Screen name="Students" component={ProfilesListScreen} />
                       <Stack.Screen name="Communities" component={ProfilesListScreen} />
                       <Stack.Screen name="Centers" component={ProfilesListScreen} />

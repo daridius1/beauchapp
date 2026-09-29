@@ -63,6 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
     Academico: ['ProblemsList', 'ProblemDetail', 'ProblemEditor', 'Reviews', 'CourseDetail', 'ProfessorDetail'],
     Deportes: ['LeaguesList', 'LeagueDetail', 'LeagueMatchDetail', 'LeagueMatchArbitrator', 'TeamProfile', 'Polla', 'PollaMatch', 'PollaUserBets', 'TeamSchedule', 'NoticiasList', 'NoticiaDetail'],
     Juegos: ['LaddersList', 'LadderDetail', 'LadderMatchArbitrator', 'LadderMatchDetail', 'LadderPlayerProfile', 'Beaudle', 'BeaudleDay', 'Beaumarket', 'BeaumarketDetail', 'PollasList'],
+    Alliances: ['NikitaJump', 'AllianceProfessors'],
     ConoceBeauchef: ['Tinder', 'Mascotas', 'PetDetail', 'Musica', 'SongDetail', 'Peliculas', 'Videojuegos', 'Libros'],
   };
 
@@ -74,6 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, activ
     { id: 'CampusMap', label: 'Mapa' },
     { id: 'Deportes', label: 'Deportes' },
     { id: 'Juegos', label: 'Juegos' },
+    { id: 'Alliances', label: 'Alianzas' },
     // Instalar como PWA solo tiene sentido en el navegador y si todavía no está instalada
     // (si ya se abrió en modo standalone, no hay nada que instalar). Va al final del arreglo
     // a propósito para que quede como el último ítem del sidebar.

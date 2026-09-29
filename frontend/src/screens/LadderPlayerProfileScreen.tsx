@@ -190,6 +190,7 @@ export const LadderPlayerProfileScreen: React.FC<Props> = ({ navigation, route }
     id: playerUser.id,
     collectionId: '_pb_users_auth_',
     avatar: playerUser.avatar,
+    alliance: playerUser.alliance,
     name: playerUser.name,
     username: playerUser.username,
   };

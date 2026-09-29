@@ -13,6 +13,7 @@ export interface StudentUser {
   name: string;
   username?: string;
   avatar?: string;
+  alliance?: string;
 }
 
 interface Props {
@@ -53,6 +54,7 @@ export const MatchSetupStep: React.FC<Props> = ({
         name: currentUser.name,
         username: currentUser.username,
         avatar: currentUser.avatar,
+        alliance: currentUser.alliance,
       }]);
     }
   }, [currentUser]);
@@ -198,7 +200,7 @@ export const MatchSetupStep: React.FC<Props> = ({
                       <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('red', idx)}>
                         <Feather name="x" color="#888888" size={14} />
                       </TouchableOpacity>
-                      <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={36} />
+                      <Avatar user={{ ...player, collectionId: '_pb_users_auth_' }} size={36} />
                       <Text style={styles.chipNameRed} numberOfLines={1}>{player.name}</Text>
                       {!!player.username && <Text style={styles.playerHandle} numberOfLines={1}>@{player.username}</Text>}
                     </View>
@@ -226,7 +228,7 @@ export const MatchSetupStep: React.FC<Props> = ({
                       <TouchableOpacity style={styles.removeCircleBtn} onPress={() => handleRemovePlayer('blue', idx)}>
                         <Feather name="x" color="#888888" size={14} />
                       </TouchableOpacity>
-                      <Avatar user={{ id: player.id, collectionId: '_pb_users_auth_', avatar: player.avatar, name: player.name, username: player.username }} size={36} />
+                      <Avatar user={{ ...player, collectionId: '_pb_users_auth_' }} size={36} />
                       <Text style={styles.chipNameBlue} numberOfLines={1}>{player.name}</Text>
                       {!!player.username && <Text style={styles.playerHandle} numberOfLines={1}>@{player.username}</Text>}
                     </View>

@@ -191,6 +191,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   id: u.id,
                   collectionId: '_pb_users_auth_',
                   avatar: u.avatar,
+                  alliance: u.alliance,
                   name: u.name,
                   username: u.username
                 };
@@ -274,6 +275,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   id: u.id,
                   collectionId: '_pb_users_auth_',
                   avatar: u.avatar,
+                  alliance: u.alliance,
                   name: u.name,
                   username: u.username
                 };
@@ -357,6 +359,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   id: u.id,
                   collectionId: '_pb_users_auth_',
                   avatar: u.avatar,
+                  alliance: u.alliance,
                   name: u.name,
                   username: u.username
                 };
@@ -515,7 +518,7 @@ export const LadderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 const userObj = rank.expand?.user;
                 const position = index + 1;
                 const avatarUser = userObj
-                  ? { id: userObj.id, collectionId: '_pb_users_auth_', avatar: userObj.avatar, name: userObj.name, username: userObj.username }
+                  ? { id: userObj.id, collectionId: '_pb_users_auth_', avatar: userObj.avatar, alliance: userObj.alliance, name: userObj.name, username: userObj.username }
                   : { id: 'default', collectionId: '_pb_users_auth_', name: 'Alumno' };
 
                 return (

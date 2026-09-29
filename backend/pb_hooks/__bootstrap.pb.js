@@ -99,6 +99,12 @@ onBootstrap((e) => {
             // El juego diario: una cantidad razonable de intentos, no un bot.
             { label: "POST /api/beaudle/guess", audience: "@auth", duration: 60, maxRequests: 30 },
 
+            // Nikita Jump firma barato al iniciar, pero reproducir la física al cerrar
+            // sí usa CPU. Los topes admiten juego normal y frenan replays automatizados.
+            { label: "POST /api/alliances/nikita/start", audience: "@auth", duration: 60, maxRequests: 20 },
+            { label: "POST /api/alliances/nikita/score", audience: "@auth", duration: 60, maxRequests: 6 },
+            { label: "POST /api/alliances/professors/", audience: "@auth", duration: 60, maxRequests: 6 },
+
             // Escritura de arbitraje: cada evento registrado en cancha es un push, y el
             // cliente reintenta, así que el techo es holgado a propósito.
             { label: "POST /api/league-matches/", audience: "@auth", duration: 60, maxRequests: 120 },

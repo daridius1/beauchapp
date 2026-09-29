@@ -113,12 +113,6 @@ export const PublicMatchScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.sectionHeader}>Cronología</Text>
               <LeagueMatchTimeline events={events} teamAName={teamAName} teamBName={teamBName} />
 
-              {isPlayed && !!report?.notes && (
-                <>
-                  <Text style={styles.sectionHeader}>Informe del árbitro</Text>
-                  <Text style={styles.notes}>{report.notes}</Text>
-                </>
-              )}
             </View>
           )}
 
@@ -161,7 +155,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
   },
-  notes: { color: theme.colors.text, fontSize: 13, lineHeight: 19 },
   empty: { padding: theme.spacing.xl, alignItems: 'center' },
   emptyText: { color: theme.colors.textMuted, fontSize: 13, textAlign: 'center' },
 });

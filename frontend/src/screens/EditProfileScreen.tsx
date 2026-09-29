@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, Platform, ScrollView, Image } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, Platform, ScrollView } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { pb } from '../services/pocketbase';
 import { theme } from '../theme/theme';
@@ -12,6 +12,8 @@ import { UserChipsRow, YEARS_LIST, DEPARTMENTS_LIST } from '../components/UserCh
 import { SocialInput } from '../components/SocialInput';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
+import { ALLIANCES, AllianceId } from '../constants/alliances';
+import { AllianceNameText } from '../components/AllianceNameText';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditProfile'>;
 
@@ -29,6 +31,7 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
   // Insignias / Pins para Estudiantes
   const [entryYear, setEntryYear] = useState(user?.entry_year || '');
   const [department, setDepartment] = useState(user?.department || '');
+  const [alliance, setAlliance] = useState<AllianceId | ''>((user?.alliance as AllianceId) || '');
   const [showKarmaOnProfile, setShowKarmaOnProfile] = useState(Boolean(user?.show_karma_on_profile));
   const [showBeautokensOnProfile, setShowBeautokensOnProfile] = useState(Boolean(user?.show_beautokens_on_profile));
   const [showBeaudleStreakOnProfile, setShowBeaudleStreakOnProfile] = useState(Boolean(user?.show_beaudle_streak_on_profile));
@@ -106,6 +109,7 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
       } else {
         formData.append('entry_year', entryYear.trim());
         formData.append('department', department.trim());
+        formData.append('alliance', alliance);
         formData.append('show_karma_on_profile', String(showKarmaOnProfile));
         formData.append('show_beautokens_on_profile', String(showBeautokensOnProfile));
         formData.append('show_beaudle_streak_on_profile', String(showBeaudleStreakOnProfile));
@@ -165,11 +169,7 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
           disabled={isSaving}
         >
           <View style={styles.avatarContainer}>
-            {avatarPreview ? (
-              <Image source={{ uri: avatarPreview }} style={{ width: 100, height: 100, borderRadius: 50 }} />
-            ) : (
-              <Avatar user={user} size={100} />
-            )}
+            <Avatar user={{ ...user, alliance }} size={100} imageUri={avatarPreview} />
           </View>
           <View style={styles.cameraOverlay}>
             <Feather name="camera" size={15} color="#000000" />
@@ -257,6 +257,46 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
       {/* Selección de Insignias / Pins para Estudiantes */}
       {user.type === 'student' && (
         <>
+          <View style={styles.allianceSection}>
+            <Text style={styles.inputLabel}>Alianza</Text>
+            <Text style={styles.helpText}>
+              El marco de tu alianza aparecerá sobre tu foto en el perfil, publicaciones y comentarios.
+            </Text>
+            <View style={styles.allianceGrid}>
+              <TouchableOpacity
+                style={[styles.allianceOption, !alliance && styles.allianceOptionSelected]}
+                onPress={() => setAlliance('')}
+                activeOpacity={0.75}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: !alliance }}
+              >
+                <Avatar user={{ ...user, alliance: '' }} size={54} imageUri={avatarPreview} />
+                <Text style={[styles.allianceLabel, !alliance && styles.allianceLabelSelected]}>
+                  Sin alianza
+                </Text>
+              </TouchableOpacity>
+              {ALLIANCES.map((option) => {
+                const isSelected = alliance === option.id;
+                return (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={[styles.allianceOption, isSelected && styles.allianceOptionSelected]}
+                    onPress={() => setAlliance(option.id)}
+                    activeOpacity={0.75}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: isSelected }}
+                  >
+                    <Avatar user={{ ...user, alliance: option.id }} size={54} imageUri={avatarPreview} />
+                    <AllianceNameText
+                      alliance={option.id}
+                      style={[styles.allianceLabel, isSelected && styles.allianceLabelSelected]}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
           <View style={{ flexDirection: 'row', gap: 12, marginBottom: theme.spacing.md }}>
             {/* Pin 1: Generación - Dropdown */}
             <View style={{ flex: 1 }}>
@@ -502,8 +542,6 @@ const styles = StyleSheet.create({
   avatarContainer: {
     width: 100,
     height: 100,
-    borderRadius: 50,
-    overflow: 'hidden',
   },
   cameraOverlay: {
     position: 'absolute',
@@ -532,6 +570,42 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 12,
     marginTop: theme.spacing.sm,
+  },
+  allianceSection: {
+    marginBottom: theme.spacing.lg,
+    paddingTop: theme.spacing.sm,
+  },
+  allianceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: theme.spacing.md,
+  },
+  allianceOption: {
+    width: '31%',
+    minWidth: 92,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 6,
+    backgroundColor: theme.colors.cardBg,
+  },
+  allianceOptionSelected: {
+    borderColor: theme.colors.primary,
+    backgroundColor: 'rgba(79, 70, 229, 0.12)',
+  },
+  allianceLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  allianceLabelSelected: {
+    color: theme.colors.text,
   },
   input: {
     backgroundColor: theme.colors.background,

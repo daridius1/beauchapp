@@ -11,6 +11,9 @@ onRecordCreateRequest((e) => {
     };
 
     if (type === "organization") {
+        // Las alianzas son exclusivas para estudiantes. La defensa vive también en
+        // backend para que no se pueda eludir enviando un PATCH/POST manual.
+        e.record.set("alliance", "");
         // Only superusers (admins) can create an organization
         if (!e.hasSuperuserAuth()) {
             throw new BadRequestError("No tienes permisos para crear una cuenta de organización.");
@@ -109,6 +112,9 @@ onRecordUpdateRequest((e) => {
         if (!e.hasSuperuserAuth()) {
             e.record.set("subtype", original.get("subtype"));
         }
+    }
+    if (e.record.getString("type") !== "student") {
+        e.record.set("alliance", "");
     }
     // Proteger el campo verified para que no lo modifiquen usuarios comunes
     if (e.record.get("verified") !== original.get("verified")) {
@@ -1436,4 +1442,3 @@ onMailerRecordAuthAlertSend((e) => {
         return e.next();
     }
 });
-

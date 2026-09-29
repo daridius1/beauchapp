@@ -299,6 +299,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
                   id: match.expand.team_red[0].id,
                   collectionId: '_pb_users_auth_',
                   avatar: match.expand.team_red[0].avatar,
+                  alliance: match.expand.team_red[0].alliance,
                   name: match.expand.team_red[0].name,
                   username: match.expand.team_red[0].username,
                 }}
@@ -314,6 +315,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
                     id: match.expand.team_red[1].id,
                     collectionId: '_pb_users_auth_',
                     avatar: match.expand.team_red[1].avatar,
+                    alliance: match.expand.team_red[1].alliance,
                     name: match.expand.team_red[1].name,
                     username: match.expand.team_red[1].username,
                   }}
@@ -334,6 +336,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
                   id: match.expand.team_blue[0].id,
                   collectionId: '_pb_users_auth_',
                   avatar: match.expand.team_blue[0].avatar,
+                  alliance: match.expand.team_blue[0].alliance,
                   name: match.expand.team_blue[0].name,
                   username: match.expand.team_blue[0].username,
                 }}
@@ -349,6 +352,7 @@ export const LadderMatchDetailScreen: React.FC<Props> = ({ navigation, route }) 
                     id: match.expand.team_blue[1].id,
                     collectionId: '_pb_users_auth_',
                     avatar: match.expand.team_blue[1].avatar,
+                    alliance: match.expand.team_blue[1].alliance,
                     name: match.expand.team_blue[1].name,
                     username: match.expand.team_blue[1].username,
                   }}

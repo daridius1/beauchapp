@@ -23,6 +23,7 @@ export interface StudentUser {
   name: string;
   username?: string;
   avatar?: string;
+  alliance?: string;
   collectionId?: string;
 }
 
@@ -170,7 +171,7 @@ export const UserSelectorModal: React.FC<UserSelectorModalProps> = ({
                     onPress={() => handleSelect(user)}
                   >
                     <View style={{ marginRight: 12 }}>
-                      <Avatar user={{ id: user.id, collectionId: '_pb_users_auth_', avatar: user.avatar, name: user.name, username: user.username }} size={36} />
+                      <Avatar user={{ ...user, collectionId: '_pb_users_auth_' }} size={36} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.userName}>{user.name || 'Usuario'}</Text>

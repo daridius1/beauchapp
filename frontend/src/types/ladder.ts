@@ -31,6 +31,7 @@ export interface LadderRank {
       name: string;
       username?: string;
       avatar?: string;
+      alliance?: string;
     };
     ladder?: Ladder;
   };
@@ -65,12 +66,14 @@ export interface LadderMatch {
       name: string;
       username?: string;
       avatar?: string;
+      alliance?: string;
     }[];
     team_blue?: {
       id: string;
       name: string;
       username?: string;
       avatar?: string;
+      alliance?: string;
     }[];
     ladder?: Ladder;
   };

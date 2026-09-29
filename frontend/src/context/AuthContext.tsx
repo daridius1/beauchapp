@@ -17,6 +17,7 @@ export interface User {
   name: string;
   username: string;
   avatar?: string;
+  alliance?: string;
   matchAlias?: string;
   matchPhoto?: string;
   teamPhoto?: string;

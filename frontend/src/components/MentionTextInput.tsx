@@ -10,6 +10,7 @@ interface UserSuggestion {
   name?: string;
   username?: string;
   avatar?: string;
+  alliance?: string;
 }
 
 // Reemplazo drop-in de TextInput (mismas props) que detecta "@" mientras se escribe y
@@ -57,7 +58,7 @@ export const MentionTextInput: React.FC<TextInputProps> = ({ value, onChangeText
         const res = await pb.collection('users').getList<UserSuggestion>(1, 6, {
           filter,
           sort: 'username',
-          fields: 'id,collectionId,name,username,avatar',
+          fields: 'id,collectionId,name,username,avatar,alliance',
         });
         if (myRequestId === requestIdRef.current) {
           setSuggestions(res.items);

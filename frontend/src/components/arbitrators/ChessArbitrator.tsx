@@ -138,8 +138,8 @@ export const ChessArbitrator: React.FC<Props> = ({ ladder, navigation }) => {
   const nameRed = playerRed[0]?.name || 'Jugador 1';
   const nameBlue = playerBlue[0]?.name || 'Jugador 2';
 
-  const userRedObj = playerRed[0] ? { id: playerRed[0].id, collectionId: '_pb_users_auth_', avatar: playerRed[0].avatar, name: playerRed[0].name, username: playerRed[0].username } : null;
-  const userBlueObj = playerBlue[0] ? { id: playerBlue[0].id, collectionId: '_pb_users_auth_', avatar: playerBlue[0].avatar, name: playerBlue[0].name, username: playerBlue[0].username } : null;
+  const userRedObj = playerRed[0] ? { ...playerRed[0], collectionId: '_pb_users_auth_' } : null;
+  const userBlueObj = playerBlue[0] ? { ...playerBlue[0], collectionId: '_pb_users_auth_' } : null;
 
   return (
     <View style={styles.container}>

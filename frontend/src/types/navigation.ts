@@ -32,6 +32,9 @@ export type RootStackParamList = {
   CampusMap: { picker?: boolean; location?: PostLocation } | undefined;
   Deportes: undefined;
   Juegos: undefined;
+  Alliances: undefined;
+  NikitaJump: undefined;
+  AllianceProfessors: undefined;
   Students: undefined;
   FollowList: { userId: string; type: 'followers' | 'following' | 'members' | 'recommendations' | 'attendees' | 'poll_voters'; username?: string; title?: string; optionIndex?: number };
   ProblemsList: undefined;
