@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     MAX_TICKS,
+    legacyNikitaScoreForDistance,
     nikitaScoreForDistance,
     createNikitaState,
     stepNikitaState,
@@ -39,6 +40,11 @@ test('el puntaje usa una curva n log n sobre la distancia', () => {
     assert.equal(nikitaScoreForDistance(150), 1085);
     assert.ok(nikitaScoreForDistance(300) > nikitaScoreForDistance(150) * 2);
     assert.ok(nikitaScoreForDistance(300) < nikitaScoreForDistance(150) * 4);
+});
+
+test('reconoce el puntaje lineal de una pestaña anterior sin cambiar el canónico', () => {
+    assert.equal(legacyNikitaScoreForDistance(61.09), 610);
+    assert.equal(nikitaScoreForDistance(61.09), 363);
 });
 
 test('la misma semilla y controles siempre producen el mismo estado', () => {

@@ -64,6 +64,13 @@ function nikitaScoreForDistance(distance) {
     return Math.floor(safeDistance * Math.log(safeDistance + 1) / Math.LN2);
 }
 
+// Compatibilidad para partidas iniciadas por una pestaña que quedó abierta con
+// el bundle anterior al cambio de fórmula. El servidor igualmente reproduce el
+// replay completo y nunca usa este valor como puntaje guardado.
+function legacyNikitaScoreForDistance(distance) {
+    return Math.floor(Math.max(0, Number(distance) || 0) * 10);
+}
+
 function difficultyFor(state) {
     return Math.min(1, state.distance / 650);
 }
@@ -535,6 +542,7 @@ module.exports = {
     PLAYER_WIDTH,
     CAMERA_ANCHOR_Y,
     nikitaScoreForDistance,
+    legacyNikitaScoreForDistance,
     initialPlatforms,
     createNikitaState,
     stepNikitaState,

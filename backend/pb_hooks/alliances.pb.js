@@ -316,7 +316,11 @@ routerAdd("POST", "/api/alliances/nikita/start", (e) => {
 routerAdd("POST", "/api/alliances/nikita/score", (e) => {
     try {
         const { sanitizeNikitaScore, nikitaRunPayload } = require(`${__hooks}/lib/alliances.js`);
-        const { TICK_RATE, simulateNikitaReplay } = require(`${__hooks}/lib/nikitaJump.js`);
+        const {
+            TICK_RATE,
+            legacyNikitaScoreForDistance,
+            simulateNikitaReplay,
+        } = require(`${__hooks}/lib/nikitaJump.js`);
         const { nikitaRewardForScore } = require(`${__hooks}/lib/nikitaSkins.js`);
         const body = e.requestInfo().body || {};
         const runId = String(body.runId || "");
@@ -385,7 +389,10 @@ routerAdd("POST", "/api/alliances/nikita/score", (e) => {
         }
 
         const simulated = simulateNikitaReplay(seed, ticks, body.replay);
-        if (!simulated || !simulated.finished || simulated.tick !== ticks || simulated.score !== claimedScore) {
+        const legacyScore = simulated ? legacyNikitaScoreForDistance(simulated.distance) : -1;
+        const acceptedClaim = simulated
+            && (simulated.score === claimedScore || legacyScore === claimedScore);
+        if (!simulated || !simulated.finished || simulated.tick !== ticks || !acceptedClaim) {
             return e.json(400, { error: "El replay no coincide con el puntaje enviado." });
         }
 
