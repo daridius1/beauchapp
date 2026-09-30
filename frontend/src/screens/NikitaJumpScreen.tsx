@@ -6,12 +6,14 @@ import {
   ActivityIndicator,
   DeviceEventEmitter,
   Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Svg, { Path, Polygon, Polyline } from 'react-native-svg';
@@ -54,6 +56,42 @@ const NIKITA_MUSIC = require('../../assets/audio/nikita-music.mp3');
 const NIKITA_JUMP_SOUND = require('../../assets/audio/nikita-jump.wav');
 const NIKITA_SHOT_SOUND = require('../../assets/audio/nikita-shot.wav');
 const NIKITA_BACKGROUND = require('../../assets/nikita-jump/beauchef-background.jpg');
+
+type NikitaRenderState = {
+  player: NikitaPlayer;
+  platforms: NikitaPlatform[];
+  monsters: NikitaMonster[];
+  projectiles: NikitaProjectile[];
+  pickups: NikitaPickup[];
+  score: number;
+  lives: number;
+  invulnerabilityTicks: number;
+};
+
+const NikitaGameSurface: React.FC<{
+  immersive: boolean;
+  width: number;
+  onRequestClose: () => void;
+  children: React.ReactNode;
+}> = ({ immersive, width, onRequestClose, children }) => {
+  if (!immersive) return <View style={styles.gameShell}>{children}</View>;
+  return (
+    <Modal
+      visible
+      animationType="fade"
+      presentationStyle="fullScreen"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={onRequestClose}
+    >
+      <View nativeID="nikita-jump-immersive" style={styles.immersiveRoot}>
+        <View style={[styles.gameShell, styles.gameShellImmersive, { width }]}>
+          {children}
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 const ALLIANCE_COLORS: Record<AllianceId, string> = {
   urbana: '#f59e0b',
@@ -197,6 +235,7 @@ const CalculusAreaTrail: React.FC<{ projectile: NikitaProjectile }> = ({ project
 
 export const NikitaJumpScreen: React.FC = () => {
   const isFocused = useIsFocused();
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const [loading, setLoading] = useState(true);
   const [myAlliance, setMyAlliance] = useState<AllianceId | null>(null);
   const [highScore, setHighScore] = useState(0);
@@ -219,15 +258,18 @@ export const NikitaJumpScreen: React.FC = () => {
   const [effectsMuted, setEffectsMuted] = useState(false);
   const [startingGame, setStartingGame] = useState(false);
   const [gameOver, setGameOver] = useState(false);
-  const [score, setScore] = useState(0);
+  const [immersive, setImmersive] = useState(false);
   const initialGameState = useRef(createNikitaState(0));
-  const [lives, setLives] = useState(initialGameState.current.lives);
-  const [invulnerabilityTicks, setInvulnerabilityTicks] = useState(0);
-  const [player, setPlayer] = useState<NikitaPlayer>(initialGameState.current.player);
-  const [platforms, setPlatforms] = useState<NikitaPlatform[]>(initialGameState.current.platforms);
-  const [monsters, setMonsters] = useState<NikitaMonster[]>(initialGameState.current.monsters);
-  const [projectiles, setProjectiles] = useState<NikitaProjectile[]>(initialGameState.current.projectiles);
-  const [pickups, setPickups] = useState<NikitaPickup[]>(initialGameState.current.pickups);
+  const [renderState, setRenderState] = useState<NikitaRenderState>({
+    player: initialGameState.current.player,
+    platforms: initialGameState.current.platforms,
+    monsters: initialGameState.current.monsters,
+    projectiles: initialGameState.current.projectiles,
+    pickups: initialGameState.current.pickups,
+    score: 0,
+    lives: initialGameState.current.lives,
+    invulnerabilityTicks: 0,
+  });
 
   const musicPlayer = useAudioPlayer(NIKITA_MUSIC);
   const jumpPlayer = useAudioPlayer(NIKITA_JUMP_SOUND);
@@ -243,6 +285,8 @@ export const NikitaJumpScreen: React.FC = () => {
   const accumulatorRef = useRef(0);
   const runningRef = useRef(false);
   const gameBoardWidthRef = useRef(0);
+  const gameBoardRef = useRef<any>(null);
+  const activePointerIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     musicPlayer.loop = true;
@@ -406,13 +450,24 @@ export const NikitaJumpScreen: React.FC = () => {
     // durante un control sostenido. El resto evita selección, arrastre y gestos del navegador.
     style.textContent = `
       #nikita-jump-board,
-      #nikita-jump-board * {
+      #nikita-jump-board *,
+      #nikita-jump-immersive,
+      #nikita-jump-immersive * {
         -webkit-touch-callout: none;
         -webkit-user-select: none;
         user-select: none;
       }
-      #nikita-jump-board {
+      #nikita-jump-board,
+      #nikita-jump-immersive {
         touch-action: none;
+        overscroll-behavior: none;
+      }
+      #nikita-jump-immersive {
+        box-sizing: border-box;
+        padding-top: max(8px, env(safe-area-inset-top, 0px));
+        padding-right: max(8px, env(safe-area-inset-right, 0px));
+        padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+        padding-left: max(8px, env(safe-area-inset-left, 0px));
       }
       #nikita-jump-board img {
         -webkit-user-drag: none;
@@ -421,6 +476,45 @@ export const NikitaJumpScreen: React.FC = () => {
     `;
     document.head.appendChild(style);
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !immersive || typeof window === 'undefined') return;
+    const board = gameBoardRef.current as HTMLElement | null;
+    if (!board?.addEventListener) return;
+
+    const isInteractiveControl = (target: EventTarget | null) => (
+      target instanceof Element
+      && Boolean(target.closest('#nikita-jump-controls, #nikita-jump-overlay'))
+    );
+    const releasePointer = (event: PointerEvent) => {
+      if (activePointerIdRef.current !== event.pointerId) return;
+      activePointerIdRef.current = null;
+      changeDirection(0);
+      if (board.hasPointerCapture?.(event.pointerId)) board.releasePointerCapture(event.pointerId);
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (!runningRef.current || paused || isInteractiveControl(event.target)) return;
+      event.preventDefault();
+      if (activePointerIdRef.current !== null) return;
+      activePointerIdRef.current = event.pointerId;
+      board.setPointerCapture?.(event.pointerId);
+      const bounds = board.getBoundingClientRect();
+      changeDirection(event.clientX < bounds.left + bounds.width / 2 ? -1 : 1);
+    };
+
+    board.addEventListener('pointerdown', onPointerDown, { passive: false });
+    board.addEventListener('pointerup', releasePointer);
+    board.addEventListener('pointercancel', releasePointer);
+    board.addEventListener('lostpointercapture', releasePointer);
+    return () => {
+      board.removeEventListener('pointerdown', onPointerDown);
+      board.removeEventListener('pointerup', releasePointer);
+      board.removeEventListener('pointercancel', releasePointer);
+      board.removeEventListener('lostpointercapture', releasePointer);
+      activePointerIdRef.current = null;
+      changeDirection(0);
+    };
+  }, [changeDirection, immersive, paused]);
 
   const finishGame = useCallback(async () => {
     if (!runningRef.current) return;
@@ -499,14 +593,16 @@ export const NikitaJumpScreen: React.FC = () => {
       }
 
       scoreRef.current = gameState.score;
-      setPlayer({ ...gameState.player });
-      setPlatforms(gameState.platforms.map((platform) => ({ ...platform })));
-      setMonsters(gameState.monsters.map((monster) => ({ ...monster })));
-      setProjectiles(gameState.projectiles.map((projectile) => ({ ...projectile })));
-      setPickups(gameState.pickups.map((pickup) => ({ ...pickup })));
-      setScore(gameState.score);
-      setLives(gameState.lives);
-      setInvulnerabilityTicks(gameState.invulnerabilityTicks);
+      setRenderState({
+        player: { ...gameState.player },
+        platforms: gameState.platforms.map((platform) => ({ ...platform })),
+        monsters: gameState.monsters.map((monster) => ({ ...monster })),
+        projectiles: gameState.projectiles.map((projectile) => ({ ...projectile })),
+        pickups: gameState.pickups.map((pickup) => ({ ...pickup })),
+        score: gameState.score,
+        lives: gameState.lives,
+        invulnerabilityTicks: gameState.invulnerabilityTicks,
+      });
 
       if (gameState.finished) {
         finishGame();
@@ -523,6 +619,7 @@ export const NikitaJumpScreen: React.FC = () => {
 
   const startGame = async () => {
     if (!myAlliance || startingGame) return;
+    setImmersive(true);
     // Se inicia dentro del gesto del botón para que los navegadores permitan el audio.
     void musicPlayer.seekTo(0).catch(() => undefined);
     if (!musicMuted) musicPlayer.play();
@@ -537,20 +634,23 @@ export const NikitaJumpScreen: React.FC = () => {
       scoreRef.current = 0;
       directionRef.current = 0;
       accumulatorRef.current = 0;
-      setPlayer({ ...gameState.player });
-      setPlatforms(gameState.platforms.map((platform) => ({ ...platform })));
-      setMonsters([]);
-      setProjectiles([]);
-      setPickups([]);
-      setScore(0);
+      setRenderState({
+        player: { ...gameState.player },
+        platforms: gameState.platforms.map((platform) => ({ ...platform })),
+        monsters: [],
+        projectiles: [],
+        pickups: [],
+        score: 0,
+        lives: gameState.lives,
+        invulnerabilityTicks: 0,
+      });
       setLastReward(null);
-      setLives(gameState.lives);
-      setInvulnerabilityTicks(0);
       setGameOver(false);
       setPaused(false);
       setRunning(true);
     } catch (err) {
       musicPlayer.pause();
+      setImmersive(false);
       setError(errorMessage(err, 'No se pudo iniciar la partida.'));
     } finally {
       setStartingGame(false);
@@ -567,6 +667,28 @@ export const NikitaJumpScreen: React.FC = () => {
     changeDirection(0);
     musicPlayer.pause();
     setPaused(true);
+  };
+
+  const exitGame = () => {
+    runningRef.current = false;
+    directionRef.current = 0;
+    activePointerIdRef.current = null;
+    runTokenRef.current = null;
+    replayRef.current = [];
+    musicPlayer.pause();
+    setRunning(false);
+    setPaused(false);
+    setGameOver(false);
+    setLastReward(null);
+    setImmersive(false);
+  };
+
+  const handleGameSurfaceClose = () => {
+    if (runningRef.current && !paused) {
+      togglePause();
+      return;
+    }
+    exitGame();
   };
 
   const toggleMusic = () => {
@@ -608,7 +730,22 @@ export const NikitaJumpScreen: React.FC = () => {
     return <View style={styles.loading}><ActivityIndicator size="large" color={theme.colors.primary} /></View>;
   }
 
+  const {
+    player,
+    platforms,
+    monsters,
+    projectiles,
+    pickups,
+    score,
+    lives,
+    invulnerabilityTicks,
+  } = renderState;
   const equippedSkin = nikitaSkinById(selectedSkin) || NIKITA_VANILLA_SKIN;
+  const immersiveBoardWidth = Math.max(1, Math.min(
+    viewportWidth - 16,
+    (viewportHeight - 16) * 0.72,
+    420,
+  ));
   const invulnerable = invulnerabilityTicks > 0;
   const shieldVisible = invulnerable && (
     invulnerabilityTicks > NIKITA_TICK_RATE * 3
@@ -622,7 +759,7 @@ export const NikitaJumpScreen: React.FC = () => {
       scrollEnabled={!running}
       keyboardShouldPersistTaps="handled"
     >
-      {!!error && <Text style={styles.error}>{error}</Text>}
+      {!!error && !immersive && <Text style={styles.error}>{error}</Text>}
 
       {!myAlliance ? (
         <View style={styles.selectionSection}>
@@ -633,7 +770,7 @@ export const NikitaJumpScreen: React.FC = () => {
         </View>
       ) : (
         <>
-          <View style={styles.myScoreRow}>
+          {!immersive && <View style={styles.myScoreRow}>
             <View>
               <Text style={styles.metricLabel}>Aportas a</Text>
               <AllianceNameText alliance={myAlliance} style={[styles.metricValue, { color: ALLIANCE_COLORS[myAlliance] }]} />
@@ -643,12 +780,17 @@ export const NikitaJumpScreen: React.FC = () => {
               <Text style={styles.metricValue}>{totalScore.toLocaleString('es-CL')}</Text>
               <Text style={styles.metricDetail}>Récord: {highScore.toLocaleString('es-CL')}</Text>
             </View>
-          </View>
+          </View>}
 
-          <View style={styles.gameShell}>
+          <NikitaGameSurface
+            immersive={immersive}
+            width={immersiveBoardWidth}
+            onRequestClose={handleGameSurfaceClose}
+          >
             <Pressable
+              ref={gameBoardRef}
               nativeID="nikita-jump-board"
-              style={styles.gameBoard}
+              style={[styles.gameBoard, immersive && styles.gameBoardImmersive]}
               onLongPress={() => undefined}
               {...(Platform.OS === 'web' ? {
                 onContextMenu: (event: { preventDefault: () => void }) => event.preventDefault(),
@@ -656,11 +798,11 @@ export const NikitaJumpScreen: React.FC = () => {
               onLayout={(event) => {
                 gameBoardWidthRef.current = event.nativeEvent.layout.width;
               }}
-              onPressIn={(event) => {
+              onPressIn={Platform.OS === 'web' ? undefined : (event) => {
                 if (!runningRef.current || paused || gameBoardWidthRef.current <= 0) return;
                 changeDirection(event.nativeEvent.locationX < gameBoardWidthRef.current / 2 ? -1 : 1);
               }}
-              onPressOut={() => {
+              onPressOut={Platform.OS === 'web' ? undefined : () => {
                 if (runningRef.current) changeDirection(0);
               }}
             >
@@ -682,7 +824,7 @@ export const NikitaJumpScreen: React.FC = () => {
                   {invulnerable && <Text style={styles.arcadePowerUp}>INMUNE</Text>}
                 </View>
               </View>
-              <View style={styles.gameControls}>
+              <View nativeID="nikita-jump-controls" style={styles.gameControls}>
                 <TouchableOpacity
                   accessibilityLabel={musicMuted ? 'Activar música' : 'Silenciar música'}
                   style={styles.gameControlButton}
@@ -844,16 +986,19 @@ export const NikitaJumpScreen: React.FC = () => {
               </View>
 
               {running && paused && (
-                <View style={styles.gameOverlay}>
+                <View nativeID="nikita-jump-overlay" style={styles.gameOverlay}>
                   <Text style={styles.overlayTitle}>Pausa</Text>
                   <TouchableOpacity style={styles.startButton} onPress={togglePause} activeOpacity={0.8}>
                     <Text style={styles.startButtonText}>Continuar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.exitButton} onPress={exitGame} activeOpacity={0.8}>
+                    <Text style={styles.exitButtonText}>Salir al menú</Text>
                   </TouchableOpacity>
                 </View>
               )}
 
               {!running && (
-                <View style={styles.gameOverlay}>
+                <View nativeID="nikita-jump-overlay" style={styles.gameOverlay}>
                   <Text style={styles.overlayTitle}>{gameOver ? 'Fin de la partida' : 'Nikita Jump'}</Text>
                   {gameOver && <Text style={styles.overlayScore}>{score.toLocaleString('es-CL')} puntos</Text>}
                   {gameOver && lastReward !== null && (
@@ -868,12 +1013,17 @@ export const NikitaJumpScreen: React.FC = () => {
                       ? <ActivityIndicator size="small" color="#000000" />
                       : <Text style={styles.startButtonText}>{gameOver ? 'Jugar otra vez' : 'Jugar'}</Text>}
                   </TouchableOpacity>
+                  {immersive && gameOver && (
+                    <TouchableOpacity style={styles.exitButton} onPress={exitGame} activeOpacity={0.8}>
+                      <Text style={styles.exitButtonText}>Salir al menú</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
             </Pressable>
-          </View>
+          </NikitaGameSurface>
 
-          <View style={styles.skinShop}>
+          {!immersive && <View style={styles.skinShop}>
             <View style={styles.skinShopHeader}>
               <View>
                 <Text style={styles.sectionTitle}>Skins de Nikita</Text>
@@ -933,11 +1083,11 @@ export const NikitaJumpScreen: React.FC = () => {
                 </View>
               </View>
             ))}
-          </View>
+          </View>}
         </>
       )}
 
-      <View style={styles.scoreboardSection}>
+      {!immersive && <View style={styles.scoreboardSection}>
         <Text style={styles.sectionTitle}>Marcador de alianzas</Text>
         {scoreboard.map((row, index) => (
           <View key={row.alliance} style={styles.scoreRow}>
@@ -950,9 +1100,9 @@ export const NikitaJumpScreen: React.FC = () => {
             <Text style={styles.scorePoints}>{row.points.toLocaleString('es-CL')}</Text>
           </View>
         ))}
-      </View>
+      </View>}
 
-      <View style={styles.rankingSection}>
+      {!immersive && <View style={styles.rankingSection}>
         <Text style={styles.sectionTitle}>Ranking de récords</Text>
         {ranking.length === 0 && !rankingError ? (
           <Text style={styles.emptyRanking}>Todavía no hay puntajes registrados.</Text>
@@ -984,7 +1134,7 @@ export const NikitaJumpScreen: React.FC = () => {
               : <Text style={styles.loadMoreText}>Cargar 20 más</Text>}
           </TouchableOpacity>
         )}
-      </View>
+      </View>}
 
     </ScrollView>
   );
@@ -994,6 +1144,16 @@ const styles = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.background },
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { padding: theme.spacing.md, paddingBottom: 48, alignItems: 'center' },
+  immersiveRoot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#030712',
+    paddingTop: 8,
+    paddingRight: 8,
+    paddingBottom: 8,
+    paddingLeft: 8,
+  },
   error: { width: '100%', maxWidth: 680, color: theme.colors.error, fontSize: 13, marginBottom: theme.spacing.md },
   selectionSection: { width: '100%', maxWidth: 680, marginBottom: theme.spacing.xl },
   sectionTitle: { color: theme.colors.text, fontSize: 17, fontWeight: '700', marginBottom: theme.spacing.sm },
@@ -1013,6 +1173,7 @@ const styles = StyleSheet.create({
   metricLabel: { color: theme.colors.textMuted, fontSize: 12, marginBottom: 3 },
   metricValue: { color: theme.colors.text, fontSize: 20, fontWeight: '800' },
   gameShell: { width: '100%', maxWidth: 420, marginBottom: theme.spacing.xl },
+  gameShellImmersive: { maxWidth: 420, marginBottom: 0 },
   gameBoard: {
     width: '100%',
     aspectRatio: 0.72,
@@ -1023,6 +1184,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.borderRadius.md,
+  },
+  gameBoardImmersive: {
+    borderWidth: 0,
+    borderRadius: 0,
   },
   gameBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -1292,6 +1457,15 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
   },
   startButtonText: { color: '#000000', fontWeight: '800', fontSize: 15 },
+  exitButton: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: theme.borderRadius.md,
+  },
+  exitButtonText: { color: '#f8fafc', fontWeight: '700', fontSize: 14 },
   skinShop: {
     width: '100%',
     maxWidth: 680,

@@ -156,6 +156,102 @@ routerAdd("POST", "/api/alliances/admin/disciplines/{disciplineId}/archive", (e)
     }
 }, $apis.requireAuth("users"));
 
+routerAdd("GET", "/api/alliances/admin/professor-claims", (e) => {
+    try {
+        const { isAllianceAdmin, normalizeProfessorSearch } = require(`${__hooks}/lib/alliances.js`);
+        if (!isAllianceAdmin(
+            e.auth.getString("type"), e.auth.getString("subtype"), e.auth.getString("username")
+        )) {
+            return e.json(403, { error: "Esta cuenta no administra las alianzas." });
+        }
+
+        const query = e.request.url.query();
+        const page = Math.max(1, Math.floor(Number(query.get("page")) || 1));
+        const perPage = 50;
+        const search = normalizeProfessorSearch(query.get("q"));
+        const conditions = ["c.deleted = false", "p.semester = {:semester}"];
+        const params = { semester: "20262", limit: perPage, offset: (page - 1) * perPage };
+        if (search) {
+            conditions.push("p.search_name LIKE {:search}");
+            params.search = `%${search}%`;
+        }
+        const where = conditions.join(" AND ");
+
+        const rows = arrayOf(new DynamicModel({
+            id: "", professor_id: "", professor_name: "", alliance: "", photo: "", created: "",
+            uploader_name: "", uploader_username: "",
+        }));
+        $app.db().newQuery(
+            "SELECT c.id, p.id AS professor_id, p.name AS professor_name, c.alliance, c.photo, c.created, " +
+            "COALESCE(u.name, '') AS uploader_name, COALESCE(u.username, '') AS uploader_username " +
+            "FROM alliance_professor_claims c " +
+            "INNER JOIN alliance_professors p ON p.id = c.professor " +
+            "LEFT JOIN users u ON u.id = c.user " +
+            `WHERE ${where} ORDER BY c.created DESC LIMIT {:limit} OFFSET {:offset}`
+        ).bind(params).all(rows);
+
+        const totals = arrayOf(new DynamicModel({ total: 0 }));
+        $app.db().newQuery(
+            "SELECT COUNT(*) AS total FROM alliance_professor_claims c " +
+            "INNER JOIN alliance_professors p ON p.id = c.professor " +
+            `WHERE ${where}`
+        ).bind(params).all(totals);
+
+        const total = totals.length ? Number(totals[0].total) || 0 : 0;
+        return e.json(200, {
+            claimCollectionId: $app.findCollectionByNameOrId("alliance_professor_claims").id,
+            page,
+            perPage,
+            total,
+            totalPages: Math.max(1, Math.ceil(total / perPage)),
+            items: rows.map((row) => ({
+                id: row.id,
+                professorId: row.professor_id,
+                professorName: row.professor_name,
+                alliance: row.alliance,
+                photo: row.photo,
+                created: row.created,
+                uploaderName: row.uploader_name,
+                uploaderUsername: row.uploader_username,
+            })),
+        });
+    } catch (err) {
+        console.error("[alliance_admin.pb.js] Error al listar adjudicaciones de Cazaprofes:", err);
+        return e.json(500, { error: "No se pudieron cargar las adjudicaciones de Cazaprofes." });
+    }
+}, $apis.requireAuth("users"));
+
+routerAdd("POST", "/api/alliances/admin/professor-claims/{claimId}/discard", (e) => {
+    try {
+        const { isAllianceAdmin } = require(`${__hooks}/lib/alliances.js`);
+        if (!isAllianceAdmin(
+            e.auth.getString("type"), e.auth.getString("subtype"), e.auth.getString("username")
+        )) {
+            return e.json(403, { error: "Esta cuenta no administra las alianzas." });
+        }
+
+        const claimId = String(e.request.pathValue("claimId") || "");
+        let claim;
+        try {
+            claim = $app.findRecordById("alliance_professor_claims", claimId);
+        } catch (notFound) {
+            return e.json(404, { error: "La adjudicación no existe." });
+        }
+        if (claim.getBool("deleted")) {
+            return e.json(404, { error: "La adjudicación ya fue descartada." });
+        }
+
+        // El registro y su foto se conservan para trazabilidad, pero dejan de ser
+        // visibles y el índice parcial libera de inmediato al profesor para otra alianza.
+        claim.set("deleted", true);
+        $app.save(claim);
+        return e.json(200, { ok: true, professorId: claim.getString("professor") });
+    } catch (err) {
+        console.error("[alliance_admin.pb.js] Error al descartar adjudicación de Cazaprofes:", err);
+        return e.json(500, { error: "No se pudo descartar la adjudicación." });
+    }
+}, $apis.requireAuth("users"));
+
 routerAdd("GET", "/admin/alianzas", (e) => {
     const { PALETTE_CSS, clientSessionGateFn, clientApiCallFn } = require(`${__hooks}/lib/adminUi.js`);
     const SESSION_GATE_FN = clientSessionGateFn();
@@ -173,7 +269,7 @@ routerAdd("GET", "/admin/alianzas", (e) => {
         ${PALETTE_CSS}
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
         body { background: var(--bg-color); color: var(--text-color); min-height: 100vh; padding: 24px; }
-        .page { width: 100%; max-width: 720px; margin: 0 auto; }
+        .page { width: 100%; max-width: 880px; margin: 0 auto; }
         .login-card { width: 100%; max-width: 440px; margin: 60px auto; border: 1px solid var(--border-color); border-radius: 6px; padding: 32px; background: var(--card-bg); }
         h1 { font-size: 24px; margin-bottom: 6px; }
         .subtitle, .hint { color: var(--text-muted); font-size: 13px; line-height: 1.5; }
@@ -197,7 +293,22 @@ routerAdd("GET", "/admin/alianzas", (e) => {
         .alliance-name { font-size: 14px; }
         .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
         .empty { color: var(--text-muted); border-top: 1px solid var(--border-color); padding: 24px 0; }
-        @media (max-width: 520px) { body { padding: 16px; } .login-card { padding: 24px; } .new-form { flex-direction: column; } }
+        .panel-section { margin-top: 42px; }
+        .section-heading { margin-bottom: 18px; }
+        .section-heading h2 { font-size: 21px; margin-bottom: 4px; }
+        .claim-toolbar { display: flex; gap: 8px; margin-bottom: 14px; }
+        .claim-toolbar input { flex: 1; }
+        .claim-card { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; gap: 16px; align-items: center; border-top: 1px solid var(--border-color); padding: 16px 0; }
+        .claim-photo { width: 112px; height: 112px; object-fit: cover; border: 1px solid var(--border-color); border-radius: 6px; background: #020617; cursor: zoom-in; }
+        .claim-name { font-size: 16px; font-weight: 700; margin-bottom: 5px; }
+        .claim-meta { color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+        .pagination { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+        @media (max-width: 620px) {
+            body { padding: 16px; } .login-card { padding: 24px; } .new-form, .claim-toolbar { flex-direction: column; }
+            .claim-card { grid-template-columns: 88px minmax(0, 1fr); align-items: start; }
+            .claim-photo { width: 88px; height: 88px; }
+            .claim-card .btn-danger { grid-column: 1 / -1; width: 100%; }
+        }
     </style>
 </head>
 <body>
@@ -229,6 +340,24 @@ routerAdd("GET", "/admin/alianzas", (e) => {
             <button class="btn" type="submit">Agregar deporte</button>
         </form>
         <div id="disciplineList"><p class="hint">Cargando…</p></div>
+
+        <section class="panel-section">
+            <div class="section-heading">
+                <h2>Cazaprofes</h2>
+                <p class="hint">Revisa las adjudicaciones vigentes. Al descartar una, deja de sumar y el profesor vuelve a quedar disponible.</p>
+            </div>
+            <div id="professorError" class="alert"></div>
+            <form id="professorSearchForm" class="claim-toolbar">
+                <input id="professorSearch" maxlength="80" placeholder="Buscar profesor">
+                <button class="btn btn-secondary" type="submit">Buscar</button>
+            </form>
+            <div id="professorClaimList"><p class="hint">Cargando…</p></div>
+            <div class="pagination">
+                <button id="previousClaims" class="btn btn-secondary" type="button">Anterior</button>
+                <span id="claimPageLabel" class="hint"></span>
+                <button id="nextClaims" class="btn btn-secondary" type="button">Siguiente</button>
+            </div>
+        </section>
     </main>
 
     <script>
@@ -246,6 +375,13 @@ ${SESSION_GATE_FN}
         const loginError = document.getElementById("loginError");
         const panelError = document.getElementById("panelError");
         const disciplineList = document.getElementById("disciplineList");
+        const professorError = document.getElementById("professorError");
+        const professorClaimList = document.getElementById("professorClaimList");
+        const claimPageLabel = document.getElementById("claimPageLabel");
+        const previousClaims = document.getElementById("previousClaims");
+        const nextClaims = document.getElementById("nextClaims");
+        let professorPage = 1;
+        let professorTotalPages = 1;
 
         function showError(element, message) { element.textContent = message; element.style.display = "block"; }
         function hideError(element) { element.style.display = "none"; element.textContent = ""; }
@@ -258,7 +394,10 @@ ${SESSION_GATE_FN}
             checkingMsg.style.display = "none"; loginForm.style.display = "block";
             if (hadStaleSession) showError(loginError, "Tu sesión expiró. Inicia sesión de nuevo.");
         }
-        function showPanel() { loginPage.style.display = "none"; panelPage.style.display = "block"; loadDisciplines(); }
+        function showPanel() {
+            loginPage.style.display = "none"; panelPage.style.display = "block";
+            loadDisciplines(); loadProfessorClaims();
+        }
 
 ${API_CALL_FN}
 
@@ -323,6 +462,70 @@ ${API_CALL_FN}
             actions.appendChild(save); section.appendChild(actions); return section;
         }
 
+        async function loadProfessorClaims() {
+            hideError(professorError);
+            professorClaimList.textContent = "Cargando…";
+            const search = document.getElementById("professorSearch").value.trim();
+            const params = new URLSearchParams({ page: String(professorPage) });
+            if (search) params.set("q", search);
+            try {
+                const data = await apiCall("/api/alliances/admin/professor-claims?" + params.toString(), "GET");
+                professorPage = data.page || 1;
+                professorTotalPages = data.totalPages || 1;
+                if (professorPage > professorTotalPages) {
+                    professorPage = professorTotalPages; await loadProfessorClaims(); return;
+                }
+                renderProfessorClaims(data.items || [], data.claimCollectionId, data.total || 0);
+            } catch (err) {
+                professorClaimList.textContent = "";
+                showError(professorError, err.message);
+            }
+        }
+
+        function renderProfessorClaims(claims, collectionId, total) {
+            professorClaimList.textContent = "";
+            claimPageLabel.textContent = "Página " + professorPage + " de " + professorTotalPages + " · " + total + " vigentes";
+            previousClaims.disabled = professorPage <= 1;
+            nextClaims.disabled = professorPage >= professorTotalPages;
+            if (!claims.length) {
+                const empty = document.createElement("p"); empty.className = "empty";
+                empty.textContent = "No hay adjudicaciones vigentes para esta búsqueda.";
+                professorClaimList.appendChild(empty); return;
+            }
+            claims.forEach((claim) => professorClaimList.appendChild(professorClaimNode(claim, collectionId)));
+        }
+
+        function professorClaimNode(claim, collectionId) {
+            const card = document.createElement("article"); card.className = "claim-card";
+            const photoLink = document.createElement("a");
+            const basePhotoUrl = "/api/files/" + encodeURIComponent(collectionId) + "/" + encodeURIComponent(claim.id) + "/" + encodeURIComponent(claim.photo);
+            photoLink.href = basePhotoUrl; photoLink.target = "_blank"; photoLink.rel = "noopener noreferrer";
+            const photo = document.createElement("img"); photo.className = "claim-photo";
+            photo.src = basePhotoUrl + "?thumb=200x200"; photo.alt = "Foto adjudicada de " + claim.professorName;
+            photoLink.appendChild(photo); card.appendChild(photoLink);
+
+            const info = document.createElement("div");
+            const name = document.createElement("p"); name.className = "claim-name"; name.textContent = claim.professorName;
+            const alliance = allianceOptions.find((option) => option.id === claim.alliance);
+            const details = document.createElement("p"); details.className = "claim-meta";
+            const uploader = claim.uploaderName || (claim.uploaderUsername ? "@" + claim.uploaderUsername : "Cuenta eliminada");
+            const date = claim.created ? new Date(claim.created).toLocaleString("es-CL") : "Fecha desconocida";
+            details.textContent = (alliance ? alliance.label : claim.alliance) + " · Subida por " + uploader + " · " + date;
+            info.appendChild(name); info.appendChild(details); card.appendChild(info);
+
+            const discard = document.createElement("button"); discard.type = "button";
+            discard.className = "btn btn-danger"; discard.textContent = "Descartar y liberar";
+            discard.addEventListener("click", async () => {
+                if (!window.confirm("¿Descartar la adjudicación de " + claim.professorName + "? Dejará de sumar y podrá ser reclamado nuevamente.")) return;
+                discard.disabled = true; hideError(professorError);
+                try {
+                    await apiCall("/api/alliances/admin/professor-claims/" + encodeURIComponent(claim.id) + "/discard", "POST", {});
+                    await loadProfessorClaims();
+                } catch (err) { showError(professorError, err.message); discard.disabled = false; }
+            });
+            card.appendChild(discard); return card;
+        }
+
         loginForm.addEventListener("submit", async (event) => {
             event.preventDefault(); hideError(loginError);
             try {
@@ -343,6 +546,15 @@ ${API_CALL_FN}
             try { await apiCall("/api/alliances/admin/disciplines", "POST", { name: input.value }); input.value = ""; await loadDisciplines(); }
             catch (err) { showError(panelError, err.message); }
             finally { button.disabled = false; }
+        });
+        document.getElementById("professorSearchForm").addEventListener("submit", (event) => {
+            event.preventDefault(); professorPage = 1; loadProfessorClaims();
+        });
+        previousClaims.addEventListener("click", () => {
+            if (professorPage <= 1) return; professorPage -= 1; loadProfessorClaims();
+        });
+        nextClaims.addEventListener("click", () => {
+            if (professorPage >= professorTotalPages) return; professorPage += 1; loadProfessorClaims();
         });
 
         gateSession("users", "alianzas_auth", (freshToken, record) => {
