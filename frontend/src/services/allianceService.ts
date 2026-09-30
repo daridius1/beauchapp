@@ -19,6 +19,21 @@ export interface NikitaJumpState {
   scoreboard: AllianceScoreRow[];
 }
 
+export interface NikitaRankingRow {
+  userId: string;
+  name: string;
+  alliance: AllianceId;
+  highScore: number;
+  position: number;
+}
+
+export interface NikitaRankingPage {
+  page: number;
+  perPage: number;
+  hasMore: boolean;
+  items: NikitaRankingRow[];
+}
+
 export interface NikitaRunToken {
   runId: string;
   seed: number;
@@ -102,6 +117,10 @@ export const allianceService = {
 
   getNikitaJump: async (): Promise<NikitaJumpState> => (
     pb.send<NikitaJumpState>('/api/alliances/nikita', { method: 'GET' })
+  ),
+
+  getNikitaRanking: async (page = 1): Promise<NikitaRankingPage> => (
+    pb.send<NikitaRankingPage>(`/api/alliances/nikita/ranking?page=${Math.max(1, Math.floor(page))}`, { method: 'GET' })
   ),
 
   chooseAlliance: async (alliance: AllianceId): Promise<{ alliance: AllianceId; highScore: number }> => (

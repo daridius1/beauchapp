@@ -24,7 +24,12 @@ import {
   NIKITA_VANILLA_SKIN,
   nikitaSkinById,
 } from '../constants/nikitaSkins';
-import { AllianceScoreRow, allianceService, NikitaRunToken } from '../services/allianceService';
+import {
+  AllianceScoreRow,
+  allianceService,
+  NikitaRankingRow,
+  NikitaRunToken,
+} from '../services/allianceService';
 import { theme } from '../theme/theme';
 import { withMinimumDelay } from '../utils/refresh';
 import {
@@ -202,6 +207,11 @@ export const NikitaJumpScreen: React.FC = () => {
   const [skinBusy, setSkinBusy] = useState<string | null>(null);
   const [lastReward, setLastReward] = useState<number | null>(null);
   const [scoreboard, setScoreboard] = useState<AllianceScoreRow[]>([]);
+  const [ranking, setRanking] = useState<NikitaRankingRow[]>([]);
+  const [rankingPage, setRankingPage] = useState(1);
+  const [rankingHasMore, setRankingHasMore] = useState(false);
+  const [rankingLoadingMore, setRankingLoadingMore] = useState(false);
+  const [rankingError, setRankingError] = useState('');
   const [error, setError] = useState('');
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -261,7 +271,12 @@ export const NikitaJumpScreen: React.FC = () => {
     if (showLoader) setLoading(true);
     setError('');
     try {
-      const state = await withMinimumDelay(() => allianceService.getNikitaJump(), showLoader ? 400 : 0);
+      const [stateResult, rankingResult] = await withMinimumDelay(() => Promise.allSettled([
+        allianceService.getNikitaJump(),
+        allianceService.getNikitaRanking(1),
+      ]), showLoader ? 400 : 0);
+      if (stateResult.status === 'rejected') throw stateResult.reason;
+      const state = stateResult.value;
       setMyAlliance(state.myAlliance);
       setHighScore(state.myHighScore);
       setTotalScore(state.myTotalScore);
@@ -269,12 +284,39 @@ export const NikitaJumpScreen: React.FC = () => {
       setOwnedSkins(state.ownedSkins);
       setSelectedSkin(state.selectedSkin);
       setScoreboard(state.scoreboard);
+      if (rankingResult.status === 'fulfilled') {
+        setRanking(rankingResult.value.items);
+        setRankingPage(rankingResult.value.page);
+        setRankingHasMore(rankingResult.value.hasMore);
+        setRankingError('');
+      } else {
+        setRankingError(errorMessage(rankingResult.reason, 'No se pudo cargar el ranking.'));
+      }
     } catch (err) {
       setError(errorMessage(err, 'No se pudo cargar Nikita Jump.'));
     } finally {
       if (showLoader) setLoading(false);
     }
   }, []);
+
+  const loadMoreRanking = async () => {
+    if (rankingLoadingMore || !rankingHasMore) return;
+    setRankingLoadingMore(true);
+    setRankingError('');
+    try {
+      const next = await withMinimumDelay(() => allianceService.getNikitaRanking(rankingPage + 1), 400);
+      setRanking((current) => {
+        const loadedUsers = new Set(current.map((row) => row.userId));
+        return [...current, ...next.items.filter((row) => !loadedUsers.has(row.userId))];
+      });
+      setRankingPage(next.page);
+      setRankingHasMore(next.hasMore);
+    } catch (err) {
+      setRankingError(errorMessage(err, 'No se pudieron cargar más posiciones.'));
+    } finally {
+      setRankingLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     loadState();
@@ -405,8 +447,19 @@ export const NikitaJumpScreen: React.FC = () => {
       setTotalScore(result.totalScore);
       setBeautokens(result.beautokens);
       setLastReward(result.reward);
-      const state = await allianceService.getNikitaJump();
-      setScoreboard(state.scoreboard);
+      const [stateResult, rankingResult] = await Promise.allSettled([
+        allianceService.getNikitaJump(),
+        allianceService.getNikitaRanking(1),
+      ]);
+      if (stateResult.status === 'fulfilled') setScoreboard(stateResult.value.scoreboard);
+      if (rankingResult.status === 'fulfilled') {
+        setRanking(rankingResult.value.items);
+        setRankingPage(rankingResult.value.page);
+        setRankingHasMore(rankingResult.value.hasMore);
+        setRankingError('');
+      } else {
+        setRankingError(errorMessage(rankingResult.reason, 'El puntaje se guardó, pero no se pudo actualizar el ranking.'));
+      }
     } catch (err) {
       setError(errorMessage(err, 'Tu partida terminó, pero no pudimos guardar el puntaje.'));
     }
@@ -884,6 +937,40 @@ export const NikitaJumpScreen: React.FC = () => {
         </>
       )}
 
+      <View style={styles.rankingSection}>
+        <Text style={styles.sectionTitle}>Ranking de récords</Text>
+        {ranking.length === 0 && !rankingError ? (
+          <Text style={styles.emptyRanking}>Todavía no hay puntajes registrados.</Text>
+        ) : (
+          ranking.map((row) => (
+            <View key={row.userId} style={styles.rankingRow}>
+              <Text style={[styles.rankingPosition, row.position <= 3 && styles.rankingPositionTop]}>
+                {row.position}
+              </Text>
+              <View style={[styles.colorMark, { backgroundColor: ALLIANCE_COLORS[row.alliance] }]} />
+              <View style={styles.rankingCopy}>
+                <Text style={styles.rankingName} numberOfLines={1}>{row.name}</Text>
+                <AllianceNameText alliance={row.alliance} style={styles.rankingAlliance} />
+              </View>
+              <Text style={styles.rankingScore}>{row.highScore.toLocaleString('es-CL')}</Text>
+            </View>
+          ))
+        )}
+        {!!rankingError && <Text style={styles.rankingError}>{rankingError}</Text>}
+        {rankingHasMore && (
+          <TouchableOpacity
+            style={styles.loadMoreButton}
+            onPress={loadMoreRanking}
+            disabled={rankingLoadingMore}
+            activeOpacity={0.75}
+          >
+            {rankingLoadingMore
+              ? <ActivityIndicator size="small" color={theme.colors.text} />
+              : <Text style={styles.loadMoreText}>Cargar 20 más</Text>}
+          </TouchableOpacity>
+        )}
+      </View>
+
       <View style={styles.scoreboardSection}>
         <Text style={styles.sectionTitle}>Marcador de alianzas</Text>
         {scoreboard.map((row, index) => (
@@ -1235,7 +1322,6 @@ const styles = StyleSheet.create({
   skinCard: {
     width: '31%',
     minWidth: 138,
-    flexGrow: 1,
     maxWidth: 215,
     padding: 10,
     borderRadius: theme.borderRadius.md,
@@ -1263,6 +1349,32 @@ const styles = StyleSheet.create({
   skinButtonSelected: { backgroundColor: '#a3e635' },
   skinButtonDisabled: { backgroundColor: '#475569', opacity: 0.65 },
   skinButtonText: { color: '#07111f', fontSize: 11, fontWeight: '900', textAlign: 'center' },
+  rankingSection: { width: '100%', maxWidth: 680, marginBottom: theme.spacing.xl },
+  emptyRanking: { color: theme.colors.textMuted, fontSize: 13, paddingVertical: theme.spacing.md },
+  rankingRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  rankingPosition: { width: 32, color: theme.colors.textMuted, fontSize: 13, fontWeight: '700' },
+  rankingPositionTop: { color: '#facc15', fontWeight: '900' },
+  rankingCopy: { flex: 1, minWidth: 0 },
+  rankingName: { color: theme.colors.text, fontSize: 15, fontWeight: '700' },
+  rankingAlliance: { color: theme.colors.textMuted, fontSize: 11, marginTop: 2 },
+  rankingScore: { color: theme.colors.text, fontSize: 16, fontWeight: '800', marginLeft: 12 },
+  rankingError: { color: theme.colors.error, fontSize: 12, marginTop: theme.spacing.sm },
+  loadMoreButton: {
+    minHeight: 40,
+    marginTop: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadMoreText: { color: theme.colors.text, fontSize: 13, fontWeight: '700' },
   scoreboardSection: { width: '100%', maxWidth: 680 },
   scoreRow: {
     minHeight: 58,

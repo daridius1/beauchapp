@@ -47,6 +47,50 @@ routerAdd("GET", "/api/alliances/nikita", (e) => {
     }
 }, $apis.requireAuth("users"));
 
+// El ranking vive en una ruta separada para que avanzar por sus páginas no vuelva a
+// cargar las skins ni el marcador agregado. Se pide una fila extra para saber si queda
+// otra página sin ejecutar un COUNT sobre toda la tabla en cada solicitud.
+routerAdd("GET", "/api/alliances/nikita/ranking", (e) => {
+    try {
+        const perPage = 20;
+        const requestedPage = Number(e.request.url.query().get("page"));
+        const page = Number.isFinite(requestedPage)
+            ? Math.min(10000, Math.max(1, Math.floor(requestedPage)))
+            : 1;
+        const offset = (page - 1) * perPage;
+        const rows = arrayOf(new DynamicModel({
+            user_id: "", name: "", alliance: "", high_score: 0,
+        }));
+        $app.db().newQuery(
+            "SELECT s.user AS user_id, " +
+            "COALESCE(NULLIF(TRIM(u.name), ''), NULLIF(TRIM(u.username), ''), 'Alumno FCFM') AS name, " +
+            "s.alliance, s.high_score " +
+            "FROM alliance_nikita_scores s " +
+            "INNER JOIN users u ON u.id = s.user " +
+            "WHERE s.high_score > 0 AND u.deleted = false " +
+            "ORDER BY s.high_score DESC, s.updated ASC, s.id ASC " +
+            "LIMIT {:limit} OFFSET {:offset}"
+        ).bind({ limit: perPage + 1, offset }).all(rows);
+
+        const hasMore = rows.length > perPage;
+        return e.json(200, {
+            page,
+            perPage,
+            hasMore,
+            items: rows.slice(0, perPage).map((row, index) => ({
+                userId: row.user_id,
+                name: row.name,
+                alliance: row.alliance,
+                highScore: Math.max(0, Math.floor(Number(row.high_score) || 0)),
+                position: offset + index + 1,
+            })),
+        });
+    } catch (err) {
+        console.error("[alliances.pb.js] Error al cargar ranking de Nikita Jump:", err);
+        return e.json(500, { error: "No se pudo cargar el ranking." });
+    }
+}, $apis.requireAuth("users"));
+
 routerAdd("POST", "/api/alliances/alliance", (e) => {
     try {
         const { isAllianceId } = require(`${__hooks}/lib/alliances.js`);
