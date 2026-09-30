@@ -453,9 +453,10 @@ export const NikitaJumpScreen: React.FC = () => {
       #nikita-jump-board *,
       #nikita-jump-immersive,
       #nikita-jump-immersive * {
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        user-select: none;
+        -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        user-select: none !important;
+        -webkit-tap-highlight-color: transparent;
       }
       #nikita-jump-board,
       #nikita-jump-immersive {
@@ -501,16 +502,36 @@ export const NikitaJumpScreen: React.FC = () => {
       const bounds = board.getBoundingClientRect();
       changeDirection(event.clientX < bounds.left + bounds.width / 2 ? -1 : 1);
     };
+    // Safari/iOS puede abrir el menú de pulsación larga aunque touch-action,
+    // user-select y contextmenu estén bloqueados. WebKit solo descarta ese gesto
+    // de forma consistente si touchstart se cancela desde un listener no pasivo.
+    const preventTouchCallout = (event: TouchEvent) => {
+      if (!runningRef.current || paused || isInteractiveControl(event.target)) return;
+      if (event.cancelable) event.preventDefault();
+    };
+    const preventBrowserGesture = (event: Event) => {
+      if (event.cancelable) event.preventDefault();
+    };
 
     board.addEventListener('pointerdown', onPointerDown, { passive: false });
     board.addEventListener('pointerup', releasePointer);
     board.addEventListener('pointercancel', releasePointer);
     board.addEventListener('lostpointercapture', releasePointer);
+    board.addEventListener('touchstart', preventTouchCallout, { passive: false });
+    board.addEventListener('touchmove', preventTouchCallout, { passive: false });
+    board.addEventListener('contextmenu', preventBrowserGesture);
+    board.addEventListener('dragstart', preventBrowserGesture);
+    board.addEventListener('selectstart', preventBrowserGesture);
     return () => {
       board.removeEventListener('pointerdown', onPointerDown);
       board.removeEventListener('pointerup', releasePointer);
       board.removeEventListener('pointercancel', releasePointer);
       board.removeEventListener('lostpointercapture', releasePointer);
+      board.removeEventListener('touchstart', preventTouchCallout);
+      board.removeEventListener('touchmove', preventTouchCallout);
+      board.removeEventListener('contextmenu', preventBrowserGesture);
+      board.removeEventListener('dragstart', preventBrowserGesture);
+      board.removeEventListener('selectstart', preventBrowserGesture);
       activePointerIdRef.current = null;
       changeDirection(0);
     };
