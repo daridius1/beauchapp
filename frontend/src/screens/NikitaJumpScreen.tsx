@@ -937,6 +937,21 @@ export const NikitaJumpScreen: React.FC = () => {
         </>
       )}
 
+      <View style={styles.scoreboardSection}>
+        <Text style={styles.sectionTitle}>Marcador de alianzas</Text>
+        {scoreboard.map((row, index) => (
+          <View key={row.alliance} style={styles.scoreRow}>
+            <Text style={styles.position}>{index + 1}</Text>
+            <View style={[styles.colorMark, { backgroundColor: ALLIANCE_COLORS[row.alliance] }]} />
+            <View style={styles.scoreCopy}>
+              <AllianceNameText alliance={row.alliance} style={styles.scoreAlliance} />
+              <Text style={styles.scorePlayers}>{row.players} {row.players === 1 ? 'jugador' : 'jugadores'}</Text>
+            </View>
+            <Text style={styles.scorePoints}>{row.points.toLocaleString('es-CL')}</Text>
+          </View>
+        ))}
+      </View>
+
       <View style={styles.rankingSection}>
         <Text style={styles.sectionTitle}>Ranking de récords</Text>
         {ranking.length === 0 && !rankingError ? (
@@ -971,20 +986,6 @@ export const NikitaJumpScreen: React.FC = () => {
         )}
       </View>
 
-      <View style={styles.scoreboardSection}>
-        <Text style={styles.sectionTitle}>Marcador de alianzas</Text>
-        {scoreboard.map((row, index) => (
-          <View key={row.alliance} style={styles.scoreRow}>
-            <Text style={styles.position}>{index + 1}</Text>
-            <View style={[styles.colorMark, { backgroundColor: ALLIANCE_COLORS[row.alliance] }]} />
-            <View style={styles.scoreCopy}>
-              <AllianceNameText alliance={row.alliance} style={styles.scoreAlliance} />
-              <Text style={styles.scorePlayers}>{row.players} {row.players === 1 ? 'jugador' : 'jugadores'}</Text>
-            </View>
-            <Text style={styles.scorePoints}>{row.points.toLocaleString('es-CL')}</Text>
-          </View>
-        ))}
-      </View>
     </ScrollView>
   );
 };
@@ -1375,7 +1376,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadMoreText: { color: theme.colors.text, fontSize: 13, fontWeight: '700' },
-  scoreboardSection: { width: '100%', maxWidth: 680 },
+  scoreboardSection: { width: '100%', maxWidth: 680, marginBottom: theme.spacing.xl },
   scoreRow: {
     minHeight: 58,
     flexDirection: 'row',
