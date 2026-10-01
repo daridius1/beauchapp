@@ -1,8 +1,15 @@
 #!/bin/bash
 set -e
 
-# Configurable vía variables de entorno (o un deploy.env local, no versionado, con `source deploy.env`).
+# Configurable vía variables de entorno o un deploy.env local no versionado. Cargarlo
+# automáticamente evita tener que recordar el servidor en cada despliegue; para cambiarlo,
+# basta editar ese archivo.
 # Ejemplo: DEPLOY_SERVER=usuario@host DEPLOY_REMOTE_DIR=red-social ./deploy.sh
+if [ -f ./deploy.env ]; then
+  set -a
+  . ./deploy.env
+  set +a
+fi
 SERVER="${DEPLOY_SERVER:?Debes definir DEPLOY_SERVER, ej: usuario@host. Ver README/SETUP.md.}"
 REMOTE_DIR="${DEPLOY_REMOTE_DIR:-red-social}"
 REMOTE_USER="${SERVER%@*}"
