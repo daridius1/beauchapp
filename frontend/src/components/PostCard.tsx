@@ -15,6 +15,9 @@ import { ReportModal } from './ReportModal';
 import { LinkConfirmModal } from './LinkConfirmModal';
 import { PollView } from './PollView';
 import { SpotifyEmbed } from './SpotifyEmbed';
+import { SoundCloudEmbed } from './SoundCloudEmbed';
+import { PdfAttachment } from './PdfAttachment';
+import { AnimatedMedia } from './AnimatedMedia';
 
 export interface PostCardProps {
   post: any;
@@ -413,6 +416,33 @@ export const PostCard: React.FC<PostCardProps> = ({
           <View style={styles.spotifyWrapper}>
             <SpotifyEmbed key={post.spotifyTrackId} trackId={post.spotifyTrackId} compact />
           </View>
+        )}
+
+        {/* El audio se transmite desde el widget oficial; Beauchapp guarda solo la URL. */}
+        {!isDeleted && !!post.soundcloudUrl && (
+          <View style={styles.spotifyWrapper}>
+            <SoundCloudEmbed key={post.soundcloudUrl} url={post.soundcloudUrl} />
+          </View>
+        )}
+
+        {/* PDF liviano: no se renderiza dentro del feed; se abre directo desde R2/CDN. */}
+        {!isDeleted && !!post.document && (
+          <PdfAttachment
+            name={post.documentName || 'Documento PDF'}
+            url={getFileUrl(post, post.document)}
+          />
+        )}
+
+        {!isDeleted && !!post.giphy?.id && (
+          <AnimatedMedia giphy={post.giphy} compact />
+        )}
+
+        {!isDeleted && !!post.animation && (
+          <AnimatedMedia
+            fileUrl={getFileUrl(post, post.animation)}
+            mimeType={post.animationMime}
+            compact
+          />
         )}
 
         {/* Tags (solo se muestran en publicaciones o citas principales, no en respuestas ni comentarios) */}

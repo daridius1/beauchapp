@@ -97,6 +97,8 @@ Si necesitas apuntar a una IP específica (ej. para probar desde el celular), cr
 cp .env.example .env
 # Edita y pon tu IP local, ej:
 # EXPO_PUBLIC_API_URL=http://192.168.0.100:8090
+# Para activar el buscador de GIFs, crea una clave web en
+# https://developers.giphy.com/ y define EXPO_PUBLIC_GIPHY_API_KEY.
 ```
 
 > [!NOTE]
@@ -180,6 +182,10 @@ npm install
 # no se nota mirando la página porque las miniaturas sí pasan por PocketBase de todas
 # formas.
 export EXPO_PUBLIC_R2_URL=https://images.tu-dominio.com
+
+# Buscador de GIFs. La clave web se incrusta en el bundle y GIPHY exige que las
+# búsquedas salgan desde el cliente.
+export EXPO_PUBLIC_GIPHY_API_KEY=tu_clave_web_de_giphy
 
 # Compilar los archivos estáticos
 npx expo export --platform web

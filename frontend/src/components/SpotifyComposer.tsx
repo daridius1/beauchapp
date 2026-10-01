@@ -11,8 +11,8 @@ interface SpotifyComposerProps {
   onRemove: () => void;
 }
 
-// UI inline para adjuntar una canción de Spotify al componer un post — mismo espíritu que
-// PollComposer (sin botón de envío propio, el padre manda spotifyTrackId al publicar).
+// UI inline para adjuntar una canción de Spotify al componer un post o respuesta — mismo
+// espíritu que PollComposer (sin botón de envío propio, el padre manda spotifyTrackId).
 // Una vez elegida la canción se muestra con el propio SpotifyEmbed (mismo componente y
 // mismo placeholder de carga que en Mis Canciones/Conoce Beauchef), no una vista previa
 // aparte.

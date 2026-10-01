@@ -16,16 +16,10 @@ import { PagedMatchList } from '../components/leagues/PagedMatchList';
 import { LeagueStandingsTable } from '../components/leagues/LeagueStandingsTable';
 import { TeamCrest, matchDisplayName } from '../components/leagues/TeamCrest';
 import { publicLeagueService, PublicLeagueData } from '../services/publicLeagueService';
+import { isAwaitingLeagueMatchResult, sortLeagueMatchesForDisplay } from '../utils/leagueMatchDisplay';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PublicLeague'>;
 type TabType = 'matches' | 'standings' | 'scorers' | 'teams';
-
-function blockCodeTimestamp(code: string): number {
-  if (!code || code.length < 13) return NaN;
-  const hour = Number(code.slice(-2));
-  const [y, m, d] = code.slice(0, -3).split('-').map(Number);
-  return new Date(y, m - 1, d, hour).getTime();
-}
 
 // La liga vista sin cuenta: partidos, etapas, goleadores y equipos.
 //
@@ -87,29 +81,35 @@ export const PublicLeagueScreen: React.FC<Props> = ({ route, navigation }) => {
   }, [matches, data, now]);
 
   const sortedMatches = useMemo(() => {
-    const nowMs = Date.now();
-    const priority = (m: LeagueMatch) => {
-      if (liveInfoByMatch[m.id]) return 0;
-      if (m.status === 'confirmed') return 1;
-      if (m.status === 'played') return 2;
-      return 3;
-    };
-    return [...matches].sort((a, b) => {
-      const diff = priority(a) - priority(b);
-      if (diff !== 0) return diff;
-      return Math.abs(blockCodeTimestamp(a.blockCode) - nowMs) - Math.abs(blockCodeTimestamp(b.blockCode) - nowMs);
-    });
-  }, [matches, liveInfoByMatch]);
+    const liveMatchIds = new Set(Object.keys(liveInfoByMatch));
+    const reportMatchIds = new Set((data?.reports || []).map((report) => report.match));
+    return sortLeagueMatchesForDisplay(matches, { liveMatchIds, reportMatchIds, nowMs: now });
+  }, [matches, liveInfoByMatch, data?.reports, now]);
+
+  const awaitingResultIds = useMemo(() => {
+    const liveMatchIds = new Set(Object.keys(liveInfoByMatch));
+    const reportMatchIds = new Set((data?.reports || []).map((report) => report.match));
+    return new Set(matches
+      .filter((match) => isAwaitingLeagueMatchResult(match, {
+        isLive: liveMatchIds.has(match.id),
+        hasReport: reportMatchIds.has(match.id),
+        nowMs: now,
+      }))
+      .map((match) => match.id));
+  }, [matches, data, liveInfoByMatch, now]);
 
   const stagesWithData = useMemo(() => {
     return stages.map((s) => {
       const stageMatches = matches.filter((m) => (m as any).stage === s.id);
-      if (s.type === 'knockout') return { ...s, matches: stageMatches, teams: [] as typeof teams };
+      if (s.type === 'knockout') {
+        const orderedMatches = sortedMatches.filter((match) => (match as any).stage === s.id);
+        return { ...s, matches: orderedMatches, teams: [] as typeof teams };
+      }
       const ids = new Set<string>(s.teams);
       stageMatches.forEach((m) => { if (m.teamA) ids.add(m.teamA); if (m.teamB) ids.add(m.teamB); });
       return { ...s, matches: stageMatches, teams: teams.filter((t) => ids.has(t.expand?.team?.id || t.team)) };
     });
-  }, [stages, matches, teams]);
+  }, [stages, matches, sortedMatches, teams]);
 
   const topScorers = useMemo(() => {
     const matchById: Record<string, LeagueMatch> = {};
@@ -176,6 +176,7 @@ export const PublicLeagueScreen: React.FC<Props> = ({ route, navigation }) => {
             <PagedMatchList
               matches={sortedMatches}
               liveInfoByMatch={liveInfoByMatch}
+              awaitingResultIds={awaitingResultIds}
               emptyText="Esta liga todavía no tiene partidos."
               onPressMatch={(matchId) => navigation.navigate('PublicMatch', { matchId })}
             />
@@ -192,6 +193,7 @@ export const PublicLeagueScreen: React.FC<Props> = ({ route, navigation }) => {
                     <PagedMatchList
                       matches={s.matches}
                       liveInfoByMatch={liveInfoByMatch}
+                      awaitingResultIds={awaitingResultIds}
                       emptyText="Todavía no hay partidos en esta etapa."
                       hideStage
                       onPressMatch={(matchId) => navigation.navigate('PublicMatch', { matchId })}

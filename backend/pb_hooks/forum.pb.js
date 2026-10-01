@@ -11,11 +11,31 @@ onRecordCreateRequest((e) => {
     // y nunca encontraba el id) tiraba un ReferenceError real que abortaba la creación
     // completa del post, no solo el conteo — no era un caso silencioso.
     const { esTargetInexistente, targetCollectionOf } = require(`${__hooks}/lib/forum.js`);
+    const { sanitizeGiphyPayload } = require(`${__hooks}/lib/giphy.js`);
+    const { normalizeSoundCloudUrl } = require(`${__hooks}/lib/soundcloud.js`);
     try {
         const actionType = e.record.getString("actionType");
         const replyTo = e.record.getString("replyTo");
         const targetType = e.record.getString("targetType");
         const targetId = e.record.getString("targetId");
+        const rawGiphy = e.record.get("giphy");
+        if (rawGiphy) {
+            const giphy = sanitizeGiphyPayload(rawGiphy);
+            if (!giphy) throw new BadRequestError("La selección de GIPHY no es válida.");
+            if (e.record.getString("animation")) {
+                throw new BadRequestError("Elige una animación manual o una de GIPHY, no ambas.");
+            }
+            e.record.set("giphy", giphy);
+        }
+        const rawSoundCloudUrl = e.record.getString("soundcloudUrl");
+        if (rawSoundCloudUrl) {
+            const soundcloudUrl = normalizeSoundCloudUrl(rawSoundCloudUrl);
+            if (!soundcloudUrl) throw new BadRequestError("El enlace de SoundCloud no es válido.");
+            if (e.record.getString("spotifyTrackId")) {
+                throw new BadRequestError("Elige Spotify o SoundCloud, no ambos.");
+            }
+            e.record.set("soundcloudUrl", soundcloudUrl);
+        }
 
         // 1. Manejo de Respuestas a Posts (vía replyTo / root)
         if (replyTo || (actionType === "reply" && targetType === "post")) {
@@ -188,6 +208,14 @@ onRecordEnrich((e) => {
         if (!isAdmin) {
             e.record.set("content", "[post/comentario eliminado]");
             e.record.set("photo", "");
+            e.record.set("document", "");
+            e.record.set("documentName", "");
+            e.record.set("spotifyTrackId", "");
+            e.record.set("soundcloudUrl", "");
+            e.record.set("animation", "");
+            e.record.set("animationName", "");
+            e.record.set("animationMime", "");
+            e.record.set("giphy", null);
             e.record.set("author", "");
             try {
                 const expand = e.record.expand();

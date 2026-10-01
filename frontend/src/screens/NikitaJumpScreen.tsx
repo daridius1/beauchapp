@@ -56,6 +56,9 @@ const NIKITA_MUSIC = require('../../assets/audio/nikita-music.mp3');
 const NIKITA_JUMP_SOUND = require('../../assets/audio/nikita-jump.wav');
 const NIKITA_SHOT_SOUND = require('../../assets/audio/nikita-shot.wav');
 const NIKITA_BACKGROUND = require('../../assets/nikita-jump/beauchef-background.jpg');
+const SKIN_CARD_GAP = 10;
+const SKIN_CARD_MIN_WIDTH = 138;
+const SKIN_GRID_MAX_COLUMNS = 3;
 
 type NikitaRenderState = {
   player: NikitaPlayer;
@@ -246,6 +249,7 @@ export const NikitaJumpScreen: React.FC = () => {
   const [nikitaBanned, setNikitaBanned] = useState(false);
   const [nikitaBanReason, setNikitaBanReason] = useState('');
   const [skinBusy, setSkinBusy] = useState<string | null>(null);
+  const [skinShopWidth, setSkinShopWidth] = useState(0);
   const [lastReward, setLastReward] = useState<number | null>(null);
   const [scoreboard, setScoreboard] = useState<AllianceScoreRow[]>([]);
   const [ranking, setRanking] = useState<NikitaRankingRow[]>([]);
@@ -776,6 +780,13 @@ export const NikitaJumpScreen: React.FC = () => {
     invulnerabilityTicks > NIKITA_TICK_RATE * 3
     || Math.floor(invulnerabilityTicks / 12) % 2 === 0
   );
+  const skinColumns = Math.max(1, Math.min(
+    SKIN_GRID_MAX_COLUMNS,
+    Math.floor((skinShopWidth + SKIN_CARD_GAP) / (SKIN_CARD_MIN_WIDTH + SKIN_CARD_GAP)),
+  ));
+  const skinCardWidth = skinShopWidth > 0
+    ? (skinShopWidth - SKIN_CARD_GAP * (skinColumns - 1)) / skinColumns
+    : SKIN_CARD_MIN_WIDTH;
 
   return (
     <ScrollView
@@ -1056,7 +1067,10 @@ export const NikitaJumpScreen: React.FC = () => {
             </Pressable>
           </NikitaGameSurface>
 
-          {!immersive && <View style={styles.skinShop}>
+          {!immersive && <View
+            style={styles.skinShop}
+            onLayout={(event) => setSkinShopWidth(event.nativeEvent.layout.width)}
+          >
             <View style={styles.skinShopHeader}>
               <View>
                 <Text style={styles.sectionTitle}>Skins de Nikita</Text>
@@ -1066,7 +1080,7 @@ export const NikitaJumpScreen: React.FC = () => {
             <View style={styles.skinCategory}>
               <Text style={styles.skinCategoryTitle}>Base</Text>
               <View style={styles.skinGrid}>
-                <View style={[styles.skinCard, !selectedSkin && styles.skinCardSelected]}>
+                <View style={[styles.skinCard, { width: skinCardWidth }, !selectedSkin && styles.skinCardSelected]}>
                   <Image source={NIKITA_VANILLA_SKIN.source} style={styles.skinPreview} resizeMode="contain" />
                   <Text style={styles.skinName}>{NIKITA_VANILLA_SKIN.name}</Text>
                   <TouchableOpacity
@@ -1091,7 +1105,7 @@ export const NikitaJumpScreen: React.FC = () => {
                     const selected = selectedSkin === skin.id;
                     const cannotAfford = !owned && beautokens < NIKITA_SKIN_PRICE;
                     return (
-                      <View key={skin.id} style={[styles.skinCard, selected && styles.skinCardSelected]}>
+                      <View key={skin.id} style={[styles.skinCard, { width: skinCardWidth }, selected && styles.skinCardSelected]}>
                         <Image source={skin.source} style={styles.skinPreview} resizeMode="contain" />
                         <Text style={styles.skinName} numberOfLines={1}>{skin.name}</Text>
                         <TouchableOpacity
@@ -1525,12 +1539,9 @@ const styles = StyleSheet.create({
   skinGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: SKIN_CARD_GAP,
   },
   skinCard: {
-    width: '31%',
-    minWidth: 138,
-    maxWidth: 215,
     padding: 10,
     borderRadius: theme.borderRadius.md,
     borderWidth: 1,

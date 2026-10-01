@@ -12,7 +12,10 @@ import { PostCard } from '../components/PostCard';
 import { TargetPreview } from '../components/TargetPreview';
 import { MentionTextInput } from '../components/MentionTextInput';
 import { PollComposer, isValidPoll } from '../components/PollComposer';
-import { SpotifyComposer } from '../components/SpotifyComposer';
+import { MusicComposer } from '../components/MusicComposer';
+import { PdfAttachment, PdfPicker } from '../components/PdfAttachment';
+import { GifComposer, ManualAnimation } from '../components/GifComposer';
+import { GiphySelection } from '../services/giphyService';
 import { withMinimumDelay } from '../utils/refresh';
 import Toast from 'react-native-toast-message';
 import { PostLocation } from '../types/postLocation';
@@ -32,6 +35,12 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [quotedTarget, setQuotedTarget] = useState<{ targetType: string; targetId: string; targetMeta: any } | null>(null);
   const [pollOptions, setPollOptions] = useState<string[] | null>(null);
   const [spotifyTrackId, setSpotifyTrackId] = useState<string | null>(null);
+  const [soundcloudUrl, setSoundcloudUrl] = useState<string | null>(null);
+  const [musicComposerOpen, setMusicComposerOpen] = useState(false);
+  const [document, setDocument] = useState<File | null>(null);
+  const [gifComposerOpen, setGifComposerOpen] = useState(false);
+  const [giphy, setGiphy] = useState<GiphySelection | null>(null);
+  const [manualAnimation, setManualAnimation] = useState<ManualAnimation | null>(null);
   const [postLocation, setPostLocation] = useState<PostLocation | null>(null);
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -257,7 +266,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const handlePost = async () => {
-    const hasAttachment = !!photo || !!quotedTarget || !!spotifyTrackId || !!postLocation || isValidPoll(pollOptions);
+    const hasAttachment = !!photo || !!document || !!giphy || !!manualAnimation || !!quotedTarget || !!spotifyTrackId || !!soundcloudUrl || !!postLocation || isValidPoll(pollOptions);
     if ((!content.trim() && !hasAttachment) || !user) return;
     setPosting(true);
     try {
@@ -285,6 +294,17 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
         postData.pollOptions = (pollOptions as string[]).map((o) => o.trim()).filter(Boolean);
       }
       if (spotifyTrackId) postData.spotifyTrackId = spotifyTrackId;
+      if (soundcloudUrl) postData.soundcloudUrl = soundcloudUrl;
+      if (document) {
+        postData.document = document;
+        postData.documentName = document.name.slice(0, 180);
+      }
+      if (giphy) postData.giphy = giphy;
+      if (manualAnimation) {
+        postData.animation = manualAnimation.file;
+        postData.animationName = manualAnimation.file.name.slice(0, 180);
+        postData.animationMime = manualAnimation.mimeType;
+      }
       if (postLocation) postData.location = postLocation;
 
       if (quotedTarget) {
@@ -302,6 +322,12 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
       setQuotedTarget(null);
       setPollOptions(null);
       setSpotifyTrackId(null);
+      setSoundcloudUrl(null);
+      setMusicComposerOpen(false);
+      setDocument(null);
+      setGifComposerOpen(false);
+      setGiphy(null);
+      setManualAnimation(null);
       setPostLocation(null);
       setAttachmentMenuOpen(false);
       fetchPosts(1, false);
@@ -548,11 +574,35 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
               />
             )}
 
-            {spotifyTrackId !== null && (
-              <SpotifyComposer
-                trackId={spotifyTrackId}
-                onChange={setSpotifyTrackId}
-                onRemove={() => setSpotifyTrackId(null)}
+            {musicComposerOpen && (
+              <MusicComposer
+                spotifyTrackId={spotifyTrackId}
+                soundcloudUrl={soundcloudUrl}
+                onSpotifyChange={setSpotifyTrackId}
+                onSoundCloudChange={setSoundcloudUrl}
+                onRemove={() => {
+                  setMusicComposerOpen(false);
+                  setSpotifyTrackId(null);
+                  setSoundcloudUrl(null);
+                }}
+              />
+            )}
+
+            {document && (
+              <PdfAttachment
+                name={document.name}
+                size={document.size}
+                onRemove={() => setDocument(null)}
+              />
+            )}
+
+            {gifComposerOpen && (
+              <GifComposer
+                giphy={giphy}
+                manual={manualAnimation}
+                onGiphyChange={setGiphy}
+                onManualChange={setManualAnimation}
+                onRemove={() => setGifComposerOpen(false)}
               />
             )}
 
@@ -627,12 +677,34 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                     <TouchableOpacity
                       style={styles.attachmentMenuItem}
                       onPress={() => {
-                        setSpotifyTrackId(spotifyTrackId !== null ? null : '');
+                        if (musicComposerOpen) {
+                          setSpotifyTrackId(null);
+                          setSoundcloudUrl(null);
+                        }
+                        setMusicComposerOpen(!musicComposerOpen);
                         setAttachmentMenuOpen(false);
                       }}
                     >
                       <Feather name="music" size={18} color={theme.colors.textMuted} />
-                      <Text style={styles.attachmentMenuText}>Canción</Text>
+                      <Text style={styles.attachmentMenuText}>Música</Text>
+                    </TouchableOpacity>
+                    <PdfPicker
+                      variant="menu"
+                      value={document}
+                      onPdfReady={(file) => {
+                        setDocument(file);
+                        if (file) setAttachmentMenuOpen(false);
+                      }}
+                    />
+                    <TouchableOpacity
+                      style={styles.attachmentMenuItem}
+                      onPress={() => {
+                        setGifComposerOpen(true);
+                        setAttachmentMenuOpen(false);
+                      }}
+                    >
+                      <Feather name="film" size={18} color={theme.colors.textMuted} />
+                      <Text style={styles.attachmentMenuText}>GIF</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.attachmentMenuItem}
@@ -650,9 +722,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation, route }) => {
                   <Feather name="more-horizontal" size={22} color={attachmentMenuOpen ? theme.colors.primary : theme.colors.textMuted} />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.postBtn, ((!content.trim() && !photo && !quotedTarget && !spotifyTrackId && !postLocation && !isValidPoll(pollOptions)) || posting) && styles.postBtnDisabled]}
+                  style={[styles.postBtn, ((!content.trim() && !photo && !document && !giphy && !manualAnimation && !quotedTarget && !spotifyTrackId && !soundcloudUrl && !postLocation && !isValidPoll(pollOptions)) || posting) && styles.postBtnDisabled]}
                   onPress={handlePost}
-                  disabled={(!content.trim() && !photo && !quotedTarget && !spotifyTrackId && !postLocation && !isValidPoll(pollOptions)) || posting}
+                  disabled={(!content.trim() && !photo && !document && !giphy && !manualAnimation && !quotedTarget && !spotifyTrackId && !soundcloudUrl && !postLocation && !isValidPoll(pollOptions)) || posting}
                 >
                 <Text style={styles.postBtnText}>{posting ? '...' : 'Publicar'}</Text>
                 </TouchableOpacity>

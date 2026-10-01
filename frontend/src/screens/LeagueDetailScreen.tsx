@@ -29,19 +29,11 @@ import { LeagueMatchRowData, LiveMatchInfo } from '../components/leagues/LeagueM
 import { PagedMatchList } from '../components/leagues/PagedMatchList';
 import { LeagueStandingsTable } from '../components/leagues/LeagueStandingsTable';
 import { TeamCrest, matchDisplayName } from '../components/leagues/TeamCrest';
+import { isAwaitingLeagueMatchResult, sortLeagueMatchesForDisplay } from '../utils/leagueMatchDisplay';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueDetail'>;
 
 type TabType = 'matches' | 'standings' | 'scorers' | 'teams' | 'arbitrations';
-
-// blockCode = "YYYY-MM-DD-HH" — usado solo para ordenar por cercanía a hoy, no para
-// mostrarse (el formato de fecha visible vive en LeagueMatchRow/LeagueMatchDetailScreen).
-function blockCodeTimestamp(code: string): number {
-  if (!code || code.length < 13) return NaN;
-  const hour = Number(code.slice(-2));
-  const [y, m, d] = code.slice(0, -3).split('-').map(Number);
-  return new Date(y, m - 1, d, hour).getTime();
-}
 
 export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { leagueId } = route.params;
@@ -245,35 +237,36 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     return map;
   }, [matches, reports, now]);
 
-  // Orden: 1º estado del partido (en vivo, luego pendientes, luego jugados, cancelados/
-  // suspendidos al final), 2º fecha del bloque — del más cercano a hoy al más lejano.
-  // Para pendientes eso es el próximo primero (ascendente); para jugados, el más
-  // reciente primero (ya que "cercano a hoy" hacia atrás es descendente) — una sola
-  // regla de "distancia a ahora" cubre ambos casos sin tener que tratarlos aparte.
-  const matchPriority = useCallback(
-    (m: LeagueMatchRowData) => {
-      if (liveInfoByMatch[m.id]) return 0;
-      if (m.status === 'confirmed') return 1;
-      if (m.status === 'played') return 2;
-      return 3;
-    },
+  const reportMatchIds = useMemo(
+    () => new Set<string>(reports.map((report) => report.match)),
+    [reports]
+  );
+  const liveMatchIds = useMemo(
+    () => new Set<string>(Object.keys(liveInfoByMatch)),
     [liveInfoByMatch]
   );
+  const awaitingResultIds = useMemo(
+    () => new Set<string>(matches
+      .filter((match) => isAwaitingLeagueMatchResult(match, {
+        isLive: liveMatchIds.has(match.id),
+        hasReport: reportMatchIds.has(match.id),
+        nowMs: now,
+      }))
+      .map((match) => match.id)),
+    [matches, liveMatchIds, reportMatchIds, now]
+  );
 
-  // Mismo criterio de orden (estado, luego cercanía a hoy) reusado tanto para "Partidos"
+  // Mismo criterio de orden (estado, luego fecha) reusado tanto para "Partidos"
   // (todos los partidos juntos) como para el listado de cada etapa knockout dentro de
   // "Posiciones" — son la misma noción de "orden natural de partidos", no dos reglas
   // distintas.
   const sortMatchesForDisplay = useCallback(
-    (list: LeagueMatchRowData[]) => {
-      const nowMs = Date.now();
-      return [...list].sort((a, b) => {
-        const priorityDiff = matchPriority(a) - matchPriority(b);
-        if (priorityDiff !== 0) return priorityDiff;
-        return Math.abs(blockCodeTimestamp(a.blockCode) - nowMs) - Math.abs(blockCodeTimestamp(b.blockCode) - nowMs);
-      });
-    },
-    [matchPriority]
+    (list: LeagueMatchRowData[]) => sortLeagueMatchesForDisplay(list, {
+      liveMatchIds,
+      reportMatchIds,
+      nowMs: now,
+    }),
+    [liveMatchIds, reportMatchIds, now]
   );
 
   // Todos los partidos, sin filtrar — primero en vivo, luego pendientes, luego jugados.
@@ -474,6 +467,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <PagedMatchList
             matches={filteredMatches}
             liveInfoByMatch={liveInfoByMatch}
+            awaitingResultIds={awaitingResultIds}
             emptyText="No hay partidos con los filtros seleccionados."
             onPressMatch={(matchId) => navigation.push('LeagueMatchDetail', { matchId })}
           />
@@ -488,6 +482,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <PagedMatchList
             matches={pendingRefereeMatches}
             liveInfoByMatch={liveInfoByMatch}
+            awaitingResultIds={awaitingResultIds}
             emptyText="No tienes arbitrajes pendientes en esta liga."
             onPressMatch={(matchId) => navigation.push('LeagueMatchDetail', { matchId })}
           />
@@ -513,6 +508,7 @@ export const LeagueDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   <PagedMatchList
                     matches={s.matches}
                     liveInfoByMatch={liveInfoByMatch}
+                    awaitingResultIds={awaitingResultIds}
                     emptyText="Todavía no hay partidos en esta etapa."
                     hideStage
                     onPressMatch={(matchId) => navigation.push('LeagueMatchDetail', { matchId })}

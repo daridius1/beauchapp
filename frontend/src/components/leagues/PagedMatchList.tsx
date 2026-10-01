@@ -7,6 +7,7 @@ import { LoadMoreButton, usePagedList } from '../LoadMoreButton';
 interface PagedMatchListProps {
   matches: LeagueMatchRowData[];
   liveInfoByMatch?: Record<string, LiveMatchInfo>;
+  awaitingResultIds?: ReadonlySet<string>;
   onPressMatch: (matchId: string) => void;
   /** Texto cuando no hay ningún partido. */
   emptyText: string;
@@ -26,6 +27,7 @@ interface PagedMatchListProps {
 export const PagedMatchList: React.FC<PagedMatchListProps> = ({
   matches,
   liveInfoByMatch,
+  awaitingResultIds,
   onPressMatch,
   emptyText,
   hideStage,
@@ -48,6 +50,7 @@ export const PagedMatchList: React.FC<PagedMatchListProps> = ({
           key={m.id}
           match={m}
           live={liveInfoByMatch?.[m.id]}
+          awaitingResult={awaitingResultIds?.has(m.id)}
           // "Última" es la última VISIBLE: si todavía quedan por cargar, la fila de
           // abajo mantiene su separador para que no parezca el final de la lista.
           isLast={remaining === 0 && idx === visible.length - 1}

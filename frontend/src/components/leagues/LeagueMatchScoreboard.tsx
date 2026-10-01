@@ -30,6 +30,7 @@ interface LeagueMatchScoreboardProps {
   };
   formattedDate: string;
   live?: LiveMatchInfo;
+  awaitingResult?: boolean;
   onPressTeamA?: () => void;
   onPressTeamB?: () => void;
   onPressLeague?: () => void;
@@ -40,6 +41,7 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
   match,
   formattedDate,
   live,
+  awaitingResult = false,
   onPressTeamA,
   onPressTeamB,
   onPressLeague,
@@ -91,7 +93,8 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
               isLive && !isPaused && !isHalftime && styles.statusLive,
               (isPaused || isHalftime) && styles.statusPaused,
               isPlayed && styles.statusPlayed,
-              isConfirmed && !isLive && styles.statusConfirmed,
+              isConfirmed && !isLive && !awaitingResult && styles.statusConfirmed,
+              awaitingResult && styles.statusAwaitingResult,
               (isCancelled || isSuspended) && styles.statusCancelled,
             ]}
           >
@@ -103,6 +106,8 @@ export const LeagueMatchScoreboard: React.FC<LeagueMatchScoreboardProps> = ({
               ? 'EN VIVO'
               : isPlayed
               ? 'FINALIZADO'
+              : awaitingResult
+              ? 'ESPERANDO RESULTADO'
               : isConfirmed
               ? 'POR JUGAR'
               : isSuspended
@@ -256,6 +261,9 @@ const styles = StyleSheet.create({
   },
   statusConfirmed: {
     color: '#38bdf8',
+  },
+  statusAwaitingResult: {
+    color: '#f59e0b',
   },
   statusCancelled: {
     color: '#ef4444',

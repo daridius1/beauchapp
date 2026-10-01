@@ -14,6 +14,7 @@ import { LeagueMatchTimeline } from '../components/leagues/LeagueMatchTimeline';
 import { LeagueMatchLineups } from '../components/leagues/LeagueMatchLineups';
 import { BeaumarketProbabilityBar } from '../components/leagues/BeaumarketProbabilityBar';
 import { publicLeagueService, PublicMatchData, PublicMatchBeaumarket } from '../services/publicLeagueService';
+import { isAwaitingLeagueMatchResult } from '../utils/leagueMatchDisplay';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PublicMatch'>;
 
@@ -65,6 +66,11 @@ export const PublicMatchScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const isPlayed = match?.status === 'played';
   const isLive = match?.status === 'confirmed' && summary.halfStarted[1];
+  const awaitingResult = !!match && isAwaitingLeagueMatchResult(match, {
+    isLive,
+    hasReport: !!report,
+    nowMs: now,
+  });
 
   const live = useMemo(() => {
     if (!isLive) return undefined;
@@ -93,6 +99,7 @@ export const PublicMatchScreen: React.FC<Props> = ({ route, navigation }) => {
           <LeagueMatchScoreboard
             match={match as any}
             live={live}
+            awaitingResult={awaitingResult}
             formattedDate={formatBlockCode(match.blockCode)}
             onPressTeamA={match.expand?.teamA?.id ? () => navigation.navigate('PublicTeam', { teamId: match.expand!.teamA!.id }) : undefined}
             onPressTeamB={match.expand?.teamB?.id ? () => navigation.navigate('PublicTeam', { teamId: match.expand!.teamB!.id }) : undefined}

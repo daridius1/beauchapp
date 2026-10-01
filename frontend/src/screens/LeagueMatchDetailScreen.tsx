@@ -35,6 +35,7 @@ import { PostCard } from '../components/PostCard';
 import { leagueService } from '../services/leagueService';
 import { teamPlayersService, TeamPlayerRecord } from '../services/teamPlayersService';
 import { MatchStatement } from '../types/league';
+import { isAwaitingLeagueMatchResult } from '../utils/leagueMatchDisplay';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueMatchDetail'>;
 
@@ -59,6 +60,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
   const [match, setMatch] = useState<any>(null);
   const [approvedEvents, setApprovedEvents] = useState<MatchEvent[]>([]);
   const [reportEvents, setReportEvents] = useState<MatchEvent[]>([]);
+  const [hasReport, setHasReport] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [beaumarketMarket, setBeaumarketMarket] = useState<BeaumarketMarket | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -134,6 +136,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
               const report = await pb.collection('match_reports').getFirstListItem(
                 `match = "${matchId}" && deleted = false`
               );
+              setHasReport(true);
               setReportEvents(report.events || []);
               if (matchRecord.status === 'played' && report.status === 'approved') {
                 setApprovedEvents(report.events || []);
@@ -141,6 +144,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
                 setApprovedEvents([]);
               }
             } catch (err) {
+              setHasReport(false);
               setReportEvents([]);
               setApprovedEvents([]);
             }
@@ -339,6 +343,11 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
 
   const isPlayed = match.status === 'played';
   const isLive = !!liveInfo;
+  const awaitingResult = isAwaitingLeagueMatchResult(match, {
+    isLive,
+    hasReport,
+    nowMs: now,
+  });
   // El equipo asignado a arbitrar este partido (league_matches.refereeTeams, hasta 2,
   // nunca los que juegan) puede cargar el resultado directo desde su propia cuenta —
   // ver LeagueMatchTeamResultScreen. Después de la primera carga queda bloqueado:
@@ -373,6 +382,7 @@ export const LeagueMatchDetailScreen: React.FC<Props> = ({ route, navigation }) 
         match={match}
         formattedDate={formattedDate}
         live={liveInfo || undefined}
+        awaitingResult={awaitingResult}
         onPressTeamA={teamA ? () => navigation.push('TeamProfile', { teamId: teamA.id }) : undefined}
         onPressTeamB={teamB ? () => navigation.push('TeamProfile', { teamId: teamB.id }) : undefined}
         onPressLeague={

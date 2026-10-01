@@ -47,6 +47,7 @@ interface LeagueMatchRowProps {
   // — repetirlo en cada tarjeta ahí es redundante, a diferencia de "Partidos" donde
   // varias etapas se mezclan en una sola lista y sí hace falta distinguirlas.
   hideStage?: boolean;
+  awaitingResult?: boolean;
 }
 
 export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
@@ -55,6 +56,7 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
   onPress,
   isLast = false,
   hideStage = false,
+  awaitingResult = false,
 }) => {
   const teamA = match.expand?.teamA;
   const teamB = match.expand?.teamB;
@@ -97,7 +99,8 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
               isLive && !isPaused && !isHalftime && styles.statusLive,
               (isPaused || isHalftime) && styles.statusPaused,
               isPlayed && styles.statusPlayed,
-              isConfirmed && !isLive && styles.statusConfirmed,
+              isConfirmed && !isLive && !awaitingResult && styles.statusConfirmed,
+              awaitingResult && styles.statusAwaitingResult,
               (isCancelled || isSuspended) && styles.statusCancelled,
             ]}
           >
@@ -109,6 +112,8 @@ export const LeagueMatchRow: React.FC<LeagueMatchRowProps> = ({
               ? 'EN VIVO'
               : isPlayed
               ? 'FINALIZADO'
+              : awaitingResult
+              ? 'ESPERANDO RESULTADO'
               : isConfirmed
               ? 'POR JUGAR'
               : isSuspended
@@ -230,6 +235,9 @@ const styles = StyleSheet.create({
   },
   statusConfirmed: {
     color: '#38bdf8',
+  },
+  statusAwaitingResult: {
+    color: '#f59e0b',
   },
   statusCancelled: {
     color: '#ef4444',

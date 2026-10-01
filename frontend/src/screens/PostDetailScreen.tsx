@@ -12,6 +12,10 @@ import { Feather } from '@expo/vector-icons';
 import { PostCard } from '../components/PostCard';
 import { MentionTextInput } from '../components/MentionTextInput';
 import { PollComposer, isValidPoll } from '../components/PollComposer';
+import { MusicComposer } from '../components/MusicComposer';
+import { PdfAttachment, PdfPicker } from '../components/PdfAttachment';
+import { GifComposer, ManualAnimation } from '../components/GifComposer';
+import { GiphySelection } from '../services/giphyService';
 import { withMinimumDelay } from '../utils/refresh';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PostDetail'>;
@@ -31,6 +35,13 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   
   const [content, setContent] = useState('');
   const [pollOptions, setPollOptions] = useState<string[] | null>(null);
+  const [spotifyTrackId, setSpotifyTrackId] = useState<string | null>(null);
+  const [soundcloudUrl, setSoundcloudUrl] = useState<string | null>(null);
+  const [musicComposerOpen, setMusicComposerOpen] = useState(false);
+  const [document, setDocument] = useState<File | null>(null);
+  const [gifComposerOpen, setGifComposerOpen] = useState(false);
+  const [giphy, setGiphy] = useState<GiphySelection | null>(null);
+  const [manualAnimation, setManualAnimation] = useState<ManualAnimation | null>(null);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [activeMenuPostId, setActiveMenuPostId] = useState<string | null>(null);
@@ -149,7 +160,8 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   );
 
   const handleReply = async () => {
-    if ((!content.trim() && !photo) || !user || !mainPost) return;
+    const hasAttachment = !!photo || !!document || !!giphy || !!manualAnimation || !!spotifyTrackId || !!soundcloudUrl || isValidPoll(pollOptions);
+    if ((!content.trim() && !hasAttachment) || !user || !mainPost) return;
     setPosting(true);
     try {
       const postData: any = {
@@ -166,6 +178,18 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         }
       };
       if (photo) postData.photo = photo;
+      if (spotifyTrackId) postData.spotifyTrackId = spotifyTrackId;
+      if (soundcloudUrl) postData.soundcloudUrl = soundcloudUrl;
+      if (document) {
+        postData.document = document;
+        postData.documentName = document.name.slice(0, 180);
+      }
+      if (giphy) postData.giphy = giphy;
+      if (manualAnimation) {
+        postData.animation = manualAnimation.file;
+        postData.animationName = manualAnimation.file.name.slice(0, 180);
+        postData.animationMime = manualAnimation.mimeType;
+      }
       if (isValidPoll(pollOptions)) {
         postData.pollOptions = (pollOptions as string[]).map((o) => o.trim()).filter(Boolean);
       }
@@ -175,6 +199,13 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       setPhoto(null);
       setContent('');
       setPollOptions(null);
+      setSpotifyTrackId(null);
+      setSoundcloudUrl(null);
+      setMusicComposerOpen(false);
+      setDocument(null);
+      setGifComposerOpen(false);
+      setGiphy(null);
+      setManualAnimation(null);
       fetchData(true);
     } catch (err) {
       console.error('Error replying', err);
@@ -323,6 +354,35 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               onRemove={() => setPollOptions(null)}
             />
           )}
+          {musicComposerOpen && (
+            <MusicComposer
+              spotifyTrackId={spotifyTrackId}
+              soundcloudUrl={soundcloudUrl}
+              onSpotifyChange={setSpotifyTrackId}
+              onSoundCloudChange={setSoundcloudUrl}
+              onRemove={() => {
+                setMusicComposerOpen(false);
+                setSpotifyTrackId(null);
+                setSoundcloudUrl(null);
+              }}
+            />
+          )}
+          {document && (
+            <PdfAttachment
+              name={document.name}
+              size={document.size}
+              onRemove={() => setDocument(null)}
+            />
+          )}
+          {gifComposerOpen && (
+            <GifComposer
+              giphy={giphy}
+              manual={manualAnimation}
+              onGiphyChange={setGiphy}
+              onManualChange={setManualAnimation}
+              onRemove={() => setGifComposerOpen(false)}
+            />
+          )}
           <View style={styles.replyBox}>
             <View style={{ flex: 1 }}>
               <MentionTextInput
@@ -343,9 +403,25 @@ export const PostDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 <Feather name="bar-chart-2" size={20} color={pollOptions ? theme.colors.primary : theme.colors.textMuted} />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.replyBtn, ((!content.trim() && !photo) || posting) && styles.replyBtnDisabled]}
+                style={styles.pollToggleBtn}
+                onPress={() => {
+                  if (musicComposerOpen) {
+                    setSpotifyTrackId(null);
+                    setSoundcloudUrl(null);
+                  }
+                  setMusicComposerOpen(!musicComposerOpen);
+                }}
+              >
+                <Feather name="music" size={20} color={musicComposerOpen ? theme.colors.primary : theme.colors.textMuted} />
+              </TouchableOpacity>
+              <PdfPicker value={document} onPdfReady={setDocument} />
+              <TouchableOpacity style={styles.pollToggleBtn} onPress={() => setGifComposerOpen(true)}>
+                <Feather name="film" size={20} color={gifComposerOpen ? theme.colors.primary : theme.colors.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.replyBtn, ((!content.trim() && !photo && !document && !giphy && !manualAnimation && !spotifyTrackId && !soundcloudUrl && !isValidPoll(pollOptions)) || posting) && styles.replyBtnDisabled]}
                 onPress={handleReply}
-                disabled={(!content.trim() && !photo) || posting}
+                disabled={(!content.trim() && !photo && !document && !giphy && !manualAnimation && !spotifyTrackId && !soundcloudUrl && !isValidPoll(pollOptions)) || posting}
               >
                 <Text style={styles.replyBtnText}>{posting ? '...' : 'Publicar'}</Text>
               </TouchableOpacity>
@@ -500,7 +576,7 @@ const styles = StyleSheet.create({
   },
   
   replyBox: {
-    flexDirection: 'row', alignItems: 'flex-end',
+    flexDirection: 'column', alignItems: 'stretch',
     padding: theme.spacing.md,
     borderBottomWidth: 1, borderBottomColor: theme.colors.border,
   },
@@ -561,7 +637,8 @@ const styles = StyleSheet.create({
   footerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
   },
   pollToggleBtn: {
     padding: 8,
