@@ -243,6 +243,8 @@ export const NikitaJumpScreen: React.FC = () => {
   const [beautokens, setBeautokens] = useState(0);
   const [ownedSkins, setOwnedSkins] = useState<string[]>([]);
   const [selectedSkin, setSelectedSkin] = useState('');
+  const [nikitaBanned, setNikitaBanned] = useState(false);
+  const [nikitaBanReason, setNikitaBanReason] = useState('');
   const [skinBusy, setSkinBusy] = useState<string | null>(null);
   const [lastReward, setLastReward] = useState<number | null>(null);
   const [scoreboard, setScoreboard] = useState<AllianceScoreRow[]>([]);
@@ -327,6 +329,8 @@ export const NikitaJumpScreen: React.FC = () => {
       setBeautokens(state.beautokens);
       setOwnedSkins(state.ownedSkins);
       setSelectedSkin(state.selectedSkin);
+      setNikitaBanned(state.nikitaBanned);
+      setNikitaBanReason(state.nikitaBanReason);
       setScoreboard(state.scoreboard);
       if (rankingResult.status === 'fulfilled') {
         setRanking(rankingResult.value.items);
@@ -639,7 +643,7 @@ export const NikitaJumpScreen: React.FC = () => {
   }, [finishGame, jumpPlayer, paused, running, shotPlayer]);
 
   const startGame = async () => {
-    if (!myAlliance || startingGame) return;
+    if (!myAlliance || nikitaBanned || startingGame) return;
     setImmersive(true);
     // Se inicia dentro del gesto del botón para que los navegadores permitan el audio.
     void musicPlayer.seekTo(0).catch(() => undefined);
@@ -782,7 +786,15 @@ export const NikitaJumpScreen: React.FC = () => {
     >
       {!!error && !immersive && <Text style={styles.error}>{error}</Text>}
 
-      {!myAlliance ? (
+      {nikitaBanned ? (
+        <View style={styles.selectionSection}>
+          <Text style={styles.sectionTitle}>Acceso suspendido</Text>
+          <Text style={styles.helpText}>
+            No puedes jugar Nikita Jump ni aparecer en su ranking.
+            {nikitaBanReason ? ` Motivo: ${nikitaBanReason}` : ''}
+          </Text>
+        </View>
+      ) : !myAlliance ? (
         <View style={styles.selectionSection}>
           <Text style={styles.sectionTitle}>Primero elige tu alianza</Text>
           <Text style={styles.helpText}>

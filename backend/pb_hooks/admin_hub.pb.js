@@ -15,6 +15,7 @@ routerAdd("GET", "/admin", (e) => {
         { href: "/admin/generate-link", title: "Generar enlace", desc: "Crear cuentas de organización (centro, equipo, liga, banda, comunidad)." },
         { href: "/admin/album", title: "Álbumes", desc: "Crear álbumes de figuritas y elegir qué ligas los componen." },
         { href: "/admin/cuentas", title: "Eliminar cuentas", desc: "Anonimizar una cuenta de estudiante u organización." },
+        { href: "/admin/nikita", title: "Moderar Nikita Jump", desc: "Revisar aportes, banear jugadores y anular partidas." },
         { href: "/admin/beaumarket", title: "Beaumarket", desc: "Crear y cerrar mercados de predicción manuales." },
         { href: "/admin/reviews-import", title: "Importar reseñas", desc: "Cargar reseñas de cursos/profesores en lote." },
     ];

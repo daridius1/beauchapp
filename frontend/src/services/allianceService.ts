@@ -15,6 +15,8 @@ export interface NikitaJumpState {
   beautokens: number;
   ownedSkins: string[];
   selectedSkin: string;
+  nikitaBanned: boolean;
+  nikitaBanReason: string;
   skinPrice: number;
   scoreboard: AllianceScoreRow[];
 }

@@ -10,13 +10,15 @@ routerAdd("GET", "/api/alliances/nikita", (e) => {
         const aggregateRows = arrayOf(new DynamicModel({ alliance: "", points: 0, players: 0 }));
         $app.db().newQuery(
             "SELECT alliance, COALESCE(SUM(total_score), 0) AS points, COUNT(*) AS players " +
-            "FROM alliance_nikita_scores GROUP BY alliance"
+            "FROM alliance_nikita_scores WHERE nikita_banned = false GROUP BY alliance"
         ).all(aggregateRows);
 
         let myAlliance = null;
         let myHighScore = 0;
         let myTotalScore = 0;
         let selectedSkin = "";
+        let nikitaBanned = false;
+        let nikitaBanReason = "";
         try {
             const mine = $app.findFirstRecordByFilter(
                 "alliance_nikita_scores", "user = {:user}", { user: e.auth.id }
@@ -25,6 +27,8 @@ routerAdd("GET", "/api/alliances/nikita", (e) => {
             myHighScore = mine.getInt("high_score") || 0;
             myTotalScore = mine.getInt("total_score") || 0;
             selectedSkin = mine.getString("selected_skin") || "";
+            nikitaBanned = mine.getBool("nikita_banned");
+            nikitaBanReason = nikitaBanned ? mine.getString("nikita_ban_reason") : "";
         } catch (notFound) { /* todavía no elige alianza */ }
 
         const ownedSkins = $app.findRecordsByFilter(
@@ -38,6 +42,8 @@ routerAdd("GET", "/api/alliances/nikita", (e) => {
             beautokens: e.auth.getInt("beautokens") || 0,
             ownedSkins,
             selectedSkin,
+            nikitaBanned,
+            nikitaBanReason,
             skinPrice: NIKITA_SKIN_PRICE,
             scoreboard: buildAllianceScoreboard(aggregateRows),
         });
@@ -67,7 +73,7 @@ routerAdd("GET", "/api/alliances/nikita/ranking", (e) => {
             "s.alliance, s.high_score " +
             "FROM alliance_nikita_scores s " +
             "INNER JOIN users u ON u.id = s.user " +
-            "WHERE s.high_score > 0 AND u.deleted = false " +
+            "WHERE s.high_score > 0 AND s.nikita_banned = false AND u.deleted = false " +
             "ORDER BY s.high_score DESC, s.updated ASC, s.id ASC " +
             "LIMIT {:limit} OFFSET {:offset}"
         ).bind({ limit: perPage + 1, offset }).all(rows);
@@ -333,21 +339,55 @@ routerAdd("POST", "/api/alliances/nikita/start", (e) => {
     try {
         const { nikitaRunPayload } = require(`${__hooks}/lib/alliances.js`);
         const { TICK_RATE, MAX_TICKS } = require(`${__hooks}/lib/nikitaJump.js`);
-
-        try {
-            $app.findFirstRecordByFilter(
-                "alliance_nikita_scores", "user = {:user}", { user: e.auth.id }
-            );
-        } catch (notFound) {
-            return e.json(400, { error: "Primero elige la alianza a la que quieres aportar." });
-        }
-
         const secretRecord = $app.findFirstRecordByFilter(
             "alliance_game_secrets", "game = 'nikita-jump'"
         );
-        const runId = $security.randomString(24);
-        const startedAt = Date.now();
-        const seed = parseInt($security.sha256(`${runId}|${startedAt}`).slice(0, 8), 16) >>> 0;
+        let runId = "";
+        let seed = 0;
+        let startedAt = 0;
+        let missingMembership = false;
+        let banned = false;
+
+        $app.runInTransaction((txApp) => {
+            let membership;
+            try {
+                membership = txApp.findFirstRecordByFilter(
+                    "alliance_nikita_scores", "user = {:user}", { user: e.auth.id }
+                );
+            } catch (notFound) {
+                missingMembership = true;
+                return;
+            }
+            if (membership.getBool("nikita_banned")) {
+                banned = true;
+                return;
+            }
+
+            const now = Date.now();
+            const activeRunId = membership.getString("active_run_id");
+            const activeStartedAt = membership.getInt("active_started_at");
+            if (activeRunId && activeStartedAt > 0 && now - activeStartedAt <= 20 * 60 * 1000) {
+                runId = activeRunId;
+                seed = membership.getInt("active_seed") >>> 0;
+                startedAt = activeStartedAt;
+                return;
+            }
+
+            runId = $security.randomString(24);
+            startedAt = now;
+            seed = parseInt($security.sha256(`${runId}|${startedAt}`).slice(0, 8), 16) >>> 0;
+            membership.set("active_run_id", runId);
+            membership.set("active_seed", seed);
+            membership.set("active_started_at", startedAt);
+            txApp.save(membership);
+        });
+
+        if (missingMembership) {
+            return e.json(400, { error: "Primero elige la alianza a la que quieres aportar." });
+        }
+        if (banned) {
+            return e.json(403, { error: "Tu acceso a Nikita Jump está suspendido." });
+        }
         const payload = nikitaRunPayload(e.auth.id, runId, seed, startedAt);
         const signature = $security.hs256(payload, secretRecord.getString("secret"));
         return e.json(200, { runId, seed, startedAt, signature, tickRate: TICK_RATE, maxTicks: MAX_TICKS });
@@ -385,6 +425,9 @@ routerAdd("POST", "/api/alliances/nikita/score", (e) => {
             );
         } catch (notFound) {
             return e.json(400, { error: "Primero elige la alianza a la que quieres aportar." });
+        }
+        if (mine.getBool("nikita_banned")) {
+            return e.json(403, { error: "Tu acceso a Nikita Jump está suspendido." });
         }
 
         const previous = mine.getInt("high_score") || 0;
@@ -431,6 +474,11 @@ routerAdd("POST", "/api/alliances/nikita/score", (e) => {
         if (!$security.equal(expected, signature)) {
             return e.json(400, { error: "La firma de la partida no es válida." });
         }
+        if (mine.getString("active_run_id") !== runId
+            || mine.getInt("active_seed") !== seed
+            || mine.getInt("active_started_at") !== startedAt) {
+            return e.json(400, { error: "Esta partida ya no está activa." });
+        }
 
         const simulated = simulateNikitaReplay(seed, ticks, body.replay);
         const legacyScore = simulated ? legacyNikitaScoreForDistance(simulated.distance) : -1;
@@ -451,11 +499,30 @@ routerAdd("POST", "/api/alliances/nikita/score", (e) => {
                 );
                 if (duplicates.length > 0) throw new Error("NIKITA_RUN_ALREADY_REDEEMED");
 
+                const membership = txApp.findFirstRecordByFilter(
+                    "alliance_nikita_scores", "user = {:user}", { user: e.auth.id }
+                );
+                if (membership.getBool("nikita_banned")) throw new Error("NIKITA_PLAYER_BANNED");
+                if (membership.getString("active_run_id") !== runId
+                    || membership.getInt("active_seed") !== seed
+                    || membership.getInt("active_started_at") !== startedAt) {
+                    throw new Error("NIKITA_RUN_NOT_ACTIVE");
+                }
+
                 const run = new Record(txApp.findCollectionByNameOrId("alliance_nikita_runs"));
                 run.set("run_id", runId);
                 run.set("user", e.auth.id);
                 run.set("score", simulated.score);
                 run.set("reward", reward);
+                run.set("seed", seed);
+                run.set("started_at", startedAt);
+                run.set("ticks", ticks);
+                run.set("duration_ms", Math.max(0, Math.min(1200000, now - startedAt)));
+                run.set("claimed_score", claimedScore);
+                run.set("distance", simulated.distance);
+                run.set("death_reason", simulated.deathReason || "");
+                run.set("replay", body.replay.map((event) => [event.t, event.d]));
+                run.set("voided", false);
                 txApp.save(run);
 
                 // La partida suma exactamente una vez porque el runId se inserta en la
@@ -463,8 +530,9 @@ routerAdd("POST", "/api/alliances/nikita/score", (e) => {
                 txApp.db().newQuery(
                     "UPDATE alliance_nikita_scores SET " +
                     "high_score = MAX(high_score, {:score}), " +
-                    "total_score = COALESCE(total_score, 0) + {:score}, updated = {:updated} " +
-                    "WHERE id = {:id}"
+                    "total_score = COALESCE(total_score, 0) + {:score}, " +
+                    "active_run_id = '', active_seed = 0, active_started_at = 0, updated = {:updated} " +
+                    "WHERE id = {:id} AND nikita_banned = false"
                 ).bind({ score: simulated.score, updated: new DateTime().string(), id: mine.id }).execute();
                 if (reward > 0) {
                     txApp.db().newQuery(
@@ -479,6 +547,12 @@ routerAdd("POST", "/api/alliances/nikita/score", (e) => {
         } catch (transactionError) {
             if (String(transactionError && (transactionError.message || transactionError)).includes("NIKITA_RUN_ALREADY_REDEEMED")) {
                 return e.json(409, { error: "Esta partida ya entregó su recompensa." });
+            }
+            if (String(transactionError && (transactionError.message || transactionError)).includes("NIKITA_PLAYER_BANNED")) {
+                return e.json(403, { error: "Tu acceso a Nikita Jump está suspendido." });
+            }
+            if (String(transactionError && (transactionError.message || transactionError)).includes("NIKITA_RUN_NOT_ACTIVE")) {
+                return e.json(409, { error: "Esta partida ya no está activa." });
             }
             throw transactionError;
         }
