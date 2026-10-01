@@ -212,9 +212,11 @@ paquetes, las herramientas que `deploy.sh` necesita (`wget`, `unzip`, `git`, `tm
 pasos sin sudo y el `sudo systemctl restart pocketbase` lo corre la persona. En la práctica
 el reinicio suele ocurrir solo al subir los hooks (§2.6).
 
-**No despliegues sin que te lo pidan explícitamente en ese momento.** El procedimiento
-completo, el checklist y el rollback están en `DEPLOY.md`, que tiene una sección escrita
-específicamente para agentes de IA.
+**No despliegues sin que te lo pidan explícitamente en ese momento.** Cada deploy debe
+quedar asociado a un commit que contenga exactamente los cambios desplegados: quien hace
+el deploy debe crear ese commit antes de subir nada y verificar que `git status` quede
+limpio. El procedimiento completo, el checklist y el rollback están en `DEPLOY.md`, que
+tiene una sección escrita específicamente para agentes de IA.
 
 ---
 

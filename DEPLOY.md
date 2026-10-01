@@ -25,7 +25,7 @@ Para la arquitectura completa de producción y el setup inicial del servidor (pr
 
 No saltarse ninguno de estos pasos, en este orden:
 
-1. **`git status` limpio** — todo lo que se va a desplegar debe estar commiteado. Nunca desplegar cambios sin commitear (si el deploy falla a mitad de camino, no hay forma de reproducir exactamente qué se subió).
+1. **Commit del deploy y `git status` limpio** — cada deploy debe quedar asociado a un commit que contenga exactamente los cambios que se van a subir. Quien realiza el deploy debe crear ese commit antes de subir nada; no debe dejarle ese paso pendiente al usuario. Después, verificar que `git status` esté limpio. Nunca desplegar cambios sin commitear (si el deploy falla a mitad de camino, no hay forma de reproducir exactamente qué se subió).
 2. **Frontend:**
    ```bash
    cd frontend && npx tsc --noEmit
@@ -206,7 +206,7 @@ sudo systemctl start pocketbase
 Si eres un agente de IA (Claude Code u otro) y te piden desplegar Beauchapp, o consideras que un cambio amerita un deploy: **desplegar a producción es una acción de alto impacto, parcialmente irreversible, y con efecto visible para usuarios reales.** No es equivalente a correr tests o hacer un commit local.
 
 1. **Nunca ejecutes `./deploy.sh` sin que el usuario lo haya pedido explícitamente *en ese momento* de la conversación.** Una autorización pasada ("dale, puedes desplegar cuando quieras") no cuenta como confirmación para una ejecución futura no relacionada — vuelve a confirmar cada vez, salvo que el usuario haya sido explícito en que no hace falta. Antes de esa confirmación, muéstrale el resultado del checklist (tsc, tests, `git status`, si hay migraciones y qué tocan) para que la autorización sea informada, no un "dale nomás" a ciegas.
-2. **Corre el checklist completo de la sección de arriba antes de proponer el deploy.** Si algo falla (tsc, tests, `--dev` presente, `git status` sucio), repórtalo y detente — no despliegues igual "para ver si funciona".
+2. **Corre el checklist completo de la sección de arriba antes de proponer el deploy.** Esto incluye crear el commit del deploy con todos y solo los cambios que se subirán, y comprobar que `git status` quede limpio. Si algo falla (tsc, tests, `--dev` presente, `git status` sucio), repórtalo y detente — no despliegues igual "para ver si funciona".
 3. **Nunca hardcodees ni adivines `DEPLOY_SERVER`.** Debe venir de una variable de entorno que el usuario ya tiene configurada o te pasa explícitamente en el momento. Si no está seteada, `deploy.sh` falla solo con un mensaje claro — no lo reemplaces por un valor que "parece correcto" de otro archivo.
 4. **Nunca uses `--force`, saltes el paso de backup, ni edites `deploy.sh` para quitar la confirmación de Cloudflare Tunnel** sin que el usuario lo pida explícitamente.
 5. **Después del deploy, reporta transparentemente al usuario, siempre:**
